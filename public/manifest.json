@@ -1,0 +1,21 @@
+{
+  "name": "Timio — Chấm Công Thông Minh",
+  "short_name": "Timio",
+  "description": "Hệ thống chấm công thông minh cho doanh nghiệp",
+  "start_url": "/checkin",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d4ed8",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

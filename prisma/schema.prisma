@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  timezone    String    @default("Asia/Ho_Chi_Minh")
+  plan        String    @default("starter")
+  planExpires DateTime?
+  kioskMessages   String? // JSON: { welcome, checkinOntime, checkinLate, checkout }
+  customOptions   String? // JSON: { departments: string[], positions: string[] }
+  telegramBotToken String? // Telegram bot token for notifications
+  overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
+  createdAt   DateTime  @default(now())
+
+  branches      Branch[]
+  employees     Employee[]
+  penaltyRules  PenaltyRule[]
+  rewardRules   RewardRule[]
+  admins        Admin[]
+  holidays      Holiday[]
+  leaveRequests LeaveRequest[]
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  companyId String
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Branch {
+  id           String  @id @default(cuid())
+  companyId    String
+  name         String
+  checkInTime  String  @default("07:30")
+  checkOutTime String  @default("17:30")
+  gracePeriod  Int     @default(5)
+  workDays     String  @default("1,2,3,4,5")
+  telegramChatId String?
+  createdAt    DateTime @default(now())
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees Employee[]
+  logs      AttendanceLog[]
+}
+
+model Employee {
+  id         String  @id @default(cuid())
+  companyId  String
+  branchId   String
+  name       String
+  code       String
+  pin        String
+  department String?
+  position        String?
+  status          String  @default("active")
+  faceDescriptors String? // JSON: number[][]  — stored face embeddings
+  shiftOverride   String? // JSON: {checkInTime, checkOutTime, workDays, gracePeriod} — overrides branch defaults
+  baseSalary          Int?      @default(0)
+  joinDate            DateTime?
+  annualLeaveBalance  Float     @default(12) // ngày phép năm còn lại
+  createdAt           DateTime  @default(now())
+
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        Branch           @relation(fields: [branchId], references: [id])
+  logs          AttendanceLog[]
+  summaries     MonthlySummary[]
+  leaveRequests LeaveRequest[]
+
+  @@unique([companyId, code])
+}
+
+model AttendanceLog {
+  id            String    @id @default(cuid())
+  employeeId    String
+  branchId      String
+  date          String
+  checkInAt     DateTime?
+  checkOutAt    DateTime?
+  minutesLate     Int       @default(0)
+  status          String    @default("absent")
+  penaltyAmount   Int       @default(0)
+  minutesOvertime Int       @default(0)
+  overtimeAmount  Int       @default(0)
+  note            String?
+  createdAt       DateTime  @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id])
+
+  @@unique([employeeId, date])
+}
+
+model MonthlySummary {
+  id               String @id @default(cuid())
+  employeeId       String
+  year             Int
+  month            Int
+  daysPresent      Int    @default(0)
+  daysLate         Int    @default(0)
+  daysAbsent       Int    @default(0)
+  totalMinutesLate    Int    @default(0)
+  totalPenalty        Int    @default(0)
+  totalReward         Int    @default(0)
+  totalMinutesOvertime Int   @default(0)
+  totalOvertimeAmount  Int   @default(0)
+  updatedAt           DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year, month])
+}
+
+model PenaltyRule {
+  id          String @id @default(cuid())
+  companyId   String
+  fromMinutes Int
+  toMinutes   Int
+  amount      Int
+  type        String @default("late")  // "late" | "early_leave"
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model RewardRule {
+  id        String @id @default(cuid())
+  companyId String
+  condition String
+  amount    Int
+  label     String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Holiday {
+  id         String  @id @default(cuid())
+  companyId  String
+  date       String  // YYYY-MM-DD
+  name       String
+  isNational Boolean @default(true)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+}
+
+model LeaveRequest {
+  id         String   @id @default(cuid())
+  employeeId String
+  companyId  String
+  type       String   @default("annual") // "annual" | "sick" | "unpaid" | "maternity" | "other"
+  fromDate   String   // YYYY-MM-DD
+  toDate     String   // YYYY-MM-DD
+  days       Float
+  reason     String?
+  status     String   @default("pending") // "pending" | "approved" | "rejected"
+  note       String?  // ghi chú của sếp khi duyệt/từ chối
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model AttendanceCorrection {
+  id         String   @id @default(cuid())
+  logId      String
+  adminId    String
+  field      String   // "checkInAt" | "checkOutAt" | "status"
+  oldValue   String?
+  newValue   String?
+  createdAt  DateTime @default(now())
+}
