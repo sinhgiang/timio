@@ -17,6 +17,8 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+  const companyId = (session.user as { companyId?: string })?.companyId;
+  if (!companyId) redirect("/setup-company");
 
   return (
     <div className="flex h-screen bg-gray-50">

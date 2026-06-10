@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, Suspense } from "react";
+"use client";
+
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useSearchParams } from "next/navigation";
 import { Clock, Building2 } from "lucide-react";
 
 function SetupCompanyForm() {
-  const params = useSearchParams();
-  const email = params.get("email") ?? "";
-  const name = params.get("name") ?? "";
-  const { update } = useSession();
+  const { data: session, update } = useSession();
   const router = useRouter();
+  const email = session?.user?.email ?? "";
+  const name = session?.user?.name ?? "";
 
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -98,9 +98,5 @@ function SetupCompanyForm() {
 }
 
 export default function SetupCompanyPage() {
-  return (
-    <Suspense>
-      <SetupCompanyForm />
-    </Suspense>
-  );
+  return <SetupCompanyForm />;
 }

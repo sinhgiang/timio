@@ -44,14 +44,9 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        const existing = await prisma.admin.findUnique({ where: { email: user.email! } });
-        if (!existing) {
-          // New Google user → redirect to company setup
-          return `/setup-company?email=${encodeURIComponent(user.email!)}&name=${encodeURIComponent(user.name ?? "")}`;
-        }
-      }
+    async signIn() {
+      // Always allow sign-in — new Google users get companyId=null in JWT,
+      // dashboard layout redirects them to /setup-company
       return true;
     },
     async jwt({ token, user, account, trigger }) {
