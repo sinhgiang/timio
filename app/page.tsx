@@ -274,13 +274,6 @@ export default function HomePage() {
                 desc: "Phần mềm HR cũ phức tạp, chỉ IT mới biết dùng. Sau 2 tháng toàn bộ quay lại Excel như cũ. Tiền đầu tư mất, vấn đề vẫn còn nguyên.",
                 stat: "60% doanh nghiệp VN mua phần mềm HR nhưng dùng dưới 30% tính năng",
               },
-              {
-                icon: VolumeX,
-                color: "orange",
-                title: "Biết nhân viên đi muộn — nhưng không dám nói",
-                desc: "Nói thẳng sợ mất lòng, sợ nhân viên nghỉ việc. Thế là cứ nhìn vào mà im lặng, năm này qua năm khác. Với Timio, không cần bạn làm người xấu — hệ thống tự ghi nhận, nhân viên tự biết mình đi muộn và không thể cãi.",
-                stat: "Quy tắc rõ ràng từ phần mềm dễ chấp nhận hơn 10 lần so với sếp nói miệng",
-              },
             ].map((pain) => (
               <div key={pain.title} className="bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-lg hover:border-gray-200 transition-all group">
                 <PainIcon icon={pain.icon} color={pain.color} />
@@ -292,6 +285,23 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+
+          {/* Callout — nỗi đau đặc biệt */}
+          <div className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-md shadow-amber-200">
+              <VolumeX className="w-7 h-7 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-gray-900 text-base mb-1">
+                Và nỗi đau thầm lặng nhất: <span className="text-orange-600">biết nhân viên đi muộn — nhưng không dám nói</span>
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Nói thẳng sợ mất lòng, sợ nhân viên nghỉ việc. Thế là cứ nhìn vào mà im lặng, tháng này qua tháng khác.
+                Với Timio, <strong className="text-gray-800">bạn không cần làm người xấu</strong> — hệ thống tự ghi nhận, nhân viên tự thấy mình đi muộn và không thể cãi. Quy tắc là quy tắc, không phải sếp cố tình khắt khe.
+              </p>
+            </div>
+          </div>
+
         </div>
       </section>
 
