@@ -1,10 +1,15 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -19,12 +24,9 @@ export const authOptions: NextAuthOptions = {
           include: { company: true },
         });
 
-        if (!admin) return null;
+        if (!admin || !admin.password) return null;
 
-        const passwordMatch = await bcrypt.compare(
-          credentials.password,
-          admin.password
-        );
+        const passwordMatch = await bcrypt.compare(credentials.password, admin.password);
         if (!passwordMatch) return null;
 
         return {
@@ -32,6 +34,7 @@ export const authOptions: NextAuthOptions = {
           email: admin.email,
           name: admin.company.name,
           image: admin.companyId,
+          picture: admin.role,
         };
       },
     }),
@@ -41,15 +44,39 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        const existing = await prisma.admin.findUnique({ where: { email: user.email! } });
+        if (!existing) {
+          // New Google user → redirect to company setup
+          return `/setup-company?email=${encodeURIComponent(user.email!)}&name=${encodeURIComponent(user.name ?? "")}`;
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user, account, trigger }) {
+      // Google sign-in (first time) OR session update after company setup
+      if (account?.provider === "google" || (trigger === "update" && token.email)) {
+        const admin = await prisma.admin.findUnique({
+          where: { email: token.email! },
+          include: { company: true },
+        });
+        if (admin) {
+          token.companyId = admin.companyId;
+          token.role = admin.role;
+        }
+      }
+      if (user && account?.provider === "credentials") {
         token.companyId = user.image;
+        token.role = (user as { picture?: string }).picture ?? "admin";
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { companyId?: string }).companyId = token.companyId as string;
+        const u = session.user as { companyId?: string; role?: string };
+        u.companyId = token.companyId as string;
+        u.role = token.role as string;
       }
       return session;
     },

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { signIn } from "next-auth/react";
+import { useState, Suspense } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { Clock, Building2 } from "lucide-react";
 
@@ -9,6 +10,8 @@ function SetupCompanyForm() {
   const params = useSearchParams();
   const email = params.get("email") ?? "";
   const name = params.get("name") ?? "";
+  const { update } = useSession();
+  const router = useRouter();
 
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,8 +30,9 @@ function SetupCompanyForm() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Lỗi tạo công ty"); setLoading(false); return; }
 
-      // Re-trigger Google sign in silently — admin now exists, skip account picker
-      await signIn("google", { callbackUrl: "/dashboard" }, { prompt: "none" });
+      // Refresh JWT (triggers jwt callback with trigger="update") → companyId set
+      await update();
+      router.push("/dashboard");
     } catch {
       setError("Có lỗi xảy ra, vui lòng thử lại");
       setLoading(false);
