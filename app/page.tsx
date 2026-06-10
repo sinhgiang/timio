@@ -532,7 +532,7 @@ export default function HomePage() {
               <p className="text-gray-500 text-sm mb-5">Thử nghiệm không giới hạn thời gian</p>
               <div className="text-4xl font-extrabold text-gray-900 mb-6">0đ</div>
               <ul className="space-y-3 mb-8">
-                {["1 chi nhánh", "Tối đa 10 nhân viên", "Kiosk nhận diện khuôn mặt", "Báo cáo cơ bản", "Xuất Excel"].map((f) => (
+                {["1 chi nhánh", "Tối đa 5 nhân viên", "Kiosk nhận diện khuôn mặt", "Báo cáo cơ bản", "Xuất Excel"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
                     <CheckCircle2 size={15} className="text-green-500 shrink-0" />
                     {f}
