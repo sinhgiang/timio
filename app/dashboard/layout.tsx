@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Sidebar from "@/components/dashboard/Sidebar";
+import UpsellChecker from "@/components/dashboard/UpsellChecker";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-50">
+      <UpsellChecker />
       <Sidebar companyName={session.user?.name ?? "Công ty"} />
       <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
     </div>

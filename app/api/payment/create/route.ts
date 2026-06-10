@@ -7,6 +7,10 @@ const PLAN_PRICES: Record<string, number> = {
   pro: 299000,
 };
 
+const PROMO_PRICES: Record<string, number> = {
+  welcome: 150000, // 150k/month for welcome promo
+};
+
 function generateReference(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let ref = "";
@@ -23,13 +27,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { plan = "pro", months = 1 } = await req.json().catch(() => ({}));
+  const { plan = "pro", months = 1, promo } = await req.json().catch(() => ({}));
 
   if (!PLAN_PRICES[plan]) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
-  const amount = PLAN_PRICES[plan] * months;
+  const pricePerMonth = (promo && PROMO_PRICES[promo]) ? PROMO_PRICES[promo] : PLAN_PRICES[plan];
+  const amount = pricePerMonth * months;
 
   // Expire old pending payments for this company
   await prisma.payment.updateMany({
