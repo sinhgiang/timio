@@ -27,6 +27,7 @@ model Company {
   admins        Admin[]
   holidays      Holiday[]
   leaveRequests LeaveRequest[]
+  payments      Payment[]
 }
 
 model Admin {
@@ -182,4 +183,19 @@ model AttendanceCorrection {
   oldValue   String?
   newValue   String?
   createdAt  DateTime @default(now())
+}
+
+model Payment {
+  id        String    @id @default(cuid())
+  companyId String
+  reference String    @unique  // e.g., TIMIO_ABC123
+  amount    Int                // VND
+  plan      String             // "pro"
+  months    Int       @default(1)
+  status    String    @default("pending") // pending | completed | expired
+  paidAt    DateTime?
+  expiresAt DateTime           // payment link expires after 2 hours
+  createdAt DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }

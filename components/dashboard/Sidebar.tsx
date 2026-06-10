@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   X,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon }[] = [
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
   { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
+  { href: "/dashboard/billing", label: "Gói dịch vụ", Icon: CreditCard },
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];
 
