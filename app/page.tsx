@@ -66,7 +66,7 @@ export default function HomePage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link href="/login" className="inline-flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-bold px-6 py-3.5 rounded-xl transition-colors text-base">
-                  Dùng thử 14 ngày miễn phí
+                  Bắt đầu miễn phí
                   <ArrowRight size={18} />
                 </Link>
                 <a href="#demo" className="inline-flex items-center justify-center gap-2 border border-slate-600 hover:border-slate-400 text-slate-200 font-semibold px-6 py-3.5 rounded-xl transition-colors text-base">
@@ -570,8 +570,8 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/login" className="block text-center bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors text-sm">
-                Dùng thử 14 ngày miễn phí
+              <Link href="/dashboard/billing" className="block text-center bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors text-sm">
+                Nâng cấp lên Pro — 299.000đ/tháng
               </Link>
             </div>
           </div>
@@ -589,7 +589,7 @@ export default function HomePage() {
             Hàng trăm chủ doanh nghiệp đã tiết kiệm hàng triệu đồng mỗi tháng nhờ chấm công minh bạch. Bạn có muốn là người tiếp theo không?
           </p>
           <Link href="/login" className="inline-flex items-center gap-2 bg-white text-blue-700 font-bold text-lg px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors shadow-xl">
-            Dùng thử miễn phí — Không cần thẻ tín dụng
+            Bắt đầu miễn phí ngay
             <ArrowRight size={20} />
           </Link>
           <p className="text-blue-300 text-sm mt-4">Cài đặt xong trong 5 phút · Hỗ trợ tiếng Việt 100%</p>
