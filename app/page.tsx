@@ -25,6 +25,7 @@ import {
   Quote,
   ChevronRight,
   MapPin,
+  VolumeX,
 } from "lucide-react";
 
 /* ── Custom SVG icon backgrounds — replaces emoji ─────────────────── */
@@ -117,7 +118,7 @@ export default function HomePage() {
                   Xem demo live
                 </a>
               </div>
-              <p className="text-slate-500 text-sm mt-4">Không cần thẻ tín dụng · Cài đặt trong 5 phút · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
+              <p className="text-slate-500 text-sm mt-4">Không cần thẻ tín dụng · Cài đặt xong trong 10 phút · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
             </div>
 
             {/* Dashboard Mockup */}
@@ -273,6 +274,13 @@ export default function HomePage() {
                 desc: "Phần mềm HR cũ phức tạp, chỉ IT mới biết dùng. Sau 2 tháng toàn bộ quay lại Excel như cũ. Tiền đầu tư mất, vấn đề vẫn còn nguyên.",
                 stat: "60% doanh nghiệp VN mua phần mềm HR nhưng dùng dưới 30% tính năng",
               },
+              {
+                icon: VolumeX,
+                color: "orange",
+                title: "Biết nhân viên đi muộn — nhưng không dám nói",
+                desc: "Nói thẳng sợ mất lòng, sợ nhân viên nghỉ việc. Thế là cứ nhìn vào mà im lặng, năm này qua năm khác. Với Timio, không cần bạn làm người xấu — hệ thống tự ghi nhận, nhân viên tự biết mình đi muộn và không thể cãi.",
+                stat: "Quy tắc rõ ràng từ phần mềm dễ chấp nhận hơn 10 lần so với sếp nói miệng",
+              },
             ].map((pain) => (
               <div key={pain.title} className="bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-lg hover:border-gray-200 transition-all group">
                 <PainIcon icon={pain.icon} color={pain.color} />
@@ -366,14 +374,14 @@ export default function HomePage() {
                 icon: Building2,
                 title: "Tạo tài khoản & công ty",
                 desc: "Đăng ký, nhập tên công ty, thiết lập giờ làm việc và quy tắc chấm công theo yêu cầu.",
-                time: "5 phút",
+                time: "3 phút",
               },
               {
                 step: "02",
                 icon: Users,
                 title: "Thêm nhân viên",
                 desc: "Nhập danh sách nhân viên, chụp khuôn mặt bằng camera điện thoại. Hệ thống tự đăng ký AI.",
-                time: "10 phút",
+                time: "5 phút",
               },
               {
                 step: "03",
@@ -601,7 +609,7 @@ export default function HomePage() {
               { criteria: "Kiểm soát từ xa", old: "Không thể — chỉ biết khi về VP", timio: "Real-time từ bất kỳ đâu, Telegram alert" },
               { criteria: "Nhiều chi nhánh", old: "Mỗi nơi 1 file, tổng hợp thủ công", timio: "1 dashboard tổng hợp tất cả" },
               { criteria: "Tranh chấp lương", old: "Không có bằng chứng để đối chiếu", timio: "Log đầy đủ từng giây, minh bạch 100%" },
-              { criteria: "Chi phí setup", old: "Hàng chục triệu + đào tạo kéo dài", timio: "Miễn phí, cài trong 15 phút" },
+              { criteria: "Chi phí setup", old: "Hàng chục triệu + đào tạo kéo dài", timio: "Miễn phí, cài xong trong 10 phút" },
               { criteria: "Nhân viên dùng được không", old: "Chỉ IT mới hiểu, sau 2 tháng bỏ", timio: "Ai cũng dùng được — chỉ nhìn vào camera" },
             ].map((r, i) => (
               <div key={r.criteria} className={`grid grid-cols-3 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/50" : ""}`}>
@@ -680,7 +688,7 @@ export default function HomePage() {
             { value: "500+", label: "Doanh nghiệp tin dùng", sub: "trên toàn Việt Nam" },
             { value: "5.000+", label: "Nhân viên đang chấm công", sub: "mỗi ngày với Timio" },
             { value: "99.9%", label: "Uptime đảm bảo", sub: "không gián đoạn" },
-            { value: "< 15 phút", label: "Thời gian cài đặt", sub: "từ đăng ký đến chạy được" },
+            { value: "10 phút", label: "Thời gian cài đặt", sub: "từ đăng ký đến chạy được" },
           ].map((s) => (
             <div key={s.label}>
               <div className="text-3xl sm:text-4xl font-extrabold text-white mb-1">{s.value}</div>
@@ -765,13 +773,13 @@ export default function HomePage() {
             Dừng trả tiền cho những giờ nhân viên không làm việc
           </h2>
           <p className="text-blue-200 text-lg mb-8 max-w-xl mx-auto">
-            Hàng trăm chủ doanh nghiệp đã lấy lại quyền kiểm soát và tiết kiệm hàng chục triệu mỗi năm. Chỉ mất 5 phút để bắt đầu.
+            Hàng trăm chủ doanh nghiệp đã lấy lại quyền kiểm soát và tiết kiệm hàng chục triệu mỗi năm. Chỉ mất 10 phút để bắt đầu.
           </p>
           <Link href="/login" className="inline-flex items-center gap-2 bg-white text-blue-700 font-bold text-lg px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors shadow-xl">
             Bắt đầu miễn phí ngay
             <ArrowRight size={20} />
           </Link>
-          <p className="text-blue-300 text-sm mt-4">Cài đặt xong trong 5 phút · Không cần thẻ tín dụng · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
+          <p className="text-blue-300 text-sm mt-4">Cài đặt xong trong 10 phút · Không cần thẻ tín dụng · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
         </div>
       </section>
 
