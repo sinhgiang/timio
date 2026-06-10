@@ -105,18 +105,17 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
 
       if (result.action === "check_in") {
         if (result.status === "on_time") {
-          // Phát file theo công ty (có lời chúc riêng), sau đó đọc tên nhân viên
           playCompanyAudio(company.slug, "checkin_ontime.mp3").then(() =>
-            speakVi(`Cảm ơn ${result.employeeName}!`)
+            speakVi(`Chào mừng ${result.employeeName} đến với ${company.name}!`)
           );
         } else {
           playCompanyAudio(company.slug, "checkin_late.mp3").then(() =>
-            speakVi(`Cảm ơn ${result.employeeName}. Bạn trễ ${result.minutesLate} phút hôm nay.`)
+            speakVi(`Chào mừng ${result.employeeName} đến với ${company.name}. Bạn đến trễ ${result.minutesLate} phút hôm nay.`)
           );
         }
       } else {
         playCompanyAudio(company.slug, "checkout.mp3").then(() =>
-          speakVi(`Hẹn gặp lại ${result.employeeName}!`)
+          speakVi(`Tạm biệt ${result.employeeName}! Hẹn gặp lại tại ${company.name}.`)
         );
       }
     }
