@@ -155,7 +155,7 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Giờ ra</th>
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Trạng thái</th>
                 <th className="text-center px-3 py-2 text-gray-400 font-medium">Trễ (p)</th>
-                <th className="text-center px-3 py-2 text-gray-400 font-medium">OT (p)</th>
+                <th className="text-center px-3 py-2 text-gray-400 font-medium">Tăng ca (p)</th>
                 <th className="text-right px-4 py-2 text-gray-400 font-medium">Phạt / Thưởng</th>
               </tr>
             </thead>
