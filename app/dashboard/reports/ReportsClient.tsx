@@ -54,6 +54,7 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const monthDays = getMonthDays(year, month);
 
@@ -107,6 +108,28 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
   };
 
   const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId) ?? null;
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const res = await fetch("/api/attendance/recalculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year, month }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "Lỗi server");
+      } else {
+        alert(data.message);
+        router.refresh();
+      }
+    } catch {
+      alert("Lỗi kết nối server");
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   const goToEmployee = (id: string) => {
     setSelectedEmployeeId(id);
@@ -232,6 +255,16 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
               className={`px-3 py-2 text-sm font-medium transition-colors ${view === "detail" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
             >Chi tiết</button>
           </div>
+
+          {/* Recalculate button */}
+          <button
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            title="Áp dụng lại bảng phạt hiện tại vào tất cả ngày trễ trong tháng"
+            className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
+          >
+            {recalculating ? "Đang tính..." : "⟳ Tính lại phạt"}
+          </button>
 
           {/* Export dropdown */}
           <div className="relative">
