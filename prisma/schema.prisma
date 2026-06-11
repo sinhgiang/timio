@@ -35,7 +35,7 @@ model Admin {
   companyId String
   email     String   @unique
   name      String
-  password  String
+  password  String?
   role      String   @default("admin")
   createdAt DateTime @default(now())
 
