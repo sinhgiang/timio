@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
         companyId: company.id,
         email,
         name: name || companyName,
-        password: undefined, // Google OAuth user — no password
         role: "admin",
       },
     });
