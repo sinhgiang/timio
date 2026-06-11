@@ -51,6 +51,7 @@ export default async function ReportsPage({
         code: e.code,
         department: e.department,
         branchName: e.branch.name,
+        baseSalary: e.baseSalary ?? 0,
       }))}
       logs={logs.map((l) => ({
         id: l.id,

@@ -11,6 +11,7 @@ interface Employee {
   code: string;
   department: string | null;
   branchName: string;
+  baseSalary: number;
 }
 
 interface Log {
@@ -54,7 +55,6 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [recalculating, setRecalculating] = useState(false);
 
   const monthDays = getMonthDays(year, month);
 
@@ -72,7 +72,6 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
     router.push(`/dashboard/reports?year=${y}&month=${m}`);
   };
 
-  // employeeId xuất = null khi xem Tổng kết hoặc Chi tiết "Tất cả"
   const exportEmployeeId =
     view === "detail" && selectedEmployeeId ? selectedEmployeeId : null;
 
@@ -109,53 +108,44 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
 
   const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId) ?? null;
 
-  const handleRecalculate = async () => {
-    setRecalculating(true);
-    try {
-      const res = await fetch("/api/attendance/recalculate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year, month }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error ?? "Lỗi server");
-      } else {
-        alert(data.message);
-        router.refresh();
-      }
-    } catch {
-      alert("Lỗi kết nối server");
-    } finally {
-      setRecalculating(false);
-    }
-  };
-
   const goToEmployee = (id: string) => {
     setSelectedEmployeeId(id);
     setView("detail");
   };
 
-  // ─── Shared day-by-day table for one employee ──────────────────────────────
+  // ─── Chi tiết từng ngày cho 1 nhân viên ───────────────────────────────────
   const DayTable = ({ emp }: { emp: Employee }) => {
     const s = summaryMap.get(emp.id);
+    const totalPenalty = s?.totalPenalty ?? 0;
+    const totalReward = s?.totalReward ?? 0;
+    const totalOTAmount = s?.totalOvertimeAmount ?? 0;
+    const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount;
+
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 bg-gray-50 border-b flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <span className="font-semibold text-gray-800">{emp.name}</span>
-            <span className="ml-2 text-sm text-gray-500">{emp.department} · {emp.branchName}</span>
+        {/* Header: tên + lương CB + thống kê */}
+        <div className="px-5 py-4 border-b">
+          <div className="flex items-start justify-between flex-wrap gap-3">
+            <div>
+              <span className="font-semibold text-gray-800 text-base">{emp.name}</span>
+              <span className="ml-2 text-sm text-gray-500">{emp.department} · {emp.branchName}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
+              <span className="text-xs text-blue-500 font-medium">Lương cơ bản</span>
+              <span className="text-base font-bold text-blue-700">{formatCurrency(emp.baseSalary)}</span>
+            </div>
           </div>
           {s && (
-            <div className="flex gap-4 text-sm flex-wrap">
+            <div className="flex gap-4 text-sm flex-wrap mt-2">
               <span className="text-green-600">✅ {s.daysPresent} ngày có mặt</span>
-              <span className="text-yellow-600">⚠️ {s.daysLate} trễ</span>
-              {s.daysAbsent > 0 && <span className="text-red-500">❌ {s.daysAbsent} vắng</span>}
-              {s.totalPenalty > 0 && <span className="text-red-500 font-medium">-{formatCurrency(s.totalPenalty)}</span>}
-              {s.totalReward > 0 && <span className="text-green-600 font-medium">+{formatCurrency(s.totalReward)}</span>}
+              <span className="text-yellow-600">⚠️ {s.daysLate} lần trễ</span>
+              {s.daysAbsent > 0 && <span className="text-red-500">❌ {s.daysAbsent} ngày vắng</span>}
+              {s.totalMinutesLate > 0 && <span className="text-orange-400">⏱ Tổng trễ {s.totalMinutesLate}p</span>}
             </div>
           )}
         </div>
+
+        {/* Bảng từng ngày */}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -212,14 +202,47 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                       {log?.minutesOvertime ? <span className="text-blue-500 font-medium">{log.minutesOvertime}p</span> : <span className="text-gray-200">—</span>}
                     </td>
                     <td className="px-4 py-2 text-right text-xs">
-                      {log?.penaltyAmount ? <span className="text-red-500 font-medium">-{formatCurrency(log.penaltyAmount)}</span> : ""}
+                      {log?.penaltyAmount ? <span className="text-red-500 font-medium">−{formatCurrency(log.penaltyAmount)}</span> : ""}
                       {log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
+                      {!log?.penaltyAmount && !log?.overtimeAmount && <span className="text-gray-200">—</span>}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Footer tổng lương */}
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+              <span className="text-gray-500">
+                Lương CB: <span className="font-semibold text-blue-700">{formatCurrency(emp.baseSalary)}</span>
+              </span>
+              {totalPenalty > 0 && (
+                <span className="text-red-500">
+                  − Phạt: <span className="font-semibold">{formatCurrency(totalPenalty)}</span>
+                </span>
+              )}
+              {totalReward > 0 && (
+                <span className="text-green-600">
+                  + Thưởng: <span className="font-semibold">{formatCurrency(totalReward)}</span>
+                </span>
+              )}
+              {totalOTAmount > 0 && (
+                <span className="text-blue-500">
+                  + Tăng ca: <span className="font-semibold">{formatCurrency(totalOTAmount)}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Thực nhận tháng {month}:</span>
+              <span className={`text-lg font-bold ${netSalary < emp.baseSalary ? "text-red-600" : "text-green-700"}`}>
+                {formatCurrency(netSalary)}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -230,7 +253,7 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Báo cáo tháng</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {/* Month picker */}
           <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
             <button onClick={() => changeMonth(-1)} className="text-gray-500 hover:text-gray-800 font-bold">‹</button>
@@ -246,7 +269,6 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
             >Tổng kết</button>
             <button
               onClick={() => {
-                // Nhảy thẳng vào người đầu tiên khi chưa có selection
                 if (!selectedEmployeeId && employees.length > 0) {
                   setSelectedEmployeeId(employees[0].id);
                 }
@@ -255,16 +277,6 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
               className={`px-3 py-2 text-sm font-medium transition-colors ${view === "detail" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
             >Chi tiết</button>
           </div>
-
-          {/* Recalculate button */}
-          <button
-            onClick={handleRecalculate}
-            disabled={recalculating}
-            title="Áp dụng lại bảng phạt hiện tại vào tất cả ngày trễ trong tháng"
-            className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
-          >
-            {recalculating ? "Đang tính..." : "⟳ Tính lại phạt"}
-          </button>
 
           {/* Export dropdown */}
           <div className="relative">
@@ -287,7 +299,6 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
             </button>
             {showExportMenu && (
               <>
-                {/* Backdrop để đóng menu khi click ra ngoài */}
                 <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
                 <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
                   <button
@@ -328,17 +339,20 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Đi làm</th>
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Trễ</th>
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Vắng</th>
-                <th className="text-center px-4 py-3 text-gray-500 font-medium">Tổng phút trễ</th>
-                <th className="text-right px-5 py-3 text-red-400 font-medium">Phạt</th>
-                <th className="text-right px-5 py-3 text-green-500 font-medium">Thưởng</th>
-                <th className="text-right px-5 py-3 text-blue-400 font-medium">Tăng ca</th>
-                <th className="text-right px-5 py-3 text-gray-500 font-medium">Kết</th>
+                <th className="text-right px-4 py-3 text-blue-500 font-medium">Lương CB</th>
+                <th className="text-right px-4 py-3 text-red-400 font-medium">Phạt</th>
+                <th className="text-right px-4 py-3 text-green-500 font-medium">Thưởng</th>
+                <th className="text-right px-4 py-3 text-blue-400 font-medium">Tăng ca</th>
+                <th className="text-right px-5 py-3 text-gray-700 font-semibold">Thực nhận</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {employees.map((emp) => {
                 const s = summaryMap.get(emp.id);
-                const net = (s?.totalReward ?? 0) - (s?.totalPenalty ?? 0);
+                const totalPenalty = s?.totalPenalty ?? 0;
+                const totalReward = s?.totalReward ?? 0;
+                const totalOTAmount = s?.totalOvertimeAmount ?? 0;
+                const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount;
                 return (
                   <tr
                     key={emp.id}
@@ -363,12 +377,20 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                     <td className="px-4 py-3 text-center">
                       <span className={s?.daysAbsent ? "text-red-500 font-semibold" : "text-gray-300"}>{s?.daysAbsent ?? 0}</span>
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-400 text-xs">{s?.totalMinutesLate ? `${s.totalMinutesLate}p` : "—"}</td>
-                    <td className="px-5 py-3 text-right text-red-500">{s?.totalPenalty ? `-${formatCurrency(s.totalPenalty)}` : "—"}</td>
-                    <td className="px-5 py-3 text-right text-green-600">{s?.totalReward ? `+${formatCurrency(s.totalReward)}` : "—"}</td>
-                    <td className="px-5 py-3 text-right text-blue-600">{s?.totalOvertimeAmount ? `+${formatCurrency(s.totalOvertimeAmount)}` : "—"}</td>
-                    <td className={`px-5 py-3 text-right font-semibold ${net < 0 ? "text-red-600" : net > 0 ? "text-green-600" : "text-gray-300"}`}>
-                      {net === 0 ? "—" : net > 0 ? `+${formatCurrency(net)}` : formatCurrency(net)}
+                    <td className="px-4 py-3 text-right text-blue-700 font-medium">
+                      {emp.baseSalary > 0 ? formatCurrency(emp.baseSalary) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-red-500">{totalPenalty ? `−${formatCurrency(totalPenalty)}` : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 text-right text-green-600">{totalReward ? `+${formatCurrency(totalReward)}` : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 text-right text-blue-600">{totalOTAmount ? `+${formatCurrency(totalOTAmount)}` : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-5 py-3 text-right">
+                      {emp.baseSalary > 0 ? (
+                        <span className={`font-bold text-base ${netSalary < emp.baseSalary ? "text-red-600" : "text-green-700"}`}>
+                          {formatCurrency(netSalary)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -381,7 +403,7 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
       {/* ── Chi tiết view ── */}
       {view === "detail" && (
         <div>
-          {/* Dropdown điều hướng — "Tất cả" + từng người */}
+          {/* Dropdown điều hướng */}
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             <select
               value={selectedEmployeeId ?? ""}
@@ -416,67 +438,14 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
           </div>
 
           {selectedEmployee === null ? (
-            /* ── Tất cả: overview table, click vào để xem ngày ── */
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-              <div className="px-5 py-3 border-b border-gray-100">
-                <p className="text-sm text-gray-400">Nhấn vào một nhân viên để xem chi tiết từng ngày</p>
-              </div>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
-                    <th className="text-center px-4 py-3 text-gray-500 font-medium">Có mặt</th>
-                    <th className="text-center px-4 py-3 text-gray-500 font-medium">Trễ</th>
-                    <th className="text-center px-4 py-3 text-gray-500 font-medium">Vắng</th>
-                    <th className="text-center px-4 py-3 text-gray-500 font-medium">Phút trễ</th>
-                    <th className="text-right px-5 py-3 text-red-400 font-medium">Phạt</th>
-                    <th className="text-right px-5 py-3 text-green-500 font-medium">Thưởng</th>
-                    <th className="text-right px-5 py-3 text-blue-400 font-medium">Tăng ca</th>
-                    <th className="px-3 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {employees.map((emp) => {
-                    const s = summaryMap.get(emp.id);
-                    return (
-                      <tr
-                        key={emp.id}
-                        onClick={() => setSelectedEmployeeId(emp.id)}
-                        className="hover:bg-blue-50 cursor-pointer group transition-colors"
-                      >
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600 shrink-0">
-                              {emp.name.split(" ").pop()?.charAt(0) ?? "?"}
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-800">{emp.name}</div>
-                              <div className="text-xs text-gray-400">{emp.department ?? emp.branchName}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center font-medium text-gray-700">{s?.daysPresent ?? 0}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={s?.daysLate ? "text-yellow-600 font-semibold" : "text-gray-300"}>{s?.daysLate ?? 0}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={s?.daysAbsent ? "text-red-500 font-semibold" : "text-gray-300"}>{s?.daysAbsent ?? 0}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-400 text-xs">{s?.totalMinutesLate ? `${s.totalMinutesLate}p` : "—"}</td>
-                        <td className="px-5 py-3 text-right text-red-500">{s?.totalPenalty ? `-${formatCurrency(s.totalPenalty)}` : "—"}</td>
-                        <td className="px-5 py-3 text-right text-green-600">{s?.totalReward ? `+${formatCurrency(s.totalReward)}` : "—"}</td>
-                        <td className="px-5 py-3 text-right text-blue-600">{s?.totalOvertimeAmount ? `+${formatCurrency(s.totalOvertimeAmount)}` : "—"}</td>
-                        <td className="px-3 py-3 text-right">
-                          <span className="text-blue-400 group-hover:text-blue-600 text-xs font-medium whitespace-nowrap">Xem →</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            /* Tất cả nhân viên */
+            <div className="space-y-4">
+              {employees.map((emp) => (
+                <DayTable key={emp.id} emp={emp} />
+              ))}
             </div>
           ) : (
-            /* ── 1 người: bảng ngày ── */
+            /* 1 người */
             <DayTable emp={selectedEmployee} />
           )}
         </div>
