@@ -52,14 +52,6 @@ export async function POST(req: NextRequest) {
     await tx.branch.create({
       data: { companyId: company.id, name: "Văn phòng chính" },
     });
-    // Tạo bảng phạt mặc định
-    await tx.penaltyRule.createMany({
-      data: [
-        { companyId: company.id, fromMinutes: 1,  toMinutes: 15,  amount: 50000,  type: "late" },
-        { companyId: company.id, fromMinutes: 16, toMinutes: 30,  amount: 100000, type: "late" },
-        { companyId: company.id, fromMinutes: 31, toMinutes: 999, amount: 200000, type: "late" },
-      ],
-    });
   });
 
   return NextResponse.json({ success: true, setupToken: createSetupToken(email) });
