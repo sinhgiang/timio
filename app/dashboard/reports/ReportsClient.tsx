@@ -20,8 +20,11 @@ interface Log {
   checkInAt: string | null;
   checkOutAt: string | null;
   minutesLate: number;
+  minutesOvertime: number;
   status: string;
   penaltyAmount: number;
+  overtimeAmount: number;
+  note: string | null;
 }
 
 interface Summary {
@@ -135,10 +138,12 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
             <thead>
               <tr className="bg-gray-50 border-b">
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Ngày</th>
-                <th className="text-left px-4 py-2 text-gray-400 font-medium">Vào</th>
-                <th className="text-left px-4 py-2 text-gray-400 font-medium">Ra</th>
+                <th className="text-left px-4 py-2 text-gray-400 font-medium">Giờ vào</th>
+                <th className="text-left px-4 py-2 text-gray-400 font-medium">Giờ ra</th>
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Trạng thái</th>
-                <th className="text-right px-4 py-2 text-gray-400 font-medium">Phạt</th>
+                <th className="text-center px-3 py-2 text-gray-400 font-medium">Trễ (p)</th>
+                <th className="text-center px-3 py-2 text-gray-400 font-medium">OT (p)</th>
+                <th className="text-right px-4 py-2 text-gray-400 font-medium">Phạt / Thưởng</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -147,34 +152,45 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                 const dayNum = parseInt(day.split("-")[2]);
                 const dow = new Date(day).getDay();
                 const isWeekend = dow === 0 || dow === 6;
+                const statusLabel = log
+                  ? log.status === "on_time" ? "Đúng giờ"
+                  : log.status === "late" || log.status === "very_late" ? "Trễ"
+                  : log.status === "early_leave" ? "Về sớm"
+                  : log.status === "absent" ? "Vắng"
+                  : log.status
+                  : null;
                 return (
                   <tr key={day} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
                     <td className={`px-4 py-2 font-mono ${isWeekend ? "text-gray-400" : "text-gray-600"}`}>
                       {dayNum}/{month}
                       {isWeekend && <span className="ml-1 text-gray-300 text-xs">CN</span>}
                     </td>
-                    <td className="px-4 py-2 font-mono text-gray-600">
-                      {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : "—"}
+                    <td className="px-4 py-2 font-mono text-gray-700 font-medium">
+                      {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-2 font-mono text-gray-400">
-                      {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : "—"}
+                    <td className="px-4 py-2 font-mono text-gray-500">
+                      {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-2">
-                      {log ? (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                          {log.status === "on_time" ? "Đúng giờ"
-                            : log.status === "late" ? `Trễ ${log.minutesLate}p`
-                            : log.status === "very_late" ? `Trễ ${log.minutesLate}p`
-                            : "Vắng"}
+                      {statusLabel ? (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log!.status)}`}>
+                          {statusLabel}
                         </span>
                       ) : isWeekend ? (
                         <span className="text-gray-300">—</span>
                       ) : (
-                        <span className="text-gray-300">Chưa chấm</span>
+                        <span className="text-gray-300 text-xs">Chưa chấm</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-right text-red-500">
-                      {log?.penaltyAmount ? `-${formatCurrency(log.penaltyAmount)}` : ""}
+                    <td className="px-3 py-2 text-center text-xs">
+                      {log?.minutesLate ? <span className="text-orange-500 font-medium">{log.minutesLate}p</span> : <span className="text-gray-200">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center text-xs">
+                      {log?.minutesOvertime ? <span className="text-blue-500 font-medium">{log.minutesOvertime}p</span> : <span className="text-gray-200">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-right text-xs">
+                      {log?.penaltyAmount ? <span className="text-red-500 font-medium">-{formatCurrency(log.penaltyAmount)}</span> : ""}
+                      {log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
                     </td>
                   </tr>
                 );

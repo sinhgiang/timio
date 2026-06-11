@@ -59,8 +59,11 @@ export default async function ReportsPage({
         checkInAt: l.checkInAt?.toISOString() ?? null,
         checkOutAt: l.checkOutAt?.toISOString() ?? null,
         minutesLate: l.minutesLate,
+        minutesOvertime: l.minutesOvertime,
         status: l.status,
         penaltyAmount: l.penaltyAmount,
+        overtimeAmount: l.overtimeAmount,
+        note: l.note ?? null,
       }))}
       summaries={summaries.map((s) => ({
         employeeId: s.employeeId,
