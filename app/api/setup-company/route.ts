@@ -16,13 +16,17 @@ function toSlug(str: string) {
 
 export async function POST(req: NextRequest) {
   const { email, name, companyName } = await req.json().catch(() => ({}));
-  if (!email || !companyName) {
-    return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
+  if (!email) {
+    return NextResponse.json({ error: "Thiếu email" }, { status: 400 });
   }
 
-  // Check if already created (double-submit protection)
+  // Check if already created (double-submit / session-refresh case)
   const existing = await prisma.admin.findUnique({ where: { email } });
-  if (existing) return NextResponse.json({ success: true });
+  if (existing) return NextResponse.json({ success: true, setupToken: createSetupToken(email) });
+
+  if (!companyName) {
+    return NextResponse.json({ error: "Thiếu tên công ty" }, { status: 400 });
+  }
 
   // Generate unique slug
   let baseSlug = toSlug(companyName);
