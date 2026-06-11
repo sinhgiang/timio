@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
@@ -107,6 +107,23 @@ export default function EmployeesClient({
 }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+  const [localPenaltyRules, setLocalPenaltyRules] = useState<CompanyPenaltyRule[]>(penaltyRules);
+  const [localRewardRules, setLocalRewardRules] = useState<CompanyRewardRule[]>(rewardRules);
+
+  const refreshRules = useCallback(async () => {
+    const [pRes, rRes] = await Promise.all([
+      fetch("/api/penalty-rules"),
+      fetch("/api/reward-rules"),
+    ]);
+    if (pRes.ok) setLocalPenaltyRules(await pRes.json());
+    if (rRes.ok) setLocalRewardRules(await rRes.json());
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => { if (!document.hidden) refreshRules(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshRules]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [faceTarget, setFaceTarget] = useState<{ id: string; name: string } | null>(null);
@@ -588,10 +605,10 @@ export default function EmployeesClient({
 
                     {/* Preview quy tắc mặc định */}
                     {form.useDefaultLate && (
-                      penaltyRules.filter(r => r.type !== "early_leave").length > 0 ? (
+                      localPenaltyRules.filter(r => r.type !== "early_leave").length > 0 ? (
                         <div className="bg-white/80 rounded-lg p-3 border border-orange-100 space-y-1">
                           <p className="text-xs text-gray-400 font-medium mb-1">Quy tắc công ty (chỉ đọc):</p>
-                          {penaltyRules.filter(r => r.type !== "early_leave").map((r, i) => (
+                          {localPenaltyRules.filter(r => r.type !== "early_leave").map((r, i) => (
                             <div key={i} className="flex items-center justify-between text-xs">
                               <span className="text-gray-500">Trễ {r.fromMinutes}–{r.toMinutes} phút</span>
                               <span className="text-red-500 font-medium">−{formatCurrency(r.amount)}</span>
@@ -600,7 +617,11 @@ export default function EmployeesClient({
                         </div>
                       ) : (
                         <p className="text-xs text-orange-400 italic bg-white/60 rounded-lg px-3 py-2">
-                          Chưa có quy tắc mặc định — vào Cài đặt → Bảng phạt để thêm.
+                          Chưa có quy tắc mặc định —{" "}
+                          <a href="/dashboard/settings?tab=penalty" target="_blank" rel="noopener noreferrer"
+                            className="underline font-medium hover:text-orange-600">
+                            Vào Cài đặt → Bảng phạt để thêm ↗
+                          </a>
                         </p>
                       )
                     )}
@@ -661,10 +682,10 @@ export default function EmployeesClient({
 
                     {/* Preview quy tắc mặc định */}
                     {form.useDefaultEarlyLeave && (
-                      penaltyRules.filter(r => r.type === "early_leave").length > 0 ? (
+                      localPenaltyRules.filter(r => r.type === "early_leave").length > 0 ? (
                         <div className="bg-white/80 rounded-lg p-3 border border-purple-100 space-y-1">
                           <p className="text-xs text-gray-400 font-medium mb-1">Quy tắc công ty (chỉ đọc):</p>
-                          {penaltyRules.filter(r => r.type === "early_leave").map((r, i) => (
+                          {localPenaltyRules.filter(r => r.type === "early_leave").map((r, i) => (
                             <div key={i} className="flex items-center justify-between text-xs">
                               <span className="text-gray-500">Về sớm {r.fromMinutes}–{r.toMinutes} phút</span>
                               <span className="text-red-500 font-medium">−{formatCurrency(r.amount)}</span>
@@ -673,7 +694,11 @@ export default function EmployeesClient({
                         </div>
                       ) : (
                         <p className="text-xs text-purple-400 italic bg-white/60 rounded-lg px-3 py-2">
-                          Chưa có quy tắc mặc định — vào Cài đặt → Bảng phạt để thêm.
+                          Chưa có quy tắc mặc định —{" "}
+                          <a href="/dashboard/settings?tab=penalty" target="_blank" rel="noopener noreferrer"
+                            className="underline font-medium hover:text-purple-600">
+                            Vào Cài đặt → Bảng phạt để thêm ↗
+                          </a>
                         </p>
                       )
                     )}
@@ -734,10 +759,10 @@ export default function EmployeesClient({
 
                     {/* Preview quy tắc thưởng mặc định */}
                     {form.useDefaultBonus && (
-                      rewardRules.length > 0 ? (
+                      localRewardRules.length > 0 ? (
                         <div className="bg-white/80 rounded-lg p-3 border border-green-100 space-y-1">
                           <p className="text-xs text-gray-400 font-medium mb-1">Thưởng công ty (chỉ đọc):</p>
-                          {rewardRules.map((r) => (
+                          {localRewardRules.map((r) => (
                             <div key={r.id} className="flex items-center justify-between text-xs">
                               <span className="text-gray-500">{r.label} — {r.condition}</span>
                               <span className="text-green-600 font-medium">+{formatCurrency(r.amount)}</span>
@@ -746,7 +771,11 @@ export default function EmployeesClient({
                         </div>
                       ) : (
                         <p className="text-xs text-green-500 italic bg-white/60 rounded-lg px-3 py-2">
-                          Chưa có thưởng mặc định — vào Cài đặt → Bảng thưởng để thêm.
+                          Chưa có thưởng mặc định —{" "}
+                          <a href="/dashboard/settings?tab=reward" target="_blank" rel="noopener noreferrer"
+                            className="underline font-medium hover:text-green-700">
+                            Vào Cài đặt → Bảng thưởng để thêm ↗
+                          </a>
                         </p>
                       )
                     )}
