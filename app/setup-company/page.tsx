@@ -2,6 +2,7 @@
 
 "use client";
 
+export const dynamic = "force-dynamic";
 import { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Clock, Building2 } from "lucide-react";
