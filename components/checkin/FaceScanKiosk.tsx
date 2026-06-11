@@ -88,7 +88,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   // Phát welcome khi load (kiosk mode) — trình duyệt thường chặn, bat file thì OK
   useEffect(() => {
     const t = setTimeout(() => {
-      playCompanyAudio(company.slug, "welcome.mp3");
+      playCompanyAudio(company.slug, "welcome.mp3", `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`);
     }, 600);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,8 +212,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   const startCamera = async () => {
     // Unlock AudioContext ngay trong user click handler (1 lần duy nhất)
     unlockAudio();
-    // Phát welcome theo công ty: thử /audio/{slug}/welcome.mp3 trước, fallback về chung
-    playCompanyAudio(company.slug, "welcome.mp3");
+    playCompanyAudio(company.slug, "welcome.mp3", `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`);
 
     if (!modelsReady) {
       setPhase("loading");

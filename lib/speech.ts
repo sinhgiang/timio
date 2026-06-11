@@ -63,10 +63,13 @@ export async function playStatic(url: string): Promise<boolean> {
   }
 }
 
-// Thử phát file theo slug công ty trước, nếu không có thì dùng file chung
-export async function playCompanyAudio(slug: string, filename: string): Promise<void> {
+// Thử phát file theo slug công ty trước, nếu không có thì dùng file chung, cuối cùng fallback TTS
+export async function playCompanyAudio(slug: string, filename: string, fallbackText?: string): Promise<void> {
   const played = await playStatic(`/audio/${slug}/${filename}`);
   if (!played) {
-    await playStatic(`/audio/${filename}`);
+    const playedGeneric = await playStatic(`/audio/${filename}`);
+    if (!playedGeneric && fallbackText) {
+      await speakVi(fallbackText);
+    }
   }
 }
