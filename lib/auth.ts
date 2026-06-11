@@ -77,7 +77,8 @@ export const authOptions: NextAuthOptions = {
           token.role = admin.role;
         }
       }
-      if (user && account?.provider === "credentials") {
+      // Credentials providers: "setup" (Google users) and "credentials" (email/password)
+      if (user && (account?.provider === "setup" || account?.provider === "credentials")) {
         token.companyId = user.image;
         token.role = (user as { picture?: string }).picture ?? "admin";
       }
