@@ -4,12 +4,10 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Clock, Building2 } from "lucide-react";
 
 function SetupCompanyForm() {
   const { data: session, update } = useSession();
-  const router = useRouter();
   const email = session?.user?.email ?? "";
   const name = session?.user?.name ?? "";
 
@@ -30,9 +28,9 @@ function SetupCompanyForm() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Lỗi tạo công ty"); setLoading(false); return; }
 
-      // Refresh JWT (triggers jwt callback with trigger="update") → companyId set
+      // Refresh JWT then force full reload so server reads updated cookie
       await update();
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch {
       setError("Có lỗi xảy ra, vui lòng thử lại");
       setLoading(false);
