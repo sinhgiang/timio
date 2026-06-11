@@ -3,11 +3,11 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { Clock, Building2 } from "lucide-react";
 
 function SetupCompanyForm() {
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const email = session?.user?.email ?? "";
   const name = session?.user?.name ?? "";
 
@@ -28,9 +28,8 @@ function SetupCompanyForm() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Lỗi tạo công ty"); setLoading(false); return; }
 
-      // Refresh JWT then force full reload so server reads updated cookie
-      await update();
-      window.location.href = "/dashboard";
+      // Đăng nhập bằng setup token — tạo session mới với companyId, không cần Google OAuth
+      await signIn("setup", { email, token: data.setupToken, callbackUrl: "/dashboard" });
     } catch {
       setError("Có lỗi xảy ra, vui lòng thử lại");
       setLoading(false);

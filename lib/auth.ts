@@ -3,12 +3,28 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { verifySetupToken } from "@/lib/setupToken";
 
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    CredentialsProvider({
+      id: "setup",
+      name: "Setup",
+      credentials: { email: {}, token: {} },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.token) return null;
+        if (!verifySetupToken(credentials.email, credentials.token)) return null;
+        const admin = await prisma.admin.findUnique({
+          where: { email: credentials.email },
+          include: { company: true },
+        });
+        if (!admin) return null;
+        return { id: admin.id, email: admin.email, name: admin.company.name, image: admin.companyId, picture: admin.role };
+      },
     }),
     CredentialsProvider({
       name: "credentials",
