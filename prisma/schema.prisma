@@ -94,9 +94,10 @@ model AttendanceLog {
   minutesLate     Int       @default(0)
   status          String    @default("absent")
   penaltyAmount   Int       @default(0)
-  minutesOvertime Int       @default(0)
-  overtimeAmount  Int       @default(0)
-  note            String?
+  minutesOvertime  Int       @default(0)
+  overtimeAmount   Int       @default(0)
+  overtimeStatus   String    @default("none") // "none" | "pending" | "approved" | "rejected"
+  note             String?
   createdAt       DateTime  @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)

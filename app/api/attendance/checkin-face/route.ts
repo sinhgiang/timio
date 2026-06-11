@@ -62,18 +62,13 @@ export async function POST(req: NextRequest) {
       const hourlyRate = dailyRate / 8;
       const overtimeAmount = minutesOvertime > 0 ? Math.floor(hourlyRate * (minutesOvertime / 60) * multiplier) : 0;
 
+      // Tăng ca: lưu trạng thái "pending" — chỉ tính tiền khi sếp duyệt
+      const overtimeStatus = minutesOvertime > 0 ? "pending" : "none";
       await prisma.attendanceLog.update({
         where: { id: existingLog.id },
-        data: { checkOutAt: now, minutesOvertime, overtimeAmount },
+        data: { checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus },
       });
-
-      if (minutesOvertime > 0) {
-        await prisma.monthlySummary.upsert({
-          where: { employeeId_year_month: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1 } },
-          create: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1, totalMinutesOvertime: minutesOvertime, totalOvertimeAmount: overtimeAmount },
-          update: { totalMinutesOvertime: { increment: minutesOvertime }, totalOvertimeAmount: { increment: overtimeAmount } },
-        });
-      }
+      // Không cập nhật MonthlySummary OT cho đến khi được duyệt
 
       return NextResponse.json({
         action: "check_out",
@@ -82,7 +77,7 @@ export async function POST(req: NextRequest) {
         penaltyAmount: existingLog.penaltyAmount,
         minutesOvertime,
         overtimeAmount,
-        message: minutesOvertime > 0 ? `Ra ca · Tăng ca ${minutesOvertime} phút` : "Ra ca thành công",
+        message: minutesOvertime > 0 ? `Ra ca · Tăng ca ${minutesOvertime} phút — chờ duyệt` : "Ra ca thành công",
       });
     }
 

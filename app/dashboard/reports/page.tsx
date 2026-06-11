@@ -64,6 +64,7 @@ export default async function ReportsPage({
         status: l.status,
         penaltyAmount: l.penaltyAmount,
         overtimeAmount: l.overtimeAmount,
+        overtimeStatus: l.overtimeStatus,
         note: l.note ?? null,
       }))}
       summaries={summaries.map((s) => ({

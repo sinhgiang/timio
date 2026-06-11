@@ -25,6 +25,7 @@ interface Log {
   status: string;
   penaltyAmount: number;
   overtimeAmount: number;
+  overtimeStatus: string;
   note: string | null;
 }
 
@@ -57,6 +58,7 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   const monthDays = getMonthDays(year, month);
+  const pendingOTCount = logs.filter((l) => l.overtimeStatus === "pending").length;
 
   const logMap = new Map<string, Log>();
   logs.forEach((l) => logMap.set(`${l.employeeId}-${l.date}`, l));
@@ -107,6 +109,16 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
   };
 
   const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId) ?? null;
+
+  const handleOTAction = async (logId: string, action: "approve" | "reject") => {
+    const res = await fetch(`/api/overtime/${logId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) router.refresh();
+    else alert("Lỗi cập nhật");
+  };
 
   const goToEmployee = (id: string) => {
     setSelectedEmployeeId(id);
@@ -199,12 +211,32 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                       {log?.minutesLate ? <span className="text-orange-500 font-medium">{log.minutesLate}p</span> : <span className="text-gray-200">—</span>}
                     </td>
                     <td className="px-3 py-2 text-center text-xs">
-                      {log?.minutesOvertime ? <span className="text-blue-500 font-medium">{log.minutesOvertime}p</span> : <span className="text-gray-200">—</span>}
+                      {log?.minutesOvertime ? (
+                        log.overtimeStatus === "pending" ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-orange-500 font-medium">{log.minutesOvertime}p ⏳</span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleOTAction(log.id, "approve")}
+                                className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 font-medium"
+                              >Duyệt</button>
+                              <button
+                                onClick={() => handleOTAction(log.id, "reject")}
+                                className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200"
+                              >Từ chối</button>
+                            </div>
+                          </div>
+                        ) : log.overtimeStatus === "approved" ? (
+                          <span className="text-blue-500 font-medium">{log.minutesOvertime}p ✓</span>
+                        ) : (
+                          <span className="text-gray-300 line-through">{log.minutesOvertime}p</span>
+                        )
+                      ) : <span className="text-gray-200">—</span>}
                     </td>
                     <td className="px-4 py-2 text-right text-xs">
                       {log?.penaltyAmount ? <span className="text-red-500 font-medium">−{formatCurrency(log.penaltyAmount)}</span> : ""}
-                      {log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
-                      {!log?.penaltyAmount && !log?.overtimeAmount && <span className="text-gray-200">—</span>}
+                      {log?.overtimeStatus === "approved" && log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
+                      {!log?.penaltyAmount && log?.overtimeStatus !== "approved" && <span className="text-gray-200">—</span>}
                     </td>
                   </tr>
                 );
@@ -250,6 +282,14 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* Banner cảnh báo tăng ca chờ duyệt */}
+      {pendingOTCount > 0 && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-xl text-sm text-orange-700">
+          <span className="text-lg">⏳</span>
+          <span>Có <strong>{pendingOTCount}</strong> yêu cầu tăng ca chờ duyệt trong tháng này. Vào <strong>Chi tiết</strong> từng nhân viên để duyệt.</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Báo cáo tháng</h1>
