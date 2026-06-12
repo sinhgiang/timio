@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SalesNavLinks from "@/components/SalesNavLinks";
 import {
   Clock,
   Users,
@@ -71,17 +72,14 @@ export default function HomePage() {
             </div>
             <span className="font-extrabold text-gray-900 text-lg tracking-tight">Timio</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <a href="#pain" className="hover:text-blue-600 transition-colors">Vấn đề</a>
-            <a href="#features" className="hover:text-blue-600 transition-colors">Tính năng</a>
-            <a href="#pricing" className="hover:text-blue-600 transition-colors">Bảng giá</a>
-            <a href="#demo" className="hover:text-blue-600 transition-colors">Demo</a>
+          <nav className="hidden md:flex items-center gap-8">
+            <SalesNavLinks />
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login" className="hidden sm:block text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors px-3 py-2">
               Đăng nhập
             </Link>
-            <Link href="/login" className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Link href="/register" className="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
               Dùng thử miễn phí
             </Link>
           </div>
@@ -109,7 +107,7 @@ export default function HomePage() {
                 Timio chấm công bằng nhận diện khuôn mặt AI — không thể gian lận, không cần tin tưởng mù quáng.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Link href="/login" className="inline-flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-bold px-6 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-blue-900/40">
+                <Link href="/register" className="inline-flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-bold px-6 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-blue-900/40">
                   Bắt đầu miễn phí
                   <ArrowRight size={18} />
                 </Link>
@@ -730,7 +728,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/login" className="block text-center border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors text-sm">
+              <Link href="/register" className="block text-center border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors text-sm">
                 Bắt đầu miễn phí
               </Link>
             </div>
@@ -785,7 +783,7 @@ export default function HomePage() {
           <p className="text-blue-200 text-lg mb-8 max-w-xl mx-auto">
             Hàng trăm chủ doanh nghiệp đã lấy lại quyền kiểm soát và tiết kiệm hàng chục triệu mỗi năm. Chỉ mất 10 phút để bắt đầu.
           </p>
-          <Link href="/login" className="inline-flex items-center gap-2 bg-white text-blue-700 font-bold text-lg px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors shadow-xl">
+          <Link href="/register" className="inline-flex items-center gap-2 bg-white text-blue-700 font-bold text-lg px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors shadow-xl">
             Bắt đầu miễn phí ngay
             <ArrowRight size={20} />
           </Link>
@@ -804,8 +802,7 @@ export default function HomePage() {
             <span className="text-slate-600 text-sm ml-2">Phần mềm chấm công thông minh</span>
           </div>
           <div className="flex items-center gap-6 text-sm">
-            <a href="#features" className="hover:text-white transition-colors">Tính năng</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Bảng giá</a>
+            <SalesNavLinks className="hover:text-white transition-colors text-sm text-slate-400" />
             <Link href="/login" className="hover:text-white transition-colors">Đăng nhập</Link>
           </div>
           <p className="text-slate-600 text-sm">© 2026 Timio. All rights reserved.</p>

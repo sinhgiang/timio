@@ -57,7 +57,7 @@ export default function BillingPage() {
       const res = await fetch("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "pro", months }),
+        body: JSON.stringify({ plan: "pro", months, discount }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -99,6 +99,11 @@ export default function BillingPage() {
   const planExpires = companyPlan?.planExpires ? new Date(companyPlan.planExpires) : null;
 
   const PRICE_PER_MONTH = 299000;
+  const DISCOUNTS: Record<number, number> = { 1: 0, 3: 5, 6: 10, 12: 15, 24: 20 };
+  const discount = DISCOUNTS[months] ?? 0;
+  const discountedPrice = Math.round(PRICE_PER_MONTH * (1 - discount / 100));
+  const totalPrice = discountedPrice * months;
+  const savedPerMonth = PRICE_PER_MONTH - discountedPrice;
 
   if (paymentStatus === "completed") {
     return (
@@ -184,35 +189,49 @@ export default function BillingPage() {
           </ul>
 
           {/* Month selector */}
-          <div className="flex items-center gap-3 mb-5">
-            {[1, 3, 6, 12].map((m) => (
-              <button
-                key={m}
-                onClick={() => setMonths(m)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  months === m
-                    ? "bg-white text-blue-700"
-                    : "bg-blue-700 text-white hover:bg-blue-600"
-                }`}
-              >
-                {m} tháng
-              </button>
-            ))}
+          <div className="flex items-center gap-2 mb-5 flex-wrap">
+            {[1, 3, 6, 12, 24].map((m) => {
+              const d = DISCOUNTS[m] ?? 0;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMonths(m)}
+                  className={`relative px-3 py-2 rounded-xl text-sm font-medium transition-all flex flex-col items-center ${
+                    months === m
+                      ? "bg-white text-blue-700"
+                      : "bg-blue-700 text-white hover:bg-blue-600"
+                  }`}
+                >
+                  <span>{m} tháng</span>
+                  {d > 0 && (
+                    <span className={`text-xs font-bold leading-none mt-0.5 ${months === m ? "text-green-600" : "text-green-300"}`}>
+                      -{d}%
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex items-end justify-between mb-5">
             <div>
               <p className="text-blue-200 text-sm">Tổng thanh toán</p>
-              <p className="text-3xl font-bold">{formatVND(PRICE_PER_MONTH * months)}</p>
-              {months > 1 && (
-                <p className="text-blue-200 text-xs">
-                  {formatVND(PRICE_PER_MONTH)}/tháng × {months} tháng
-                </p>
-              )}
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold">{formatVND(totalPrice)}</p>
+                {discount > 0 && (
+                  <p className="text-blue-300 line-through text-lg">{formatVND(PRICE_PER_MONTH * months)}</p>
+                )}
+              </div>
+              <p className="text-blue-200 text-xs mt-0.5">
+                {formatVND(discountedPrice)}/tháng × {months} tháng
+                {discount > 0 && (
+                  <span className="text-green-300 ml-1">(tiết kiệm {formatVND(savedPerMonth * months)})</span>
+                )}
+              </p>
             </div>
-            {months >= 6 && (
-              <span className="bg-green-400 text-green-900 text-xs font-bold px-2 py-1 rounded-full">
-                {months === 12 ? "Tiết kiệm nhất" : "Ưu đãi"}
+            {discount > 0 && (
+              <span className="bg-green-400 text-green-900 text-xs font-bold px-2.5 py-1.5 rounded-full">
+                {months === 24 ? "Tiết kiệm nhất 🏆" : months === 12 ? "Giảm 15%" : months === 6 ? "Giảm 10%" : "Giảm 5%"}
               </span>
             )}
           </div>

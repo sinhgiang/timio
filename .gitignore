@@ -33,3 +33,6 @@ Thumbs.db
 
 # vercel
 .vercel
+
+.vercel
+.env*

@@ -27,13 +27,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { plan = "pro", months = 1, promo } = await req.json().catch(() => ({}));
+  const { plan = "pro", months = 1, promo, discount = 0 } = await req.json().catch(() => ({}));
 
   if (!PLAN_PRICES[plan]) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
-  const pricePerMonth = (promo && PROMO_PRICES[promo]) ? PROMO_PRICES[promo] : PLAN_PRICES[plan];
+  const basePrice = (promo && PROMO_PRICES[promo]) ? PROMO_PRICES[promo] : PLAN_PRICES[plan];
+  const validDiscount = Math.max(0, Math.min(50, Number(discount) || 0)); // cap 0–50%
+  const pricePerMonth = Math.round(basePrice * (1 - validDiscount / 100));
   const amount = pricePerMonth * months;
 
   // Expire old pending payments for this company
@@ -64,8 +66,8 @@ export async function POST(req: NextRequest) {
     expiresAt: payment.expiresAt,
     bankName: "MB Bank",
     accountNumber: "833090923004",
-    accountName: "SINH GIANG",
+    accountName: "GIANG A SINH",
     transferNote: payment.reference,
-    qrUrl: `https://img.vietqr.io/image/MB-833090923004-compact2.png?amount=${amount}&addInfo=${payment.reference}&accountName=SINH%20GIANG`,
+    qrUrl: `https://img.vietqr.io/image/MB-833090923004-compact2.png?amount=${amount}&addInfo=${payment.reference}&accountName=GIANG%20A%20SINH`,
   });
 }
