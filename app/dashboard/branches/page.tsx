@@ -29,6 +29,9 @@ export default async function BranchesPage() {
         gracePeriod: b.gracePeriod,
         workDays: b.workDays,
         employeeCount: b._count.employees,
+        lat: b.lat,
+        lng: b.lng,
+        gpsRadius: b.gpsRadius,
       }))}
     />
   );

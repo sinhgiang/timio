@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
@@ -13,6 +13,9 @@ import {
   CalendarDays,
   MessageSquare,
   Send,
+  QrCode,
+  Download,
+  Printer,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -62,6 +65,30 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [telegramSaving, setTelegramSaving] = useState(false);
   const [telegramMsg, setTelegramMsg] = useState("");
   const [testChatId, setTestChatId] = useState("");
+
+  // Password change
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const changePassword = async () => {
+    if (pwForm.next !== pwForm.confirm) { setPwMsg({ ok: false, text: "Mật khẩu mới không khớp" }); return; }
+    if (pwForm.next.length < 6) { setPwMsg({ ok: false, text: "Mật khẩu mới phải ít nhất 6 ký tự" }); return; }
+    setPwLoading(true); setPwMsg(null);
+    const res = await fetch("/api/settings/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setPwMsg({ ok: true, text: "Đổi mật khẩu thành công!" });
+      setPwForm({ current: "", next: "", confirm: "" });
+    } else {
+      setPwMsg({ ok: false, text: data.error ?? "Lỗi đổi mật khẩu" });
+    }
+    setPwLoading(false);
+  };
 
   // Holidays
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
@@ -127,6 +154,55 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     typeof window !== "undefined"
       ? `${window.location.origin}/checkin/${company.slug}`
       : `/checkin/${company.slug}`;
+
+  // QR code canvas
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [qrReady, setQrReady] = useState(false);
+
+  useEffect(() => {
+    if (!checkinUrl || !qrCanvasRef.current) return;
+    import("qrcode").then(({ toCanvas }) => {
+      toCanvas(qrCanvasRef.current!, checkinUrl, {
+        width: 260,
+        margin: 2,
+        color: { dark: "#1e3a8a", light: "#ffffff" },
+      }).then(() => setQrReady(true)).catch(() => {});
+    });
+  }, [checkinUrl]);
+
+  const downloadQR = () => {
+    if (!qrCanvasRef.current) return;
+    const link = document.createElement("a");
+    link.download = `qrcode-${company.slug}.png`;
+    link.href = qrCanvasRef.current.toDataURL("image/png");
+    link.click();
+  };
+
+  const printQR = () => {
+    if (!qrCanvasRef.current) return;
+    const dataUrl = qrCanvasRef.current.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>QR Check-in — ${company.name}</title>
+      <style>
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; background: #fff; }
+        img { width: 280px; height: 280px; }
+        h2 { font-size: 22px; margin: 16px 0 8px; color: #1e3a8a; }
+        p { font-size: 13px; color: #64748b; margin: 0; }
+        .url { font-size: 11px; color: #94a3b8; margin-top: 8px; font-family: monospace; }
+        @media print { @page { margin: 1cm; } }
+      </style></head>
+      <body>
+        <img src="${dataUrl}" />
+        <h2>${company.name}</h2>
+        <p>Quét mã để chấm công</p>
+        <p class="url">${checkinUrl}</p>
+        <script>window.onload = () => { window.print(); window.close(); }<\/script>
+      </body></html>
+    `);
+    win.document.close();
+  };
 
   const lateRules = penaltyRules.filter((r) => r.type !== "early_leave");
   const earlyRules = penaltyRules.filter((r) => r.type === "early_leave");
@@ -217,6 +293,53 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             onClick={() => navigator.clipboard.writeText(checkinUrl)}
             className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
           >Copy</button>
+        </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <QrCode size={18} className="text-blue-600" />
+          <span className="font-semibold text-gray-800">QR Code chấm công</span>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">In & dán cửa văn phòng</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Nhân viên quét mã này bằng điện thoại cá nhân → camera bật → nhận diện mặt → check-in tự động. Không cần điện thoại cố định!
+        </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex-shrink-0">
+            <canvas ref={qrCanvasRef} className={qrReady ? "block" : "hidden"} />
+            {!qrReady && (
+              <div className="w-[260px] h-[260px] flex items-center justify-center text-gray-400 text-sm">
+                Đang tạo QR...
+              </div>
+            )}
+          </div>
+          <div className="space-y-3 flex-1">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Link được nhúng trong QR</p>
+              <code className="text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all block">{checkinUrl}</code>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={downloadQR}
+                disabled={!qrReady}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Download size={14} /> Tải PNG
+              </button>
+              <button
+                onClick={printQR}
+                disabled={!qrReady}
+                className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                <Printer size={14} /> In ngay
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">
+              💡 Bảo mật: kết hợp nhận diện mặt + chớp mắt (kiểm tra người thật) + giới hạn GPS theo chi nhánh
+            </p>
+          </div>
         </div>
       </div>
 
@@ -619,6 +742,39 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               https://api.telegram.org/bot&#123;TOKEN&#125;/getUpdates
             </code>
           </div>
+        </div>
+      </div>
+
+      {/* ── ĐỔI MẬT KHẨU ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Monitor className="w-5 h-5 text-gray-500" />
+          <h2 className="text-base font-semibold text-gray-800">Đổi mật khẩu</h2>
+        </div>
+        <div className="max-w-sm space-y-3">
+          {(["current", "next", "confirm"] as const).map((k) => (
+            <div key={k}>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                {k === "current" ? "Mật khẩu hiện tại" : k === "next" ? "Mật khẩu mới" : "Xác nhận mật khẩu mới"}
+              </label>
+              <input
+                type="password"
+                value={pwForm[k]}
+                onChange={(e) => setPwForm((f) => ({ ...f, [k]: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          ))}
+          {pwMsg && (
+            <p className={`text-sm font-medium ${pwMsg.ok ? "text-green-600" : "text-red-500"}`}>{pwMsg.text}</p>
+          )}
+          <button
+            onClick={changePassword}
+            disabled={pwLoading || !pwForm.current || !pwForm.next || !pwForm.confirm}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {pwLoading ? "Đang lưu..." : "Đổi mật khẩu"}
+          </button>
         </div>
       </div>
     </div>

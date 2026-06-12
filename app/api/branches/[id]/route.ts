@@ -12,10 +12,17 @@ export async function PATCH(
     const companyId = (session?.user as { companyId?: string })?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, checkInTime, checkOutTime, gracePeriod, workDays } = await req.json();
+    const { name, checkInTime, checkOutTime, gracePeriod, workDays, lat, lng, gpsRadius } = await req.json();
     const branch = await prisma.branch.update({
       where: { id: params.id, companyId },
-      data: { name, checkInTime, checkOutTime, gracePeriod: Number(gracePeriod), workDays },
+      data: {
+        name, checkInTime, checkOutTime,
+        gracePeriod: Number(gracePeriod),
+        workDays,
+        lat: lat !== undefined ? (lat !== null ? Number(lat) : null) : undefined,
+        lng: lng !== undefined ? (lng !== null ? Number(lng) : null) : undefined,
+        gpsRadius: gpsRadius !== undefined ? Number(gpsRadius) : undefined,
+      },
     });
     return NextResponse.json(branch);
   } catch {

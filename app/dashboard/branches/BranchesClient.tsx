@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SHIFT_PRESETS } from "@/lib/presets";
+import { MapPin } from "lucide-react";
 
 interface Branch {
   id: string;
@@ -12,6 +13,9 @@ interface Branch {
   gracePeriod: number;
   workDays: string;
   employeeCount: number;
+  lat: number | null;
+  lng: number | null;
+  gpsRadius: number;
 }
 
 interface Props {
@@ -54,6 +58,9 @@ const emptyForm = {
   checkOutTime: "17:00",
   gracePeriod: "5",
   workDays: "1,2,3,4,5",
+  lat: "",
+  lng: "",
+  gpsRadius: "200",
 };
 
 export default function BranchesClient({ companyId, companySlug, branches }: Props) {
@@ -62,6 +69,7 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const checkinUrl =
     typeof window !== "undefined"
@@ -77,15 +85,44 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
       checkOutTime: b.checkOutTime,
       gracePeriod: String(b.gracePeriod),
       workDays: b.workDays,
+      lat: b.lat !== null ? String(b.lat) : "",
+      lng: b.lng !== null ? String(b.lng) : "",
+      gpsRadius: String(b.gpsRadius),
     });
     setEditingId(b.id);
     setShowForm(true);
   };
 
+  const getMyLocation = () => {
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({
+          ...f,
+          lat: String(pos.coords.latitude.toFixed(6)),
+          lng: String(pos.coords.longitude.toFixed(6)),
+        }));
+        setGpsLoading(false);
+      },
+      () => {
+        alert("Không lấy được vị trí. Hãy cho phép quyền truy cập vị trí trong trình duyệt.");
+        setGpsLoading(false);
+      },
+      { timeout: 8000 }
+    );
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const body = { ...form, gracePeriod: Number(form.gracePeriod), companyId };
+    const body = {
+      ...form,
+      gracePeriod: Number(form.gracePeriod),
+      companyId,
+      lat: form.lat ? Number(form.lat) : null,
+      lng: form.lng ? Number(form.lng) : null,
+      gpsRadius: Number(form.gpsRadius) || 200,
+    };
 
     if (editingId) {
       await fetch(`/api/branches/${editingId}`, {
@@ -234,6 +271,59 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
               </div>
             </div>
 
+            {/* GPS Section */}
+            <div className="border border-green-200 bg-green-50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <MapPin size={15} className="text-green-600" />
+                  <span className="text-sm font-semibold text-green-800">Giới hạn vị trí GPS</span>
+                  <span className="text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded-full">Chống gian lận</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={getMyLocation}
+                  disabled={gpsLoading}
+                  className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {gpsLoading ? "Đang lấy..." : "📍 Lấy vị trí hiện tại"}
+                </button>
+              </div>
+              <p className="text-xs text-green-700 mb-3">
+                Để trống nếu không muốn giới hạn. Khi cài đặt, nhân viên phải ở trong phạm vi mới check-in được.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Vĩ độ (lat)</label>
+                  <input
+                    type="number" step="0.000001"
+                    value={form.lat}
+                    onChange={(e) => setForm({ ...form, lat: e.target.value })}
+                    placeholder="10.762622"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Kinh độ (lng)</label>
+                  <input
+                    type="number" step="0.000001"
+                    value={form.lng}
+                    onChange={(e) => setForm({ ...form, lng: e.target.value })}
+                    placeholder="106.660172"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Bán kính (m)</label>
+                  <input
+                    type="number" min="50" max="2000"
+                    value={form.gpsRadius}
+                    onChange={(e) => setForm({ ...form, gpsRadius: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Hủy</button>
               <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-blue-700">{loading ? "Đang lưu..." : "Lưu"}</button>
@@ -254,6 +344,15 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
                   <span>🗓 {workDaysLabel(b.workDays)}</span>
                   <span>⏱ Ân hạn {b.gracePeriod}p</span>
                   <span>👥 {b.employeeCount} nhân viên</span>
+                  {b.lat !== null && b.lng !== null ? (
+                    <span className="text-green-600 flex items-center gap-1">
+                      <MapPin size={12} /> GPS {b.gpsRadius}m
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 flex items-center gap-1">
+                      <MapPin size={12} /> Chưa cài GPS
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 ml-4 shrink-0">

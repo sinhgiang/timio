@@ -9,11 +9,16 @@ export async function POST(req: NextRequest) {
     const companyId = (session?.user as { companyId?: string })?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, checkInTime, checkOutTime, gracePeriod, workDays } = await req.json();
+    const { name, checkInTime, checkOutTime, gracePeriod, workDays, lat, lng, gpsRadius } = await req.json();
     if (!name) return NextResponse.json({ error: "Thiếu tên chi nhánh" }, { status: 400 });
 
     const branch = await prisma.branch.create({
-      data: { name, checkInTime, checkOutTime, gracePeriod, workDays, companyId },
+      data: {
+        name, checkInTime, checkOutTime, gracePeriod, workDays, companyId,
+        lat: lat !== null && lat !== undefined ? Number(lat) : null,
+        lng: lng !== null && lng !== undefined ? Number(lng) : null,
+        gpsRadius: gpsRadius ? Number(gpsRadius) : 200,
+      },
     });
 
     return NextResponse.json(branch, { status: 201 });

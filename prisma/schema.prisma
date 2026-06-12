@@ -51,6 +51,9 @@ model Branch {
   gracePeriod  Int     @default(5)
   workDays     String  @default("1,2,3,4,5")
   telegramChatId String?
+  lat          Float?
+  lng          Float?
+  gpsRadius    Int     @default(200)
   createdAt    DateTime @default(now())
 
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)

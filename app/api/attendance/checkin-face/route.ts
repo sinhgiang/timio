@@ -4,9 +4,18 @@ import { calculateCheckInStatus } from "@/lib/attendance";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // metres
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { employeeId } = await req.json();
+    const { employeeId, lat, lng } = await req.json();
 
     if (!employeeId) {
       return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
@@ -22,6 +31,22 @@ export async function POST(req: NextRequest) {
 
     if (!employee || employee.status !== "active") {
       return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
+    }
+
+    // Kiểm tra GPS nếu chi nhánh đã cấu hình tọa độ
+    if (employee.branch.lat !== null && employee.branch.lng !== null) {
+      if (lat === null || lat === undefined || lng === null || lng === undefined) {
+        return NextResponse.json({
+          error: "Không lấy được vị trí GPS. Vui lòng cho phép truy cập vị trí và thử lại.",
+        }, { status: 403 });
+      }
+      const distance = haversineDistance(lat, lng, employee.branch.lat, employee.branch.lng);
+      const radius = employee.branch.gpsRadius ?? 200;
+      if (distance > radius) {
+        return NextResponse.json({
+          error: `Bạn đang ở ngoài phạm vi văn phòng (${Math.round(distance)}m, cho phép ${radius}m). Vui lòng đến văn phòng để chấm công.`,
+        }, { status: 403 });
+      }
     }
 
     const today = getTodayString();

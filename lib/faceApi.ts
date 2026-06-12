@@ -115,6 +115,42 @@ function euclidean(a: number[], b: number[]): number {
   return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
 }
 
+function dist2D(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+function eyeAspectRatio(pts: { x: number; y: number }[]): number {
+  // EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
+  // pts[0]=corner, pts[1-2]=upper, pts[3]=corner, pts[4-5]=lower
+  const A = dist2D(pts[1], pts[5]);
+  const B = dist2D(pts[2], pts[4]);
+  const C = dist2D(pts[0], pts[3]);
+  return (A + B) / (2 * C);
+}
+
+/**
+ * Tính Eye Aspect Ratio (EAR) từ video.
+ * EAR < 0.20 = mắt nhắm (đang chớp). EAR ≈ 0.30 = mắt mở bình thường.
+ * Trả về null nếu không tìm thấy khuôn mặt.
+ */
+export async function detectEAR(video: HTMLVideoElement): Promise<number | null> {
+  await ensureModels();
+  const faceapi = await import("@vladmandic/face-api");
+
+  const result = await faceapi
+    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 }))
+    .withFaceLandmarks();
+
+  if (!result) return null;
+
+  const pts = result.landmarks.positions;
+  // Left eye: landmarks 36-41, Right eye: 42-47
+  const leftEye = Array.from({ length: 6 }, (_, i) => ({ x: pts[36 + i].x, y: pts[36 + i].y }));
+  const rightEye = Array.from({ length: 6 }, (_, i) => ({ x: pts[42 + i].x, y: pts[42 + i].y }));
+
+  return (eyeAspectRatio(leftEye) + eyeAspectRatio(rightEye)) / 2;
+}
+
 export interface EmployeeFaceData {
   id: string;
   name: string;
