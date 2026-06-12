@@ -4,13 +4,12 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
 import type { EmployeeFaceData } from "@/lib/faceApi";
 import { speakVi, playCompanyAudio, unlockAudio } from "@/lib/speech";
-import { Clock, UserCircle, Cpu, ScanFace, CheckCircle2, AlertTriangle, UserX, HelpCircle, LogOut, Eye } from "lucide-react";
+import { Clock, UserCircle, Cpu, ScanFace, CheckCircle2, AlertTriangle, UserX, HelpCircle, LogOut } from "lucide-react";
 
 type Phase =
   | "welcome"
   | "loading"
   | "camera"
-  | "liveness"
   | "scanning"
   | "success"
   | "no_face"
@@ -68,8 +67,6 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   const lastMatchIdRef = useRef<string | null>(null);
   const autoCheckingRef = useRef(false);
 
-  // Ref cho liveness target
-  const livenessTargetRef = useRef<{ id: string; name: string } | null>(null);
 
   const [phase, setPhase] = useState<Phase>("welcome");
   const [result, setResult] = useState<CheckInResult | null>(null);
@@ -80,8 +77,6 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   const [faceDetected, setFaceDetected] = useState(false);
   const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
   const [matchCount, setMatchCount] = useState(0);
-  const [livenessTarget, setLivenessTarget] = useState<{ id: string; name: string } | null>(null);
-  const [livenessCountdown, setLivenessCountdown] = useState(7);
 
   // Cancel speech khi unmount
   useEffect(() => () => { speakVi(""); window.speechSynthesis?.cancel(); }, []);
@@ -143,13 +138,11 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // Gán stream vào video SAU KHI phase = "camera" hoặc "liveness"
+  // Gán stream vào video SAU KHI phase = "camera"
   useEffect(() => {
-    if ((phase === "camera" || phase === "liveness") && videoRef.current && streamRef.current) {
-      if (!videoRef.current.srcObject) {
-        videoRef.current.srcObject = streamRef.current;
-        videoRef.current.play().catch(() => {});
-      }
+    if (phase === "camera" && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
     }
   }, [phase]);
 
@@ -205,13 +198,10 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
                     }
                     setMatchCount(matchCountRef.current);
 
-                    // 2 lần khớp liên tiếp → chuyển sang liveness
+                    // 2 lần khớp liên tiếp → check-in ngay (GPS + API)
                     if (matchCountRef.current >= 2 && !autoCheckingRef.current) {
                       autoCheckingRef.current = true;
-                      livenessTargetRef.current = { id: match.id, name: match.name };
-                      setLivenessTarget({ id: match.id, name: match.name });
-                      setLivenessCountdown(7);
-                      setPhase("liveness");
+                      handleAutoCheckIn(match.id, match.name);
                       return;
                     }
                   } else {
@@ -255,72 +245,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
     };
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Liveness detection loop — phát hiện chớp mắt
-  // Dùng single-threshold thay vì two-state để không bỏ sót blink trên mobile
-  useEffect(() => {
-    if (phase !== "liveness") return;
-
-    let alive = true;
-
-    // Countdown 10s → thử lại nếu không chớp được
-    let counter = 10;
-    setLivenessCountdown(counter);
-    const countdownInterval = setInterval(() => {
-      counter--;
-      setLivenessCountdown(counter);
-      if (counter <= 0) {
-        clearInterval(countdownInterval);
-        if (alive) cancelLiveness();
-      }
-    }, 1000);
-
-    // Đợi 1s đầu để face-api ổn định trên mobile
-    let warmupDone = false;
-    const WARMUP_MS = 1000;
-    const startAt = Date.now();
-
-    const runBlink = async () => {
-      if (!alive) return;
-      const video = videoRef.current;
-      if (!video || video.readyState < 2 || video.videoWidth === 0) {
-        if (alive) loopRef.current = setTimeout(runBlink, 200);
-        return;
-      }
-
-      // Bỏ qua 1s đầu để tránh false positive ngay khi vào phase
-      if (!warmupDone && Date.now() - startAt < WARMUP_MS) {
-        if (alive) loopRef.current = setTimeout(runBlink, 200);
-        return;
-      }
-      warmupDone = true;
-
-      try {
-        const { detectEAR } = await import("@/lib/faceApi");
-        const ear = await detectEAR(video);
-
-        // EAR < 0.23: mắt đang nhắm rõ ràng → chớp mắt xác nhận
-        // Threshold 0.23 thay vì 0.20 để bắt được blink trên camera điện thoại
-        if (alive && ear !== null && ear < 0.23) {
-          clearInterval(countdownInterval);
-          alive = false;
-          handleLivenessConfirmed();
-          return;
-        }
-      } catch { /* ignore */ }
-
-      if (alive) loopRef.current = setTimeout(runBlink, 120);
-    };
-
-    loopRef.current = setTimeout(runBlink, 200);
-
-    return () => {
-      alive = false;
-      clearInterval(countdownInterval);
-      if (loopRef.current) clearTimeout(loopRef.current);
-    };
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const stopCamera = useCallback(() => {
+const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -331,29 +256,14 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
     setPhase("welcome");
     setResult(null);
     setErrorMsg("");
-    setLivenessTarget(null);
-    livenessTargetRef.current = null;
     autoCheckingRef.current = false;
     matchCountRef.current = 0;
     lastMatchIdRef.current = null;
     setMatchCount(0);
   }, [stopCamera]);
 
-  const cancelLiveness = useCallback(() => {
-    livenessTargetRef.current = null;
-    setLivenessTarget(null);
-    autoCheckingRef.current = false;
-    matchCountRef.current = 0;
-    lastMatchIdRef.current = null;
-    setMatchCount(0);
-    setPhase("camera");
-  }, []);
-
-  // Liveness xác nhận → lấy GPS → check-in
-  const handleLivenessConfirmed = useCallback(async () => {
-    const target = livenessTargetRef.current;
-    if (!target) return;
-
+  // Nhận diện mặt xong → lấy GPS → check-in
+  const handleAutoCheckIn = useCallback(async (matchId: string, matchName: string) => {
     stopCamera();
     setPhase("scanning");
 
@@ -364,7 +274,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: target.id,
+          employeeId: matchId,
           lat: gps?.lat ?? null,
           lng: gps?.lng ?? null,
         }),
@@ -375,7 +285,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
         setPhase("error");
         return;
       }
-      setResult({ ...data, employeeName: target.name });
+      setResult({ ...data, employeeName: matchName });
       setPhase("success");
     } catch (e) {
       setErrorMsg(`Lỗi: ${e instanceof Error ? e.message : String(e)}`);
@@ -425,7 +335,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
       : `Đang xác nhận... (${matchCount}/2)`
     : "Đưa mặt vào khung hình";
 
-  const isVideoPhase = phase === "camera" || phase === "liveness";
+  const isVideoPhase = phase === "camera";
 
   return (
     <div className="kiosk-mode min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 flex flex-col select-none">
@@ -489,29 +399,19 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
 
             {/* Status bar trên cùng */}
             <div className="px-6 pt-5 pb-3 text-center">
-              {phase === "camera" && (
-                <p className={`font-medium text-base transition-colors duration-300 ${
-                  matchCount > 0 ? "text-yellow-300" :
-                  faceDetected ? "text-green-300" : "text-white/80"
-                }`}>
-                  {cameraStatusText}
-                </p>
-              )}
-              {phase === "liveness" && (
-                <div>
-                  <p className="text-green-300 font-semibold text-base">
-                    ✓ Xin chào, <span className="text-white font-bold">{livenessTarget?.name}</span>!
-                  </p>
-                </div>
-              )}
+              <p className={`font-medium text-base transition-colors duration-300 ${
+                matchCount > 0 ? "text-yellow-300" :
+                faceDetected ? "text-green-300" : "text-white/80"
+              }`}>
+                {cameraStatusText}
+              </p>
             </div>
 
             {/* Video container */}
             <div
               className="relative flex-1 overflow-hidden md:flex-none md:rounded-2xl md:shadow-2xl md:border-4 md:transition-colors md:duration-300"
               style={{
-                borderColor: phase === "liveness" ? "#22c55e" :
-                             faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#60a5fa"
+                borderColor: faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#60a5fa"
               }}
             >
               <video
@@ -519,9 +419,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
                 className="w-full h-full object-cover block md:h-auto md:aspect-[4/3]"
                 style={{
                   transformOrigin: "50% 50%",
-                  transform: phase === "camera"
-                    ? `translate(${zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`
-                    : "none",
+                  transform: `translate(${zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`,
                   transition: "transform 0.5s ease",
                 }}
                 muted
@@ -532,63 +430,31 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
               {/* Oval guide overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${
-                  phase === "liveness" ? "border-green-400 opacity-90" :
                   matchCount > 0 ? "border-yellow-400 opacity-90" :
                   faceDetected ? "border-green-400 opacity-80" : "border-blue-400 opacity-40"
                 }`} />
               </div>
 
-              {/* Liveness instruction overlay */}
-              {phase === "liveness" && (
-                <div className="absolute inset-0 flex items-end justify-center pb-6 pointer-events-none">
-                  <div className="text-center bg-black/75 px-8 py-5 rounded-2xl mx-4">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <Eye size={22} className="text-yellow-300 animate-pulse" />
-                      <p className="text-yellow-300 text-xl font-bold">Hãy chớp mắt!</p>
-                    </div>
-                    <p className="text-white/70 text-sm">để xác nhận bạn là người thật</p>
-                    <p className="text-white/50 text-xs mt-2">{livenessCountdown}s...</p>
-                  </div>
-                </div>
-              )}
-
               {/* Badge top-right */}
               <div className="absolute top-3 right-3 pointer-events-none">
-                {phase === "camera" && (
-                  <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
-                    matchCount > 0 ? "bg-yellow-500 text-white" :
-                    faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
-                  }`}>
-                    {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
-                     faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
-                  </span>
-                )}
-                {phase === "liveness" && (
-                  <span className="text-xs px-3 py-1.5 rounded-full font-semibold shadow bg-green-500 text-white">
-                    👁 Kiểm tra thật/ảo
-                  </span>
-                )}
+                <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
+                  matchCount > 0 ? "bg-yellow-500 text-white" :
+                  faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
+                }`}>
+                  {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
+                   faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
+                </span>
               </div>
             </div>
 
             {/* Bottom button */}
             <div className="px-6 py-6 flex justify-center md:py-4 md:mt-1">
-              {phase === "camera" && (
-                <button
-                  onClick={resetToWelcome}
-                  className="px-10 py-3 border border-white/30 text-white/80 rounded-xl font-medium hover:bg-white/10 hover:text-white text-base transition-colors"
-                >
-                  Hủy
-                </button>
-              )}
-              {phase === "liveness" && (
-                <button
-                  onClick={cancelLiveness}
-                  className="px-10 py-3 border border-white/30 text-white/60 rounded-xl font-medium hover:bg-white/10 hover:text-white text-sm transition-colors"
-                >
-                  Thử lại
-                </button>
-              )}
+              <button
+                onClick={resetToWelcome}
+                className="px-10 py-3 border border-white/30 text-white/80 rounded-xl font-medium hover:bg-white/10 hover:text-white text-base transition-colors"
+              >
+                Hủy
+              </button>
             </div>
           </div>
         )}
