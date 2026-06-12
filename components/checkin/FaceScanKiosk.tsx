@@ -255,16 +255,15 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
     };
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Liveness detection loop — phát hiện chớp mắt (two-state blink)
+  // Liveness detection loop — phát hiện chớp mắt
+  // Dùng single-threshold thay vì two-state để không bỏ sót blink trên mobile
   useEffect(() => {
     if (phase !== "liveness") return;
 
     let alive = true;
-    let blinkState: "waiting_close" | "waiting_open" = "waiting_close";
-    let closedAt: number | null = null;
 
-    // Countdown 7s → hủy nếu không chớp
-    let counter = 7;
+    // Countdown 10s → thử lại nếu không chớp được
+    let counter = 10;
     setLivenessCountdown(counter);
     const countdownInterval = setInterval(() => {
       counter--;
@@ -275,43 +274,44 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
       }
     }, 1000);
 
+    // Đợi 1s đầu để face-api ổn định trên mobile
+    let warmupDone = false;
+    const WARMUP_MS = 1000;
+    const startAt = Date.now();
+
     const runBlink = async () => {
       if (!alive) return;
       const video = videoRef.current;
       if (!video || video.readyState < 2 || video.videoWidth === 0) {
-        if (alive) loopRef.current = setTimeout(runBlink, 300);
+        if (alive) loopRef.current = setTimeout(runBlink, 200);
         return;
       }
+
+      // Bỏ qua 1s đầu để tránh false positive ngay khi vào phase
+      if (!warmupDone && Date.now() - startAt < WARMUP_MS) {
+        if (alive) loopRef.current = setTimeout(runBlink, 200);
+        return;
+      }
+      warmupDone = true;
 
       try {
         const { detectEAR } = await import("@/lib/faceApi");
         const ear = await detectEAR(video);
 
-        if (alive && ear !== null) {
-          if (blinkState === "waiting_close" && ear < 0.20) {
-            // Mắt nhắm → chờ mở lại
-            blinkState = "waiting_open";
-            closedAt = Date.now();
-          } else if (blinkState === "waiting_open") {
-            if (ear > 0.25) {
-              // Mắt mở lại → chớp mắt hợp lệ!
-              clearInterval(countdownInterval);
-              if (alive) { alive = false; handleLivenessConfirmed(); }
-              return;
-            }
-            // Mắt nhắm quá 1.5s → có thể là ảnh nhắm mắt, reset
-            if (closedAt && Date.now() - closedAt > 1500) {
-              blinkState = "waiting_close";
-              closedAt = null;
-            }
-          }
+        // EAR < 0.23: mắt đang nhắm rõ ràng → chớp mắt xác nhận
+        // Threshold 0.23 thay vì 0.20 để bắt được blink trên camera điện thoại
+        if (alive && ear !== null && ear < 0.23) {
+          clearInterval(countdownInterval);
+          alive = false;
+          handleLivenessConfirmed();
+          return;
         }
       } catch { /* ignore */ }
 
-      if (alive) loopRef.current = setTimeout(runBlink, 150);
+      if (alive) loopRef.current = setTimeout(runBlink, 120);
     };
 
-    loopRef.current = setTimeout(runBlink, 400);
+    loopRef.current = setTimeout(runBlink, 200);
 
     return () => {
       alive = false;
