@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardList, CheckCircle2, XCircle } from "lucide-react";
+import { ClipboardList, CheckCircle2, XCircle, Printer } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const LeaveApprovalForm = dynamic(() => import("@/components/leave/LeaveApprovalForm"), { ssr: false });
 
 type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other";
 type LeaveStatus = "pending" | "approved" | "rejected";
@@ -40,16 +43,29 @@ const STATUS_CONFIG: Record<LeaveStatus, { label: string; cls: string }> = {
   rejected: { label: "Từ chối", cls: "bg-red-100 text-red-700" },
 };
 
+interface Company {
+  name: string;
+  slug: string;
+  signatureUrl: string | null;
+  stampUrl: string | null;
+}
+
 interface Props {
+  company: Company;
   requests: LeaveRequest[];
 }
 
-export default function LeaveClient({ requests: initialRequests }: Props) {
+export default function LeaveClient({ company, requests: initialRequests }: Props) {
   const [requests, setRequests] = useState(initialRequests);
   const [filter, setFilter] = useState<LeaveStatus | "all">("pending");
   const [approving, setApproving] = useState<string | null>(null);
-  const [noteModal, setNoteModal] = useState<{ id: string; action: "approved" | "rejected" } | null>(null);
+  const [noteModal, setNoteModal] = useState<{
+    id: string;
+    action: "approved" | "rejected";
+    request: LeaveRequest;
+  } | null>(null);
   const [noteText, setNoteText] = useState("");
+  const [printRequest, setPrintRequest] = useState<{ req: LeaveRequest; approvedDate: string } | null>(null);
 
   const filtered = filter === "all" ? requests : requests.filter((r) => r.status === filter);
 
@@ -62,15 +78,25 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
     });
     if (res.ok) {
       const updated = await res.json();
-      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: updated.status, note: updated.note } : r)));
+      const todayDate = new Date().toLocaleDateString("vi-VN");
+      setRequests((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: updated.status, note: updated.note } : r))
+      );
+      if (status === "approved") {
+        const approvedReq = requests.find((r) => r.id === id);
+        if (approvedReq) {
+          const updatedReq = { ...approvedReq, status: "approved" as LeaveStatus, note: note ?? null };
+          setPrintRequest({ req: updatedReq, approvedDate: todayDate });
+        }
+      }
     }
     setApproving(null);
     setNoteModal(null);
     setNoteText("");
   };
 
-  const openNote = (id: string, action: "approved" | "rejected") => {
-    setNoteModal({ id, action });
+  const openNote = (id: string, action: "approved" | "rejected", request: LeaveRequest) => {
+    setNoteModal({ id, action, request });
     setNoteText("");
   };
 
@@ -81,11 +107,26 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
     rejected: requests.filter((r) => r.status === "rejected").length,
   };
 
+  const leaveKioskUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/leave/${company.slug}`
+      : `/leave/${company.slug}`;
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Quản lý Nghỉ Phép</h1>
-        <p className="text-sm text-gray-500 mt-1">Duyệt hoặc từ chối đơn xin nghỉ của nhân viên</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Quản lý Nghỉ Phép</h1>
+          <p className="text-sm text-gray-500 mt-1">Duyệt hoặc từ chối đơn xin nghỉ của nhân viên</p>
+        </div>
+        <a
+          href={leaveKioskUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-4 py-2 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100"
+        >
+          Kiosk xin nghỉ ↗
+        </a>
       </div>
 
       {/* Filter tabs */}
@@ -147,7 +188,7 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
                   </div>
 
                   {r.reason && (
-                    <p className="mt-2 text-sm text-gray-500 italic">&ldquo;{r.reason}&rdquo;</p>
+                    <p className="mt-2 text-sm text-gray-500 italic line-clamp-2">&ldquo;{r.reason.replace(/\[.+?\]\s*/g, "")}&rdquo;</p>
                   )}
 
                   {r.note && (
@@ -170,16 +211,25 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
                   {r.status === "pending" && (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => openNote(r.id, "approved")}
+                        onClick={() => openNote(r.id, "approved", r)}
                         disabled={approving === r.id}
                         className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
                       >Duyệt</button>
                       <button
-                        onClick={() => openNote(r.id, "rejected")}
+                        onClick={() => openNote(r.id, "rejected", r)}
                         disabled={approving === r.id}
                         className="px-4 py-1.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:opacity-50"
                       >Từ chối</button>
                     </div>
+                  )}
+
+                  {r.status === "approved" && (
+                    <button
+                      onClick={() => setPrintRequest({ req: r, approvedDate: new Date().toLocaleDateString("vi-VN") })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+                    >
+                      <Printer size={13} /> In phiếu
+                    </button>
                   )}
                 </div>
               </div>
@@ -188,7 +238,7 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
         </div>
       )}
 
-      {/* Note modal */}
+      {/* Note / Approve modal */}
       {noteModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
@@ -197,7 +247,11 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
                 ? <><CheckCircle2 size={20} className="text-green-500" /> Xác nhận duyệt</>
                 : <><XCircle size={20} className="text-red-500" /> Từ chối đơn</>}
             </h3>
-            <p className="text-sm text-gray-500 mb-4">Ghi chú (không bắt buộc):</p>
+            <p className="text-sm text-gray-600 mb-1 font-medium">{noteModal.request.employee.name}</p>
+            <p className="text-xs text-gray-400 mb-4">
+              {TYPE_LABELS[noteModal.request.type]} · {noteModal.request.fromDate} → {noteModal.request.toDate} ({noteModal.request.days} ngày)
+            </p>
+            <p className="text-sm text-gray-500 mb-3">Ghi chú (không bắt buộc):</p>
             <textarea
               rows={3}
               value={noteText}
@@ -219,6 +273,16 @@ export default function LeaveClient({ requests: initialRequests }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Print modal */}
+      {printRequest && (
+        <LeaveApprovalForm
+          request={printRequest.req}
+          company={company}
+          approvedDate={printRequest.approvedDate}
+          onClose={() => setPrintRequest(null)}
+        />
       )}
     </div>
   );

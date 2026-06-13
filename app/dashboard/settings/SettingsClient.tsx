@@ -16,6 +16,9 @@ import {
   QrCode,
   Download,
   Printer,
+  PenLine,
+  Upload,
+  X,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -34,7 +37,7 @@ interface RewardRule {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; signatureUrl?: string | null; stampUrl?: string | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
 }
@@ -155,7 +158,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       ? `${window.location.origin}/checkin/${company.slug}`
       : `/checkin/${company.slug}`;
 
-  // QR code canvas
+  // QR code canvas — check-in
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [qrReady, setQrReady] = useState(false);
 
@@ -169,6 +172,101 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       }).then(() => setQrReady(true)).catch(() => {});
     });
   }, [checkinUrl]);
+
+  // QR code canvas — leave kiosk
+  const qrLeaveCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [qrLeaveReady, setQrLeaveReady] = useState(false);
+  const leaveUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/leave/${company.slug}`
+      : `/leave/${company.slug}`;
+
+  useEffect(() => {
+    if (!leaveUrl || !qrLeaveCanvasRef.current) return;
+    import("qrcode").then(({ toCanvas }) => {
+      toCanvas(qrLeaveCanvasRef.current!, leaveUrl, {
+        width: 260,
+        margin: 2,
+        color: { dark: "#166534", light: "#ffffff" },
+      }).then(() => setQrLeaveReady(true)).catch(() => {});
+    });
+  }, [leaveUrl]);
+
+  const downloadLeaveQR = () => {
+    if (!qrLeaveCanvasRef.current) return;
+    const link = document.createElement("a");
+    link.download = `qrcode-leave-${company.slug}.png`;
+    link.href = qrLeaveCanvasRef.current.toDataURL("image/png");
+    link.click();
+  };
+
+  const printLeaveQR = () => {
+    if (!qrLeaveCanvasRef.current) return;
+    const dataUrl = qrLeaveCanvasRef.current.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>QR Xin Nghỉ Phép — ${company.name}</title>
+      <style>
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; background: #fff; }
+        img { width: 280px; height: 280px; }
+        h2 { font-size: 22px; margin: 16px 0 8px; color: #166534; }
+        p { font-size: 13px; color: #64748b; margin: 0; }
+        .url { font-size: 11px; color: #94a3b8; margin-top: 8px; font-family: monospace; }
+        @media print { @page { margin: 1cm; } }
+      </style></head>
+      <body>
+        <img src="${dataUrl}" />
+        <h2>${company.name}</h2>
+        <p>Quét mã để xin nghỉ phép</p>
+        <p class="url">${leaveUrl}</p>
+        <script>window.onload = () => { window.print(); window.close(); }<\/script>
+      </body></html>
+    `);
+    win.document.close();
+  };
+
+  // Signature / Stamp upload
+  const [sigUrl, setSigUrl] = useState<string | null>(company.signatureUrl ?? null);
+  const [stampUrl, setStampUrl] = useState<string | null>(company.stampUrl ?? null);
+  const [sigSaving, setSigSaving] = useState(false);
+  const [sigMsg, setSigMsg] = useState("");
+
+  const uploadImage = async (file: File, field: "signatureUrl" | "stampUrl") => {
+    if (file.size > 300 * 1024) { setSigMsg("Ảnh quá lớn (tối đa 300KB)"); return; }
+    setSigSaving(true); setSigMsg("");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      const res = await fetch("/api/settings/signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, value: base64 }),
+      });
+      if (res.ok) {
+        if (field === "signatureUrl") setSigUrl(base64);
+        else setStampUrl(base64);
+        setSigMsg("Đã lưu!");
+      } else {
+        setSigMsg("Lưu thất bại");
+      }
+      setSigSaving(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = async (field: "signatureUrl" | "stampUrl") => {
+    setSigSaving(true); setSigMsg("");
+    await fetch("/api/settings/signature", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ field, value: null }),
+    });
+    if (field === "signatureUrl") setSigUrl(null);
+    else setStampUrl(null);
+    setSigSaving(false);
+    setSigMsg("Đã xóa");
+  };
 
   const downloadQR = () => {
     if (!qrCanvasRef.current) return;
@@ -339,6 +437,50 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <p className="text-xs text-gray-400">
               💡 Bảo mật: kết hợp nhận diện mặt + chớp mắt (kiểm tra người thật) + giới hạn GPS theo chi nhánh
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Leave Kiosk QR */}
+      <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <QrCode size={18} className="text-green-600" />
+          <span className="font-semibold text-gray-800">QR Code kiosk xin nghỉ phép</span>
+          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">In & dán văn phòng</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Nhân viên quét mã → quét mặt xác nhận → điền đơn xin nghỉ → gửi cho quản lý.
+        </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          <div className="bg-green-50 p-3 rounded-xl border border-green-100 flex-shrink-0">
+            <canvas ref={qrLeaveCanvasRef} className={qrLeaveReady ? "block" : "hidden"} />
+            {!qrLeaveReady && (
+              <div className="w-[260px] h-[260px] flex items-center justify-center text-gray-400 text-sm">
+                Đang tạo QR...
+              </div>
+            )}
+          </div>
+          <div className="space-y-3 flex-1">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Link kiosk nghỉ phép</p>
+              <code className="text-xs bg-gray-100 px-2 py-1.5 rounded text-green-800 break-all block">{leaveUrl}</code>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={downloadLeaveQR}
+                disabled={!qrLeaveReady}
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white rounded-lg text-sm hover:bg-green-800 disabled:opacity-50"
+              >
+                <Download size={14} /> Tải PNG
+              </button>
+              <button
+                onClick={printLeaveQR}
+                disabled={!qrLeaveReady}
+                className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                <Printer size={14} /> In ngay
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -741,6 +883,73 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <code className="block mt-1 text-xs bg-white px-2 py-1 rounded border border-amber-200">
               https://api.telegram.org/bot&#123;TOKEN&#125;/getUpdates
             </code>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Chữ ký & Dấu công ty ── */}
+      <div className="mt-8 border-t border-gray-100 pt-6 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <PenLine size={20} className="text-purple-500" />
+          <h2 className="text-base font-bold text-gray-800">Chữ ký &amp; Dấu công ty</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">Tự động chèn vào phiếu nghỉ phép khi duyệt. Upload ảnh PNG nền trong suốt, tối đa 300KB.</p>
+        {sigMsg && (
+          <p className={`text-sm font-medium mb-3 ${sigMsg.includes("thất bại") || sigMsg.includes("lớn") ? "text-red-500" : "text-green-600"}`}>{sigMsg}</p>
+        )}
+        <div className="grid sm:grid-cols-2 gap-4">
+          {/* Chữ ký */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-gray-700 mb-3">Chữ ký admin</p>
+            {sigUrl ? (
+              <div className="mb-3 bg-gray-50 rounded-lg border border-gray-100 p-3 flex items-center justify-center min-h-[80px]">
+                <img src={sigUrl} alt="Chữ ký" className="max-h-20 max-w-full object-contain" />
+              </div>
+            ) : (
+              <div className="mb-3 bg-gray-50 rounded-lg border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400 min-h-[80px] flex items-center justify-center">
+                Chưa có chữ ký
+              </div>
+            )}
+            <div className="flex gap-2">
+              <label className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50 ${sigSaving ? "opacity-50" : ""}`}>
+                <Upload size={13} /> {sigUrl ? "Thay ảnh" : "Upload"}
+                <input type="file" accept="image/*" className="hidden" disabled={sigSaving}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "signatureUrl"); e.target.value = ""; }}
+                />
+              </label>
+              {sigUrl && (
+                <button onClick={() => removeImage("signatureUrl")} disabled={sigSaving} className="px-3 py-2 border border-red-200 text-red-500 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Dấu công ty */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-gray-700 mb-3">Dấu công ty</p>
+            {stampUrl ? (
+              <div className="mb-3 bg-gray-50 rounded-lg border border-gray-100 p-3 flex items-center justify-center min-h-[80px]">
+                <img src={stampUrl} alt="Dấu công ty" className="max-h-20 max-w-full object-contain" />
+              </div>
+            ) : (
+              <div className="mb-3 bg-gray-50 rounded-lg border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400 min-h-[80px] flex items-center justify-center">
+                Chưa có dấu
+              </div>
+            )}
+            <div className="flex gap-2">
+              <label className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50 ${sigSaving ? "opacity-50" : ""}`}>
+                <Upload size={13} /> {stampUrl ? "Thay ảnh" : "Upload"}
+                <input type="file" accept="image/*" className="hidden" disabled={sigSaving}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "stampUrl"); e.target.value = ""; }}
+                />
+              </label>
+              {stampUrl && (
+                <button onClick={() => removeImage("stampUrl")} disabled={sigSaving} className="px-3 py-2 border border-red-200 text-red-500 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

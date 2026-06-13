@@ -8,25 +8,37 @@ export default async function LeavePage() {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return null;
 
-  const requests = await prisma.leaveRequest.findMany({
-    where: { companyId },
-    include: {
-      employee: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-          department: true,
-          annualLeaveBalance: true,
-          branch: { select: { name: true } },
+  const [company, requests] = await Promise.all([
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, slug: true, signatureUrl: true, stampUrl: true },
+    }),
+    prisma.leaveRequest.findMany({
+      where: { companyId },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            department: true,
+            annualLeaveBalance: true,
+            branch: { select: { name: true } },
+          },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   return (
     <LeaveClient
+      company={{
+        name: company?.name ?? "",
+        slug: company?.slug ?? "",
+        signatureUrl: company?.signatureUrl ?? null,
+        stampUrl: company?.stampUrl ?? null,
+      }}
       requests={requests.map((r) => ({
         id: r.id,
         type: r.type as "annual" | "sick" | "unpaid" | "maternity" | "other",

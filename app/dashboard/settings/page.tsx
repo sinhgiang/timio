@@ -21,7 +21,14 @@ export default async function SettingsPage() {
 
   return (
     <SettingsClient
-      company={{ id: companyId, name: company?.name ?? "", slug: company?.slug ?? "", telegramBotToken: company?.telegramBotToken ?? "" }}
+      company={{
+        id: companyId,
+        name: company?.name ?? "",
+        slug: company?.slug ?? "",
+        telegramBotToken: company?.telegramBotToken ?? "",
+        signatureUrl: company?.signatureUrl ?? null,
+        stampUrl: company?.stampUrl ?? null,
+      }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}
       holidays={holidays}
