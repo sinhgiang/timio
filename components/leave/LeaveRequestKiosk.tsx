@@ -312,9 +312,6 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const colleagues = matchedEmployee
     ? employees.filter((e) => e.id !== matchedEmployee.id && e.department && e.department === matchedEmployee.department)
     : [];
-  const otherEmployees = matchedEmployee
-    ? employees.filter((e) => e.id !== matchedEmployee.id && (e.department !== matchedEmployee.department || !e.department || !matchedEmployee.department))
-    : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 flex flex-col select-none">
@@ -517,28 +514,23 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   <label className="block text-sm font-bold text-gray-800 mb-2">
                     2. Bàn giao công việc cho: <span className="text-red-500">*</span>
                   </label>
-                  <select value={handoverEmployeeId} onChange={(e) => setHandoverEmployeeId(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none bg-white">
-                    <option value="">— Chọn người nhận việc —</option>
-                    {colleagues.length > 0 && (
-                      <optgroup label={`Cùng phòng: ${matchedEmployee.department}`}>
-                        {colleagues.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name} ({c.code}){c.position ? ` · ${c.position}` : ""}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {otherEmployees.length > 0 && (
-                      <optgroup label="Phòng ban khác">
-                        {otherEmployees.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name} ({c.code}){c.department ? ` · ${c.department}` : ""}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+                  {colleagues.length > 0 ? (
+                    <select value={handoverEmployeeId} onChange={(e) => setHandoverEmployeeId(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none bg-white">
+                      <option value="">— Chọn người nhận việc —</option>
+                      {colleagues.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.code}){c.position ? ` · ${c.position}` : ""}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl text-sm text-gray-400 bg-gray-50">
+                      Không có đồng nghiệp cùng phòng {matchedEmployee.department ? `"${matchedEmployee.department}"` : ""}
+                    </div>
+                  )}
                   {handoverEmployeeId && (
                     <p className="text-xs text-blue-600 mt-1.5">Sau khi gửi đơn, người này cần quét mặt xác nhận nhận việc.</p>
                   )}
-                  {!handoverEmployeeId && (
+                  {colleagues.length > 0 && !handoverEmployeeId && (
                     <p className="text-xs text-gray-400 mt-1">Để trống nếu chưa xác định người nhận việc.</p>
                   )}
                 </div>
