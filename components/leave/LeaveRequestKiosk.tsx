@@ -55,6 +55,42 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const headTurnTargetRef = useRef<EmployeeData | null>(null);
   const headTurnBaselineRef = useRef<number | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const sigCanvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const getSigPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+    }
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  };
+  const startSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = sigCanvasRef.current; if (!canvas) return;
+    isDrawingRef.current = true;
+    lastPosRef.current = getSigPos(e, canvas);
+  };
+  const drawSig = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawingRef.current || !sigCanvasRef.current || !lastPosRef.current) return;
+    const canvas = sigCanvasRef.current;
+    const ctx = canvas.getContext("2d"); if (!ctx) return;
+    const pos = getSigPos(e, canvas);
+    ctx.beginPath(); ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#1e3a8a";
+    ctx.stroke();
+    lastPosRef.current = pos;
+  };
+  const stopSig = () => { isDrawingRef.current = false; lastPosRef.current = null; };
+  const clearSig = () => {
+    const canvas = sigCanvasRef.current; if (!canvas) return;
+    canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+  };
 
   const [phase, setPhase] = useState<Phase>("welcome");
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -404,201 +440,185 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
           </div>
         )}
 
-        {/* FORM — A4 giấy tờ chính thức */}
+        {/* FORM — Mẫu đơn hành chính chính thức */}
         {phase === "form" && matchedEmployee && (
-          <div className="w-full max-w-2xl mx-auto py-6">
+          <div className="w-full max-w-2xl mx-auto py-4">
             <div className="flex items-center justify-between mb-3 px-1">
-              <div>
-                <p className="text-blue-300 text-xs uppercase tracking-widest">Đơn xin nghỉ phép</p>
-                <p className="text-white font-bold">{company.name}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-white text-xl font-mono">{timeStr}</div>
-                <div className="text-blue-300 text-xs">{dateStr}</div>
-              </div>
+              <p className="text-blue-300 text-xs uppercase tracking-widest">Đơn xin nghỉ phép · {company.name}</p>
+              <div className="text-white text-lg font-mono">{timeStr}</div>
             </div>
 
             {/* A4 paper */}
-            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ fontFamily: "'Times New Roman', serif" }}>
+            <div className="bg-white rounded-2xl shadow-2xl" style={{ fontFamily: "'Times New Roman', serif" }}>
 
-              {/* Official header */}
-              <div className="text-center pt-5 pb-3 border-b-2 border-gray-800 mx-6">
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-600">Cộng hoà Xã hội Chủ nghĩa Việt Nam</p>
-                <p className="text-xs italic text-gray-500">Độc lập – Tự do – Hạnh phúc</p>
-                <p className="text-xs text-gray-400 mt-1">— ★ ★ ★ —</p>
-                <h1 className="text-xl font-black uppercase tracking-wider mt-2 text-gray-900">Đơn Xin Nghỉ Phép</h1>
+              {/* Header */}
+              <div className="text-center pt-6 pb-3 border-b-2 border-gray-800 mx-6">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-gray-700">Cộng hoà Xã hội Chủ nghĩa Việt Nam</p>
+                <p className="text-sm font-bold underline italic text-gray-700 mt-0.5">Độc lập – Tự do – Hạnh phúc</p>
+                <p className="text-xs text-gray-400 mt-1">————★————</p>
+                <h1 className="text-lg font-black uppercase tracking-widest mt-3 mb-1 text-gray-900">Đơn Xin Nghỉ Phép</h1>
+                <p className="text-xs italic text-gray-400">
+                  (<select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
+                    className="border-0 bg-transparent text-xs italic text-gray-500 focus:outline-none cursor-pointer">
+                    {LEAVE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>)
+                </p>
               </div>
 
-              <div className="px-6 py-4">
+              {/* Body */}
+              <div className="px-7 pt-5 pb-4 text-sm leading-7 text-gray-800">
+
                 {/* Kính gửi */}
-                <p className="text-sm text-gray-700 mb-4 italic">
-                  Kính gửi: <strong>Ban Giám đốc {company.name}</strong>
+                <p className="mb-3">
+                  <span className="font-bold">Kính gửi:</span> Ban Giám đốc Công ty <span className="font-bold">{company.name}</span>
                 </p>
 
-                {/* Thông tin nhân viên */}
-                <div className="border border-gray-300 rounded-lg mb-4 overflow-hidden text-sm">
-                  <div className="bg-gray-50 px-4 py-2 font-bold text-gray-700 uppercase tracking-wider text-xs border-b border-gray-200">
-                    Thông tin người làm đơn
-                  </div>
-                  <div className="grid grid-cols-2 divide-x divide-gray-200">
-                    <div className="divide-y divide-gray-200">
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Họ và tên:</span>
-                        <span className="font-bold text-gray-900">{matchedEmployee.name}</span>
-                      </div>
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Ngày sinh:</span>
-                        <span className="font-semibold">{formatDOB(matchedEmployee.dateOfBirth) || "—"}</span>
-                      </div>
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Mã nhân viên:</span>
-                        <span className="font-semibold font-mono">{matchedEmployee.code}</span>
-                      </div>
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Điện thoại:</span>
-                        <span className="font-semibold">{matchedEmployee.phone || "—"}</span>
-                      </div>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Phòng ban:</span>
-                        <span className="font-semibold">{matchedEmployee.department || "—"}</span>
-                      </div>
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Chức vụ:</span>
-                        <span className="font-semibold">{matchedEmployee.position || "—"}</span>
-                      </div>
-                      <div className="flex px-3 py-2 gap-2">
-                        <span className="text-gray-500 w-24 shrink-0">Phép còn lại:</span>
-                        <span className="font-bold text-blue-700">{matchedEmployee.annualLeaveBalance} ngày</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Thông tin cá nhân — inline document style */}
+                <p className="mb-1">
+                  <span className="font-bold">Tôi tên là: </span>
+                  <span className="font-bold text-blue-900 underline decoration-dotted">{matchedEmployee.name}</span>
+                  <span className="mx-4 text-gray-400">·</span>
+                  <span className="font-bold">Mã NV: </span>
+                  <span className="font-mono">{matchedEmployee.code}</span>
+                </p>
+                <p className="mb-1">
+                  <span className="font-bold">Ngày/ Tháng/ Năm sinh: </span>
+                  <span>{formatDOB(matchedEmployee.dateOfBirth) || "............"}</span>
+                  <span className="mx-4 text-gray-400">·</span>
+                  <span className="font-bold">Chức vụ: </span>
+                  <span>{matchedEmployee.position || "............"}</span>
+                </p>
+                <p className="mb-1">
+                  <span className="font-bold">Phòng/ Ban: </span>
+                  <span>{matchedEmployee.department || "............"}</span>
+                </p>
+                <p className="mb-3">
+                  <span className="font-bold">Điện thoại liên lạc: </span>
+                  <span>{matchedEmployee.phone || "............"}</span>
+                  <span className="mx-4 text-gray-400">·</span>
+                  <span className="text-blue-700 text-xs">Phép còn lại: {matchedEmployee.annualLeaveBalance} ngày</span>
+                </p>
 
-                {/* Thời gian nghỉ */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Từ ngày</label>
-                    <input type="date" value={fromDate} min={todayStr()}
-                      onChange={(e) => { setFromDate(e.target.value); if (e.target.value > toDate) setToDate(e.target.value); }}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Đến ngày</label>
-                    <input type="date" value={toDate} min={fromDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Loại nghỉ</label>
-                    <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:outline-none">
-                      {LEAVE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="text-center bg-blue-50 rounded-lg px-4 py-2 mb-4 border border-blue-100">
-                  <span className="text-2xl font-black text-blue-700">{days}</span>
-                  <span className="text-sm text-blue-500 ml-1">ngày nghỉ</span>
-                </div>
+                {/* Xin phép */}
+                <p className="mb-1 leading-8">
+                  Nay tôi làm đơn này xin phép{" "}
+                  <span className="font-bold text-blue-800 text-base">{days} ngày</span>,
+                  được nghỉ phép từ ngày{" "}
+                  <input type="date" value={fromDate} min={todayStr()}
+                    onChange={(e) => { setFromDate(e.target.value); if (e.target.value > toDate) setToDate(e.target.value); }}
+                    className="border-0 border-b-2 border-blue-300 bg-transparent text-sm px-1 text-center focus:outline-none focus:border-blue-600 w-36" />
+                  {" "}đến ngày{" "}
+                  <input type="date" value={toDate} min={fromDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="border-0 border-b-2 border-blue-300 bg-transparent text-sm px-1 text-center focus:outline-none focus:border-blue-600 w-36" />.
+                </p>
 
-                {/* 1. Lý do */}
-                <div className="mb-4">
-                  <label className="block text-sm font-bold text-gray-800 mb-2">
-                    1. Lý do xin nghỉ: <span className="text-red-500">*</span>
-                  </label>
-                  <textarea rows={3} value={q1} onChange={(e) => setQ1(e.target.value)}
-                    placeholder="Nêu rõ lý do cụ thể bạn cần nghỉ phép..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none resize-none leading-relaxed" />
-                  <p className="text-xs text-gray-400 mt-1 text-right">{q1.length} ký tự (tối thiểu 10)</p>
-                </div>
+                {/* Lý do */}
+                <p className="font-bold mt-3 mb-1">Lý do xin nghỉ: <span className="text-red-500 font-normal text-xs">(bắt buộc)</span></p>
+                <textarea rows={3} value={q1} onChange={(e) => setQ1(e.target.value)}
+                  placeholder="Nêu rõ lý do cụ thể bạn cần nghỉ phép..."
+                  className="w-full px-3 py-2 border border-gray-300 bg-gray-50 text-sm focus:outline-none focus:border-blue-400 resize-none leading-relaxed rounded" />
+                {q1.length < 10 && q1.length > 0 && <p className="text-xs text-red-500 mt-0.5">Tối thiểu 10 ký tự ({q1.length}/10)</p>}
 
-                {/* 2. Bàn giao */}
-                <div className="mb-4">
-                  <label className="block text-sm font-bold text-gray-800 mb-2">
-                    2. Bàn giao công việc cho: <span className="text-red-500">*</span>
-                  </label>
+                {/* Bàn giao */}
+                <p className="mt-3 mb-1 leading-8">
+                  Trong thời gian xin nghỉ, tôi xin bàn giao công việc lại cho:{" "}
                   {colleagues.length > 0 ? (
                     <select value={handoverEmployeeId} onChange={(e) => setHandoverEmployeeId(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none bg-white">
-                      <option value="">— Chọn người nhận việc —</option>
+                      className="border-0 border-b-2 border-blue-300 bg-transparent text-sm focus:outline-none focus:border-blue-600 max-w-xs">
+                      <option value="">— chọn —</option>
                       {colleagues.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name} ({c.code}){c.position ? ` · ${c.position}` : ""}</option>
+                        <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
                       ))}
                     </select>
                   ) : (
-                    <div className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl text-sm text-gray-400 bg-gray-50">
-                      Không có đồng nghiệp cùng phòng {matchedEmployee.department ? `"${matchedEmployee.department}"` : ""}
-                    </div>
+                    <span className="text-gray-400 italic text-xs">Không có đồng nghiệp cùng phòng</span>
                   )}
-                  {handoverEmployeeId && (
-                    <p className="text-xs text-blue-600 mt-1.5">Sau khi gửi đơn, người này cần quét mặt xác nhận nhận việc.</p>
-                  )}
-                  {colleagues.length > 0 && !handoverEmployeeId && (
-                    <p className="text-xs text-gray-400 mt-1">Để trống nếu chưa xác định người nhận việc.</p>
-                  )}
-                </div>
+                </p>
+                {handoverEmployeeId && (
+                  <p className="text-xs text-blue-600 mb-1">→ Người này sẽ nhận QR để quét mặt xác nhận sau khi gửi đơn.</p>
+                )}
 
-                {/* 3. Liên lạc */}
-                <div className="mb-4">
-                  <label className="block text-sm font-bold text-gray-800 mb-2">
-                    3. Liên lạc qua số điện thoại nào trong thời gian nghỉ? <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-3 mb-2">
-                    <button onClick={() => setQ3UseDefault(true)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                        q3UseDefault ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
-                      📱 SĐT đã đăng ký{matchedEmployee.phone ? `: ${matchedEmployee.phone}` : ""}
-                    </button>
-                    <button onClick={() => setQ3UseDefault(false)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                        !q3UseDefault ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
-                      ✏️ Nhập số khác
-                    </button>
-                  </div>
-                  {!q3UseDefault && (
-                    <input type="tel" value={q3Phone} onChange={(e) => setQ3Phone(e.target.value)}
-                      placeholder="Nhập số điện thoại liên lạc..."
-                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none" />
-                  )}
-                  {!matchedEmployee.phone && q3UseDefault && (
-                    <p className="text-xs text-amber-600 mt-1">Chưa có SĐT đăng ký — vui lòng nhập số khác.</p>
-                  )}
-                </div>
+                {/* Liên lạc */}
+                <p className="mt-2 leading-8">
+                  <span className="font-bold">Điện thoại liên lạc khi nghỉ: </span>
+                  <button onClick={() => setQ3UseDefault(true)}
+                    className={`text-sm px-2 py-0.5 rounded border mx-1 transition-all ${q3UseDefault ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300 text-gray-600"}`}>
+                    {matchedEmployee.phone ? matchedEmployee.phone : "SĐT đã đăng ký"}
+                  </button>
+                  <button onClick={() => setQ3UseDefault(false)}
+                    className={`text-sm px-2 py-0.5 rounded border mx-1 transition-all ${!q3UseDefault ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300 text-gray-600"}`}>
+                    Số khác
+                  </button>
+                </p>
+                {!q3UseDefault && (
+                  <input type="tel" value={q3Phone} onChange={(e) => setQ3Phone(e.target.value)}
+                    placeholder="Nhập số điện thoại..."
+                    className="border-0 border-b-2 border-blue-300 bg-transparent text-sm px-1 focus:outline-none focus:border-blue-600 w-48 mt-1" />
+                )}
+                {!matchedEmployee.phone && q3UseDefault && (
+                  <p className="text-xs text-amber-600">Chưa có SĐT đăng ký — vui lòng chọn "Số khác".</p>
+                )}
 
-                {/* 4. Ghi chú */}
-                <div className="mb-4">
-                  <label className="block text-sm font-bold text-gray-800 mb-2">
-                    4. Thông tin khẩn cấp cần quản lý biết thêm: <span className="text-gray-400 font-normal">(không bắt buộc)</span>
-                  </label>
+                {/* Ghi thêm */}
+                <div className="mt-3 mb-1">
+                  <p className="text-gray-500 text-xs italic mb-1">Thông tin thêm cần quản lý biết (không bắt buộc):</p>
                   <textarea rows={2} value={q4} onChange={(e) => setQ4(e.target.value)}
                     placeholder="Để trống nếu không có..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none resize-none leading-relaxed" />
+                    className="w-full px-3 py-2 border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-blue-400 resize-none rounded" />
                 </div>
 
-                {/* Ký tên */}
-                <div className="flex justify-end mb-5">
-                  <div className="text-right text-sm" style={{ fontFamily: "'Times New Roman', serif" }}>
-                    <p className="text-gray-500 italic mb-1">
-                      {(() => { const d = new Date(); return `Ngày ${d.getDate()} tháng ${d.getMonth()+1} năm ${d.getFullYear()}`; })()}
+                {/* Cam kết */}
+                <p className="mt-4 text-gray-700 leading-7">
+                  Tôi xin hứa sẽ cập nhật tình hình công việc thường xuyên trong thời gian nghỉ và cam kết trở lại làm việc đúng thời hạn quy định.
+                </p>
+                <p className="text-gray-700 leading-7">
+                  Kính mong <span className="italic">Ban Giám đốc {company.name}</span> giải quyết cho tôi nghỉ phép theo nguyện vọng trên.
+                </p>
+                <p className="text-gray-700 font-semibold mt-1">Xin trân trọng cảm ơn!</p>
+
+                {/* Ký tên footer */}
+                <div className="flex justify-between items-start mt-6 mb-2">
+                  {/* Trái: Xác nhận trưởng phòng */}
+                  <div className="text-center text-sm w-44">
+                    <p className="font-bold text-[11px] uppercase tracking-wide text-gray-700">Xác nhận của Trưởng phòng</p>
+                    <p className="text-[10px] italic text-gray-400">(Ký, ghi rõ họ tên)</p>
+                    <div className="h-20 border border-dashed border-gray-200 rounded mt-2"></div>
+                  </div>
+
+                  {/* Phải: Người làm đơn + Signature pad */}
+                  <div className="text-center text-sm w-56">
+                    <p className="italic text-gray-500 text-xs mb-1">
+                      {(() => { const d = new Date(); return `......, ngày ${d.getDate()} tháng ${d.getMonth()+1} năm ${d.getFullYear()}`; })()}
                     </p>
-                    <p className="font-bold text-gray-700 uppercase text-xs tracking-wider mb-1">Người làm đơn</p>
-                    <p className="text-gray-400 text-xs italic mb-6">(Ký và ghi rõ họ tên)</p>
-                    <p className="font-semibold text-gray-800 border-t border-gray-300 pt-1 min-w-[140px]">{matchedEmployee.name}</p>
+                    <p className="font-bold text-[11px] uppercase tracking-wide text-gray-700">Người làm đơn</p>
+                    <p className="text-[10px] italic text-gray-400 mb-1">(Ký và ghi rõ họ tên)</p>
+
+                    {/* Signature canvas */}
+                    <div className="relative border border-gray-300 rounded bg-blue-50/30" style={{ height: 90 }}>
+                      <canvas ref={sigCanvasRef} width={224} height={90}
+                        className="w-full h-full cursor-crosshair touch-none rounded"
+                        onMouseDown={startSig} onMouseMove={drawSig} onMouseUp={stopSig} onMouseLeave={stopSig}
+                        onTouchStart={startSig} onTouchMove={drawSig} onTouchEnd={stopSig} />
+                      <p className="absolute inset-0 flex items-center justify-center text-gray-300 text-xs pointer-events-none select-none">Ký tên tại đây</p>
+                      <button onClick={clearSig}
+                        className="absolute top-1 right-1 text-[10px] text-gray-400 hover:text-red-500 bg-white rounded px-1 border border-gray-200 leading-4">Xóa</button>
+                    </div>
+
+                    <p className="font-semibold text-gray-800 border-t border-gray-400 mt-2 pt-1 text-sm">{matchedEmployee.name}</p>
                   </div>
                 </div>
 
                 {errorMsg && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2 mb-4">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2 mt-3">
                     <AlertTriangle size={16} className="shrink-0 mt-0.5" /> {errorMsg}
                   </div>
                 )}
 
-                <div className="flex gap-3 pb-2">
+                <div className="flex gap-3 mt-4 pb-2">
                   <button onClick={resetToWelcome} className="px-6 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-50">Hủy</button>
                   <button onClick={handleSubmit}
-                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-base transition-colors">
+                    className="flex-1 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-base transition-colors">
                     Gửi đơn xin nghỉ phép
                   </button>
                 </div>
