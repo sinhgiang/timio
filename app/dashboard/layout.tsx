@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/dashboard/Sidebar";
 import UpsellChecker from "@/components/dashboard/UpsellChecker";
 import CompanySetupModal from "@/components/dashboard/CompanySetupModal";
@@ -21,10 +22,14 @@ export default async function DashboardLayout({
   const companyId = (session.user as { companyId?: string })?.companyId;
   const needsSetup = !companyId;
 
+  const pendingLeaveCount = companyId
+    ? await prisma.leaveRequest.count({ where: { companyId, status: "pending" } })
+    : 0;
+
   return (
     <div className="flex h-screen bg-gray-50">
       <UpsellChecker />
-      <Sidebar companyName={session.user?.name ?? "Công ty"} />
+      <Sidebar companyName={session.user?.name ?? "Công ty"} pendingLeaveCount={pendingLeaveCount} />
       <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
       <CompanySetupModal
         needsSetup={needsSetup}

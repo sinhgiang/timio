@@ -24,21 +24,22 @@ import {
 
 interface Props {
   companyName: string;
+  pendingLeaveCount?: number;
 }
 
-const navItems: { href: string; label: string; Icon: LucideIcon }[] = [
+const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: string }[] = [
   { href: "/dashboard", label: "Tổng quan", Icon: LayoutDashboard },
   { href: "/dashboard/employees", label: "Nhân viên", Icon: Users },
   { href: "/dashboard/branches", label: "Chi nhánh", Icon: Building2 },
   { href: "/dashboard/reports", label: "Báo cáo tháng", Icon: BarChart3 },
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
-  { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella },
+  { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
   { href: "/dashboard/billing", label: "Gói dịch vụ", Icon: CreditCard },
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];
 
-export default function Sidebar({ companyName }: Props) {
+export default function Sidebar({ companyName, pendingLeaveCount = 0 }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -113,7 +114,12 @@ export default function Sidebar({ companyName }: Props) {
                 )}
               >
                 <item.Icon size={17} strokeWidth={isActive ? 2.5 : 2} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.badgeKey === "leave" && pendingLeaveCount > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}
+                  </span>
+                )}
               </Link>
             );
           })}
