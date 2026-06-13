@@ -402,7 +402,19 @@ export default function EmployeesClient({
                 <div className="space-y-5">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pb-1 border-b border-gray-100">Thông tin cơ bản</p>
 
-                  <Field label="Họ tên *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Họ tên *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày tháng năm sinh</label>
+                      <input
+                        type="date"
+                        value={form.dateOfBirth}
+                        onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                  </div>
+
                   <Field label="Mã nhân viên *" value={form.code} onChange={(v) => setForm({ ...form, code: v })} required placeholder="VD: NV001" />
 
                   <div className="grid grid-cols-2 gap-3">
@@ -424,15 +436,6 @@ export default function EmployeesClient({
                         type="date"
                         value={form.joinDate}
                         onChange={(e) => setForm({ ...form, joinDate: e.target.value })}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày tháng năm sinh</label>
-                      <input
-                        type="date"
-                        value={form.dateOfBirth}
-                        onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>
