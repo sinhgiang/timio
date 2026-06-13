@@ -23,6 +23,7 @@ export default async function LeavePage() {
             code: true,
             department: true,
             annualLeaveBalance: true,
+            baseSalary: true,
             branch: { select: { name: true } },
           },
         },
@@ -39,24 +40,38 @@ export default async function LeavePage() {
         signatureUrl: company?.signatureUrl ?? null,
         stampUrl: company?.stampUrl ?? null,
       }}
-      requests={requests.map((r) => ({
-        id: r.id,
-        type: r.type as "annual" | "sick" | "unpaid" | "maternity" | "other",
-        fromDate: r.fromDate,
-        toDate: r.toDate,
-        days: r.days,
-        reason: r.reason,
-        status: r.status as "pending" | "approved" | "rejected",
-        note: r.note,
-        createdAt: r.createdAt.toISOString(),
-        employee: {
-          id: r.employee.id,
-          name: r.employee.name,
-          code: r.employee.code,
-          department: r.employee.department,
-          annualLeaveBalance: r.employee.annualLeaveBalance,
-          branch: { name: r.employee.branch.name },
-        },
+      requests={await Promise.all(requests.map(async (r) => {
+        let handoverEmployeeName: string | null = null;
+        if (r.handoverEmployeeId) {
+          const he = await prisma.employee.findUnique({
+            where: { id: r.handoverEmployeeId },
+            select: { name: true, code: true },
+          });
+          handoverEmployeeName = he ? `${he.name} (${he.code})` : null;
+        }
+        return {
+          id: r.id,
+          type: r.type as "annual" | "sick" | "unpaid" | "maternity" | "other",
+          fromDate: r.fromDate,
+          toDate: r.toDate,
+          days: r.days,
+          reason: r.reason,
+          status: r.status as "pending" | "approved" | "rejected",
+          note: r.note,
+          createdAt: r.createdAt.toISOString(),
+          handoverEmployeeId: r.handoverEmployeeId ?? null,
+          handoverEmployeeName,
+          handoverConfirmedAt: r.handoverConfirmedAt?.toISOString() ?? null,
+          employee: {
+            id: r.employee.id,
+            name: r.employee.name,
+            code: r.employee.code,
+            department: r.employee.department,
+            annualLeaveBalance: r.employee.annualLeaveBalance,
+            baseSalary: r.employee.baseSalary ?? 0,
+            branch: { name: r.employee.branch.name },
+          },
+        };
       }))}
     />
   );
