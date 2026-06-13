@@ -19,6 +19,8 @@ import {
   PenLine,
   Upload,
   X,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -157,6 +159,21 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     typeof window !== "undefined"
       ? `${window.location.origin}/checkin/${company.slug}`
       : `/checkin/${company.slug}`;
+
+  const [copiedCheckin, setCopiedCheckin] = useState(false);
+  const [copiedLeave, setCopiedLeave] = useState(false);
+
+  const copyCheckinUrl = () => {
+    navigator.clipboard.writeText(checkinUrl).catch(() => {});
+    setCopiedCheckin(true);
+    setTimeout(() => setCopiedCheckin(false), 2000);
+  };
+
+  const copyLeaveUrl = () => {
+    navigator.clipboard.writeText(leaveUrl).catch(() => {});
+    setCopiedLeave(true);
+    setTimeout(() => setCopiedLeave(false), 2000);
+  };
 
   // QR code canvas — check-in
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -409,7 +426,13 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <canvas ref={qrCanvasRef} className={qrReady ? "block" : "hidden"} style={{ width: 180, height: 180 }} />
             {!qrReady && <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">Đang tạo QR...</div>}
           </div>
-          <code className="text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all block w-full mb-2">{checkinUrl}</code>
+          <div className="flex items-center gap-1.5 mb-2 w-full">
+            <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all min-w-0">{checkinUrl}</code>
+            <button onClick={copyCheckinUrl} title="Copy link"
+              className={`shrink-0 p-1.5 rounded-lg border transition-all ${copiedCheckin ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"}`}>
+              {copiedCheckin ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
           <div className="flex gap-2 w-full">
             <button onClick={downloadQR} disabled={!qrReady}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
@@ -434,7 +457,13 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <canvas ref={qrLeaveCanvasRef} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 180, height: 180 }} />
             {!qrLeaveReady && <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">Đang tạo QR...</div>}
           </div>
-          <code className="text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all block w-full mb-2">{leaveUrl}</code>
+          <div className="flex items-center gap-1.5 mb-2 w-full">
+            <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all min-w-0">{leaveUrl}</code>
+            <button onClick={copyLeaveUrl} title="Copy link"
+              className={`shrink-0 p-1.5 rounded-lg border transition-all ${copiedLeave ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"}`}>
+              {copiedLeave ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
           <div className="flex gap-2 w-full">
             <button onClick={downloadLeaveQR} disabled={!qrLeaveReady}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
