@@ -354,18 +354,18 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const days = calcDays(fromDate, toDate);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-green-900 flex flex-col select-none">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 flex flex-col select-none">
       {!isVideoPhase && phase !== "form" && (
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <div>
-            <div className="flex items-center gap-1.5 text-green-300 text-sm font-medium uppercase tracking-widest">
+            <div className="flex items-center gap-1.5 text-blue-300 text-sm font-medium uppercase tracking-widest">
               <Clock size={14} /> Timio · Nghỉ phép
             </div>
             <div className="text-white text-lg font-bold mt-0.5">{company.name}</div>
           </div>
           <div className="text-right">
             <div className="text-white text-3xl font-mono font-bold">{timeStr}</div>
-            <div className="text-green-300 text-sm capitalize">{dateStr}</div>
+            <div className="text-blue-300 text-sm capitalize">{dateStr}</div>
           </div>
         </div>
       )}
@@ -376,19 +376,19 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
         {phase === "welcome" && (
           <div className="text-center">
             <div className="flex justify-center mb-6">
-              <UserCircle size={96} strokeWidth={1} className="text-green-300/60" />
+              <UserCircle size={96} strokeWidth={1} className="text-blue-300/60" />
             </div>
             <h2 className="text-white text-3xl font-bold mb-2">Xin nghỉ phép</h2>
-            <p className="text-green-200 text-lg mb-10">Quét mặt để xác nhận danh tính</p>
+            <p className="text-blue-200 text-lg mb-10">Quét mặt để xác nhận danh tính</p>
             <button
               onClick={startCamera}
-              className="inline-flex items-center gap-3 px-10 py-5 bg-green-600 hover:bg-green-500 text-white text-xl font-bold rounded-2xl shadow-2xl transition-all"
+              className="inline-flex items-center gap-3 px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white text-xl font-bold rounded-2xl shadow-2xl transition-all"
             >
               <ScanFace size={26} /> Quét mặt để bắt đầu
             </button>
-            <p className="text-green-400 text-sm mt-4 flex items-center justify-center gap-1.5">
+            <p className="text-blue-400 text-sm mt-4 flex items-center justify-center gap-1.5">
               {modelsReady
-                ? <><CheckCircle2 size={14} className="text-green-400" /> AI sẵn sàng — {employees.filter((e) => e.descriptors.length > 0).length} nhân viên đã đăng ký</>
+                ? <><CheckCircle2 size={14} className="text-blue-400" /> AI sẵn sàng — {employees.filter((e) => e.descriptors.length > 0).length} nhân viên đã đăng ký</>
                 : "Đang tải AI nhận diện..."}
             </p>
           </div>
@@ -397,7 +397,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
         {/* LOADING */}
         {phase === "loading" && (
           <div className="text-center">
-            <Cpu size={72} strokeWidth={1} className="text-green-300 animate-pulse mx-auto mb-6" />
+            <Cpu size={72} strokeWidth={1} className="text-blue-300 animate-pulse mx-auto mb-6" />
             <p className="text-white text-xl font-semibold">Đang tải AI nhận diện...</p>
           </div>
         )}
@@ -409,7 +409,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
               <p className={`font-medium text-base transition-colors duration-300 ${
                 phase === "head_turn" ? "text-orange-300" :
                 matchCount > 0 ? "text-yellow-300" :
-                faceDetected ? "text-green-300" : "text-white/80"
+                faceDetected ? "text-blue-300" : "text-white/80"
               }`}>
                 {phase === "head_turn" ? "Xác thực chống gian lận"
                   : faceDetected ? (matchCount > 0 ? `Đang xác nhận... (${matchCount}/2)` : "Đang xác nhận danh tính...")
@@ -461,29 +461,29 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
             {/* Header kiosk nhỏ */}
             <div className="flex items-center justify-between mb-4 px-2">
               <div>
-                <p className="text-green-300 text-xs uppercase tracking-widest">Đơn xin nghỉ phép</p>
+                <p className="text-blue-300 text-xs uppercase tracking-widest">Đơn xin nghỉ phép</p>
                 <p className="text-white font-bold text-lg">{company.name}</p>
               </div>
               <div className="text-right">
                 <div className="text-white text-xl font-mono">{timeStr}</div>
-                <div className="text-green-300 text-xs">{dateStr}</div>
+                <div className="text-blue-300 text-xs">{dateStr}</div>
               </div>
             </div>
 
             {/* Tờ giấy trắng */}
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
               {/* Tiêu đề */}
-              <div className="bg-green-700 px-8 py-5 text-center">
+              <div className="bg-blue-700 px-8 py-5 text-center">
                 <h2 className="text-white font-bold text-xl tracking-widest">ĐƠN XIN NGHỈ PHÉP</h2>
-                <p className="text-green-200 text-sm mt-1">Vui lòng điền đầy đủ và trung thực</p>
+                <p className="text-blue-200 text-sm mt-1">Vui lòng điền đầy đủ và trung thực</p>
               </div>
 
               {/* Thông tin nhân viên */}
-              <div className="bg-green-50 border-b border-green-100 px-8 py-4 flex flex-wrap gap-6 text-sm">
+              <div className="bg-blue-50 border-b border-blue-100 px-8 py-4 flex flex-wrap gap-6 text-sm">
                 <div><span className="text-gray-500">Họ tên:</span> <span className="font-bold text-gray-800">{matchedEmployee.name}</span></div>
                 <div><span className="text-gray-500">Mã NV:</span> <span className="font-semibold">{matchedEmployee.code}</span></div>
                 {leaveType === "annual" && (
-                  <div><span className="text-gray-500">Phép còn lại:</span> <span className="font-bold text-green-700">{matchedEmployee.annualLeaveBalance} ngày</span></div>
+                  <div><span className="text-gray-500">Phép còn lại:</span> <span className="font-bold text-blue-700">{matchedEmployee.annualLeaveBalance} ngày</span></div>
                 )}
               </div>
 
@@ -494,14 +494,14 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Từ ngày</label>
                     <input type="date" value={fromDate} min={todayStr()}
                       onChange={(e) => { setFromDate(e.target.value); if (e.target.value > toDate) setToDate(e.target.value); }}
-                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-base focus:border-green-500 focus:outline-none"
+                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-base focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Đến ngày</label>
                     <input type="date" value={toDate} min={fromDate}
                       onChange={(e) => setToDate(e.target.value)}
-                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-base focus:border-green-500 focus:outline-none"
+                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-base focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -509,13 +509,13 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   <div className="flex-1">
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Loại nghỉ</label>
                     <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
-                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-base focus:border-green-500 focus:outline-none"
+                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg text-base focus:border-blue-500 focus:outline-none"
                     >
                       {LEAVE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
                   <div className="text-center pt-5">
-                    <div className="text-3xl font-bold text-green-700">{days}</div>
+                    <div className="text-3xl font-bold text-blue-700">{days}</div>
                     <div className="text-xs text-gray-500">ngày</div>
                   </div>
                 </div>
@@ -527,7 +527,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   </label>
                   <textarea rows={3} value={q1} onChange={(e) => setQ1(e.target.value)}
                     placeholder="Mô tả cụ thể lý do bạn cần nghỉ..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:border-green-500 focus:outline-none resize-none leading-relaxed"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:border-blue-500 focus:outline-none resize-none leading-relaxed"
                   />
                   <p className="text-xs text-gray-400 mt-1 text-right">{q1.length} ký tự (tối thiểu 10)</p>
                 </div>
@@ -539,7 +539,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   </label>
                   <textarea rows={2} value={q2} onChange={(e) => setQ2(e.target.value)}
                     placeholder="VD: Anh/chị Nguyễn Văn A sẽ thay thế, hoặc công việc sẽ tạm hoãn..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:border-green-500 focus:outline-none resize-none leading-relaxed"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:border-blue-500 focus:outline-none resize-none leading-relaxed"
                   />
                 </div>
 
@@ -552,7 +552,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                     {(["yes", "no"] as const).map((v) => (
                       <button key={v} onClick={() => setQ3(v)}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                          q3 === v ? (v === "yes" ? "bg-green-600 border-green-600 text-white" : "bg-red-500 border-red-500 text-white")
+                          q3 === v ? (v === "yes" ? "bg-blue-600 border-blue-600 text-white" : "bg-red-500 border-red-500 text-white")
                           : "border-gray-200 text-gray-600 hover:border-gray-300"
                         }`}
                       >
@@ -563,7 +563,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   {q3 === "yes" && (
                     <input type="tel" value={q3Phone} onChange={(e) => setQ3Phone(e.target.value)}
                       placeholder="Số điện thoại liên lạc..."
-                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-base focus:border-green-500 focus:outline-none"
+                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-base focus:border-blue-500 focus:outline-none"
                     />
                   )}
                 </div>
@@ -575,7 +575,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   </label>
                   <textarea rows={2} value={q4} onChange={(e) => setQ4(e.target.value)}
                     placeholder="Để trống nếu không có..."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:border-green-500 focus:outline-none resize-none leading-relaxed"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:border-blue-500 focus:outline-none resize-none leading-relaxed"
                   />
                 </div>
 
@@ -591,7 +591,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                     Hủy
                   </button>
                   <button onClick={handleSubmit}
-                    className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-base transition-colors"
+                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-base transition-colors"
                   >
                     Gửi đơn xin nghỉ
                   </button>
@@ -604,7 +604,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
         {/* SUBMITTING */}
         {phase === "submitting" && (
           <div className="text-center">
-            <ScanFace size={80} strokeWidth={1} className="text-green-300 animate-pulse mx-auto mb-6" />
+            <ScanFace size={80} strokeWidth={1} className="text-blue-300 animate-pulse mx-auto mb-6" />
             <p className="text-white text-xl font-semibold">Đang gửi đơn...</p>
           </div>
         )}
@@ -612,14 +612,14 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
         {/* SUCCESS */}
         {phase === "success" && matchedEmployee && (
           <div className="w-full max-w-sm bg-white/10 backdrop-blur rounded-3xl p-8 text-center border border-white/20">
-            <CheckCircle2 size={72} strokeWidth={1} className="text-green-400 mx-auto mb-4" />
+            <CheckCircle2 size={72} strokeWidth={1} className="text-blue-400 mx-auto mb-4" />
             <h2 className="text-white text-2xl font-bold mb-2">{matchedEmployee.name}</h2>
-            <p className="text-green-200 text-lg mb-1">Đơn đã được gửi thành công!</p>
-            <p className="text-green-300 text-sm mb-4">
+            <p className="text-blue-200 text-lg mb-1">Đơn đã được gửi thành công!</p>
+            <p className="text-blue-300 text-sm mb-4">
               Nghỉ từ {fromDate} → {toDate} ({days} ngày)
             </p>
             <p className="text-white/50 text-sm">Quản lý sẽ xem xét và thông báo cho bạn.</p>
-            <p className="text-green-400 text-xs mt-6">Tự động đóng sau 10 giây...</p>
+            <p className="text-blue-400 text-xs mt-6">Tự động đóng sau 10 giây...</p>
           </div>
         )}
 
@@ -629,14 +629,14 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
             <AlertTriangle size={72} strokeWidth={1} className="text-red-400/80 mx-auto mb-4" />
             <h2 className="text-white text-xl font-bold mb-2">Có lỗi xảy ra</h2>
             <p className="text-red-300 mb-6 text-sm font-mono break-words max-w-xs">{errorMsg}</p>
-            <button onClick={resetToWelcome} className="px-8 py-3 bg-green-600 text-white rounded-xl font-medium">Thử lại</button>
+            <button onClick={resetToWelcome} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-medium">Thử lại</button>
           </div>
         )}
       </div>
 
       {!isVideoPhase && phase !== "form" && (
         <div className="text-center pb-4">
-          <a href="/login" className="text-green-600/40 hover:text-green-400 text-xs transition-colors">Đăng nhập quản lý</a>
+          <a href="/login" className="text-blue-600/40 hover:text-blue-400 text-xs transition-colors">Đăng nhập quản lý</a>
         </div>
       )}
     </div>
