@@ -13,7 +13,7 @@ export async function PATCH(
     const companyId = (session?.user as { companyId?: string })?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, joinDate, dateOfBirth } =
+    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, joinDate, dateOfBirth, phone, cccd } =
       await req.json();
 
     const data: Record<string, unknown> = {
@@ -27,6 +27,8 @@ export async function PATCH(
       baseSalary: baseSalary !== undefined ? Number(baseSalary) : 0,
       joinDate: joinDate ? new Date(joinDate) : null,
       dateOfBirth: dateOfBirth || null,
+      phone: phone || null,
+      cccd: cccd || null,
     };
 
     if (pin && /^\d{4}$/.test(pin)) {

@@ -13,6 +13,7 @@ interface EmployeeData {
   department: string;
   position: string;
   dateOfBirth: string;
+  phone: string;
   annualLeaveBalance: number;
   descriptors: number[][];
 }
@@ -70,7 +71,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const [leaveType, setLeaveType] = useState<string>("annual");
   const [q1, setQ1] = useState("");
   const [handoverEmployeeId, setHandoverEmployeeId] = useState<string>("");
-  const [q3, setQ3] = useState<"yes" | "no">("yes");
+  const [q3UseDefault, setQ3UseDefault] = useState(true); // true = dùng SĐT đã đăng ký, false = nhập số mới
   const [q3Phone, setQ3Phone] = useState("");
   const [q4, setQ4] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -111,7 +112,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
     headTurnBaselineRef.current = null;
     setFromDate(todayStr()); setToDate(todayStr());
     setLeaveType("annual");
-    setQ1(""); setHandoverEmployeeId(""); setQ3("yes"); setQ3Phone(""); setQ4("");
+    setQ1(""); setHandoverEmployeeId(""); setQ3UseDefault(true); setQ3Phone(""); setQ4("");
     setCreatedRequestId(""); setHandoverEmpName(""); setCopied(false);
   }, [stopCamera]);
 
@@ -267,7 +268,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
     const reason = [
       `[Lý do] ${q1.trim()}`,
       handoverEmp ? `[Bàn giao] Bàn giao cho ${handoverEmp.name} (${handoverEmp.code})` : "",
-      `[Liên lạc] ${q3 === "yes" ? `Có - ${q3Phone || "chưa cung cấp SĐT"}` : "Không"}`,
+      `[Liên lạc] ${q3UseDefault ? (matchedEmployee?.phone || "SĐT đã đăng ký") : (q3Phone || "chưa cung cấp SĐT")}`,
       q4.trim() ? `[Ghi thêm] ${q4.trim()}` : "",
     ].filter(Boolean).join("\n");
 
@@ -453,6 +454,10 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                         <span className="text-gray-500 w-24 shrink-0">Mã nhân viên:</span>
                         <span className="font-semibold font-mono">{matchedEmployee.code}</span>
                       </div>
+                      <div className="flex px-3 py-2 gap-2">
+                        <span className="text-gray-500 w-24 shrink-0">Điện thoại:</span>
+                        <span className="font-semibold">{matchedEmployee.phone || "—"}</span>
+                      </div>
                     </div>
                     <div className="divide-y divide-gray-200">
                       <div className="flex px-3 py-2 gap-2">
@@ -538,22 +543,27 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                 {/* 3. Liên lạc */}
                 <div className="mb-4">
                   <label className="block text-sm font-bold text-gray-800 mb-2">
-                    3. Có thể liên lạc qua điện thoại trong thời gian nghỉ không? <span className="text-red-500">*</span>
+                    3. Liên lạc qua số điện thoại nào trong thời gian nghỉ? <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-3 mb-2">
-                    {(["yes", "no"] as const).map((v) => (
-                      <button key={v} onClick={() => setQ3(v)}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                          q3 === v ? (v === "yes" ? "bg-blue-600 border-blue-600 text-white" : "bg-red-500 border-red-500 text-white")
-                          : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
-                        {v === "yes" ? "✓ Có thể liên lạc" : "✗ Không liên lạc được"}
-                      </button>
-                    ))}
+                    <button onClick={() => setQ3UseDefault(true)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                        q3UseDefault ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+                      📱 SĐT đã đăng ký{matchedEmployee.phone ? `: ${matchedEmployee.phone}` : ""}
+                    </button>
+                    <button onClick={() => setQ3UseDefault(false)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                        !q3UseDefault ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+                      ✏️ Nhập số khác
+                    </button>
                   </div>
-                  {q3 === "yes" && (
+                  {!q3UseDefault && (
                     <input type="tel" value={q3Phone} onChange={(e) => setQ3Phone(e.target.value)}
-                      placeholder="Số điện thoại liên lạc..."
+                      placeholder="Nhập số điện thoại liên lạc..."
                       className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none" />
+                  )}
+                  {!matchedEmployee.phone && q3UseDefault && (
+                    <p className="text-xs text-amber-600 mt-1">Chưa có SĐT đăng ký — vui lòng nhập số khác.</p>
                   )}
                 </div>
 
@@ -565,6 +575,18 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   <textarea rows={2} value={q4} onChange={(e) => setQ4(e.target.value)}
                     placeholder="Để trống nếu không có..."
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none resize-none leading-relaxed" />
+                </div>
+
+                {/* Ký tên */}
+                <div className="flex justify-end mb-5">
+                  <div className="text-right text-sm" style={{ fontFamily: "'Times New Roman', serif" }}>
+                    <p className="text-gray-500 italic mb-1">
+                      {(() => { const d = new Date(); return `Ngày ${d.getDate()} tháng ${d.getMonth()+1} năm ${d.getFullYear()}`; })()}
+                    </p>
+                    <p className="font-bold text-gray-700 uppercase text-xs tracking-wider mb-1">Người làm đơn</p>
+                    <p className="text-gray-400 text-xs italic mb-6">(Ký và ghi rõ họ tên)</p>
+                    <p className="font-semibold text-gray-800 border-t border-gray-300 pt-1 min-w-[140px]">{matchedEmployee.name}</p>
+                  </div>
                 </div>
 
                 {errorMsg && (
