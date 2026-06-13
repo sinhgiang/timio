@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { employeeId, companyId: bodyCompanyId, type, fromDate, toDate, days, reason } = body;
+    const { employeeId, companyId: bodyCompanyId, type, fromDate, toDate, days, reason, handoverEmployeeId } = body;
 
     if (!employeeId || !type || !fromDate || !toDate || !days) {
       return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
         toDate,
         days: Number(days),
         reason: reason ?? null,
+        handoverEmployeeId: handoverEmployeeId ?? null,
         status: "pending",
       },
     });

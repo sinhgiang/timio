@@ -51,6 +51,7 @@ export default async function EmployeesPage() {
         createdAt: e.createdAt.toISOString(),
         baseSalary: e.baseSalary ?? null,
         joinDate: e.joinDate ? e.joinDate.toISOString() : null,
+        dateOfBirth: e.dateOfBirth ?? null,
       }))}
       branches={branches.map((b) => ({
         id: b.id,

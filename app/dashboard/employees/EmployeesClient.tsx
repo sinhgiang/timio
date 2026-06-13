@@ -77,6 +77,7 @@ interface Employee {
   createdAt: string;
   baseSalary: number | null;
   joinDate: string | null;
+  dateOfBirth: string | null;
 }
 
 interface Branch {
@@ -162,6 +163,7 @@ export default function EmployeesClient({
       useDefaultBonus: true,
       baseSalary: "",
       joinDate: "",
+      dateOfBirth: "",
     };
   }
 
@@ -253,6 +255,7 @@ export default function EmployeesClient({
       useDefaultBonus: ov?.useDefaultBonus !== false,
       baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
+      dateOfBirth: emp.dateOfBirth ?? "",
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -317,6 +320,7 @@ export default function EmployeesClient({
         branchId, status: form.status, shiftOverride, companyId,
         baseSalary: form.baseSalary ? Number(form.baseSalary) : 0,
         joinDate: form.joinDate || null,
+        dateOfBirth: form.dateOfBirth || null,
       }),
     });
 
@@ -420,6 +424,15 @@ export default function EmployeesClient({
                         type="date"
                         value={form.joinDate}
                         onChange={(e) => setForm({ ...form, joinDate: e.target.value })}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày tháng năm sinh</label>
+                      <input
+                        type="date"
+                        value={form.dateOfBirth}
+                        onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>

@@ -11,17 +11,18 @@ export default async function LeaveKioskPage({ params }: { params: { slug: strin
 
   const employees = await prisma.employee.findMany({
     where: { companyId: company.id, status: "active" },
-    select: { id: true, name: true, code: true, faceDescriptors: true, annualLeaveBalance: true },
+    select: { id: true, name: true, code: true, department: true, position: true, dateOfBirth: true, faceDescriptors: true, annualLeaveBalance: true },
   });
 
   const faceData = employees.map((e) => ({
     id: e.id,
     name: e.name,
     code: e.code,
+    department: e.department ?? "",
+    position: e.position ?? "",
+    dateOfBirth: e.dateOfBirth ?? "",
     annualLeaveBalance: e.annualLeaveBalance,
-    descriptors: e.faceDescriptors
-      ? (JSON.parse(e.faceDescriptors) as number[][])
-      : [],
+    descriptors: e.faceDescriptors ? (JSON.parse(e.faceDescriptors) as number[][]) : [],
   }));
 
   return <LeaveRequestKiosk company={company} employees={faceData} />;
