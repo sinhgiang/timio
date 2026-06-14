@@ -39,7 +39,7 @@ interface RewardRule {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; signatureUrl?: string | null; stampUrl?: string | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
 }
@@ -67,6 +67,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
   const [loading, setLoading] = useState(false);
   const [telegramToken, setTelegramToken] = useState(company.telegramBotToken ?? "");
+  const [accountingChatId, setAccountingChatId] = useState(company.accountingChatId ?? "");
   const [telegramSaving, setTelegramSaving] = useState(false);
   const [telegramMsg, setTelegramMsg] = useState("");
   const [testChatId, setTestChatId] = useState("");
@@ -371,10 +372,10 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     await fetch("/api/company/telegram", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ telegramBotToken: telegramToken }),
+      body: JSON.stringify({ telegramBotToken: telegramToken, accountingChatId }),
     });
     setTelegramSaving(false);
-    setTelegramMsg("Đã lưu Bot Token!");
+    setTelegramMsg("Đã lưu!");
     router.refresh();
   };
 
@@ -862,7 +863,30 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
               >Gửi thử</button>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Nhập Chat ID của nhóm muốn nhận thông báo. Thêm bot vào nhóm trước.</p>
+            <p className="text-xs text-gray-400 mt-1">Nhập Chat ID của nhóm muốn nhận thông báo chấm công trễ. Thêm bot vào nhóm trước.</p>
+          </div>
+
+          {/* Chat ID kế toán */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-1.5">
+              💰 Chat ID kế toán
+              <span className="text-xs text-gray-400 font-normal">(nhận thông báo khi duyệt nghỉ phép)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={accountingChatId}
+                onChange={(e) => setAccountingChatId(e.target.value)}
+                placeholder="-1001234567890 (ID nhóm kế toán)"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <button
+                onClick={saveTelegramToken}
+                disabled={telegramSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >Lưu</button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Khi admin duyệt nghỉ phép, bot sẽ tự động gửi thông báo vào nhóm này.</p>
           </div>
 
           {telegramMsg && (

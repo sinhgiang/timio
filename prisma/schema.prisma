@@ -17,6 +17,7 @@ model Company {
   kioskMessages   String? // JSON: { welcome, checkinOntime, checkinLate, checkout }
   customOptions   String? // JSON: { departments: string[], positions: string[] }
   telegramBotToken String? // Telegram bot token for notifications
+  accountingChatId String? // Telegram chat ID cho kế toán (nhận thông báo duyệt nghỉ phép)
   overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty

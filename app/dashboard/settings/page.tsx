@@ -26,6 +26,7 @@ export default async function SettingsPage() {
         name: company?.name ?? "",
         slug: company?.slug ?? "",
         telegramBotToken: company?.telegramBotToken ?? "",
+        accountingChatId: company?.accountingChatId ?? null,
         signatureUrl: company?.signatureUrl ?? null,
         stampUrl: company?.stampUrl ?? null,
       }}

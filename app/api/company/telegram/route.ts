@@ -9,10 +9,13 @@ export async function POST(req: NextRequest) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { telegramBotToken } = await req.json();
+  const { telegramBotToken, accountingChatId } = await req.json();
   await prisma.company.update({
     where: { id: companyId },
-    data: { telegramBotToken: telegramBotToken || null },
+    data: {
+      telegramBotToken: telegramBotToken || null,
+      ...(accountingChatId !== undefined && { accountingChatId: accountingChatId || null }),
+    },
   });
   return NextResponse.json({ ok: true });
 }
