@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTodayString, formatTime, formatCurrency } from "@/lib/utils";
 import { getStatusColor, getStatusLabel } from "@/lib/attendance";
-import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, type LucideIcon } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, type LucideIcon } from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -12,7 +12,7 @@ export default async function DashboardPage() {
 
   const today = getTodayString();
 
-  const [totalEmployees, todayLogs, company] = await Promise.all([
+  const [totalEmployees, todayLogs, company, onLeaveToday] = await Promise.all([
     prisma.employee.count({ where: { companyId, status: "active" } }),
     prisma.attendanceLog.findMany({
       where: { employee: { companyId }, date: today },
@@ -22,6 +22,15 @@ export default async function DashboardPage() {
     prisma.company.findUnique({
       where: { id: companyId },
       include: { branches: { take: 1 } },
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        companyId,
+        status: "approved",
+        fromDate: { lte: today },
+        toDate: { gte: today },
+      },
+      include: { employee: { select: { name: true, department: true, code: true } } },
     }),
   ]);
 
@@ -56,12 +65,30 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard label="Tổng nhân viên" value={totalEmployees} Icon={Users} color="blue" />
         <StatCard label="Đúng giờ" value={onTime} Icon={CheckCircle2} color="green" />
         <StatCard label="Đi trễ" value={late} Icon={AlertTriangle} color="yellow" />
         <StatCard label="Chưa vào" value={notCheckedIn} Icon={UserX} color="gray" />
+        <StatCard label="Nghỉ phép hôm nay" value={onLeaveToday.length} Icon={CalendarOff} color="purple" />
       </div>
+
+      {/* Nhân viên đang nghỉ */}
+      {onLeaveToday.length > 0 && (
+        <div className="bg-purple-50 border border-purple-100 rounded-xl px-5 py-4 mb-6">
+          <p className="text-sm font-semibold text-purple-700 mb-2">Đang nghỉ phép hôm nay ({onLeaveToday.length} người)</p>
+          <div className="flex flex-wrap gap-2">
+            {onLeaveToday.map((lr) => (
+              <span key={lr.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-purple-200 rounded-full text-xs text-purple-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block"></span>
+                {lr.employee.name}
+                {lr.employee.department && <span className="text-purple-400">· {lr.employee.department}</span>}
+                <span className="text-purple-400">đến {lr.toDate.split("-").reverse().slice(0,2).join("/")}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Log table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -132,12 +159,14 @@ function StatCard({ label, value, Icon, color }: {
     green: "bg-green-50 border-green-100",
     yellow: "bg-yellow-50 border-yellow-100",
     gray: "bg-gray-50 border-gray-100",
+    purple: "bg-purple-50 border-purple-100",
   };
   const iconColors: Record<string, string> = {
     blue: "text-blue-500",
     green: "text-green-500",
     yellow: "text-yellow-500",
     gray: "text-gray-400",
+    purple: "text-purple-500",
   };
 
   return (

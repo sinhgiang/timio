@@ -16,7 +16,8 @@ export default async function ReportsPage({
   const year = Number(searchParams.year ?? now.getFullYear());
   const month = Number(searchParams.month ?? now.getMonth() + 1);
 
-  const [employees, logs] = await Promise.all([
+  const monthPad = String(month).padStart(2, "0");
+  const [employees, logs, leaveRequests] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId, status: "active" },
       include: { branch: true },
@@ -25,12 +26,18 @@ export default async function ReportsPage({
     prisma.attendanceLog.findMany({
       where: {
         employee: { companyId },
-        date: {
-          gte: `${year}-${String(month).padStart(2, "0")}-01`,
-          lte: `${year}-${String(month).padStart(2, "0")}-31`,
-        },
+        date: { gte: `${year}-${monthPad}-01`, lte: `${year}-${monthPad}-31` },
       },
       orderBy: { date: "asc" },
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        companyId,
+        status: "approved",
+        fromDate: { lte: `${year}-${monthPad}-31` },
+        toDate: { gte: `${year}-${monthPad}-01` },
+      },
+      select: { employeeId: true, type: true, fromDate: true, toDate: true, days: true },
     }),
   ]);
 
@@ -45,6 +52,7 @@ export default async function ReportsPage({
 
   return (
     <ReportsClient
+      leaveRequests={leaveRequests}
       employees={employees.map((e) => ({
         id: e.id,
         name: e.name,

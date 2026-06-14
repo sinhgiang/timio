@@ -42,15 +42,39 @@ interface Summary {
   totalOvertimeAmount: number;
 }
 
+interface LeaveRecord {
+  employeeId: string;
+  type: string;
+  fromDate: string;
+  toDate: string;
+  days: number;
+}
+
 interface Props {
   employees: Employee[];
   logs: Log[];
   summaries: Summary[];
+  leaveRequests: LeaveRecord[];
   year: number;
   month: number;
 }
 
-export default function ReportsClient({ employees, logs, summaries, year, month }: Props) {
+function calcUnpaidLeaveDays(leaves: LeaveRecord[], employeeId: string, year: number, month: number): number {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const mStart = `${year}-${pad(month)}-01`;
+  const mEnd = `${year}-${pad(month)}-31`;
+  return leaves
+    .filter((l) => l.employeeId === employeeId && l.type === "unpaid")
+    .reduce((sum, l) => {
+      const from = l.fromDate < mStart ? mStart : l.fromDate;
+      const to = l.toDate > mEnd ? mEnd : l.toDate;
+      if (to < from) return sum;
+      const ms = new Date(to).getTime() - new Date(from).getTime();
+      return sum + Math.round(ms / 86400000) + 1;
+    }, 0);
+}
+
+export default function ReportsClient({ employees, logs, summaries, leaveRequests, year, month }: Props) {
   const router = useRouter();
   const [view, setView] = useState<"summary" | "detail">("summary");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
@@ -131,7 +155,9 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
     const totalPenalty = s?.totalPenalty ?? 0;
     const totalReward = s?.totalReward ?? 0;
     const totalOTAmount = s?.totalOvertimeAmount ?? 0;
-    const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount;
+    const unpaidDays = calcUnpaidLeaveDays(leaveRequests, emp.id, year, month);
+    const unpaidDeduction = emp.baseSalary > 0 ? Math.round((emp.baseSalary / 26) * unpaidDays) : 0;
+    const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount - unpaidDeduction;
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -255,6 +281,11 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
               {totalPenalty > 0 && (
                 <span className="text-red-500">
                   − Phạt: <span className="font-semibold">{formatCurrency(totalPenalty)}</span>
+                </span>
+              )}
+              {unpaidDeduction > 0 && (
+                <span className="text-orange-600" title={`Nghỉ không lương ${unpaidDays} ngày`}>
+                  − Nghỉ KL ({unpaidDays}n): <span className="font-semibold">{formatCurrency(unpaidDeduction)}</span>
                 </span>
               )}
               {totalReward > 0 && (
@@ -381,6 +412,7 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Vắng</th>
                 <th className="text-right px-4 py-3 text-blue-500 font-medium">Lương CB</th>
                 <th className="text-right px-4 py-3 text-red-400 font-medium">Phạt</th>
+                <th className="text-right px-4 py-3 text-orange-500 font-medium">Nghỉ KL</th>
                 <th className="text-right px-4 py-3 text-green-500 font-medium">Thưởng</th>
                 <th className="text-right px-4 py-3 text-blue-400 font-medium">Tăng ca</th>
                 <th className="text-right px-5 py-3 text-gray-700 font-semibold">Thực nhận</th>
@@ -392,7 +424,9 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                 const totalPenalty = s?.totalPenalty ?? 0;
                 const totalReward = s?.totalReward ?? 0;
                 const totalOTAmount = s?.totalOvertimeAmount ?? 0;
-                const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount;
+                const unpaidDaysSummary = calcUnpaidLeaveDays(leaveRequests, emp.id, year, month);
+                const unpaidDeductionSummary = emp.baseSalary > 0 ? Math.round((emp.baseSalary / 26) * unpaidDaysSummary) : 0;
+                const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount - unpaidDeductionSummary;
                 return (
                   <tr
                     key={emp.id}
@@ -421,6 +455,9 @@ export default function ReportsClient({ employees, logs, summaries, year, month 
                       {emp.baseSalary > 0 ? formatCurrency(emp.baseSalary) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-red-500">{totalPenalty ? `−${formatCurrency(totalPenalty)}` : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 text-right text-orange-600" title={unpaidDaysSummary > 0 ? `${unpaidDaysSummary} ngày nghỉ không lương` : ""}>
+                      {unpaidDeductionSummary > 0 ? `−${formatCurrency(unpaidDeductionSummary)}` : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-right text-green-600">{totalReward ? `+${formatCurrency(totalReward)}` : <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-right text-blue-600">{totalOTAmount ? `+${formatCurrency(totalOTAmount)}` : <span className="text-gray-300">—</span>}</td>
                     <td className="px-5 py-3 text-right">

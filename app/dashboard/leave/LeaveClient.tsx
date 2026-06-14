@@ -86,6 +86,16 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
   };
   const filtered = filter === "all" ? requests : requests.filter((r) => r.status === filter);
 
+  // Lịch tháng — approved leaves overlapping current month
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  const thisMonth = now.getMonth() + 1;
+  const monthStart = `${thisYear}-${String(thisMonth).padStart(2, "0")}-01`;
+  const monthEnd = `${thisYear}-${String(thisMonth).padStart(2, "0")}-31`;
+  const thisMonthLeaves = requests.filter(
+    (r) => r.status === "approved" && r.fromDate <= monthEnd && r.toDate >= monthStart
+  ).sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+
   const leaveKioskUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/leave/${company.slug}`
@@ -145,7 +155,7 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {(["pending", "approved", "rejected", "all"] as const).map((s) => (
           <button key={s} onClick={() => setFilter(s)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -159,7 +169,81 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
             )}
           </button>
         ))}
+        <button
+          onClick={() => setFilter("month" as LeaveStatus)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ml-auto ${
+            filter === ("month" as LeaveStatus) ? "bg-purple-600 text-white" : "bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100"
+          }`}
+        >
+          📅 Lịch tháng {thisMonth}/{thisYear}
+          {thisMonthLeaves.length > 0 && (
+            <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${filter === ("month" as LeaveStatus) ? "bg-white/20" : "bg-purple-100"}`}>
+              {thisMonthLeaves.length}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* Lịch tháng view */}
+      {filter === ("month" as LeaveStatus) && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-gray-800">Nghỉ phép tháng {thisMonth}/{thisYear}</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Danh sách nhân viên đã được duyệt nghỉ trong tháng này</p>
+            </div>
+            {thisMonthLeaves.length === 0 && <span className="text-sm text-gray-400">Không có ai nghỉ</span>}
+          </div>
+          {thisMonthLeaves.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Loại nghỉ</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Từ ngày</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Đến ngày</th>
+                    <th className="text-center px-4 py-3 text-gray-500 font-medium">Số ngày</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Bàn giao</th>
+                    <th className="text-center px-4 py-3 text-gray-500 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {thisMonthLeaves.map((r) => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const isActive = r.fromDate <= today && r.toDate >= today;
+                    return (
+                      <tr key={r.id} className={isActive ? "bg-purple-50/50" : "hover:bg-gray-50"}>
+                        <td className="px-5 py-3">
+                          <span className="font-medium text-gray-800">{r.employee.name}</span>
+                          {r.employee.department && <span className="ml-2 text-xs text-gray-400">{r.employee.department}</span>}
+                          {isActive && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Đang nghỉ</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{TYPE_LABELS[r.type]}</span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm text-gray-700">{fmtDate(r.fromDate)}</td>
+                        <td className="px-4 py-3 font-mono text-sm text-gray-700">{fmtDate(r.toDate)}</td>
+                        <td className="px-4 py-3 text-center font-bold text-gray-800">{r.days}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {r.handoverEmployeeName ? (
+                            <span className={r.handoverConfirmedAt ? "text-green-600" : "text-amber-600"}>
+                              {r.handoverConfirmedAt ? "✓ " : "⏳ "}{r.handoverEmployeeName.split(" (")[0]}
+                            </span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button onClick={() => openView(r)} className="text-xs text-blue-600 hover:underline">In phiếu</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* List */}
       {filtered.length === 0 ? (
