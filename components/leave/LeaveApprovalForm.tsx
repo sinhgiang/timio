@@ -128,18 +128,28 @@ export default function LeaveApprovalForm({
     <>
       <style>{`
         @media print {
-          body > *:not(#leave-print-root) { display: none !important; }
-          #leave-print-root { position: fixed; inset: 0; z-index: 9999; background: white; overflow: visible; }
+          @page { size: A4 portrait; margin: 1.5cm; }
+          body * { visibility: hidden; }
+          #leave-print-root { visibility: visible; position: absolute; top: 0; left: 0; width: 100%; background: white; }
+          #leave-print-root * { visibility: visible; }
           #leave-print-bar { display: none !important; }
-          .leave-a4 { box-shadow: none !important; border-radius: 0 !important; }
-          @page { size: A4; margin: 1.5cm; }
+          #leave-print-bar * { visibility: hidden !important; }
+          .leave-a4 {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            border: none !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            padding-bottom: 0 !important;
+          }
+          .leave-scroll-area { padding: 0 !important; overflow: visible !important; }
         }
       `}</style>
 
       <div id="leave-print-root" className="fixed inset-0 z-50 bg-black/60 flex flex-col">
 
         {/* Scrollable area */}
-        <div className="flex-1 overflow-y-auto py-6 px-4 pb-44">
+        <div className="leave-scroll-area flex-1 overflow-y-auto py-6 px-4 pb-44">
           <div
             className="leave-a4 bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto"
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
