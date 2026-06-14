@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
   const daysInMonth = new Date(year, month, 0).getDate();
   const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
-  const [employees, logs] = await Promise.all([
+  const [employees, logs, leaveRequests] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId, status: "active", ...(employeeId ? { id: employeeId } : {}) },
       include: { branch: true },
@@ -229,7 +229,32 @@ export async function GET(req: NextRequest) {
         ...(employeeId ? { employeeId } : {}),
       },
     }),
+    prisma.leaveRequest.findMany({
+      where: {
+        companyId,
+        status: "approved",
+        type: "unpaid",
+        fromDate: { lte: `${year}-${monthStr}-31` },
+        toDate: { gte: `${year}-${monthStr}-01` },
+        ...(employeeId ? { employeeId } : {}),
+      },
+      select: { employeeId: true, fromDate: true, toDate: true },
+    }),
   ]);
+
+  function calcUnpaidDays(empId: string): number {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const mStart = `${year}-${pad(month)}-01`;
+    const mEnd   = `${year}-${pad(month)}-31`;
+    return leaveRequests
+      .filter((l) => l.employeeId === empId)
+      .reduce((sum, l) => {
+        const from = l.fromDate < mStart ? mStart : l.fromDate;
+        const to   = l.toDate   > mEnd   ? mEnd   : l.toDate;
+        if (to < from) return sum;
+        return sum + Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1;
+      }, 0);
+  }
 
   const logMap = new Map<string, typeof logs[0]>();
   logs.forEach((l) => logMap.set(`${l.employeeId}-${l.date}`, l));
@@ -406,6 +431,10 @@ export async function GET(req: NextRequest) {
         totalPenalty += log.penaltyAmount;
       }
     }
+    const baseSalary = emp.baseSalary ?? 0;
+    const unpaidDays = calcUnpaidDays(emp.id);
+    const unpaidDeduction = baseSalary > 0 ? Math.round((baseSalary / 26) * unpaidDays) : 0;
+    const netSalary = baseSalary - totalPenalty - unpaidDeduction;
     rows.push({
       "Mã NV": emp.code,
       "Họ tên": emp.name,
@@ -416,6 +445,10 @@ export async function GET(req: NextRequest) {
       "Ngày vắng": Math.max(0, daysInMonth - daysPresent),
       "Tổng phút trễ": totalMinutesLate,
       "Tiền phạt (VND)": totalPenalty,
+      "Nghỉ KLương (ngày)": unpaidDays,
+      "Trừ KLương (VND)": unpaidDeduction,
+      "Lương CB (VND)": baseSalary,
+      "Thực nhận (VND)": netSalary,
     });
   }
 
@@ -437,28 +470,32 @@ export async function GET(req: NextRequest) {
   const ws = wb.addWorksheet(`Tháng ${month}-${year}`);
 
   ws.columns = [
-    { key: "ma",      width: 10 },
-    { key: "ten",     width: 26 },
-    { key: "phongban",width: 18 },
-    { key: "chinhanh",width: 18 },
-    { key: "dilam",   width: 12 },
-    { key: "tre",     width: 10 },
-    { key: "vang",    width: 10 },
-    { key: "phut",    width: 14 },
-    { key: "phat",    width: 18 },
+    { key: "ma",       width: 10 },
+    { key: "ten",      width: 26 },
+    { key: "phongban", width: 18 },
+    { key: "chinhanh", width: 18 },
+    { key: "dilam",    width: 10 },
+    { key: "tre",      width: 8  },
+    { key: "vang",     width: 8  },
+    { key: "phut",     width: 12 },
+    { key: "phat",     width: 18 },
+    { key: "klngay",   width: 16 },
+    { key: "kltien",   width: 18 },
+    { key: "luongcb",  width: 18 },
+    { key: "thucnhan", width: 20 },
   ];
 
   // Row 1: Tiêu đề
-  ws.mergeCells("A1:I1");
+  ws.mergeCells("A1:M1");
   const titleCell = ws.getCell("A1");
-  titleCell.value = `BÁO CÁO CHẤM CÔNG THÁNG ${month}/${year} — TẤT CẢ NHÂN VIÊN`;
+  titleCell.value = `BÁO CÁO LƯƠNG THÁNG ${month}/${year} — TẤT CẢ NHÂN VIÊN`;
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.navyBg } };
   titleCell.font = { bold: true, color: { argb: C.white }, size: 13 };
   titleCell.alignment = { horizontal: "center", vertical: "middle" };
   ws.getRow(1).height = 30;
 
   // Row 2: Thông tin
-  ws.mergeCells("A2:I2");
+  ws.mergeCells("A2:M2");
   const infoCell = ws.getCell("A2");
   infoCell.value = `Tháng ${month}/${year}   |   Tổng: ${employees.length} nhân viên   |   Xuất bởi Timio`;
   infoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.blueLight } };
@@ -467,12 +504,18 @@ export async function GET(req: NextRequest) {
   ws.getRow(2).height = 18;
 
   // Row 3: Headers
-  const colHeaders = ["Mã NV", "Họ tên", "Phòng ban", "Chi nhánh", "Đi làm", "Trễ", "Vắng", "Phút trễ", "Tiền phạt (VND)"];
+  const colHeaders = [
+    "Mã NV", "Họ tên", "Phòng ban", "Chi nhánh",
+    "Đi làm", "Trễ", "Vắng", "Phút trễ",
+    "Tiền phạt (VND)", "Nghỉ KLương (ngày)", "Trừ KLương (VND)",
+    "Lương CB (VND)", "Thực nhận (VND)",
+  ];
   const headerRow = ws.getRow(3);
   colHeaders.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
     cell.value = h;
-    applyHeaderStyle(cell);
+    // Highlight lương thực nhận
+    applyHeaderStyle(cell, i === 12 ? "15803D" : C.blueBg);
   });
   headerRow.height = 22;
 
@@ -488,6 +531,10 @@ export async function GET(req: NextRequest) {
       vang:     r["Ngày vắng"],
       phut:     r["Tổng phút trễ"],
       phat:     r["Tiền phạt (VND)"],
+      klngay:   r["Nghỉ KLương (ngày)"],
+      kltien:   r["Trừ KLương (VND)"],
+      luongcb:  r["Lương CB (VND)"],
+      thucnhan: r["Thực nhận (VND)"],
     });
     row.height = 20;
 
@@ -498,17 +545,14 @@ export async function GET(req: NextRequest) {
       applyDataBorder(cell);
     });
 
-    // Cột ngày trễ — vàng nếu > 0
     const treCell = row.getCell(6);
     treCell.alignment = { horizontal: "center", vertical: "middle" };
     if ((r["Ngày trễ"] as number) > 0) treCell.font = { color: { argb: C.orange }, bold: true };
 
-    // Cột vắng — đỏ nếu > 0
     const vangCell = row.getCell(7);
     vangCell.alignment = { horizontal: "center", vertical: "middle" };
     if ((r["Ngày vắng"] as number) > 0) vangCell.font = { color: { argb: C.red }, bold: true };
 
-    // Cột phạt
     const phatCell = row.getCell(9);
     phatCell.numFmt = "#,##0";
     phatCell.alignment = { horizontal: "right", vertical: "middle" };
@@ -517,7 +561,31 @@ export async function GET(req: NextRequest) {
       phatCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.redLight } };
     }
 
-    // Cột đi làm — xanh
+    // Nghỉ KLương ngày
+    const klNgayCell = row.getCell(10);
+    klNgayCell.alignment = { horizontal: "center", vertical: "middle" };
+    if ((r["Nghỉ KLương (ngày)"] as number) > 0) klNgayCell.font = { color: { argb: "D97706" }, bold: true };
+
+    // Trừ KLương tiền
+    const klTienCell = row.getCell(11);
+    klTienCell.numFmt = "#,##0";
+    klTienCell.alignment = { horizontal: "right", vertical: "middle" };
+    if ((r["Trừ KLương (VND)"] as number) > 0) {
+      klTienCell.font = { color: { argb: "D97706" }, bold: true };
+    }
+
+    // Lương CB
+    const luongCBCell = row.getCell(12);
+    luongCBCell.numFmt = "#,##0";
+    luongCBCell.alignment = { horizontal: "right", vertical: "middle" };
+    luongCBCell.font = { color: { argb: C.navyBg } };
+
+    // Thực nhận — green bold
+    const thucNhanCell = row.getCell(13);
+    thucNhanCell.numFmt = "#,##0";
+    thucNhanCell.alignment = { horizontal: "right", vertical: "middle" };
+    thucNhanCell.font = { color: { argb: C.green }, bold: true, size: 11 };
+
     const dilamCell = row.getCell(5);
     dilamCell.alignment = { horizontal: "center", vertical: "middle" };
     if ((r["Ngày đi làm"] as number) > 0) dilamCell.font = { color: { argb: C.green }, bold: true };
