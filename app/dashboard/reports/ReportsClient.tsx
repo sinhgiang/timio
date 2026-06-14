@@ -284,8 +284,8 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 </span>
               )}
               {unpaidDeduction > 0 && (
-                <span className="text-orange-600" title={`Nghỉ không lương ${unpaidDays} ngày`}>
-                  − Nghỉ KL ({unpaidDays}n): <span className="font-semibold">{formatCurrency(unpaidDeduction)}</span>
+                <span className="text-orange-600">
+                  − Nghỉ không lương ({unpaidDays} ngày): <span className="font-semibold">{formatCurrency(unpaidDeduction)}</span>
                 </span>
               )}
               {totalReward > 0 && (
@@ -412,7 +412,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Vắng</th>
                 <th className="text-right px-4 py-3 text-blue-500 font-medium">Lương CB</th>
                 <th className="text-right px-4 py-3 text-red-400 font-medium">Phạt</th>
-                <th className="text-right px-4 py-3 text-orange-500 font-medium">Nghỉ KL</th>
+                <th className="text-right px-4 py-3 text-orange-500 font-medium" title="Nghỉ không lương — trừ vào lương tháng">Nghỉ KLương</th>
                 <th className="text-right px-4 py-3 text-green-500 font-medium">Thưởng</th>
                 <th className="text-right px-4 py-3 text-blue-400 font-medium">Tăng ca</th>
                 <th className="text-right px-5 py-3 text-gray-700 font-semibold">Thực nhận</th>
