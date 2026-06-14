@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus } from "@/lib/attendance";
+import { calculateCheckInStatus, type LateRule } from "@/lib/attendance";
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,7 +48,12 @@ export async function POST(req: NextRequest) {
       if (!log.checkInAt) continue;
 
       // Get shift for this employee (override or branch default)
-      let shiftOverrideParsed: { checkInTime?: string; gracePeriod?: number } = {};
+      let shiftOverrideParsed: {
+        checkInTime?: string;
+        gracePeriod?: number;
+        useDefaultLate?: boolean;
+        lateRules?: Array<{ minutes: number; amount: number }>;
+      } = {};
       try {
         shiftOverrideParsed = log.employee.shiftOverride ? JSON.parse(log.employee.shiftOverride) : {};
       } catch { shiftOverrideParsed = {}; }
@@ -56,11 +61,26 @@ export async function POST(req: NextRequest) {
       const checkInTime = shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
       const gracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
 
+      let effectiveLateRules: LateRule[];
+      if (shiftOverrideParsed.useDefaultLate === false) {
+        const empRules = shiftOverrideParsed.lateRules ?? [];
+        const sorted = [...empRules].sort((a, b) => a.minutes - b.minutes);
+        effectiveLateRules = sorted.map((r, i) => ({
+          fromMinutes: r.minutes,
+          toMinutes: sorted[i + 1] ? sorted[i + 1].minutes - 1 : 9999,
+          amount: r.amount,
+        }));
+      } else {
+        effectiveLateRules = penaltyRules
+          .filter((r) => r.type !== "early_leave")
+          .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+      }
+
       const { penaltyAmount } = calculateCheckInStatus(
         log.checkInAt,
         checkInTime,
         gracePeriod,
-        penaltyRules
+        effectiveLateRules
       );
 
       if (penaltyAmount !== log.penaltyAmount) {

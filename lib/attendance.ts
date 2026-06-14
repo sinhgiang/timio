@@ -1,4 +1,4 @@
-import type { PenaltyRule, RewardRule, AttendanceLog } from "@prisma/client";
+import type { RewardRule, AttendanceLog } from "@prisma/client";
 
 export type CheckInStatus = "on_time" | "late" | "very_late" | "absent";
 
@@ -9,11 +9,17 @@ export interface CheckInResult {
   message: string;
 }
 
+export interface LateRule {
+  fromMinutes: number;
+  toMinutes: number;
+  amount: number;
+}
+
 export function calculateCheckInStatus(
   checkInAt: Date,
   scheduledTime: string,
   gracePeriod: number,
-  penaltyRules: PenaltyRule[]
+  penaltyRules: LateRule[]
 ): CheckInResult {
   const [hours, minutes] = scheduledTime.split(":").map(Number);
   const scheduled = new Date(checkInAt);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus } from "@/lib/attendance";
+import { calculateCheckInStatus, type LateRule } from "@/lib/attendance";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 
@@ -107,7 +107,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Check-in — use per-employee shift override if set, otherwise use branch defaults
-    let shiftOverrideParsed: { checkInTime?: string; gracePeriod?: number } = {};
+    let shiftOverrideParsed: {
+      checkInTime?: string;
+      gracePeriod?: number;
+      useDefaultLate?: boolean;
+      lateRules?: Array<{ minutes: number; amount: number }>;
+    } = {};
     try {
       shiftOverrideParsed = employee.shiftOverride ? JSON.parse(employee.shiftOverride) : {};
     } catch { shiftOverrideParsed = {}; }
@@ -116,12 +121,28 @@ export async function POST(req: NextRequest) {
       gracePeriod: shiftOverrideParsed.gracePeriod ?? employee.branch.gracePeriod,
     };
 
+    // Resolve effective late-penalty rules: employee-custom or company-wide
+    let effectiveLateRules: LateRule[];
+    if (shiftOverrideParsed.useDefaultLate === false) {
+      const empRules = shiftOverrideParsed.lateRules ?? [];
+      const sorted = [...empRules].sort((a, b) => a.minutes - b.minutes);
+      effectiveLateRules = sorted.map((r, i) => ({
+        fromMinutes: r.minutes,
+        toMinutes: sorted[i + 1] ? sorted[i + 1].minutes - 1 : 9999,
+        amount: r.amount,
+      }));
+    } else {
+      effectiveLateRules = employee.company.penaltyRules
+        .filter((r) => r.type !== "early_leave")
+        .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+    }
+
     const { status, minutesLate, penaltyAmount, message } =
       calculateCheckInStatus(
         now,
         shift.checkInTime,
         shift.gracePeriod,
-        employee.company.penaltyRules
+        effectiveLateRules
       );
 
     await prisma.attendanceLog.create({
