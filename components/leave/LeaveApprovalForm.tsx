@@ -128,21 +128,31 @@ export default function LeaveApprovalForm({
     <>
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 1.5cm; }
+          @page { size: A4 portrait; margin: 1.8cm 1.5cm; }
           body * { visibility: hidden; }
           #leave-print-root { visibility: visible; position: absolute; top: 0; left: 0; width: 100%; background: white; }
           #leave-print-root * { visibility: visible; }
           #leave-print-bar { display: none !important; }
           #leave-print-bar * { visibility: hidden !important; }
+          .leave-scroll-area { padding: 0 !important; overflow: visible !important; }
           .leave-a4 {
             box-shadow: none !important;
             border-radius: 0 !important;
             border: none !important;
             max-width: 100% !important;
             width: 100% !important;
-            padding-bottom: 0 !important;
+            font-size: 10.5pt !important;
           }
-          .leave-scroll-area { padding: 0 !important; overflow: visible !important; }
+          .leave-a4 .print-header { padding-top: 0 !important; padding-bottom: 6px !important; }
+          .leave-a4 .print-body { padding: 10px 0 0 !important; }
+          .leave-a4 p, .leave-a4 div { line-height: 1.55 !important; margin-bottom: 2px !important; }
+          .leave-a4 h1 { font-size: 14pt !important; margin: 6px 0 2px !important; }
+          .leave-a4 .print-reason-box { min-height: 36px !important; padding: 4px 8px !important; }
+          .leave-a4 .print-sig { height: 60px !important; }
+          .leave-a4 .print-sig-section { margin-top: 12px !important; }
+          .leave-a4 .print-footer { margin-top: 8px !important; padding-top: 4px !important; }
+          .leave-a4 .print-note { padding: 4px 8px !important; margin: 4px 0 !important; }
+          .leave-a4 .print-guarantee { margin-top: 8px !important; }
         }
       `}</style>
 
@@ -155,7 +165,7 @@ export default function LeaveApprovalForm({
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             {/* ── HEADER (giống kiosk) ── */}
-            <div className="text-center pt-6 pb-3 border-b-2 border-gray-800 mx-6">
+            <div className="print-header text-center pt-6 pb-3 border-b-2 border-gray-800 mx-6">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-700">
                 Cộng hoà Xã hội Chủ nghĩa Việt Nam
               </p>
@@ -172,7 +182,7 @@ export default function LeaveApprovalForm({
             </div>
 
             {/* ── BODY ── */}
-            <div className="px-7 pt-5 pb-4 text-sm leading-7 text-gray-800">
+            <div className="print-body px-7 pt-5 pb-4 text-sm leading-7 text-gray-800">
 
               {/* Kính gửi */}
               <p className="mb-3">
@@ -222,7 +232,7 @@ export default function LeaveApprovalForm({
 
               {/* Lý do */}
               <p className="font-bold mt-3 mb-1">Lý do xin nghỉ:</p>
-              <div className="w-full px-3 py-2 border border-gray-200 bg-gray-50 text-sm leading-relaxed rounded min-h-[60px] whitespace-pre-wrap">
+              <div className="print-reason-box w-full px-3 py-2 border border-gray-200 bg-gray-50 text-sm leading-relaxed rounded min-h-[60px] whitespace-pre-wrap">
                 {parsed["Lý do"] || <span className="text-gray-400 italic">(chưa điền)</span>}
               </div>
 
@@ -268,7 +278,7 @@ export default function LeaveApprovalForm({
               )}
 
               {/* Cam kết */}
-              <p className="mt-4 text-gray-700 leading-7">
+              <p className="print-guarantee mt-4 text-gray-700 leading-7">
                 Tôi xin hứa sẽ cập nhật tình hình công việc thường xuyên trong thời gian nghỉ
                 và cam kết trở lại làm việc đúng thời hạn quy định.
               </p>
@@ -280,21 +290,21 @@ export default function LeaveApprovalForm({
 
               {/* Ghi chú admin (chỉ hiện khi đã duyệt) */}
               {mode === "approved" && request.note && (
-                <div className="mt-3 border-l-4 border-green-500 bg-green-50 pl-4 py-2 rounded-r text-xs">
+                <div className="print-note mt-3 border-l-4 border-green-500 bg-green-50 pl-4 py-2 rounded-r text-xs">
                   <p className="font-bold text-green-700 mb-0.5 uppercase tracking-wide text-[10px]">Ghi chú khi duyệt:</p>
                   <p className="text-green-700 whitespace-pre-line">{request.note}</p>
                 </div>
               )}
 
               {/* ── CHỮ KÝ — giống kiosk ── */}
-              <div className="flex justify-between items-start mt-6 mb-2">
+              <div className="print-sig-section flex justify-between items-start mt-6 mb-2">
                 {/* Trái: Người duyệt */}
                 <div className="text-center text-sm w-48">
                   <p className="font-bold text-[11px] uppercase tracking-wide text-gray-700">
                     Xác nhận của Trưởng phòng
                   </p>
                   <p className="text-[10px] italic text-gray-400">(Ký, ghi rõ họ tên)</p>
-                  <div className="h-20 border border-dashed border-gray-300 rounded mt-2 flex items-center justify-center relative overflow-hidden">
+                  <div className="print-sig h-20 border border-dashed border-gray-300 rounded mt-2 flex items-center justify-center relative overflow-hidden">
                     {mode === "approved" && company.signatureUrl ? (
                       <>
                         <img src={company.signatureUrl} alt="Chữ ký" className="max-h-16 max-w-full object-contain" style={{ mixBlendMode: "multiply" }} />
@@ -317,7 +327,7 @@ export default function LeaveApprovalForm({
                   <p className="font-bold text-[11px] uppercase tracking-wide text-gray-700">Người làm đơn</p>
                   <p className="text-[10px] italic text-gray-400 mb-1">(Ký và ghi rõ họ tên)</p>
                   <div
-                    className="relative border border-gray-300 rounded bg-blue-50/20 flex items-center justify-center"
+                    className="print-sig relative border border-gray-300 rounded bg-blue-50/20 flex items-center justify-center"
                     style={{ height: 90 }}
                   >
                     {request.employeeSignature ? (
@@ -336,7 +346,7 @@ export default function LeaveApprovalForm({
               </div>
 
               {/* Footer */}
-              <p className="text-center text-[10px] text-gray-300 mt-4 border-t border-gray-100 pt-3">
+              <p className="print-footer text-center text-[10px] text-gray-300 mt-4 border-t border-gray-100 pt-3">
                 Phiếu được tạo tự động bởi hệ thống Timio · ID: {request.id.slice(-12).toUpperCase()}
               </p>
             </div>
