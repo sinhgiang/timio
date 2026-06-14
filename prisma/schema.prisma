@@ -21,6 +21,7 @@ model Company {
   overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
+  referredBy      String? // slug của công ty đã giới thiệu mình
   createdAt   DateTime  @default(now())
 
   branches      Branch[]

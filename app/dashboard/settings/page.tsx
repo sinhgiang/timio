@@ -19,6 +19,12 @@ export default async function SettingsPage() {
     }),
   ]);
 
+  const slug = company?.slug ?? "";
+  const [referralRegistered, referralConverted] = await Promise.all([
+    slug ? prisma.company.count({ where: { referredBy: slug } }) : Promise.resolve(0),
+    slug ? prisma.company.count({ where: { referredBy: slug, plan: "pro" } }) : Promise.resolve(0),
+  ]);
+
   return (
     <SettingsClient
       company={{
@@ -33,6 +39,7 @@ export default async function SettingsPage() {
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}
       holidays={holidays}
+      referralStats={{ registered: referralRegistered, converted: referralConverted }}
     />
   );
 }

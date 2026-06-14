@@ -15,7 +15,7 @@ function toSlug(str: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const { companyName, email, password } = await req.json().catch(() => ({}));
+  const { companyName, email, password, referralCode } = await req.json().catch(() => ({}));
 
   if (!companyName || !email || !password) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
@@ -27,6 +27,13 @@ export async function POST(req: NextRequest) {
   const existingAdmin = await prisma.admin.findUnique({ where: { email } });
   if (existingAdmin) {
     return NextResponse.json({ error: "Email này đã được đăng ký" }, { status: 409 });
+  }
+
+  // Verify referral code (slug) is valid
+  let validReferredBy: string | null = null;
+  if (referralCode) {
+    const referrer = await prisma.company.findUnique({ where: { slug: referralCode }, select: { slug: true } });
+    if (referrer) validReferredBy = referrer.slug;
   }
 
   // Generate unique slug
@@ -42,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   await prisma.$transaction(async (tx) => {
     const company = await tx.company.create({
-      data: { name: companyName, slug, plan: "starter" },
+      data: { name: companyName, slug, plan: "starter", referredBy: validReferredBy },
     });
     await tx.admin.create({
       data: { companyId: company.id, email, name: companyName, password: hashedPassword, role: "admin" },

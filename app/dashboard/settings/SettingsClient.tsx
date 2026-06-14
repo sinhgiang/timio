@@ -21,6 +21,8 @@ import {
   X,
   Copy,
   Check,
+  Gift,
+  Users,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -42,6 +44,7 @@ interface Props {
   company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
+  referralStats?: { registered: number; converted: number };
 }
 
 const REWARD_CONDITIONS = [
@@ -62,7 +65,7 @@ interface HolidayProps extends Props {
   holidays: Holiday[];
 }
 
-export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays }: HolidayProps) {
+export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, referralStats }: HolidayProps & { referralStats?: { registered: number; converted: number } }) {
   const router = useRouter();
   const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
   const [loading, setLoading] = useState(false);
@@ -1003,6 +1006,78 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </button>
         </div>
       </div>
+
+      {/* Referral Section */}
+      <ReferralSection slug={company.slug} stats={referralStats} />
+    </div>
+  );
+}
+
+function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: number; converted: number } }) {
+  const [copied, setCopied] = useState(false);
+  const referralLink = typeof window !== "undefined"
+    ? `${window.location.origin}/register?ref=${slug}`
+    : `https://timio.vn/register?ref=${slug}`;
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(referralLink).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const rewardDays = (stats?.converted ?? 0) * 30;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-5 mt-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Gift size={18} className="text-green-600" />
+        <h2 className="text-base font-bold text-gray-800">Giới thiệu nhận thưởng</h2>
+      </div>
+
+      {/* Explanation */}
+      <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 mb-4 text-sm text-green-800 leading-relaxed">
+        Chia sẻ link dưới đây với bạn bè hoặc đồng nghiệp. Khi họ đăng ký và nâng cấp lên gói <strong>Pro</strong>,{" "}
+        <strong>cả hai bên đều được tặng thêm 30 ngày miễn phí</strong>.
+      </div>
+
+      {/* Referral link */}
+      <p className="text-xs text-gray-500 font-medium mb-1.5 uppercase tracking-wide">Link giới thiệu của bạn</p>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 font-mono truncate select-all">
+          {referralLink}
+        </div>
+        <button
+          onClick={copyLink}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            copied ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+          }`}
+        >
+          {copied ? <><Check size={14} /> Đã copy!</> : <><Copy size={14} /> Copy</>}
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+          <p className="text-2xl font-bold text-gray-800">{stats?.registered ?? 0}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Đã đăng ký</p>
+        </div>
+        <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+          <p className="text-2xl font-bold text-blue-700">{stats?.converted ?? 0}</p>
+          <p className="text-xs text-blue-500 mt-0.5">Mua Pro</p>
+        </div>
+        <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
+          <p className="text-2xl font-bold text-green-700">{rewardDays}</p>
+          <p className="text-xs text-green-600 mt-0.5">Ngày thưởng</p>
+        </div>
+      </div>
+
+      {stats && stats.converted > 0 && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+          <Users size={14} />
+          Bạn đã giới thiệu thành công {stats.converted} công ty — được tặng <strong className="ml-1">{rewardDays} ngày Pro</strong>!
+        </div>
+      )}
     </div>
   );
 }
