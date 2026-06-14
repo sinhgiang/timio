@@ -308,6 +308,17 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
       q4.trim() ? `[Ghi thêm] ${q4.trim()}` : "",
     ].filter(Boolean).join("\n");
 
+    // Capture signature if canvas has content
+    let employeeSignature: string | null = null;
+    if (sigCanvasRef.current) {
+      const ctx = sigCanvasRef.current.getContext("2d");
+      if (ctx) {
+        const imgData = ctx.getImageData(0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height);
+        const hasContent = imgData.data.some((v, i) => i % 4 === 3 && v > 10);
+        if (hasContent) employeeSignature = sigCanvasRef.current.toDataURL("image/png");
+      }
+    }
+
     setErrorMsg(""); setPhase("submitting");
     try {
       const res = await fetch("/api/leave-requests", {
@@ -317,6 +328,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
           employeeId: matchedEmployee.id, companyId: company.id,
           type: leaveType, fromDate, toDate, days, reason,
           handoverEmployeeId: handoverEmployeeId || null,
+          employeeSignature,
         }),
       });
       if (!res.ok) {

@@ -181,6 +181,7 @@ model LeaveRequest {
   note       String?  // ghi chú của sếp khi duyệt/từ chối
   handoverEmployeeId   String?  // người nhận việc
   handoverConfirmedAt  DateTime? // thời điểm người nhận xác nhận
+  employeeSignature    String?  // base64 PNG chữ ký nhân viên từ kiosk
   createdAt  DateTime @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)

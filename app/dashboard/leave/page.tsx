@@ -59,6 +59,7 @@ export default async function LeavePage() {
           status: r.status as "pending" | "approved" | "rejected",
           note: r.note,
           createdAt: r.createdAt.toISOString(),
+          employeeSignature: r.employeeSignature ?? null,
           handoverEmployeeId: r.handoverEmployeeId ?? null,
           handoverEmployeeName,
           handoverConfirmedAt: r.handoverConfirmedAt?.toISOString() ?? null,
