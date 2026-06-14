@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/dashboard/Sidebar";
+import MobileBottomNav from "@/components/dashboard/MobileBottomNav";
 import UpsellChecker from "@/components/dashboard/UpsellChecker";
 import CompanySetupModal from "@/components/dashboard/CompanySetupModal";
 import type { Metadata } from "next";
@@ -30,7 +31,8 @@ export default async function DashboardLayout({
     <div className="flex h-screen bg-gray-50">
       <UpsellChecker />
       <Sidebar companyName={session.user?.name ?? "Công ty"} pendingLeaveCount={pendingLeaveCount} />
-      <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
+      <main className="flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0">{children}</main>
+      <MobileBottomNav pendingLeaveCount={pendingLeaveCount} />
       <CompanySetupModal
         needsSetup={needsSetup}
         userEmail={session.user?.email ?? ""}

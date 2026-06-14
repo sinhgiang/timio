@@ -142,11 +142,11 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Quản lý Nghỉ Phép</h1>
-          <p className="text-sm text-gray-500 mt-1">Xem đơn, duyệt hoặc từ chối đơn xin nghỉ của nhân viên</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">Quản lý Nghỉ Phép</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Xem đơn, duyệt hoặc từ chối đơn xin nghỉ của nhân viên</p>
         </div>
         <a href={leaveKioskUrl} target="_blank" rel="noopener noreferrer"
           className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100">
@@ -195,52 +195,89 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
             {thisMonthLeaves.length === 0 && <span className="text-sm text-gray-400">Không có ai nghỉ</span>}
           </div>
           {thisMonthLeaves.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
-                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Loại nghỉ</th>
-                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Từ ngày</th>
-                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Đến ngày</th>
-                    <th className="text-center px-4 py-3 text-gray-500 font-medium">Số ngày</th>
-                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Bàn giao</th>
-                    <th className="text-center px-4 py-3 text-gray-500 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {thisMonthLeaves.map((r) => {
-                    const today = new Date().toISOString().slice(0, 10);
-                    const isActive = r.fromDate <= today && r.toDate >= today;
-                    return (
-                      <tr key={r.id} className={isActive ? "bg-purple-50/50" : "hover:bg-gray-50"}>
-                        <td className="px-5 py-3">
-                          <span className="font-medium text-gray-800">{r.employee.name}</span>
-                          {r.employee.department && <span className="ml-2 text-xs text-gray-400">{r.employee.department}</span>}
-                          {isActive && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Đang nghỉ</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{TYPE_LABELS[r.type]}</span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-sm text-gray-700">{fmtDate(r.fromDate)}</td>
-                        <td className="px-4 py-3 font-mono text-sm text-gray-700">{fmtDate(r.toDate)}</td>
-                        <td className="px-4 py-3 text-center font-bold text-gray-800">{r.days}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {r.handoverEmployeeName ? (
-                            <span className={r.handoverConfirmedAt ? "text-green-600" : "text-amber-600"}>
-                              {r.handoverConfirmedAt ? "✓ " : "⏳ "}{r.handoverEmployeeName.split(" (")[0]}
-                            </span>
-                          ) : <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button onClick={() => openView(r)} className="text-xs text-blue-600 hover:underline">In phiếu</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {/* Mobile: cards */}
+              <div className="md:hidden divide-y divide-gray-50">
+                {thisMonthLeaves.map((r) => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isActive = r.fromDate <= today && r.toDate >= today;
+                  return (
+                    <div key={r.id} className={`px-4 py-3 ${isActive ? "bg-purple-50/50" : ""}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-medium text-gray-800">{r.employee.name}</span>
+                            {isActive && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Đang nghỉ</span>}
+                          </div>
+                          {r.employee.department && <p className="text-xs text-gray-400 mt-0.5">{r.employee.department}</p>}
+                        </div>
+                        <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full shrink-0">{TYPE_LABELS[r.type]}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-600 font-mono">
+                        <span>{fmtDate(r.fromDate)} → {fmtDate(r.toDate)}</span>
+                        <span className="font-bold text-gray-800">{r.days} ngày</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        {r.handoverEmployeeName ? (
+                          <span className={`text-xs ${r.handoverConfirmedAt ? "text-green-600" : "text-amber-600"}`}>
+                            {r.handoverConfirmedAt ? "✓ " : "⏳ "}Bàn giao: {r.handoverEmployeeName.split(" (")[0]}
+                          </span>
+                        ) : <span />}
+                        <button onClick={() => openView(r)} className="text-xs text-blue-600 hover:underline">In phiếu</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
+                      <th className="text-left px-4 py-3 text-gray-500 font-medium">Loại nghỉ</th>
+                      <th className="text-left px-4 py-3 text-gray-500 font-medium">Từ ngày</th>
+                      <th className="text-left px-4 py-3 text-gray-500 font-medium">Đến ngày</th>
+                      <th className="text-center px-4 py-3 text-gray-500 font-medium">Số ngày</th>
+                      <th className="text-left px-4 py-3 text-gray-500 font-medium">Bàn giao</th>
+                      <th className="text-center px-4 py-3 text-gray-500 font-medium"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {thisMonthLeaves.map((r) => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      const isActive = r.fromDate <= today && r.toDate >= today;
+                      return (
+                        <tr key={r.id} className={isActive ? "bg-purple-50/50" : "hover:bg-gray-50"}>
+                          <td className="px-5 py-3">
+                            <span className="font-medium text-gray-800">{r.employee.name}</span>
+                            {r.employee.department && <span className="ml-2 text-xs text-gray-400">{r.employee.department}</span>}
+                            {isActive && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Đang nghỉ</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{TYPE_LABELS[r.type]}</span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-sm text-gray-700">{fmtDate(r.fromDate)}</td>
+                          <td className="px-4 py-3 font-mono text-sm text-gray-700">{fmtDate(r.toDate)}</td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-800">{r.days}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {r.handoverEmployeeName ? (
+                              <span className={r.handoverConfirmedAt ? "text-green-600" : "text-amber-600"}>
+                                {r.handoverConfirmedAt ? "✓ " : "⏳ "}{r.handoverEmployeeName.split(" (")[0]}
+                              </span>
+                            ) : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={() => openView(r)} className="text-xs text-blue-600 hover:underline">In phiếu</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}

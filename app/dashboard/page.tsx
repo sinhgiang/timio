@@ -46,17 +46,18 @@ export default async function DashboardPage() {
   const checkInUrl = company?.slug ? `/checkin/${company.slug}` : null;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Tổng quan hôm nay</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">Tổng quan hôm nay</h1>
           <p className="text-gray-500 text-sm capitalize mt-0.5">{todayDate}</p>
         </div>
         {checkInUrl && (
           <a
             href={checkInUrl}
             target="_blank"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             <Monitor size={15} />
             Mở màn hình chấm công
@@ -64,19 +65,28 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Mobile quick-glance bar */}
+      <div className="sm:hidden flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-3 mb-4 shadow-sm text-sm">
+        <span className="text-gray-500">Hôm nay:</span>
+        <span className="font-bold text-green-600">{onTime} đúng giờ</span>
+        {late > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-yellow-600">{late} trễ</span></>}
+        {notCheckedIn > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-gray-500">{notCheckedIn} chưa vào</span></>}
+        {onLeaveToday.length > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-purple-600">{onLeaveToday.length} nghỉ</span></>}
+      </div>
+
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Tổng nhân viên" value={totalEmployees} Icon={Users} color="blue" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-5">
+        <StatCard label="Tổng NV" value={totalEmployees} Icon={Users} color="blue" />
         <StatCard label="Đúng giờ" value={onTime} Icon={CheckCircle2} color="green" />
         <StatCard label="Đi trễ" value={late} Icon={AlertTriangle} color="yellow" />
         <StatCard label="Chưa vào" value={notCheckedIn} Icon={UserX} color="gray" />
-        <StatCard label="Nghỉ phép hôm nay" value={onLeaveToday.length} Icon={CalendarOff} color="purple" />
+        <StatCard label="Nghỉ phép" value={onLeaveToday.length} Icon={CalendarOff} color="purple" />
       </div>
 
       {/* Nhân viên đang nghỉ */}
       {onLeaveToday.length > 0 && (
-        <div className="bg-purple-50 border border-purple-100 rounded-xl px-5 py-4 mb-6">
-          <p className="text-sm font-semibold text-purple-700 mb-2">Đang nghỉ phép hôm nay ({onLeaveToday.length} người)</p>
+        <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-5">
+          <p className="text-sm font-semibold text-purple-700 mb-2">Đang nghỉ phép ({onLeaveToday.length} người)</p>
           <div className="flex flex-wrap gap-2">
             {onLeaveToday.map((lr) => (
               <span key={lr.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-purple-200 rounded-full text-xs text-purple-800">
@@ -90,58 +100,87 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Log table */}
+      {/* Attendance section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
+        <div className="px-4 md:px-5 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-700">
             Chấm công hôm nay ({checkedIn}/{totalEmployees})
           </h2>
         </div>
 
         {todayLogs.length === 0 ? (
-          <div className="flex flex-col items-center py-14 text-gray-400">
+          <div className="flex flex-col items-center py-12 text-gray-400">
             <ClipboardList size={44} strokeWidth={1.5} className="mb-3 text-gray-300" />
-            <p>Chưa có nhân viên nào chấm công hôm nay</p>
+            <p className="text-sm">Chưa có nhân viên nào chấm công hôm nay</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ vào</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ ra</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Trạng thái</th>
-                  <th className="text-right px-5 py-3 text-gray-500 font-medium">Phạt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {todayLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 font-medium text-gray-800">
-                      {log.employee.name}
+          <>
+            {/* Mobile: card list */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {todayLogs.map((log) => (
+                <div key={log.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-800 truncate">{log.employee.name}</p>
                       {log.employee.department && (
-                        <span className="ml-2 text-xs text-gray-400">{log.employee.department}</span>
+                        <p className="text-xs text-gray-400 mt-0.5">{log.employee.department}</p>
                       )}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
-                    <td className="px-5 py-3 font-mono text-gray-500">
-                      {log.checkOutAt ? formatTime(log.checkOutAt) : "—"}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                        {getStatusLabel(log.status)}
-                        {log.minutesLate > 0 && ` (${log.minutesLate}p)`}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-right text-red-600 font-medium">
-                      {log.penaltyAmount > 0 ? `-${formatCurrency(log.penaltyAmount)}` : "—"}
-                    </td>
+                    </div>
+                    <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                      {getStatusLabel(log.status)}{log.minutesLate > 0 && ` (${log.minutesLate}p)`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 font-mono">
+                    <span>↓ {formatTime(log.checkInAt)}</span>
+                    {log.checkOutAt && <span>↑ {formatTime(log.checkOutAt)}</span>}
+                    {log.penaltyAmount > 0 && (
+                      <span className="text-red-500 font-semibold not-italic">−{formatCurrency(log.penaltyAmount)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ vào</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ ra</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Trạng thái</th>
+                    <th className="text-right px-5 py-3 text-gray-500 font-medium">Phạt</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {todayLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-5 py-3 font-medium text-gray-800">
+                        {log.employee.name}
+                        {log.employee.department && (
+                          <span className="ml-2 text-xs text-gray-400">{log.employee.department}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
+                      <td className="px-5 py-3 font-mono text-gray-500">
+                        {log.checkOutAt ? formatTime(log.checkOutAt) : "—"}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                          {getStatusLabel(log.status)}
+                          {log.minutesLate > 0 && ` (${log.minutesLate}p)`}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right text-red-600 font-medium">
+                        {log.penaltyAmount > 0 ? `-${formatCurrency(log.penaltyAmount)}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
