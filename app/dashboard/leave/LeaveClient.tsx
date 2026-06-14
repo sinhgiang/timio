@@ -28,6 +28,9 @@ interface LeaveRequest {
     name: string;
     code: string;
     department: string | null;
+    position: string | null;
+    phone: string | null;
+    dateOfBirth: string | null;
     annualLeaveBalance: number;
     baseSalary: number;
     branch: { name: string };
