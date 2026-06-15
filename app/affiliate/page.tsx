@@ -1,16 +1,52 @@
 import Link from "next/link";
-import { Clock, TrendingUp, Users, DollarSign, CheckCircle, ChevronRight, Star, Zap, Shield } from "lucide-react";
+import {
+  Clock, TrendingUp, Users, CheckCircle, ChevronRight, Star,
+  Award, UserPlus, Share2, Banknote,
+  Briefcase, Megaphone, Handshake, Laptop, Building2,
+  HelpCircle,
+} from "lucide-react";
+
+/**
+ * Icon system — Airbnb DLS rules (see memory: feedback_icon_system)
+ * - Lucide stroke icons only (1.5px, round caps/joins) — no emoji in UI
+ * - Container: w-12 h-12 rounded-2xl, icon inside: w-6 h-6 (50% ratio)
+ * - Consistent container shape/size within a section
+ * - Semantic: icon represents the concept, not decoration
+ * - Color: single hue per icon; bg = category color at 50/100 opacity
+ */
 
 const TIERS = [
-  { name: "Đồng", icon: "🥉", range: "1–5 chuyển đổi", rate: 10, color: "from-orange-50 to-amber-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-700", ring: "ring-orange-300" },
-  { name: "Bạc", icon: "🥈", range: "6–20 chuyển đổi", rate: 15, color: "from-slate-50 to-gray-100", border: "border-gray-300", badge: "bg-gray-200 text-gray-700", ring: "ring-gray-400", featured: true },
-  { name: "Vàng", icon: "🥇", range: "21+ chuyển đổi", rate: 20, color: "from-yellow-50 to-amber-50", border: "border-yellow-300", badge: "bg-yellow-100 text-yellow-700", ring: "ring-yellow-400" },
+  {
+    name: "Đồng", icon: Award, range: "1–5 chuyển đổi", rate: 10,
+    color: "from-orange-50 to-amber-50", border: "border-orange-200",
+    badge: "bg-orange-100 text-orange-700", iconBg: "bg-orange-100", iconColor: "text-orange-600",
+  },
+  {
+    name: "Bạc", icon: Award, range: "6–20 chuyển đổi", rate: 15,
+    color: "from-slate-50 to-gray-100", border: "border-gray-300",
+    badge: "bg-gray-200 text-gray-700", iconBg: "bg-gray-200", iconColor: "text-gray-600",
+    featured: true, ring: "ring-gray-400",
+  },
+  {
+    name: "Vàng", icon: Award, range: "21+ chuyển đổi", rate: 20,
+    color: "from-yellow-50 to-amber-50", border: "border-yellow-300",
+    badge: "bg-yellow-100 text-yellow-700", iconBg: "bg-yellow-100", iconColor: "text-yellow-600",
+  },
 ];
 
 const STEPS = [
-  { step: "01", title: "Đăng ký miễn phí", desc: "Điền tên + email, nhận ngay link giới thiệu cá nhân của bạn.", icon: Users },
-  { step: "02", title: "Chia sẻ link", desc: "Gửi link cho bạn bè, khách hàng, đăng lên mạng xã hội hoặc blog.", icon: Zap },
-  { step: "03", title: "Nhận hoa hồng", desc: "Sau 30 ngày giữ đơn (không hoàn tiền), hoa hồng được xác nhận và thanh toán vào ngày 15 tháng đó hoặc tháng sau.", icon: DollarSign },
+  { step: "01", title: "Đăng ký miễn phí", desc: "Điền tên + email, nhận ngay link giới thiệu cá nhân của bạn.", icon: UserPlus },
+  { step: "02", title: "Chia sẻ link", desc: "Gửi link cho bạn bè, khách hàng, đăng lên mạng xã hội hoặc blog.", icon: Share2 },
+  { step: "03", title: "Nhận hoa hồng", desc: "Sau 30 ngày giữ đơn (không hoàn tiền), hoa hồng được xác nhận và thanh toán vào ngày 15 tháng đó hoặc tháng sau.", icon: Banknote },
+];
+
+const WHO = [
+  { icon: Briefcase,  iconBg: "bg-blue-50",   iconColor: "text-blue-600",   title: "Tư vấn HR & Kế toán",  desc: "Bạn đang tư vấn nhiều công ty — giới thiệu Timio, nhận thêm thu nhập." },
+  { icon: Megaphone,  iconBg: "bg-purple-50",  iconColor: "text-purple-600", title: "Influencer / Blogger",  desc: "Bạn có cộng đồng doanh nghiệp — một bài viết có thể kiếm triệu đồng." },
+  { icon: Handshake,  iconBg: "bg-green-50",   iconColor: "text-green-600",  title: "Đối tác kinh doanh",   desc: "Bạn biết nhiều công ty vừa và nhỏ đang cần giải pháp chấm công." },
+  { icon: Laptop,     iconBg: "bg-cyan-50",    iconColor: "text-cyan-600",   title: "Freelancer IT",        desc: "Khách hàng của bạn cần phần mềm quản lý — Timio là lựa chọn hoàn hảo." },
+  { icon: Building2,  iconBg: "bg-amber-50",   iconColor: "text-amber-600",  title: "Công ty dịch vụ",     desc: "Tích hợp Timio vào gói dịch vụ HR của bạn và chia sẻ hoa hồng." },
+  { icon: Users,      iconBg: "bg-rose-50",    iconColor: "text-rose-600",   title: "Người dùng Timio",    desc: "Bạn thấy Timio hữu ích? Giới thiệu cho bạn bè và nhận thưởng." },
 ];
 
 const FAQS = [
@@ -47,6 +83,7 @@ export default function AffiliatePage() {
       <section className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 text-white py-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-4 py-1.5 mb-6">
+            {/* Star fill is correct here — it's a rating/badge indicator, not a category icon */}
             <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
             <span className="text-blue-200 text-sm font-medium">Chương trình Đối tác Timio</span>
           </div>
@@ -95,10 +132,11 @@ export default function AffiliatePage() {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {STEPS.map((s) => (
-              <div key={s.step} className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm text-center relative">
-                <div className="text-xs font-bold text-blue-400 tracking-widest mb-4">{s.step}</div>
-                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <s.icon className="w-7 h-7 text-blue-600" />
+              <div key={s.step} className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm text-center">
+                <div className="text-xs font-bold text-blue-400 tracking-widest mb-5">{s.step}</div>
+                {/* Container: w-12 h-12, icon: w-6 h-6 — Airbnb 50% ratio */}
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                  <s.icon className="w-6 h-6 text-blue-600" strokeWidth={1.5} />
                 </div>
                 <h3 className="font-bold text-gray-900 text-lg mb-2">{s.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
@@ -117,14 +155,20 @@ export default function AffiliatePage() {
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {TIERS.map((t) => (
-              <div key={t.name} className={`rounded-2xl border-2 p-8 bg-gradient-to-b ${t.color} ${t.border} ${t.featured ? `ring-2 ${t.ring} shadow-xl scale-105` : ""} transition-transform`}>
+              <div
+                key={t.name}
+                className={`rounded-2xl border-2 p-8 bg-gradient-to-b ${t.color} ${t.border} ${t.featured ? `ring-2 ${t.ring} shadow-xl scale-105` : ""} transition-transform`}
+              >
                 {t.featured && (
-                  <div className="text-center mb-3">
+                  <div className="text-center mb-4">
                     <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200">PHỔ BIẾN NHẤT</span>
                   </div>
                 )}
                 <div className="text-center">
-                  <div className="text-4xl mb-2">{t.icon}</div>
+                  {/* Award icon in tier-colored container — consistent w-12 h-12 */}
+                  <div className={`w-12 h-12 ${t.iconBg} rounded-2xl flex items-center justify-center mx-auto mb-3`}>
+                    <t.icon className={`w-6 h-6 ${t.iconColor}`} strokeWidth={1.5} />
+                  </div>
                   <div className="text-xl font-extrabold text-gray-900 mb-1">Hạng {t.name}</div>
                   <div className="text-sm text-gray-500 mb-6">{t.range}</div>
                   <div className="text-5xl font-extrabold text-gray-900 mb-1">{t.rate}%</div>
@@ -139,7 +183,7 @@ export default function AffiliatePage() {
                 <ul className="mt-6 space-y-2">
                   {["Link giới thiệu cá nhân", "Dashboard theo dõi real-time", "Thanh toán ngày 15 hàng tháng"].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                      <CheckCircle className="w-4 h-4 text-green-500 shrink-0" strokeWidth={1.5} />
                       {f}
                     </li>
                   ))}
@@ -150,11 +194,13 @@ export default function AffiliatePage() {
 
           {/* Example calc */}
           <div className="mt-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white text-center">
-            <TrendingUp className="w-8 h-8 mx-auto mb-3 opacity-80" />
+            <div className="w-12 h-12 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-6 h-6 text-white" strokeWidth={1.5} />
+            </div>
             <p className="text-lg font-bold mb-2">Ví dụ thu nhập thực tế</p>
             <p className="text-blue-200 text-sm mb-4">Hạng Bạc (15%) · 10 công ty Pro + 2 công ty Business</p>
             <div className="text-2xl font-extrabold">
-              10 × 299k × 15% + 2 × 799k × 15%<br/>
+              10 × 299k × 15% + 2 × 799k × 15%<br />
               = <span className="text-yellow-300">448.500đ + 239.700đ = <strong>688.200đ / tháng</strong></span>
             </div>
           </div>
@@ -168,16 +214,12 @@ export default function AffiliatePage() {
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Ai nên tham gia?</h2>
           </div>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              { icon: "💼", title: "Tư vấn HR & Kế toán", desc: "Bạn đang tư vấn nhiều công ty — giới thiệu Timio, nhận thêm thu nhập." },
-              { icon: "📱", title: "Influencer / Blogger", desc: "Bạn có cộng đồng doanh nghiệp — một bài viết có thể kiếm triệu đồng." },
-              { icon: "🤝", title: "Đối tác kinh doanh", desc: "Bạn biết nhiều công ty vừa và nhỏ đang cần giải pháp chấm công." },
-              { icon: "💻", title: "Freelancer IT", desc: "Khách hàng của bạn cần phần mềm quản lý — Timio là lựa chọn hoàn hảo." },
-              { icon: "🏢", title: "Công ty dịch vụ", desc: "Tích hợp Timio vào gói dịch vụ HR của bạn và chia sẻ hoa hồng." },
-              { icon: "👥", title: "Người dùng Timio", desc: "Bạn thấy Timio hữu ích? Giới thiệu cho bạn bè và nhận thưởng." },
-            ].map((item) => (
+            {WHO.map((item) => (
               <div key={item.title} className="bg-white rounded-xl p-6 border border-gray-100">
-                <div className="text-3xl mb-3">{item.icon}</div>
+                {/* Container: w-10 h-10 rounded-xl, icon: w-5 h-5 — small card context */}
+                <div className={`w-10 h-10 ${item.iconBg} rounded-xl flex items-center justify-center mb-4`}>
+                  <item.icon className={`w-5 h-5 ${item.iconColor}`} strokeWidth={1.5} />
+                </div>
                 <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
                 <p className="text-gray-500 text-sm">{item.desc}</p>
               </div>
@@ -192,14 +234,15 @@ export default function AffiliatePage() {
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Câu hỏi thường gặp</h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {FAQS.map((faq) => (
               <div key={faq.q} className="border border-gray-200 rounded-xl p-6">
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-start gap-2">
-                  <Shield className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                <h3 className="font-semibold text-gray-900 mb-2 flex items-start gap-3">
+                  {/* HelpCircle is semantically correct for FAQ items */}
+                  <HelpCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" strokeWidth={1.5} />
                   {faq.q}
                 </h3>
-                <p className="text-gray-500 text-sm leading-relaxed pl-6">{faq.a}</p>
+                <p className="text-gray-500 text-sm leading-relaxed pl-7">{faq.a}</p>
               </div>
             ))}
           </div>
@@ -215,7 +258,7 @@ export default function AffiliatePage() {
             href="/affiliate/register"
             className="inline-flex items-center gap-2 bg-white text-slate-900 font-bold px-10 py-4 rounded-xl hover:bg-gray-100 transition-colors text-base shadow-lg"
           >
-            Đăng ký làm đối tác <ChevronRight className="w-5 h-5" />
+            Đăng ký làm đối tác <ChevronRight className="w-5 h-5" strokeWidth={2} />
           </Link>
           <p className="text-blue-400 text-xs mt-4">Không cần thẻ ngân hàng · Không phí ẩn</p>
         </div>
