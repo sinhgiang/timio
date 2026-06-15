@@ -847,6 +847,7 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-6 text-sm">
             <SalesNavLinks className="hover:text-white transition-colors text-sm text-slate-400" />
+            <Link href="/affiliate" className="hover:text-white transition-colors">Đối tác</Link>
             <Link href="/login" className="hover:text-white transition-colors">Đăng nhập</Link>
           </div>
           <p className="text-slate-600 text-sm">© 2026 Timio. All rights reserved.</p>
