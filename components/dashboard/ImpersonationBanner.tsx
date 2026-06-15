@@ -22,7 +22,7 @@ export default function ImpersonationBanner({ companyName, companyId }: { compan
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white px-4 py-2 flex items-center justify-between shadow-lg">
+    <div className="fixed top-0 left-0 md:left-56 right-0 z-50 bg-amber-500 text-white px-4 py-2 flex items-center justify-between shadow-lg">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <Eye className="w-4 h-4" />
         Đang xem với tư cách: <span className="font-extrabold">{companyName}</span>
