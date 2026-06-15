@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Users, Building2, Gift, TrendingUp, CreditCard, Activity, ShieldCheck } from "lucide-react";
+import AdminSystemStatus from "@/components/admin/AdminSystemStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,14 @@ export default async function AdminHomePage() {
           <p className="text-gray-500 text-sm mt-1">Nhật ký mỗi lần truy cập vào tài khoản công ty</p>
           <div className="mt-4 text-sm font-semibold text-slate-600 group-hover:text-slate-800">Xem nhật ký →</div>
         </Link>
+      </div>
+
+      {/* System status */}
+      <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <AdminSystemStatus
+          smtpConfigured={!!(process.env.SMTP_USER && process.env.SMTP_PASS)}
+          smtpUser={process.env.SMTP_USER ?? ""}
+        />
       </div>
 
       {/* Three columns */}
