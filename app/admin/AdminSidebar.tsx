@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, Gift, DollarSign, Clock, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, Building2, Gift, DollarSign, Clock, ChevronLeft, ShieldCheck } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard, exact: true },
   { href: "/admin/companies", label: "Công ty", icon: Building2, exact: false },
   { href: "/admin/referrals", label: "Affiliate & Referral", icon: Gift, exact: false },
   { href: "/admin/revenue", label: "Doanh thu", icon: DollarSign, exact: false },
+  { href: "/admin/audit", label: "Audit Log", icon: ShieldCheck, exact: false },
 ];
 
 export default function AdminSidebar() {

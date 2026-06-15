@@ -35,6 +35,11 @@ export default function CompaniesClient({ companies, summary }: Props) {
   const handleEnter = async (companyId: string, companyName: string) => {
     setEntering(companyId);
     try {
+      await fetch("/api/admin/impersonate-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, action: "enter" }),
+      });
       await update({ impersonateCompanyId: companyId });
       router.push("/dashboard");
     } catch {

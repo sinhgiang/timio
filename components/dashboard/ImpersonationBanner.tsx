@@ -5,13 +5,18 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { Eye, X, ArrowLeft } from "lucide-react";
 
-export default function ImpersonationBanner({ companyName }: { companyName: string }) {
+export default function ImpersonationBanner({ companyName, companyId }: { companyName: string; companyId: string }) {
   const { update } = useSession();
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
 
   const handleExit = async () => {
     setLeaving(true);
+    await fetch("/api/admin/impersonate-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyId, action: "exit" }),
+    });
     await update({ impersonateCompanyId: null });
     router.push("/admin/companies");
   };

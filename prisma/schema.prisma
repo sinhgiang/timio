@@ -32,7 +32,8 @@ model Company {
   admins        Admin[]
   holidays      Holiday[]
   leaveRequests LeaveRequest[]
-  payments      Payment[]
+  payments         Payment[]
+  impersonationLogs ImpersonationLog[]
 }
 
 model Admin {
@@ -213,6 +214,18 @@ model Payment {
   createdAt DateTime  @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model ImpersonationLog {
+  id         String   @id @default(cuid())
+  adminEmail String
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  action     String   // "enter" | "exit"
+  createdAt  DateTime @default(now())
+
+  @@index([companyId])
+  @@index([createdAt(sort: Desc)])
 }
 
 model Affiliate {

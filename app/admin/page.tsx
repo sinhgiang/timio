@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { Users, Building2, Gift, TrendingUp, CreditCard, Activity } from "lucide-react";
+import { Users, Building2, Gift, TrendingUp, CreditCard, Activity, ShieldCheck } from "lucide-react";
 
 const PRO_PRICE = 299000;
 
 export default async function AdminHomePage() {
-  const [totalCompanies, proCompanies, totalEmployees, totalAffiliates, recentCompanies, recentPayments] = await Promise.all([
+  const [totalCompanies, proCompanies, totalEmployees, totalAffiliates, recentCompanies, recentPayments, recentAccessLogs] = await Promise.all([
     prisma.company.count(),
     prisma.company.count({ where: { plan: "pro" } }),
     prisma.employee.count(),
@@ -19,6 +19,11 @@ export default async function AdminHomePage() {
       where: { status: "completed" },
       orderBy: { paidAt: "desc" },
       take: 10,
+      include: { company: { select: { name: true } } },
+    }),
+    prisma.impersonationLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5,
       include: { company: { select: { name: true } } },
     }),
   ]);
@@ -76,16 +81,16 @@ export default async function AdminHomePage() {
           <p className="text-gray-500 text-sm mt-1">Landing page cho đối tác mới đăng ký</p>
           <div className="mt-4 text-sm font-semibold text-green-600 group-hover:text-green-700">Xem trang →</div>
         </Link>
-        <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-6 flex items-center justify-center text-center">
-          <div>
-            <p className="text-gray-400 text-sm font-medium">Tính năng sắp ra</p>
-            <p className="text-gray-300 text-xs mt-1">Quản lý thanh toán · Audit logs</p>
-          </div>
-        </div>
+        <Link href="/admin/audit" className="group bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-md transition-shadow">
+          <ShieldCheck className="w-8 h-8 mb-3 text-slate-500" />
+          <h3 className="font-bold text-lg text-gray-900">Audit Log</h3>
+          <p className="text-gray-500 text-sm mt-1">Nhật ký mỗi lần truy cập vào tài khoản công ty</p>
+          <div className="mt-4 text-sm font-semibold text-slate-600 group-hover:text-slate-800">Xem nhật ký →</div>
+        </Link>
       </div>
 
-      {/* Two columns */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Three columns */}
+      <div className="grid md:grid-cols-3 gap-6">
         {/* Recent companies */}
         <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
@@ -113,6 +118,32 @@ export default async function AdminHomePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Recent audit */}
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="font-bold text-gray-900">Truy cập gần nhất</h2>
+            <Link href="/admin/audit" className="text-xs text-blue-600 hover:underline">Xem tất cả →</Link>
+          </div>
+          {recentAccessLogs.length === 0 ? (
+            <div className="py-10 text-center text-gray-400 text-sm">Chưa có bản ghi</div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {recentAccessLogs.map((log) => (
+                <div key={log.id} className="px-6 py-3 flex items-center gap-3">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${log.action === "enter" ? "bg-blue-50" : "bg-gray-50"}`}>
+                    {log.action === "enter" ? <Activity className="w-3.5 h-3.5 text-blue-500" /> : <Activity className="w-3.5 h-3.5 text-gray-400" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{log.company.name}</p>
+                    <p className="text-xs text-gray-400">{log.action === "enter" ? "Đi vào" : "Thoát"}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 shrink-0">{fmtDate(log.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent payments */}

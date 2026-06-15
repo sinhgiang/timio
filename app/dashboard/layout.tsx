@@ -34,7 +34,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen bg-gray-50">
       <UpsellChecker />
-      {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} />}
+      {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
       <Sidebar companyName={session.user?.name ?? "Công ty"} pendingLeaveCount={pendingLeaveCount} />
       <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""}`}>{children}</main>
       <MobileBottomNav pendingLeaveCount={pendingLeaveCount} />
