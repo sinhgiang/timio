@@ -3,7 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTodayString, formatTime, formatCurrency } from "@/lib/utils";
 import { getStatusColor, getStatusLabel } from "@/lib/attendance";
-import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, type LucideIcon } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, UserPlus, Scan, ExternalLink, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -44,6 +45,7 @@ export default async function DashboardPage() {
   });
 
   const checkInUrl = company?.slug ? `/checkin/${company.slug}` : null;
+  const isNewCompany = totalEmployees === 0;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -65,14 +67,57 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Onboarding: hiện khi công ty mới chưa có nhân viên */}
+      {isNewCompany && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-6">
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Bắt đầu nào 🚀</p>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Thiết lập Timio trong 3 bước</h2>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Link href="/dashboard/employees" className="group bg-white rounded-xl p-4 border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-blue-600 transition-colors">
+                <UserPlus className="w-5 h-5 text-blue-600 group-hover:text-white transition-colors" strokeWidth={1.5} />
+              </div>
+              <p className="font-semibold text-gray-900 text-sm mb-0.5">1. Thêm nhân viên</p>
+              <p className="text-xs text-gray-500">Thêm danh sách nhân viên của công ty</p>
+            </Link>
+            <Link href="/dashboard/employees" className="group bg-white rounded-xl p-4 border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
+              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-purple-600 transition-colors">
+                <Scan className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors" strokeWidth={1.5} />
+              </div>
+              <p className="font-semibold text-gray-900 text-sm mb-0.5">2. Đăng ký khuôn mặt</p>
+              <p className="text-xs text-gray-500">Chụp ảnh để nhận diện khi chấm công</p>
+            </Link>
+            {checkInUrl ? (
+              <a href={checkInUrl} target="_blank" className="group bg-white rounded-xl p-4 border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-green-600 transition-colors">
+                  <ExternalLink className="w-5 h-5 text-green-600 group-hover:text-white transition-colors" strokeWidth={1.5} />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-0.5">3. Mở kiosk chấm công</p>
+                <p className="text-xs text-gray-500">Đặt màn hình tại văn phòng để check-in</p>
+              </a>
+            ) : (
+              <div className="bg-white rounded-xl p-4 border border-blue-100 opacity-50">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mb-3">
+                  <ExternalLink className="w-5 h-5 text-green-600" strokeWidth={1.5} />
+                </div>
+                <p className="font-semibold text-gray-900 text-sm mb-0.5">3. Mở kiosk chấm công</p>
+                <p className="text-xs text-gray-500">Cần tạo chi nhánh trước</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Mobile quick-glance bar */}
-      <div className="sm:hidden flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-3 mb-4 shadow-sm text-sm">
-        <span className="text-gray-500">Hôm nay:</span>
-        <span className="font-bold text-green-600">{onTime} đúng giờ</span>
-        {late > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-yellow-600">{late} trễ</span></>}
-        {notCheckedIn > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-gray-500">{notCheckedIn} chưa vào</span></>}
-        {onLeaveToday.length > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-purple-600">{onLeaveToday.length} nghỉ</span></>}
-      </div>
+      {!isNewCompany && (
+        <div className="sm:hidden flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-4 py-3 mb-4 shadow-sm text-sm">
+          <span className="text-gray-500">Hôm nay:</span>
+          <span className="font-bold text-green-600">{onTime} đúng giờ</span>
+          {late > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-yellow-600">{late} trễ</span></>}
+          {notCheckedIn > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-gray-500">{notCheckedIn} chưa vào</span></>}
+          {onLeaveToday.length > 0 && <><span className="text-gray-300">·</span><span className="font-bold text-purple-600">{onLeaveToday.length} nghỉ</span></>}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-5">
@@ -93,7 +138,7 @@ export default async function DashboardPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block"></span>
                 {lr.employee.name}
                 {lr.employee.department && <span className="text-purple-400">· {lr.employee.department}</span>}
-                <span className="text-purple-400">đến {lr.toDate.split("-").reverse().slice(0,2).join("/")}</span>
+                <span className="text-purple-400">đến {lr.toDate.split("-").reverse().slice(0, 2).join("/")}</span>
               </span>
             ))}
           </div>
@@ -111,7 +156,14 @@ export default async function DashboardPage() {
         {todayLogs.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-gray-400">
             <ClipboardList size={44} strokeWidth={1.5} className="mb-3 text-gray-300" />
-            <p className="text-sm">Chưa có nhân viên nào chấm công hôm nay</p>
+            <p className="text-sm">
+              {isNewCompany ? "Thêm nhân viên để bắt đầu chấm công" : "Chưa có nhân viên nào chấm công hôm nay"}
+            </p>
+            {isNewCompany && (
+              <Link href="/dashboard/employees" className="mt-3 text-sm text-blue-600 font-medium hover:underline">
+                Thêm nhân viên đầu tiên →
+              </Link>
+            )}
           </div>
         ) : (
           <>
