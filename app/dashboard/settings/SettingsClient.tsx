@@ -23,6 +23,7 @@ import {
   Check,
   Gift,
   Users,
+  Mail,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -74,6 +75,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [telegramSaving, setTelegramSaving] = useState(false);
   const [telegramMsg, setTelegramMsg] = useState("");
   const [testChatId, setTestChatId] = useState("");
+
+  // Test email
+  const [emailTesting, setEmailTesting] = useState(false);
+  const [emailMsg, setEmailMsg] = useState("");
+
+  const testEmail = async () => {
+    setEmailTesting(true);
+    setEmailMsg("");
+    const res = await fetch("/api/settings/test-email", { method: "POST" });
+    const data = await res.json();
+    setEmailMsg(res.ok ? "✅ Email đã gửi! Kiểm tra hộp thư của bạn." : `❌ ${data.error}`);
+    setEmailTesting(false);
+  };
 
   // Password change
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
@@ -905,6 +919,36 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             </code>
           </div>
         </div>
+      </div>
+
+      {/* ── Email Notifications ── */}
+      <div className="mt-8 border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Mail size={20} className="text-blue-500" />
+          <h2 className="text-base font-bold text-gray-800">Thông báo Email</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Timio tự động gửi email khi nhân viên gửi đơn xin nghỉ và khi affiliate có đơn hàng mới.
+          Cấu hình SMTP tại biến môi trường <code className="bg-gray-100 px-1 rounded">SMTP_USER</code> / <code className="bg-gray-100 px-1 rounded">SMTP_PASS</code>.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={testEmail}
+            disabled={emailTesting}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Send size={14} />
+            {emailTesting ? "Đang gửi..." : "Gửi email kiểm tra"}
+          </button>
+          {emailMsg && (
+            <span className={`text-sm font-medium ${emailMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+              {emailMsg}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Email kiểm tra sẽ được gửi đến địa chỉ email đăng nhập của bạn.
+        </p>
       </div>
 
       {/* ── Chữ ký & Dấu công ty ── */}
