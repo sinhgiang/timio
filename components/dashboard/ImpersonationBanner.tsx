@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { Eye, X, ArrowLeft } from "lucide-react";
+import { Eye, ArrowLeft } from "lucide-react";
 
 export default function ImpersonationBanner({ companyName, companyId }: { companyName: string; companyId: string }) {
   const { update } = useSession();
-  const router = useRouter();
   const [leaving, setLeaving] = useState(false);
 
   const handleExit = async () => {
@@ -18,7 +16,8 @@ export default function ImpersonationBanner({ companyName, companyId }: { compan
       body: JSON.stringify({ companyId, action: "exit" }),
     });
     await update({ impersonateCompanyId: null });
-    router.push("/admin/companies");
+    // Full reload để server đọc lại session cookie với impersonating=false
+    window.location.href = "/admin/companies";
   };
 
   return (

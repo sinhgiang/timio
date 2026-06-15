@@ -41,7 +41,8 @@ export default function CompaniesClient({ companies, summary }: Props) {
         body: JSON.stringify({ companyId, action: "enter" }),
       });
       await update({ impersonateCompanyId: companyId });
-      router.push("/dashboard");
+      // Full reload để server đọc lại session cookie với impersonating=true
+      window.location.href = "/dashboard";
     } catch {
       setEntering(null);
     }
