@@ -28,10 +28,16 @@ interface Props {
   };
   stats: {
     registered: number; converted: number; revenue: number;
-    commission: number; conversionRate: number;
+    commission: number; pendingCommission: number; conversionRate: number;
+    nextPayoutDate: string;
   };
   tier: { name: string; icon: string; rate: number; next: string | null; nextAt: number | null };
-  referrals: Array<{ id: string; name: string; slug: string; plan: string; createdAt: string; isPaid: boolean; planPrice: number; inWindow: boolean; commissionUntil: string | null }>;
+  referrals: Array<{
+    id: string; name: string; slug: string; plan: string; createdAt: string;
+    isPaid: boolean; planPrice: number;
+    inWindow: boolean; isEligible: boolean;
+    commissionUntil: string | null; holdEndsAt: string | null; payoutDate: string | null;
+  }>;
   clickStats: ClickStats;
 }
 
@@ -111,23 +117,34 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
 
         {/* Commission hero */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 mb-6 text-white">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-blue-200 text-sm mb-1">Hoa hồng tích lũy</p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-blue-200 text-xs mb-1">Đã xác nhận · thanh toán ngày 15</p>
               <p className="text-4xl font-extrabold">{fmtCurrency(stats.commission)}</p>
-              <p className="text-blue-200 text-xs mt-2">
-                Từ {stats.converted} đơn có phí · Doanh thu {fmtCurrency(stats.revenue)}
+              <p className="text-blue-200 text-xs mt-1">
+                Từ {stats.converted} đơn · Doanh thu {fmtCurrency(stats.revenue)}
               </p>
             </div>
-            <div className="text-right opacity-40">
-              <DollarSign className="w-12 h-12" />
-            </div>
+            {stats.pendingCommission > 0 && (
+              <div className="bg-white/10 rounded-xl px-4 py-3 text-center shrink-0">
+                <p className="text-blue-200 text-xs mb-0.5">Đang giữ (30 ngày)</p>
+                <p className="text-xl font-extrabold">{fmtCurrency(stats.pendingCommission)}</p>
+                <p className="text-blue-300 text-xs mt-0.5">chờ xác nhận</p>
+              </div>
+            )}
           </div>
-          <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 text-sm">
-            {stats.commission > 0
-              ? <>💡 Hoa hồng thanh toán cuối tháng. Liên hệ <strong>admin@timio.vn</strong> để yêu cầu.</>
-              : <>⏳ Hoa hồng tính trong <strong>6 tháng đầu</strong> kể từ lần mua đầu tiên của mỗi công ty.</>
-            }
+          <div className="mt-4 bg-white/10 rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm">
+            <DollarSign className="w-4 h-4 text-yellow-300 shrink-0" />
+            <span>
+              Thanh toán tiếp theo:{" "}
+              <strong className="text-yellow-200">
+                ngày 15/{new Date(stats.nextPayoutDate).getMonth() + 1}/{new Date(stats.nextPayoutDate).getFullYear()}
+              </strong>
+              {stats.commission > 0
+                ? <> · Liên hệ <strong>admin@timio.vn</strong> để yêu cầu</>
+                : <> · Hoa hồng tính trong <strong>6 tháng đầu</strong> từ lần mua đầu</>
+              }
+            </span>
           </div>
         </div>
 
@@ -507,46 +524,65 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="text-left px-6 py-3 text-gray-500 font-medium">Công ty</th>
-                      <th className="text-left px-4 py-3 text-gray-500 font-medium">Đăng ký</th>
-                      <th className="text-center px-4 py-3 text-gray-500 font-medium">Gói</th>
-                      <th className="text-center px-4 py-3 text-gray-500 font-medium">HH đến</th>
-                      <th className="text-right px-6 py-3 text-gray-500 font-medium">Hoa hồng</th>
+                      <th className="text-left px-6 py-3 text-gray-500 font-medium text-xs">Công ty</th>
+                      <th className="text-center px-4 py-3 text-gray-500 font-medium text-xs">Gói</th>
+                      <th className="text-center px-4 py-3 text-gray-500 font-medium text-xs">Trạng thái HH</th>
+                      <th className="text-center px-4 py-3 text-gray-500 font-medium text-xs">HH đến</th>
+                      <th className="text-right px-6 py-3 text-gray-500 font-medium text-xs">Hoa hồng</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {referrals.map((r) => (
-                      <tr key={r.id} className={`hover:bg-gray-50 ${r.isPaid && !r.inWindow ? "opacity-50" : ""}`}>
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-gray-800">{r.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5 font-mono">{r.slug}</p>
-                        </td>
-                        <td className="px-4 py-4 text-gray-500 text-xs">{fmtDate(r.createdAt)}</td>
-                        <td className="px-4 py-4 text-center">
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${r.plan === "business" ? "bg-slate-800 text-white" : r.isPaid ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                            {r.plan === "business" ? "Business" : r.isPaid ? "✓ Pro" : "Starter"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-center text-xs">
-                          {r.commissionUntil && r.inWindow ? (
-                            <span className="text-green-600 font-semibold">{fmtDate(r.commissionUntil)}</span>
-                          ) : r.commissionUntil && !r.inWindow ? (
-                            <span className="text-gray-400">Đã hết HH</span>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold">
-                          {r.isPaid && r.inWindow ? (
-                            <span className="text-green-700">{fmtCurrency(Math.round(r.planPrice * tier.rate / 100))}</span>
-                          ) : r.isPaid && !r.inWindow ? (
-                            <span className="text-gray-300 line-through text-xs">{fmtCurrency(Math.round(r.planPrice * tier.rate / 100))}</span>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {referrals.map((r) => {
+                      const commission = r.isPaid ? Math.round(r.planPrice * tier.rate / 100) : 0;
+                      return (
+                        <tr key={r.id} className={`hover:bg-gray-50 ${r.isPaid && !r.inWindow ? "opacity-40" : ""}`}>
+                          <td className="px-6 py-4">
+                            <p className="font-semibold text-gray-800 text-sm">{r.name}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{fmtDate(r.createdAt)}</p>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${r.plan === "business" ? "bg-slate-800 text-white" : r.isPaid ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                              {r.plan === "business" ? "Business" : r.isPaid ? "Pro" : "Starter"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            {!r.isPaid ? (
+                              <span className="text-xs text-gray-400">—</span>
+                            ) : !r.inWindow ? (
+                              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-medium">Hết HH</span>
+                            ) : !r.isEligible ? (
+                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
+                                Giữ đơn · đến {r.holdEndsAt ? fmtDate(r.holdEndsAt) : "—"}
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                                TT ngày {r.payoutDate ? `15/${new Date(r.payoutDate).getMonth() + 1}` : "—"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-center text-xs">
+                            {r.commissionUntil && r.inWindow ? (
+                              <span className="text-green-600 font-medium">{fmtDate(r.commissionUntil)}</span>
+                            ) : r.commissionUntil ? (
+                              <span className="text-gray-400">Đã hết</span>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right font-semibold">
+                            {r.isPaid && r.inWindow && r.isEligible ? (
+                              <span className="text-green-700 text-sm">{fmtCurrency(commission)}</span>
+                            ) : r.isPaid && r.inWindow && !r.isEligible ? (
+                              <span className="text-amber-600 text-sm">{fmtCurrency(commission)}</span>
+                            ) : r.isPaid ? (
+                              <span className="text-gray-300 line-through text-xs">{fmtCurrency(commission)}</span>
+                            ) : (
+                              <span className="text-gray-300 text-sm">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
