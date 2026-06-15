@@ -22,6 +22,7 @@ function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const refCode = searchParams.get("ref") ?? "";
+  const affCode = searchParams.get("aff") ?? "";
 
   const [form, setForm] = useState({ companyName: "", email: "", password: "", confirm: "" });
   const [error, setError] = useState("");
@@ -44,7 +45,7 @@ function RegisterForm() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: form.companyName, email: form.email, password: form.password, referralCode: refCode || undefined }),
+        body: JSON.stringify({ companyName: form.companyName, email: form.email, password: form.password, referralCode: refCode || undefined, affiliateCode: affCode || undefined }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Đăng ký thất bại"); return; }
@@ -73,13 +74,14 @@ function RegisterForm() {
       </div>
 
       <div className="w-full max-w-sm">
-        {/* Referral banner */}
-        {refCode && (
+        {/* Referral / Affiliate banner */}
+        {(refCode || affCode) && (
           <div className="bg-green-500/15 border border-green-400/30 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3">
             <Gift className="w-5 h-5 text-green-400 shrink-0" />
             <div>
               <p className="text-green-300 text-xs font-semibold">Bạn được giới thiệu bởi một đối tác Timio</p>
-              <p className="text-green-200/70 text-xs mt-0.5">Khi nâng cấp Pro, cả hai bên được tặng thêm <strong className="text-green-300">30 ngày</strong> miễn phí!</p>
+              {refCode && <p className="text-green-200/70 text-xs mt-0.5">Khi nâng cấp Pro, cả hai bên được tặng thêm <strong className="text-green-300">30 ngày</strong> miễn phí!</p>}
+              {affCode && !refCode && <p className="text-green-200/70 text-xs mt-0.5">Bạn sẽ nhận được hỗ trợ ưu tiên từ đối tác giới thiệu.</p>}
             </div>
           </div>
         )}

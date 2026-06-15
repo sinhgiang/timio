@@ -22,6 +22,7 @@ model Company {
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
   referredBy      String? // slug của công ty đã giới thiệu mình
+  affiliateCode   String? // code của affiliate partner đã giới thiệu
   createdAt   DateTime  @default(now())
 
   branches      Branch[]
@@ -212,4 +213,16 @@ model Payment {
   createdAt DateTime  @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Affiliate {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  code      String   @unique  // unique affiliate code, used in ?aff=CODE links
+  phone     String?
+  channel   String?           // "blog", "youtube", "zalo", "facebook", etc.
+  status    String   @default("pending") // "pending" | "active"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
