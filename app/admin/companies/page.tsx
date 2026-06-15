@@ -33,7 +33,7 @@ export default async function AdminCompaniesPage() {
   }));
 
   const totalEmployees = rows.reduce((s, r) => s + r.employeeCount, 0);
-  const proCount = rows.filter((r) => r.plan === "pro").length;
+  const proCount = rows.filter((r) => r.plan === "pro" || r.plan === "business").length;
   const totalRevenue = rows.reduce((s, r) => s + r.totalRevenue, 0);
 
   return (

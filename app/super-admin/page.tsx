@@ -55,7 +55,11 @@ export default async function SuperAdminPage() {
                 </td>
                 <td className="px-6 py-4 text-gray-300 text-sm">{c.admins[0]?.email ?? "—"}</td>
                 <td className="px-6 py-4">
-                  {c.plan === "pro" ? (
+                  {c.plan === "business" ? (
+                    <span className="inline-flex items-center gap-1 bg-slate-700/60 text-slate-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      <Crown className="w-3 h-3" /> Business
+                    </span>
+                  ) : c.plan === "pro" ? (
                     <span className="inline-flex items-center gap-1 bg-yellow-900/40 text-yellow-400 text-xs font-semibold px-2.5 py-1 rounded-full">
                       <Crown className="w-3 h-3" /> Pro
                     </span>

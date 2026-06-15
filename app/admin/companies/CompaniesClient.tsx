@@ -126,10 +126,10 @@ export default function CompaniesClient({ companies, summary }: Props) {
                     <span className="font-semibold text-gray-700">{c.employeeCount}</span>
                   </td>
                   <td className="px-4 py-4 text-center">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${c.plan === "pro" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {c.plan === "pro" ? "Pro" : "Starter"}
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${c.plan === "business" ? "bg-slate-200 text-slate-700" : c.plan === "pro" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                      {c.plan === "business" ? "Business" : c.plan === "pro" ? "Pro" : "Starter"}
                     </span>
-                    {c.plan === "pro" && c.planExpires && (
+                    {(c.plan === "pro" || c.plan === "business") && c.planExpires && (
                       <p className="text-xs text-gray-400 mt-0.5">đến {fmtDate(c.planExpires)}</p>
                     )}
                   </td>

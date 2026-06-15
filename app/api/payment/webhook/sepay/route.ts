@@ -79,25 +79,28 @@ export async function POST(req: NextRequest) {
     }),
   ]);
 
-  // Referral reward: tặng 30 ngày Pro cho cả 2 bên nếu đây là lần đầu mua Pro
-  if (payment.plan === "pro" && company.referredBy) {
+  // Referral reward: tặng 30 ngày cho cả 2 bên nếu đây là lần đầu mua Pro/Business
+  const isPaidPlan = payment.plan === "pro" || payment.plan === "business";
+  if (isPaidPlan && company.referredBy) {
     const previousPayments = await prisma.payment.count({
       where: { companyId: payment.companyId, status: "completed", id: { not: payment.id } },
     });
     if (previousPayments === 0) {
-      // Lần đầu mua Pro → kích hoạt thưởng
       const referrer = await prisma.company.findUnique({ where: { slug: company.referredBy } });
       if (referrer) {
         const BONUS_DAYS = 30;
-        // Tặng referrer
+        // Extend referrer expiry only — never downgrade their plan
         const referrerBase = referrer.planExpires && referrer.planExpires > now ? referrer.planExpires : now;
         const referrerExpiry = new Date(referrerBase);
         referrerExpiry.setDate(referrerExpiry.getDate() + BONUS_DAYS);
-        // Tặng thêm cho người mới (trên newExpiry đã tính)
+        // Extend new company expiry on top of newExpiry
         const newCompanyBonusExpiry = new Date(newExpiry);
         newCompanyBonusExpiry.setDate(newCompanyBonusExpiry.getDate() + BONUS_DAYS);
+        // Referrer keeps their current plan — only extend planExpires
+        // If referrer is on starter, upgrade to pro as the bonus
+        const referrerPlanUpdate = referrer.plan === "starter" ? { plan: "pro", planExpires: referrerExpiry } : { planExpires: referrerExpiry };
         await prisma.$transaction([
-          prisma.company.update({ where: { id: referrer.id }, data: { plan: "pro", planExpires: referrerExpiry } }),
+          prisma.company.update({ where: { id: referrer.id }, data: referrerPlanUpdate }),
           prisma.company.update({ where: { id: payment.companyId }, data: { planExpires: newCompanyBonusExpiry } }),
         ]);
       }

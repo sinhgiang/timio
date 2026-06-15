@@ -22,7 +22,7 @@ export default async function SettingsPage() {
   const slug = company?.slug ?? "";
   const [referralRegistered, referralConverted] = await Promise.all([
     slug ? prisma.company.count({ where: { referredBy: slug } }) : Promise.resolve(0),
-    slug ? prisma.company.count({ where: { referredBy: slug, plan: "pro" } }) : Promise.resolve(0),
+    slug ? prisma.company.count({ where: { referredBy: slug, plan: { in: ["pro", "business"] } } }) : Promise.resolve(0),
   ]);
 
   return (
