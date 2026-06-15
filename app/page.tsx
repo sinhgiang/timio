@@ -714,7 +714,7 @@ export default function HomePage() {
             <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Bảng giá đơn giản, không bất ngờ</h2>
             <p className="text-gray-500 text-lg">Bắt đầu miễn phí, nâng cấp khi sẵn sàng. Huỷ bất cứ lúc nào.</p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
 
             {/* Starter - Free */}
             <div className="border border-gray-200 rounded-2xl p-7 flex flex-col">
@@ -806,34 +806,6 @@ export default function HomePage() {
               <Link href="/dashboard/billing?plan=business" className="mt-auto block text-center bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-sm">
                 Nâng cấp Business
               </Link>
-            </div>
-
-            {/* Enterprise */}
-            <div className="border border-dashed border-gray-300 rounded-2xl p-7 flex flex-col bg-gray-50/50">
-              <div>
-                <h3 className="text-base font-bold text-gray-900 mb-1">Enterprise</h3>
-                <p className="text-gray-400 text-xs mb-5">Giải pháp riêng cho tập đoàn</p>
-                <div className="text-2xl font-extrabold text-gray-700 mb-1">Liên hệ</div>
-                <p className="text-xs text-gray-400 mb-6">Báo giá theo yêu cầu</p>
-                <ul className="space-y-2.5 mb-6">
-                  {[
-                    "Không giới hạn nhân viên",
-                    "Không giới hạn chi nhánh",
-                    "Hợp đồng & hóa đơn VAT",
-                    "SLA cam kết uptime",
-                    "Tích hợp hệ thống riêng",
-                    "Lưu dữ liệu không giới hạn",
-                    "Dedicated support",
-                  ].map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
-                      <CheckCircle2 size={13} className="text-purple-500 shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <a href="mailto:admin@timio.vn" className="mt-auto block text-center border border-gray-400 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-100 transition-colors text-sm">
-                Liên hệ tư vấn
-              </a>
             </div>
 
           </div>

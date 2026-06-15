@@ -382,14 +382,6 @@ function BillingContent() {
         </div>
       )}
 
-      {/* Enterprise note */}
-      <div className="mt-8 bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-5 text-center">
-        <p className="text-sm font-semibold text-gray-700 mb-1">Cần gói Enterprise cho tập đoàn?</p>
-        <p className="text-xs text-gray-500 mb-3">Không giới hạn nhân viên · Hợp đồng & hóa đơn VAT · SLA cam kết uptime · Tích hợp hệ thống riêng</p>
-        <a href="mailto:admin@timio.vn" className="text-sm text-blue-600 font-semibold hover:text-blue-700">
-          Liên hệ admin@timio.vn →
-        </a>
-      </div>
     </div>
   );
 }
