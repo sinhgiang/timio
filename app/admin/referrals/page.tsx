@@ -2,7 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import AdminReferralsClient from "./AdminReferralsClient";
 
-const PRO_PRICE = 299000;
+const PLAN_PRICES: Record<string, number> = { pro: 299000, business: 799000 };
+function planRevenue(plan: string) { return PLAN_PRICES[plan] ?? 0; }
+function isPaid(plan: string) { return plan === "pro" || plan === "business"; }
 
 function getTier(converted: number) {
   if (converted >= 21) return { name: "Vàng", icon: "🥇", rate: 20 };
@@ -22,8 +24,9 @@ export default async function AdminReferralsPage() {
   // === AFFILIATES ===
   const affiliateStats = affiliates.map((a) => {
     const referred = companies.filter((c) => c.affiliateCode === a.code);
-    const converted = referred.filter((c) => c.plan === "pro").length;
-    const revenue = converted * PRO_PRICE;
+    const paidReferrals = referred.filter((c) => isPaid(c.plan));
+    const converted = paidReferrals.length;
+    const revenue = paidReferrals.reduce((s, c) => s + planRevenue(c.plan), 0);
     const tier = getTier(converted);
     const commission = Math.round(revenue * tier.rate / 100);
     return { ...a, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString(), referred: referred.length, converted, revenue, commission, tier };
@@ -47,8 +50,9 @@ export default async function AdminReferralsPage() {
     .filter((c) => referralMap.has(c.slug))
     .map((c) => {
       const referred = referralMap.get(c.slug) ?? [];
-      const converted = referred.filter((r) => r.plan === "pro").length;
-      const revenue = converted * PRO_PRICE;
+      const paidReferrals = referred.filter((r) => isPaid(r.plan));
+      const converted = paidReferrals.length;
+      const revenue = paidReferrals.reduce((s, r) => s + planRevenue(r.plan), 0);
       const tier = getTier(converted);
       const commission = Math.round(revenue * tier.rate / 100);
       return {
@@ -61,7 +65,7 @@ export default async function AdminReferralsPage() {
     .sort((a, b) => b.converted - a.converted);
 
   const totalRefConverted = referrers.reduce((s, r) => s + r.converted, 0);
-  const totalRefRevenue = totalRefConverted * PRO_PRICE;
+  const totalRefRevenue = referrers.reduce((s, r) => s + r.revenue, 0);
   const totalRefReferrals = companies.filter((c) => c.referredBy).length;
 
   return (

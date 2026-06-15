@@ -15,7 +15,8 @@ function toSlug(str: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const { companyName, email, password, referralCode, affiliateCode } = await req.json().catch(() => ({}));
+  const { companyName, email, password, referralCode, affiliateCode, clickId } =
+    await req.json().catch(() => ({}));
 
   if (!companyName || !email || !password) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
@@ -29,14 +30,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email này đã được đăng ký" }, { status: 409 });
   }
 
-  // Verify referral code (slug) is valid
+  // Verify referral code (slug)
   let validReferredBy: string | null = null;
   if (referralCode) {
     const referrer = await prisma.company.findUnique({ where: { slug: referralCode }, select: { slug: true } });
     if (referrer) validReferredBy = referrer.slug;
   }
 
-  // Verify affiliate code is valid
+  // Verify affiliate code
   let validAffiliateCode: string | null = null;
   if (affiliateCode) {
     const aff = await prisma.affiliate.findUnique({ where: { code: affiliateCode }, select: { code: true } });
@@ -54,10 +55,13 @@ export async function POST(req: NextRequest) {
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
+  let companyId: string | null = null;
+
   await prisma.$transaction(async (tx) => {
     const company = await tx.company.create({
       data: { name: companyName, slug, plan: "starter", referredBy: validReferredBy, affiliateCode: validAffiliateCode },
     });
+    companyId = company.id;
     await tx.admin.create({
       data: { companyId: company.id, email, name: companyName, password: hashedPassword, role: "admin" },
     });
@@ -65,6 +69,38 @@ export async function POST(req: NextRequest) {
       data: { companyId: company.id, name: "Văn phòng chính" },
     });
   });
+
+  // Mark affiliate click as converted (outside transaction so failure doesn't roll back registration)
+  if (companyId && validAffiliateCode) {
+    try {
+      if (clickId) {
+        // Update specific click by ID (most accurate attribution)
+        await prisma.affiliateClick.updateMany({
+          where: {
+            id: clickId,
+            affiliateCode: validAffiliateCode,
+            convertedAt: null,
+          },
+          data: { convertedAt: new Date(), companyId },
+        });
+      } else {
+        // Fallback: update most recent unattributed click for this affiliate
+        const recent = await prisma.affiliateClick.findFirst({
+          where: { affiliateCode: validAffiliateCode, convertedAt: null },
+          orderBy: { createdAt: "desc" },
+        });
+        if (recent) {
+          await prisma.affiliateClick.update({
+            where: { id: recent.id },
+            data: { convertedAt: new Date(), companyId },
+          });
+        }
+      }
+    } catch (err) {
+      // Non-fatal — registration already succeeded
+      console.error("[Register] Failed to mark affiliate click:", err);
+    }
+  }
 
   return NextResponse.json({ success: true, email });
 }

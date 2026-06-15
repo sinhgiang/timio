@@ -4,12 +4,10 @@ import { Users, Building2, Gift, TrendingUp, CreditCard, Activity, ShieldCheck }
 
 export const dynamic = "force-dynamic";
 
-const PRO_PRICE = 299000;
-
 export default async function AdminHomePage() {
   const [totalCompanies, proCompanies, totalEmployees, totalAffiliates, recentCompanies, recentPayments, recentAccessLogs] = await Promise.all([
     prisma.company.count(),
-    prisma.company.count({ where: { plan: "pro" } }),
+    prisma.company.count({ where: { plan: { in: ["pro", "business"] } } }),
     prisma.employee.count(),
     prisma.affiliate.count(),
     prisma.company.findMany({
@@ -48,7 +46,7 @@ export default async function AdminHomePage() {
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         {[
-          { label: "Tổng công ty", value: totalCompanies, sub: `${proCompanies} Pro · ${starterCompanies} Starter`, icon: Building2, color: "blue" },
+          { label: "Tổng công ty", value: totalCompanies, sub: `${proCompanies} đang trả phí · ${starterCompanies} Starter`, icon: Building2, color: "blue" },
           { label: "Tổng nhân viên", value: totalEmployees, sub: "trên tất cả công ty", icon: Users, color: "indigo" },
           { label: "Doanh thu tích lũy", value: fmtCurrency(totalRevenue._sum.amount ?? 0), sub: "tổng thanh toán hoàn thành", icon: CreditCard, color: "green" },
           { label: "Tỷ lệ Pro", value: `${totalCompanies ? Math.round(proCompanies / totalCompanies * 100) : 0}%`, sub: `${proCompanies} / ${totalCompanies} công ty`, icon: TrendingUp, color: "purple" },

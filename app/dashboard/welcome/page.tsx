@@ -17,6 +17,7 @@ import {
 
 const PROMO_PRICE = 150000;
 const REGULAR_PRICE = 299000;
+const BUSINESS_PRICE = 799000;
 const PROMO_MONTHS = 2;
 
 function fmt(n: number) {
@@ -172,13 +173,13 @@ export default function WelcomePage() {
 
             {/* What you get */}
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gói Pro bao gồm</p>
-            <div className="grid grid-cols-2 gap-2.5 mb-7">
+            <div className="grid grid-cols-2 gap-2.5 mb-5">
               {[
-                { icon: Users, text: "Nhân viên không giới hạn" },
+                { icon: Users, text: "30 nhân viên, 5 chi nhánh" },
                 { icon: BarChart3, text: "Báo cáo đầy đủ + so sánh chi nhánh" },
                 { icon: Bell, text: "Cảnh báo Telegram tức thì" },
                 { icon: Shield, text: "Quản lý nghỉ phép & lương tháng 13" },
-                { icon: Clock, text: "Lịch sử chấm công đầy đủ" },
+                { icon: Clock, text: "Lưu dữ liệu 1 năm" },
                 { icon: Zap, text: "Xuất Excel 1 click" },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-start gap-2 text-sm text-gray-700">
@@ -186,6 +187,17 @@ export default function WelcomePage() {
                   {text}
                 </div>
               ))}
+            </div>
+
+            {/* Business upsell hint */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Cần nhiều hơn? Gói Business</p>
+                <p className="text-xs text-slate-400 mt-0.5">100 nhân viên · 20 chi nhánh · Lưu 3 năm</p>
+              </div>
+              <a href="/dashboard/billing?plan=business" onClick={() => { localStorage.setItem("timio_upsell_seen", "1"); }} className="text-xs bg-slate-800 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-slate-700 shrink-0">
+                799.000đ/tháng →
+              </a>
             </div>
 
             {/* CTA */}

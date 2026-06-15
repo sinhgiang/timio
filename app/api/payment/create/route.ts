@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 const PLAN_PRICES: Record<string, number> = {
   pro: 299000,
+  business: 799000,
 };
 
 const PROMO_PRICES: Record<string, number> = {

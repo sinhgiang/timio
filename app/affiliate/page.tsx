@@ -129,7 +129,10 @@ export default function AffiliatePage() {
                   <div className="text-5xl font-extrabold text-gray-900 mb-1">{t.rate}%</div>
                   <div className="text-sm text-gray-500 mb-6">hoa hồng mỗi đơn</div>
                   <div className={`text-xs font-semibold px-3 py-1.5 rounded-full ${t.badge} inline-block`}>
-                    ≈ {Math.round(299000 * t.rate / 100).toLocaleString("vi-VN")}đ / đơn
+                    Pro: {Math.round(299000 * t.rate / 100).toLocaleString("vi-VN")}đ / đơn
+                  </div>
+                  <div className={`text-xs font-semibold px-3 py-1.5 rounded-full ${t.badge} inline-block mt-1`}>
+                    Business: {Math.round(799000 * t.rate / 100).toLocaleString("vi-VN")}đ / đơn
                   </div>
                 </div>
                 <ul className="mt-6 space-y-2">
@@ -148,9 +151,10 @@ export default function AffiliatePage() {
           <div className="mt-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white text-center">
             <TrendingUp className="w-8 h-8 mx-auto mb-3 opacity-80" />
             <p className="text-lg font-bold mb-2">Ví dụ thu nhập thực tế</p>
-            <p className="text-blue-200 text-sm mb-4">Nếu bạn giới thiệu được 10 công ty mua Pro trong tháng → bạn đạt hạng Bạc 15%</p>
-            <div className="text-3xl font-extrabold">
-              10 × 299.000đ × 15% = <span className="text-yellow-300">448.500đ / tháng</span>
+            <p className="text-blue-200 text-sm mb-4">Hạng Bạc (15%) · 10 công ty Pro + 2 công ty Business</p>
+            <div className="text-2xl font-extrabold">
+              10 × 299k × 15% + 2 × 799k × 15%<br/>
+              = <span className="text-yellow-300">448.500đ + 239.700đ = <strong>688.200đ / tháng</strong></span>
             </div>
           </div>
         </div>

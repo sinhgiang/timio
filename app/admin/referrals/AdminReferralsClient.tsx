@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { Users, DollarSign, TrendingUp, Gift, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 
-const PRO_PRICE = 299000;
-
 function fmtCurrency(n: number) { return n.toLocaleString("vi-VN") + "đ"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("vi-VN"); }
 

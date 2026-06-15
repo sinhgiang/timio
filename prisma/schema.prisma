@@ -238,4 +238,22 @@ model Affiliate {
   status    String   @default("pending") // "pending" | "active"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  clicks    AffiliateClick[]
+}
+
+model AffiliateClick {
+  id            String    @id @default(cuid())
+  affiliateCode String
+  affiliate     Affiliate @relation(fields: [affiliateCode], references: [code], onDelete: Cascade)
+  ip            String?
+  userAgent     String?
+  referrer      String?   // full referrer URL
+  device        String?   // "mobile" | "desktop" | "tablet"
+  convertedAt   DateTime? // when they registered as a company
+  companyId     String?   // which company they became (after registration)
+  createdAt     DateTime  @default(now())
+
+  @@index([affiliateCode])
+  @@index([createdAt(sort: Desc)])
 }

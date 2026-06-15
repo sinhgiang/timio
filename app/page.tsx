@@ -709,63 +709,135 @@ export default function HomePage() {
 
       {/* ── PRICING ── */}
       <section id="pricing" className="py-20 px-4 bg-white">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Bảng giá đơn giản, không bất ngờ</h2>
             <p className="text-gray-500 text-lg">Bắt đầu miễn phí, nâng cấp khi sẵn sàng. Huỷ bất cứ lúc nào.</p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            {/* Free */}
-            <div className="border border-gray-200 rounded-2xl p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-1">Miễn phí</h3>
-              <p className="text-gray-500 text-sm mb-5">Thử nghiệm không giới hạn thời gian</p>
-              <div className="text-4xl font-extrabold text-gray-900 mb-6">0đ</div>
-              <ul className="space-y-3 mb-8">
-                {["1 chi nhánh", "Tối đa 5 nhân viên", "Kiosk nhận diện khuôn mặt", "Báo cáo cơ bản", "Xuất Excel"].map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
-                    <CheckCircle2 size={15} className="text-green-500 shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/register" className="block text-center border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-colors text-sm">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+            {/* Starter - Free */}
+            <div className="border border-gray-200 rounded-2xl p-7 flex flex-col">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-1">Starter</h3>
+                <p className="text-gray-400 text-xs mb-5">Thử nghiệm không giới hạn thời gian</p>
+                <div className="text-3xl font-extrabold text-gray-900 mb-1">0đ</div>
+                <p className="text-xs text-gray-400 mb-6">mãi mãi miễn phí</p>
+                <ul className="space-y-2.5 mb-6">
+                  {[
+                    "5 nhân viên",
+                    "1 chi nhánh",
+                    "Chấm công PIN",
+                    "Báo cáo cơ bản",
+                    "Lưu 90 ngày",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
+                      <CheckCircle2 size={13} className="text-green-500 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link href="/register" className="mt-auto block text-center border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-sm">
                 Bắt đầu miễn phí
               </Link>
             </div>
+
             {/* Pro */}
-            <div className="border-2 border-blue-600 rounded-2xl p-8 relative bg-blue-50/30">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-4 py-1 rounded-full">
+            <div className="border-2 border-blue-600 rounded-2xl p-7 relative bg-blue-50/30 flex flex-col">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-4 py-1 rounded-full whitespace-nowrap">
                 PHỔ BIẾN NHẤT
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">Pro</h3>
-              <p className="text-gray-500 text-sm mb-3">Dành cho doanh nghiệp đang phát triển</p>
-              <div className="mb-1">
-                <span className="text-4xl font-extrabold text-gray-900">299.000đ</span>
-                <span className="text-gray-500 text-sm">/tháng</span>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-1">Pro</h3>
+                <p className="text-gray-500 text-xs mb-4">Dành cho doanh nghiệp đang phát triển</p>
+                <div className="mb-0.5">
+                  <span className="text-3xl font-extrabold text-gray-900">299.000đ</span>
+                  <span className="text-gray-500 text-xs">/tháng</span>
+                </div>
+                <div className="text-xs text-green-600 font-semibold mb-5">✨ Thành viên mới: 150.000đ × 2 tháng đầu</div>
+                <ul className="space-y-2.5 mb-6">
+                  {[
+                    "30 nhân viên",
+                    "5 chi nhánh",
+                    "Chấm công khuôn mặt AI",
+                    "Cảnh báo Telegram",
+                    "Báo cáo đầy đủ + xuất Excel",
+                    "Quản lý nghỉ phép",
+                    "Lưu dữ liệu 1 năm",
+                    "Hỗ trợ qua email",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-gray-700">
+                      <CheckCircle2 size={13} className="text-blue-500 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="text-sm text-green-600 font-semibold mb-5">✨ Thành viên mới: chỉ 150.000đ/tháng trong 2 tháng đầu</div>
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Không giới hạn chi nhánh",
-                  "Không giới hạn nhân viên",
-                  "Kiosk nhận diện khuôn mặt AI",
-                  "Cảnh báo Telegram tức thì",
-                  "Báo cáo đầy đủ + so sánh chi nhánh",
-                  "Quản lý nghỉ phép & lương tháng 13",
-                  "Hỗ trợ ưu tiên",
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
-                    <CheckCircle2 size={15} className="text-blue-500 shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/dashboard/billing" className="block text-center bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors text-sm">
-                Nâng cấp lên Pro — 299.000đ/tháng
+              <Link href="/dashboard/billing" className="mt-auto block text-center bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-colors text-sm">
+                Nâng cấp lên Pro
               </Link>
             </div>
+
+            {/* Business */}
+            <div className="border-2 border-slate-800 rounded-2xl p-7 relative bg-slate-900 flex flex-col">
+              <div>
+                <h3 className="text-base font-bold text-white mb-1">Business</h3>
+                <p className="text-slate-400 text-xs mb-4">Cho doanh nghiệp lớn, nhiều chi nhánh</p>
+                <div className="mb-0.5">
+                  <span className="text-3xl font-extrabold text-white">799.000đ</span>
+                  <span className="text-slate-400 text-xs">/tháng</span>
+                </div>
+                <p className="text-xs text-slate-500 mb-5">~26.600đ/ngày</p>
+                <ul className="space-y-2.5 mb-6">
+                  {[
+                    "100 nhân viên",
+                    "20 chi nhánh",
+                    "Tất cả tính năng Pro",
+                    "Chữ ký số phiếu duyệt",
+                    "Xuất báo cáo nâng cao",
+                    "Lưu dữ liệu 3 năm",
+                    "Hỗ trợ ưu tiên",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-slate-300">
+                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link href="/dashboard/billing?plan=business" className="mt-auto block text-center bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-sm">
+                Nâng cấp Business
+              </Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="border border-dashed border-gray-300 rounded-2xl p-7 flex flex-col bg-gray-50/50">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 mb-1">Enterprise</h3>
+                <p className="text-gray-400 text-xs mb-5">Giải pháp riêng cho tập đoàn</p>
+                <div className="text-2xl font-extrabold text-gray-700 mb-1">Liên hệ</div>
+                <p className="text-xs text-gray-400 mb-6">Báo giá theo yêu cầu</p>
+                <ul className="space-y-2.5 mb-6">
+                  {[
+                    "Không giới hạn nhân viên",
+                    "Không giới hạn chi nhánh",
+                    "Hợp đồng & hóa đơn VAT",
+                    "SLA cam kết uptime",
+                    "Tích hợp hệ thống riêng",
+                    "Lưu dữ liệu không giới hạn",
+                    "Dedicated support",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
+                      <CheckCircle2 size={13} className="text-purple-500 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <a href="mailto:admin@timio.vn" className="mt-auto block text-center border border-gray-400 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-100 transition-colors text-sm">
+                Liên hệ tư vấn
+              </a>
+            </div>
+
           </div>
-          <p className="text-center text-gray-400 text-sm mt-6">Không cần thẻ tín dụng · Huỷ bất cứ lúc nào · Hỗ trợ tiếng Việt 100%</p>
+          <p className="text-center text-gray-400 text-sm mt-8">Không cần thẻ tín dụng · Huỷ bất cứ lúc nào · Hỗ trợ tiếng Việt 100%</p>
         </div>
       </section>
 

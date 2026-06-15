@@ -1,11 +1,12 @@
 "use client";
 
 export const dynamic = "force-dynamic";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, Clock, Gift } from "lucide-react";
+import AffiliateTracker from "@/components/affiliate/AffiliateTracker";
 
 function GoogleIcon() {
   return (
@@ -18,11 +19,27 @@ function GoogleIcon() {
   );
 }
 
+function getCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const refCode = searchParams.get("ref") ?? "";
-  const affCode = searchParams.get("aff") ?? "";
+  const urlAffCode = searchParams.get("aff") ?? "";
+
+  // affCode: URL param first, cookie fallback (30-day attribution window)
+  const [affCode, setAffCode] = useState(urlAffCode);
+
+  useEffect(() => {
+    if (!affCode) {
+      const cookieAff = getCookie("aff_code");
+      if (cookieAff) setAffCode(cookieAff);
+    }
+  }, [affCode]);
 
   const [form, setForm] = useState({ companyName: "", email: "", password: "", confirm: "" });
   const [error, setError] = useState("");
@@ -41,20 +58,28 @@ function RegisterForm() {
 
     setLoading(true);
     try {
-      // 1. Tạo tài khoản
+      // Read attribution click ID from cookie (set by AffiliateTracker)
+      const clickId = getCookie("aff_click_id") || undefined;
+
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: form.companyName, email: form.email, password: form.password, referralCode: refCode || undefined, affiliateCode: affCode || undefined }),
+        body: JSON.stringify({
+          companyName: form.companyName,
+          email: form.email,
+          password: form.password,
+          referralCode: refCode || undefined,
+          affiliateCode: affCode || undefined,
+          clickId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Đăng ký thất bại"); return; }
 
-      // 2. Tự động đăng nhập
+      // Auto sign in
       const result = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
       if (result?.error) { setError("Tạo tài khoản thành công nhưng đăng nhập thất bại — vui lòng đăng nhập thủ công"); return; }
 
-      // 3. Vào dashboard
       router.push("/dashboard");
     } finally {
       setLoading(false);
@@ -63,6 +88,9 @@ function RegisterForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 flex flex-col items-center justify-center p-6">
+      {/* Track affiliate click (invisible) */}
+      {affCode && <AffiliateTracker code={affCode} />}
+
       <div className="mb-8 text-center">
         <Link href="/" className="inline-flex items-center gap-2 mb-2">
           <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
