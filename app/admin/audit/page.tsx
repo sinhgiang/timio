@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { ShieldCheck, LogIn, LogOut } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 function fmtDateTime(d: Date) {
   return new Date(d).toLocaleString("vi-VN", {
     day: "2-digit", month: "2-digit", year: "numeric",
@@ -13,7 +15,7 @@ export default async function AdminAuditPage() {
     orderBy: { createdAt: "desc" },
     take: 200,
     include: { company: { select: { name: true, slug: true } } },
-  });
+  }).catch(() => [] as { id: string; action: string; adminEmail: string; createdAt: Date; company: { name: string; slug: string } }[]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

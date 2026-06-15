@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Users, Building2, Gift, TrendingUp, CreditCard, Activity, ShieldCheck } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 const PRO_PRICE = 299000;
 
 export default async function AdminHomePage() {
@@ -25,7 +27,7 @@ export default async function AdminHomePage() {
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { company: { select: { name: true } } },
-    }),
+    }).catch(() => []),
   ]);
 
   const starterCompanies = totalCompanies - proCompanies;
