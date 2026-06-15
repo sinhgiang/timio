@@ -30,6 +30,8 @@ function detectSource(referrer: string | null): string {
   }
 }
 
+const COMMISSION_WINDOW_MS = 180 * 24 * 60 * 60 * 1000; // 6 tháng = 180 ngày
+
 export default async function AffiliateDashboardPage({ params }: { params: { code: string } }) {
   const affiliate = await prisma.affiliate.findUnique({ where: { code: params.code } });
   if (!affiliate) return notFound();
@@ -48,8 +50,31 @@ export default async function AffiliateDashboardPage({ params }: { params: { cod
     orderBy: { createdAt: "desc" },
   });
 
+  // First completed payment date for each referred company
+  const companyIds = referrals.map((r) => r.id);
+  const firstPayments = companyIds.length > 0
+    ? await prisma.payment.findMany({
+        where: { companyId: { in: companyIds }, status: "completed" },
+        select: { companyId: true, paidAt: true },
+        orderBy: { paidAt: "asc" },
+      })
+    : [];
+  const firstPaidMap = new Map<string, Date>();
+  for (const p of firstPayments) {
+    if (p.paidAt && !firstPaidMap.has(p.companyId)) {
+      firstPaidMap.set(p.companyId, p.paidAt);
+    }
+  }
+
   // ---- Stats ----
-  const paidReferrals = referrals.filter((r) => r.plan === "pro" || r.plan === "business");
+  const now = new Date();
+  // paidReferrals: chỉ đếm những công ty còn trong cửa sổ hoa hồng 6 tháng
+  const paidReferrals = referrals.filter((r) => {
+    if (r.plan !== "pro" && r.plan !== "business") return false;
+    const fp = firstPaidMap.get(r.id);
+    if (!fp) return false;
+    return (now.getTime() - fp.getTime()) < COMMISSION_WINDOW_MS;
+  });
   const converted  = paidReferrals.length;
   const revenue    = paidReferrals.reduce((s, r) => s + planPrice(r.plan), 0);
   const tier       = getTier(converted);
@@ -57,7 +82,6 @@ export default async function AffiliateDashboardPage({ params }: { params: { cod
   const conversionRate = referrals.length > 0 ? Math.round(converted / referrals.length * 100) : 0;
 
   // ---- Click analytics ----
-  const now = new Date();
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(now.getDate() - 29);
@@ -127,15 +151,22 @@ export default async function AffiliateDashboardPage({ params }: { params: { cod
         conversionRate,
       }}
       tier={tier}
-      referrals={referrals.map((r) => ({
-        id:         r.id,
-        name:       r.name,
-        slug:       r.slug,
-        plan:       r.plan,
-        createdAt:  r.createdAt.toISOString(),
-        isPaid:     r.plan === "pro" || r.plan === "business",
-        planPrice:  planPrice(r.plan),
-      }))}
+      referrals={referrals.map((r) => {
+        const fp = firstPaidMap.get(r.id) ?? null;
+        const commissionUntil = fp ? new Date(fp.getTime() + COMMISSION_WINDOW_MS) : null;
+        const inWindow = !!fp && (now.getTime() - fp.getTime()) < COMMISSION_WINDOW_MS;
+        return {
+          id:              r.id,
+          name:            r.name,
+          slug:            r.slug,
+          plan:            r.plan,
+          createdAt:       r.createdAt.toISOString(),
+          isPaid:          r.plan === "pro" || r.plan === "business",
+          planPrice:       planPrice(r.plan),
+          inWindow,
+          commissionUntil: commissionUntil ? commissionUntil.toISOString() : null,
+        };
+      })}
       clickStats={{
         total:          totalClicks,
         uniqueIps,

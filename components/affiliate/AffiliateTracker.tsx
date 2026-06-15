@@ -17,8 +17,8 @@ export default function AffiliateTracker({ code }: { code: string }) {
     if (sessionStorage.getItem(sessionKey)) return;
     sessionStorage.setItem(sessionKey, "1");
 
-    // Set 30-day attribution cookie for aff code (survives tab close)
-    setCookie("aff_code", code, 30);
+    // Set 180-day attribution cookie for aff code (survives tab close)
+    setCookie("aff_code", code, 180);
 
     // Fire click event
     const referrer = document.referrer || "";
@@ -30,8 +30,8 @@ export default function AffiliateTracker({ code }: { code: string }) {
       .then((r) => r.json())
       .then((data) => {
         if (data.clickId) {
-          // Store clickId for conversion attribution (30 days)
-          setCookie("aff_click_id", data.clickId, 30);
+          // Store clickId for conversion attribution (180 days)
+          setCookie("aff_click_id", data.clickId, 180);
         }
       })
       .catch(() => {

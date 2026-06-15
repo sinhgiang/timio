@@ -31,7 +31,7 @@ interface Props {
     commission: number; conversionRate: number;
   };
   tier: { name: string; icon: string; rate: number; next: string | null; nextAt: number | null };
-  referrals: Array<{ id: string; name: string; slug: string; plan: string; createdAt: string; isPaid: boolean; planPrice: number }>;
+  referrals: Array<{ id: string; name: string; slug: string; plan: string; createdAt: string; isPaid: boolean; planPrice: number; inWindow: boolean; commissionUntil: string | null }>;
   clickStats: ClickStats;
 }
 
@@ -123,12 +123,12 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
               <DollarSign className="w-12 h-12" />
             </div>
           </div>
-          {stats.commission > 0 && (
-            <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 text-sm">
-              💡 Hoa hồng thanh toán cuối tháng. Liên hệ{" "}
-              <strong>admin@timio.vn</strong> để yêu cầu.
-            </div>
-          )}
+          <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 text-sm">
+            {stats.commission > 0
+              ? <>💡 Hoa hồng thanh toán cuối tháng. Liên hệ <strong>admin@timio.vn</strong> để yêu cầu.</>
+              : <>⏳ Hoa hồng tính trong <strong>6 tháng đầu</strong> kể từ lần mua đầu tiên của mỗi công ty.</>
+            }
+          </div>
         </div>
 
         {/* Tabs */}
@@ -510,12 +510,13 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                       <th className="text-left px-6 py-3 text-gray-500 font-medium">Công ty</th>
                       <th className="text-left px-4 py-3 text-gray-500 font-medium">Đăng ký</th>
                       <th className="text-center px-4 py-3 text-gray-500 font-medium">Gói</th>
+                      <th className="text-center px-4 py-3 text-gray-500 font-medium">HH đến</th>
                       <th className="text-right px-6 py-3 text-gray-500 font-medium">Hoa hồng</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {referrals.map((r) => (
-                      <tr key={r.id} className="hover:bg-gray-50">
+                      <tr key={r.id} className={`hover:bg-gray-50 ${r.isPaid && !r.inWindow ? "opacity-50" : ""}`}>
                         <td className="px-6 py-4">
                           <p className="font-semibold text-gray-800">{r.name}</p>
                           <p className="text-xs text-gray-400 mt-0.5 font-mono">{r.slug}</p>
@@ -526,9 +527,20 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                             {r.plan === "business" ? "Business" : r.isPaid ? "✓ Pro" : "Starter"}
                           </span>
                         </td>
+                        <td className="px-4 py-4 text-center text-xs">
+                          {r.commissionUntil && r.inWindow ? (
+                            <span className="text-green-600 font-semibold">{fmtDate(r.commissionUntil)}</span>
+                          ) : r.commissionUntil && !r.inWindow ? (
+                            <span className="text-gray-400">Đã hết HH</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-right font-semibold">
-                          {r.isPaid ? (
+                          {r.isPaid && r.inWindow ? (
                             <span className="text-green-700">{fmtCurrency(Math.round(r.planPrice * tier.rate / 100))}</span>
+                          ) : r.isPaid && !r.inWindow ? (
+                            <span className="text-gray-300 line-through text-xs">{fmtCurrency(Math.round(r.planPrice * tier.rate / 100))}</span>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}

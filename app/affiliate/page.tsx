@@ -17,8 +17,9 @@ const FAQS = [
   { q: "Hoa hồng được tính như thế nào?", a: "Mỗi khi công ty bạn giới thiệu mua gói Pro (299.000đ) hoặc Business (799.000đ), bạn nhận hoa hồng theo tier của mình. Tier tăng lũy kế theo tổng số lần chuyển đổi thành công." },
   { q: "Khi nào tôi nhận được tiền?", a: "Hoa hồng được tổng hợp hàng tháng. Chúng tôi liên hệ để thanh toán qua chuyển khoản ngân hàng hoặc ví điện tử vào cuối mỗi tháng." },
   { q: "Ai có thể tham gia?", a: "Bất kỳ ai — freelancer, kế toán viên, tư vấn HR, blogger, YouTuber, hoặc đơn giản là người dùng Timio muốn giới thiệu cho bạn bè." },
-  { q: "Link giới thiệu có hiệu lực bao lâu?", a: "Link không hết hạn. Miễn là công ty đó đăng ký qua link của bạn, bạn sẽ nhận hoa hồng khi họ nâng cấp lên Pro hoặc Business — dù là bây giờ hay 6 tháng sau." },
-  { q: "Tôi có thể theo dõi hiệu quả không?", a: "Có. Sau khi đăng ký, bạn có dashboard cá nhân xem số lượt click, số đăng ký, số chuyển đổi có phí, tier hiện tại và hoa hồng tích lũy." },
+  { q: "Link giới thiệu có hiệu lực bao lâu?", a: "Link không hết hạn. Khi ai đó click link của bạn, cookie theo dõi được lưu 6 tháng — nghĩa là họ có thể đăng ký bất kỳ lúc nào trong 6 tháng đó và bạn vẫn được ghi nhận." },
+  { q: "Tôi nhận hoa hồng trong bao lâu?", a: "Bạn nhận hoa hồng trong 6 tháng đầu kể từ lần mua đầu tiên của mỗi công ty bạn giới thiệu. Sau 6 tháng, dù họ gia hạn tiếp, hoa hồng sẽ không còn được tính cho công ty đó nữa." },
+  { q: "Tôi có thể theo dõi hiệu quả không?", a: "Có. Sau khi đăng ký, bạn có dashboard cá nhân xem số lượt click, số đăng ký, số chuyển đổi có phí, ngày hết hoa hồng từng công ty, tier hiện tại và tổng hoa hồng." },
 ];
 
 export default function AffiliatePage() {
