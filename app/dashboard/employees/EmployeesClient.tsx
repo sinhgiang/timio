@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
+import { Upload, Download, X, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
 
@@ -136,6 +137,85 @@ export default function EmployeesClient({
   const [customDepts, setCustomDepts] = useState<Set<string>>(() => new Set<string>());
   const [customPositions, setCustomPositions] = useState<Set<string>>(() => new Set<string>());
   const [customShifts, setCustomShifts] = useState<string[]>(savedShifts);
+
+  // ─── Import Excel ────────────────────────────────────────────────────────────
+  type ImportRow = { name: string; code: string; pin?: string; department?: string; position?: string; baseSalary?: number; phone?: string; dateOfBirth?: string; joinDate?: string };
+  type ImportResult = { row: number; name: string; ok: boolean; error?: string };
+  const [showImport, setShowImport] = useState(false);
+  const [importBranchId, setImportBranchId] = useState<string>("");
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; total: number; results: ImportResult[] } | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+
+  const parseExcel = async (file: File) => {
+    const { read, utils } = await import("xlsx");
+    const buf = await file.arrayBuffer();
+    const wb = read(buf, { type: "buffer", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = utils.sheet_to_json<Record<string, string>>(ws, { defval: "" });
+    const rows: ImportRow[] = data.map((r) => {
+      const get = (...keys: string[]) => {
+        for (const k of keys) {
+          const found = Object.keys(r).find((rk) => rk.trim().toLowerCase() === k.toLowerCase());
+          if (found && r[found] !== "") return String(r[found]).trim();
+        }
+        return "";
+      };
+      const parseDateStr = (s: string) => {
+        if (!s) return "";
+        // Try DD/MM/YYYY
+        const dmY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (dmY) return `${dmY[3]}-${dmY[2].padStart(2, "0")}-${dmY[1].padStart(2, "0")}`;
+        // Try YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        return "";
+      };
+      return {
+        name: get("Họ và tên", "họ tên", "tên", "name"),
+        code: get("Mã NV", "mã nhân viên", "code", "mã"),
+        pin: get("PIN", "pin"),
+        department: get("Phòng ban", "phòng", "department"),
+        position: get("Chức vụ", "chức danh", "vị trí", "position"),
+        baseSalary: Number(get("Lương cơ bản", "lương", "salary", "baseSalary").replace(/[^\d]/g, "")) || 0,
+        phone: get("Điện thoại", "sdt", "phone"),
+        dateOfBirth: parseDateStr(get("Ngày sinh", "dob", "dateOfBirth")),
+        joinDate: parseDateStr(get("Ngày vào làm", "ngày vào", "joinDate")),
+      };
+    }).filter((r) => r.name || r.code);
+    setImportRows(rows);
+    setImportResult(null);
+  };
+
+  const runImport = async () => {
+    if (!importBranchId || importRows.length === 0) return;
+    setImportLoading(true);
+    const payload = importRows.map((r) => ({ ...r, branchId: importBranchId }));
+    const res = await fetch("/api/employees/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    setImportResult(data);
+    setImportLoading(false);
+    if (data.created > 0) router.refresh();
+  };
+
+  const downloadTemplate = () => {
+    const rows = [
+      ["Họ và tên", "Mã NV", "PIN", "Phòng ban", "Chức vụ", "Lương cơ bản", "Điện thoại", "Ngày sinh", "Ngày vào làm"],
+      ["Nguyễn Văn An", "NV001", "1234", "Kế toán", "Kế toán trưởng", "10000000", "0901234567", "15/03/1990", "01/01/2024"],
+      ["Trần Thị Bích", "NV002", "", "Kinh doanh", "Nhân viên", "8000000", "", "20/07/1995", ""],
+    ];
+    import("xlsx").then(({ utils, writeFile }) => {
+      const ws = utils.aoa_to_sheet(rows);
+      ws["!cols"] = rows[0].map(() => ({ wch: 20 }));
+      const wb = utils.book_new();
+      utils.book_append_sheet(wb, ws, "Nhân viên");
+      writeFile(wb, "mau-import-nhan-vien.xlsx");
+    });
+  };
 
   const defaultBranch = branches[0];
 
@@ -386,11 +466,159 @@ export default function EmployeesClient({
             {activeEmployees.length} đang làm · {registeredCount}/{employees.length} đã đăng ký khuôn mặt
           </p>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowForm(true); }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-        >+ Thêm nhân viên</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowImport(true); setImportBranchId(branches[0]?.id ?? ""); setImportRows([]); setImportResult(null); }}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+          >
+            <Upload size={14} /> Import Excel
+          </button>
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+          >+ Thêm nhân viên</button>
+        </div>
       </div>
+
+      {/* ─── Import Excel Modal ─── */}
+      {showImport && (
+        <div className="fixed inset-0 bg-black/60 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-start justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-6">
+              <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b">
+                <h2 className="text-lg font-bold text-gray-800">Import nhân viên từ Excel</h2>
+                <button onClick={() => setShowImport(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Branch selector */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phân vào chi nhánh</label>
+                  <select
+                    value={importBranchId}
+                    onChange={(e) => setImportBranchId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Template download */}
+                <button
+                  onClick={downloadTemplate}
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  <Download size={14} /> Tải file mẫu (.xlsx)
+                </button>
+
+                {/* File upload */}
+                {!importResult && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Chọn file Excel (.xlsx / .xls)</label>
+                    <div
+                      className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                      onClick={() => importFileRef.current?.click()}
+                    >
+                      <Upload size={28} className="mx-auto text-gray-300 mb-2" />
+                      <p className="text-sm text-gray-500">
+                        {importRows.length > 0
+                          ? `✅ Đã đọc ${importRows.length} nhân viên — nhấn Import để tiếp tục`
+                          : "Nhấn để chọn file hoặc kéo thả vào đây"}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">Tối đa 500 dòng · .xlsx / .xls</p>
+                    </div>
+                    <input
+                      ref={importFileRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) parseExcel(f); e.target.value = ""; }}
+                    />
+                  </div>
+                )}
+
+                {/* Preview rows */}
+                {importRows.length > 0 && !importResult && (
+                  <div className="border border-gray-100 rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Xem trước ({importRows.length} dòng)
+                    </div>
+                    <div className="overflow-x-auto max-h-56 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left px-4 py-2 text-gray-500">#</th>
+                            <th className="text-left px-4 py-2 text-gray-500">Tên</th>
+                            <th className="text-left px-4 py-2 text-gray-500">Mã NV</th>
+                            <th className="text-left px-4 py-2 text-gray-500">Phòng ban</th>
+                            <th className="text-left px-4 py-2 text-gray-500">Lương CB</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {importRows.slice(0, 20).map((r, i) => (
+                            <tr key={i}>
+                              <td className="px-4 py-2 text-gray-400">{i + 1}</td>
+                              <td className="px-4 py-2 font-medium text-gray-800">{r.name || <span className="text-red-400">Thiếu tên</span>}</td>
+                              <td className="px-4 py-2 text-gray-600 font-mono">{r.code || <span className="text-red-400">Thiếu mã</span>}</td>
+                              <td className="px-4 py-2 text-gray-500">{r.department || "—"}</td>
+                              <td className="px-4 py-2 text-gray-600">{r.baseSalary ? formatCurrency(r.baseSalary) : "—"}</td>
+                            </tr>
+                          ))}
+                          {importRows.length > 20 && (
+                            <tr><td colSpan={5} className="text-center py-2 text-gray-400 text-xs">... và {importRows.length - 20} dòng nữa</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Result */}
+                {importResult && (
+                  <div className="space-y-3">
+                    <div className={`flex items-center gap-2 px-4 py-3 rounded-xl ${importResult.created === importResult.total ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"}`}>
+                      {importResult.created === importResult.total
+                        ? <CheckCircle2 size={18} className="text-green-600 shrink-0" />
+                        : <AlertTriangle size={18} className="text-amber-600 shrink-0" />}
+                      <span className="text-sm font-medium">
+                        Đã import {importResult.created}/{importResult.total} nhân viên thành công.
+                      </span>
+                    </div>
+                    {importResult.results.filter((r) => !r.ok).length > 0 && (
+                      <div className="border border-red-100 rounded-xl overflow-hidden">
+                        <div className="bg-red-50 px-4 py-2 text-xs font-semibold text-red-600">Dòng lỗi</div>
+                        {importResult.results.filter((r) => !r.ok).map((r) => (
+                          <div key={r.row} className="flex gap-3 px-4 py-2 border-b border-red-50 text-xs">
+                            <span className="text-gray-400">#{r.row}</span>
+                            <span className="font-medium text-gray-700">{r.name}</span>
+                            <span className="text-red-500">{r.error}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setShowImport(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    {importResult ? "Đóng" : "Hủy"}
+                  </button>
+                  {importRows.length > 0 && !importResult && (
+                    <button
+                      onClick={runImport}
+                      disabled={importLoading || !importBranchId}
+                      className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {importLoading ? "Đang import..." : `Import ${importRows.length} nhân viên`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Form Modal ─── */}
       {showForm && (
