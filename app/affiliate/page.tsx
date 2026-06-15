@@ -10,15 +10,15 @@ const TIERS = [
 const STEPS = [
   { step: "01", title: "Đăng ký miễn phí", desc: "Điền tên + email, nhận ngay link giới thiệu cá nhân của bạn.", icon: Users },
   { step: "02", title: "Chia sẻ link", desc: "Gửi link cho bạn bè, khách hàng, đăng lên mạng xã hội hoặc blog.", icon: Zap },
-  { step: "03", title: "Nhận hoa hồng", desc: "Mỗi khi họ mua gói Pro, bạn nhận hoa hồng trực tiếp vào tài khoản.", icon: DollarSign },
+  { step: "03", title: "Nhận hoa hồng", desc: "Mỗi khi họ mua gói Pro hoặc Business, bạn nhận hoa hồng trực tiếp vào tài khoản.", icon: DollarSign },
 ];
 
 const FAQS = [
-  { q: "Hoa hồng được tính như thế nào?", a: "Mỗi khi một công ty bạn giới thiệu mua gói Pro (299.000đ/tháng), bạn nhận hoa hồng theo tier của mình. Tier tăng lũy kế theo tổng số lần chuyển đổi thành công." },
+  { q: "Hoa hồng được tính như thế nào?", a: "Mỗi khi công ty bạn giới thiệu mua gói Pro (299.000đ) hoặc Business (799.000đ), bạn nhận hoa hồng theo tier của mình. Tier tăng lũy kế theo tổng số lần chuyển đổi thành công." },
   { q: "Khi nào tôi nhận được tiền?", a: "Hoa hồng được tổng hợp hàng tháng. Chúng tôi liên hệ để thanh toán qua chuyển khoản ngân hàng hoặc ví điện tử vào cuối mỗi tháng." },
   { q: "Ai có thể tham gia?", a: "Bất kỳ ai — freelancer, kế toán viên, tư vấn HR, blogger, YouTuber, hoặc đơn giản là người dùng Timio muốn giới thiệu cho bạn bè." },
-  { q: "Link giới thiệu có hiệu lực bao lâu?", a: "Link không hết hạn. Miễn là công ty đó đăng ký qua link của bạn, bạn sẽ nhận hoa hồng khi họ mua Pro dù là bây giờ hay 6 tháng sau." },
-  { q: "Tôi có thể theo dõi hiệu quả không?", a: "Có. Sau khi đăng ký, bạn có dashboard cá nhân xem số lượt đăng ký, số mua Pro, tier hiện tại và hoa hồng tích lũy." },
+  { q: "Link giới thiệu có hiệu lực bao lâu?", a: "Link không hết hạn. Miễn là công ty đó đăng ký qua link của bạn, bạn sẽ nhận hoa hồng khi họ nâng cấp lên Pro hoặc Business — dù là bây giờ hay 6 tháng sau." },
+  { q: "Tôi có thể theo dõi hiệu quả không?", a: "Có. Sau khi đăng ký, bạn có dashboard cá nhân xem số lượt click, số đăng ký, số chuyển đổi có phí, tier hiện tại và hoa hồng tích lũy." },
 ];
 
 export default function AffiliatePage() {
@@ -55,7 +55,7 @@ export default function AffiliatePage() {
             {" "}khi giới thiệu Timio
           </h1>
           <p className="text-blue-200 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-            Chia sẻ link cá nhân của bạn. Mỗi công ty đăng ký qua link và mua gói Pro, bạn nhận hoa hồng ngay — không giới hạn.
+            Chia sẻ link cá nhân của bạn. Mỗi công ty đăng ký qua link và mua gói Pro hoặc Business, bạn nhận hoa hồng ngay — không giới hạn.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -72,7 +72,7 @@ export default function AffiliatePage() {
           {/* Stats */}
           <div className="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto">
             {[
-              { value: "299k₫", label: "Giá gói Pro/tháng" },
+              { value: "299k–799k", label: "Giá gói trả phí/tháng" },
               { value: "20%", label: "Hoa hồng tối đa" },
               { value: "∞", label: "Không giới hạn" },
             ].map((s) => (

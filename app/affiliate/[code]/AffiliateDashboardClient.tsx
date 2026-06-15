@@ -116,7 +116,7 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
               <p className="text-blue-200 text-sm mb-1">Hoa hồng tích lũy</p>
               <p className="text-4xl font-extrabold">{fmtCurrency(stats.commission)}</p>
               <p className="text-blue-200 text-xs mt-2">
-                Từ {stats.converted} đơn Pro · Doanh thu {fmtCurrency(stats.revenue)}
+                Từ {stats.converted} đơn có phí · Doanh thu {fmtCurrency(stats.revenue)}
               </p>
             </div>
             <div className="text-right opacity-40">
@@ -157,7 +157,7 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
               {[
                 { label: "Lượt Click",       value: clickStats.total,       sub: `${clickStats.uniqueIps} unique IP`,       Icon: MousePointer, color: "indigo" },
                 { label: "Đã đăng ký",       value: stats.registered,       sub: "công ty qua link",                       Icon: Users,        color: "blue" },
-                { label: "Đã mua Pro",        value: stats.converted,        sub: "chuyển đổi thành công",                  Icon: TrendingUp,   color: "green" },
+                { label: "Đã trả phí",         value: stats.converted,        sub: "Pro + Business",                         Icon: TrendingUp,   color: "green" },
                 { label: "Hoa hồng",          value: fmtCurrency(stats.commission), sub: `Hạng ${tier.name} · ${tier.rate}%`, Icon: DollarSign,   color: "yellow" },
               ].map((s) => {
                 const bg: Record<string, string> = {
@@ -186,7 +186,7 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                 {[
                   { label: "Lượt click",   value: clickStats.total,        pct: 100,                        color: "bg-indigo-500" },
                   { label: "Đăng ký",      value: stats.registered,        pct: clickStats.clickToRegRate,  color: "bg-blue-500" },
-                  { label: "Mua Pro",      value: stats.converted,         pct: clickStats.regToProRate,    color: "bg-green-500" },
+                  { label: "Trả phí",      value: stats.converted,         pct: clickStats.regToProRate,    color: "bg-green-500" },
                 ].map((step, i, arr) => (
                   <div key={step.label} className="flex items-center gap-2 flex-1">
                     <div className="flex-1 text-center">
@@ -218,7 +218,7 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                   <div className="text-lg font-extrabold text-green-600">
                     {clickStats.total > 0 ? Math.round(stats.converted / clickStats.total * 100) : 0}%
                   </div>
-                  <div className="text-xs text-gray-400">Click → Pro (tổng)</div>
+                  <div className="text-xs text-gray-400">Click → Trả phí (tổng)</div>
                 </div>
               </div>
             </div>
@@ -462,10 +462,10 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                   { label: "Click → Đăng ký",   value: `${clickStats.clickToRegRate}%`,
                     detail: `${clickStats.clickConverted} / ${clickStats.total} người`,
                     color: "text-indigo-600", bg: "bg-indigo-50" },
-                  { label: "Đăng ký → Pro",      value: `${clickStats.regToProRate}%`,
+                  { label: "Đăng ký → Trả phí",  value: `${clickStats.regToProRate}%`,
                     detail: `${stats.converted} / ${stats.registered} người`,
                     color: "text-blue-600",   bg: "bg-blue-50" },
-                  { label: "Click → Pro (tổng)", value: `${clickStats.total > 0 ? Math.round(stats.converted / clickStats.total * 100) : 0}%`,
+                  { label: "Click → Trả phí (tổng)", value: `${clickStats.total > 0 ? Math.round(stats.converted / clickStats.total * 100) : 0}%`,
                     detail: `${stats.converted} / ${clickStats.total} người`,
                     color: "text-green-600",  bg: "bg-green-50" },
                 ].map((s) => (
