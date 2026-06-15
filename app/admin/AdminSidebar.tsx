@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, Gift, DollarSign, Clock, ChevronLeft, ShieldCheck } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { LayoutDashboard, Building2, Gift, DollarSign, Clock, ShieldCheck, LogOut } from "lucide-react";
 
 const NAV = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard, exact: true },
@@ -55,14 +56,21 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-2 pb-4 border-t border-slate-700/60 pt-3">
+      <div className="px-2 pb-4 border-t border-slate-700/60 pt-3 space-y-0.5">
         <Link
-          href="/dashboard"
+          href="/admin/companies"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" />
-          Dashboard của tôi
+          <Building2 className="w-4 h-4" />
+          Chọn công ty để vào
         </Link>
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-red-400 hover:bg-slate-700/60 transition-colors text-left"
+        >
+          <LogOut className="w-4 h-4" />
+          Đăng xuất
+        </button>
       </div>
     </aside>
   );

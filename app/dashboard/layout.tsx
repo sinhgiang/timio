@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   title: { template: "%s | Timio", default: "Dashboard | Timio" },
 };
 
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL ?? "admin@sinhgiang.com";
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -25,6 +27,11 @@ export default async function DashboardLayout({
   const companyId = user?.companyId;
   const needsSetup = !companyId;
   const isImpersonating = user?.impersonating === true;
+
+  // Super admin không impersonating → về thẳng admin panel
+  if (session.user?.email === SUPER_ADMIN_EMAIL && !isImpersonating) {
+    redirect("/admin");
+  }
 
   const [pendingLeaveCount, company] = await Promise.all([
     companyId ? prisma.leaveRequest.count({ where: { companyId, status: "pending" } }) : Promise.resolve(0),
