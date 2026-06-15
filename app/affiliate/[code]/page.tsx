@@ -25,6 +25,31 @@ function getTier(converted: number) {
 
 function detectSource(referrer: string | null): string {
   if (!referrer) return "Trực tiếp";
+
+  // UTM-encoded source (set by AffiliateTracker when UTM params present)
+  // Format: "utm:source/medium/campaign"
+  if (referrer.startsWith("utm:")) {
+    const parts  = referrer.slice(4).split("/");
+    const src    = (parts[0] || "").toLowerCase();
+    const medium = (parts[1] || "").toLowerCase();
+    if (src === "google"    && medium === "cpc")   return "Google Ads";
+    if (src === "google")                          return "Google";
+    if (src === "facebook"  && medium === "paid")  return "Facebook Ads";
+    if (src === "facebook"  || src === "fb")       return "Facebook";
+    if (src === "instagram" && medium === "paid")  return "Instagram Ads";
+    if (src === "instagram")                       return "Instagram";
+    if (src === "tiktok"    && medium === "paid")  return "TikTok Ads";
+    if (src === "tiktok")                          return "TikTok";
+    if (src === "zalo")                            return "Zalo";
+    if (src === "youtube")                         return "YouTube";
+    if (src === "linkedin")                        return "LinkedIn";
+    if (src === "twitter"   || src === "x")        return "Twitter/X";
+    if (src === "email"     || src === "newsletter") return "Email";
+    // Capitalize unknown UTM source
+    return src.charAt(0).toUpperCase() + src.slice(1);
+  }
+
+  // Fallback: parse HTTP referrer
   if (/google\./i.test(referrer))               return "Google";
   if (/facebook\.com|fb\.com/i.test(referrer))  return "Facebook";
   if (/youtube\.com|youtu\.be/i.test(referrer)) return "YouTube";
@@ -32,6 +57,7 @@ function detectSource(referrer: string | null): string {
   if (/zalo\.me|zalo\.vn/i.test(referrer))      return "Zalo";
   if (/twitter\.com|t\.co/i.test(referrer))     return "Twitter/X";
   if (/linkedin\.com/i.test(referrer))          return "LinkedIn";
+  if (/instagram\.com/i.test(referrer))         return "Instagram";
   try {
     return new URL(referrer).hostname.replace(/^www\./, "");
   } catch {
