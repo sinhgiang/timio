@@ -6,6 +6,7 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import MobileBottomNav from "@/components/dashboard/MobileBottomNav";
 import UpsellChecker from "@/components/dashboard/UpsellChecker";
 import CompanySetupModal from "@/components/dashboard/CompanySetupModal";
+import ImpersonationBanner from "@/components/dashboard/ImpersonationBanner";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -20,18 +21,22 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
-  const companyId = (session.user as { companyId?: string })?.companyId;
+  const user = session.user as { companyId?: string; impersonating?: boolean };
+  const companyId = user?.companyId;
   const needsSetup = !companyId;
+  const isImpersonating = user?.impersonating === true;
 
-  const pendingLeaveCount = companyId
-    ? await prisma.leaveRequest.count({ where: { companyId, status: "pending" } })
-    : 0;
+  const [pendingLeaveCount, company] = await Promise.all([
+    companyId ? prisma.leaveRequest.count({ where: { companyId, status: "pending" } }) : Promise.resolve(0),
+    isImpersonating && companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }) : Promise.resolve(null),
+  ]);
 
   return (
     <div className="flex h-screen bg-gray-50">
       <UpsellChecker />
+      {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} />}
       <Sidebar companyName={session.user?.name ?? "Công ty"} pendingLeaveCount={pendingLeaveCount} />
-      <main className="flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0">{children}</main>
+      <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""}`}>{children}</main>
       <MobileBottomNav pendingLeaveCount={pendingLeaveCount} />
       <CompanySetupModal
         needsSetup={needsSetup}

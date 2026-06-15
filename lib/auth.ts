@@ -65,7 +65,24 @@ export const authOptions: NextAuthOptions = {
       // dashboard layout redirects them to /setup-company
       return true;
     },
-    async jwt({ token, user, account, trigger }) {
+    async jwt({ token, user, account, trigger, session: updateData }) {
+      // Super admin impersonation: update({ impersonateCompanyId: id | null })
+      if (trigger === "update" && updateData && typeof updateData === "object" && "impersonateCompanyId" in updateData) {
+        const targetId = (updateData as Record<string, unknown>).impersonateCompanyId;
+        if (targetId === null) {
+          // Stop impersonation — restore original
+          token.companyId = token.originalCompanyId ?? token.companyId;
+          token.originalCompanyId = undefined;
+          token.impersonating = false;
+        } else {
+          // Start impersonation — save original first
+          if (!token.impersonating) token.originalCompanyId = token.companyId;
+          token.companyId = targetId as string;
+          token.impersonating = true;
+        }
+        return token; // skip DB lookup below
+      }
+
       // Google sign-in (first time) OR session update after company setup
       if (account?.provider === "google" || (trigger === "update" && token.email)) {
         const admin = await prisma.admin.findUnique({
@@ -86,9 +103,10 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        const u = session.user as { companyId?: string; role?: string };
+        const u = session.user as { companyId?: string; role?: string; impersonating?: boolean };
         u.companyId = token.companyId as string;
         u.role = token.role as string;
+        u.impersonating = (token.impersonating as boolean) ?? false;
       }
       return session;
     },
