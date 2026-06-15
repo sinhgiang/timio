@@ -59,7 +59,7 @@ function AffiliatesTab({ affiliates, summary }: { affiliates: AffiliateRow[]; su
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Tổng đối tác" value={summary.total} sub="đã đăng ký" icon={Users} color="blue" />
-        <StatCard label="Chuyển đổi Pro" value={summary.converted} sub="công ty mua Pro qua affiliate" icon={TrendingUp} color="green" />
+        <StatCard label="Đã chuyển đổi" value={summary.converted} sub="công ty mua Pro/Business qua affiliate" icon={TrendingUp} color="green" />
         <StatCard label="Doanh thu từ affiliate" value={fmtCurrency(summary.revenue)} sub="lũy kế" icon={DollarSign} color="purple" />
         <StatCard label="Hoa hồng phải trả" value={fmtCurrency(summary.commission)} sub="tổng tất cả đối tác" icon={Gift} color="yellow" />
       </div>
@@ -112,7 +112,7 @@ function AffiliatesTab({ affiliates, summary }: { affiliates: AffiliateRow[]; su
                     </div>
                     <div>
                       <p className="text-lg font-bold text-green-700">{a.converted}</p>
-                      <p className="text-xs text-gray-400">mua Pro</p>
+                      <p className="text-xs text-gray-400">trả phí</p>
                     </div>
                     <div>
                       <p className="text-lg font-bold text-purple-700">{fmtCurrency(a.commission)}</p>
@@ -198,7 +198,7 @@ function ReferralsTab({ referrers, summary }: { referrers: ReferrerRow[]; summar
                   <th className="text-left px-6 py-3 text-gray-500 font-medium">#</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium">Công ty</th>
                   <th className="text-center px-4 py-3 text-gray-500 font-medium">Đăng ký</th>
-                  <th className="text-center px-4 py-3 text-gray-500 font-medium">Mua Pro</th>
+                  <th className="text-center px-4 py-3 text-gray-500 font-medium">Trả phí</th>
                   <th className="text-right px-4 py-3 text-gray-500 font-medium">Doanh thu</th>
                   <th className="text-center px-4 py-3 text-gray-500 font-medium">Tier</th>
                   <th className="text-right px-6 py-3 text-gray-500 font-medium">Thưởng tích lũy</th>

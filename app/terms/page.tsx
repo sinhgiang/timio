@@ -109,21 +109,39 @@ export default function TermsPage() {
 
         <Section id="6" title="6. Gói dịch vụ và thanh toán">
           <p>
-            Timio cung cấp gói <strong>Starter</strong> (miễn phí, giới hạn tính năng) và gói{" "}
-            <strong>Pro</strong> (trả phí, đầy đủ tính năng). Giá và điều kiện từng gói được hiển thị
-            tại trang thanh toán trong hệ thống.
+            Timio cung cấp ba gói dịch vụ: <strong>Starter</strong> (miễn phí, giới hạn tính năng),{" "}
+            <strong>Pro</strong> (299.000đ/tháng, dành cho doanh nghiệp đang phát triển) và{" "}
+            <strong>Business</strong> (799.000đ/tháng, dành cho doanh nghiệp lớn nhiều chi nhánh).
+            Giá và tính năng từng gói được hiển thị đầy đủ tại trang thanh toán trong hệ thống.
           </p>
           <p>
             Thanh toán được xử lý qua hệ thống thanh toán điện tử an toàn. Timio không hoàn tiền
-            sau khi gói Pro đã được kích hoạt, trừ trường hợp lỗi kỹ thuật nghiêm trọng từ phía Timio.
+            sau khi gói Pro hoặc Business đã được kích hoạt, trừ trường hợp lỗi kỹ thuật nghiêm trọng
+            từ phía Timio.
           </p>
         </Section>
 
         <Section id="7" title="7. Chương trình Referral và Affiliate">
           <p>
             Timio cung cấp chương trình giới thiệu (referral) cho Khách hàng hiện tại và chương trình
-            affiliate cho đối tác bên ngoài. Hoa hồng và phần thưởng được tính theo điều kiện đăng
-            ký tại thời điểm tham gia.
+            affiliate cho đối tác bên ngoài. Hoa hồng được tính trên giá trị gói Pro hoặc Business
+            mà công ty được giới thiệu mua lần đầu tiên.
+          </p>
+          <p>
+            <strong>Thời gian giữ đơn:</strong> Mỗi đơn hàng được giữ trong 30 ngày kể từ ngày thanh
+            toán. Nếu không có yêu cầu hoàn tiền trong thời gian này, đơn hàng được xác nhận hợp lệ
+            để tính hoa hồng.
+          </p>
+          <p>
+            <strong>Cửa sổ hoa hồng:</strong> Affiliate nhận hoa hồng trong 6 tháng đầu kể từ lần
+            mua đầu tiên của mỗi công ty được giới thiệu. Sau 6 tháng, các lần gia hạn tiếp theo
+            không còn tính hoa hồng cho affiliate đó.
+          </p>
+          <p>
+            <strong>Lịch thanh toán:</strong> Hoa hồng đã xác nhận (qua 30 ngày giữ đơn) được thanh
+            toán vào ngày <strong>15 hàng tháng</strong>. Nếu ngày xác nhận sau ngày 15 của tháng đó,
+            hoa hồng sẽ được thanh toán vào ngày 15 của tháng tiếp theo. Thanh toán qua chuyển khoản
+            ngân hàng theo thông tin Affiliate đã đăng ký.
           </p>
           <p>
             Timio có quyền thay đổi tỷ lệ hoa hồng và điều kiện chương trình sau khi thông báo trước

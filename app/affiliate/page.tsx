@@ -10,7 +10,7 @@ const TIERS = [
 const STEPS = [
   { step: "01", title: "Đăng ký miễn phí", desc: "Điền tên + email, nhận ngay link giới thiệu cá nhân của bạn.", icon: Users },
   { step: "02", title: "Chia sẻ link", desc: "Gửi link cho bạn bè, khách hàng, đăng lên mạng xã hội hoặc blog.", icon: Zap },
-  { step: "03", title: "Nhận hoa hồng", desc: "Mỗi khi họ mua gói Pro hoặc Business, bạn nhận hoa hồng trực tiếp vào tài khoản.", icon: DollarSign },
+  { step: "03", title: "Nhận hoa hồng", desc: "Sau 30 ngày giữ đơn (không hoàn tiền), hoa hồng được xác nhận và thanh toán vào ngày 15 tháng đó hoặc tháng sau.", icon: DollarSign },
 ];
 
 const FAQS = [
@@ -137,7 +137,7 @@ export default function AffiliatePage() {
                   </div>
                 </div>
                 <ul className="mt-6 space-y-2">
-                  {["Link giới thiệu cá nhân", "Dashboard theo dõi real-time", "Thanh toán cuối tháng"].map((f) => (
+                  {["Link giới thiệu cá nhân", "Dashboard theo dõi real-time", "Thanh toán ngày 15 hàng tháng"].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
                       <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
                       {f}
