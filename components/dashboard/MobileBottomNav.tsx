@@ -11,11 +11,12 @@ const tabs = [
   { href: "/dashboard/reports", label: "Báo cáo", Icon: BarChart3 },
 ];
 
-export default function MobileBottomNav({ pendingLeaveCount = 0 }: { pendingLeaveCount?: number }) {
+export default function MobileBottomNav({ pendingLeaveCount = 0, role = "owner" }: { pendingLeaveCount?: number; role?: string }) {
   const pathname = usePathname();
+  const visibleTabs = role === "accountant" ? tabs.filter((t) => t.href !== "/dashboard/leave") : tabs;
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-gray-200 flex safe-area-inset-bottom">
-      {tabs.map(({ href, label, Icon }) => {
+      {visibleTabs.map(({ href, label, Icon }) => {
         const isActive = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
         const showBadge = href === "/dashboard/leave" && pendingLeaveCount > 0;
         return (

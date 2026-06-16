@@ -41,7 +41,7 @@ export default async function DashboardPage() {
   const notCheckedIn = totalEmployees - checkedIn;
 
   const todayDate = new Date().toLocaleDateString("vi-VN", {
-    weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
+    weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh",
   });
 
   const checkInUrl = company?.slug ? `/checkin/${company.slug}` : null;

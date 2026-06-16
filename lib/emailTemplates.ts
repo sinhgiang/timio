@@ -36,7 +36,7 @@ function fmtVND(amount: number) {
 }
 
 function fmtDate(d: Date) {
-  return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 // ─── Affiliate: thông báo có đơn mới ───────────────────────────────────────

@@ -2,6 +2,7 @@
 // AudioContext approach: unlock once on first user gesture → play freely at any time
 
 let audioCtx: AudioContext | null = null;
+let currentSource: AudioBufferSourceNode | null = null;
 
 function getCtx(): AudioContext {
   if (!audioCtx) {
@@ -11,16 +12,25 @@ function getCtx(): AudioContext {
   return audioCtx;
 }
 
+export function stopAudio(): void {
+  if (currentSource) {
+    try { currentSource.stop(); } catch { /* already ended */ }
+    currentSource = null;
+  }
+}
+
 // Phát ArrayBuffer qua AudioContext, await đến khi âm thanh kết thúc
 async function playBuffer(arrayBuffer: ArrayBuffer): Promise<void> {
+  stopAudio();
   const ctx = getCtx();
   if (ctx.state === "suspended") await ctx.resume();
   const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(ctx.destination);
+  currentSource = source;
   await new Promise<void>((resolve) => {
-    source.onended = () => resolve();
+    source.onended = () => { currentSource = null; resolve(); };
     source.start(0);
   });
 }

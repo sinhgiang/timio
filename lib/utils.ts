@@ -12,12 +12,15 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+const VN_TZ = "Asia/Ho_Chi_Minh";
+
 export function formatTime(date: Date | null | undefined): string {
   if (!date) return "--:--";
   return new Date(date).toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: VN_TZ,
   });
 }
 
@@ -26,15 +29,13 @@ export function formatDate(date: Date | string): string {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: VN_TZ,
   });
 }
 
 export function getTodayString(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  // sv-SE locale returns "YYYY-MM-DD" directly
+  return new Date().toLocaleDateString("sv-SE", { timeZone: VN_TZ });
 }
 
 export function getMonthDays(year: number, month: number): string[] {

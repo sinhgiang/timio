@@ -26,7 +26,16 @@ import {
 interface Props {
   companyName: string;
   pendingLeaveCount?: number;
+  role?: string;
 }
+
+const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings"]);
+const HIDDEN_FOR_ACCOUNTANT = new Set([
+  "/dashboard/billing",
+  "/dashboard/settings",
+  "/dashboard/leave",
+  "/dashboard/branches",
+]);
 
 const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: string }[] = [
   { href: "/dashboard", label: "Tổng quan", Icon: LayoutDashboard },
@@ -41,9 +50,15 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];
 
-export default function Sidebar({ companyName, pendingLeaveCount = 0 }: Props) {
+export default function Sidebar({ companyName, pendingLeaveCount = 0, role = "owner" }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const visibleItems = navItems.filter((item) => {
+    if (role === "manager") return !HIDDEN_FOR_MANAGER.has(item.href);
+    if (role === "accountant") return !HIDDEN_FOR_ACCOUNTANT.has(item.href);
+    return true;
+  });
 
   return (
     <>
@@ -97,7 +112,7 @@ export default function Sidebar({ companyName, pendingLeaveCount = 0 }: Props) {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive =
               item.href === "/dashboard"
                 ? pathname === "/dashboard"

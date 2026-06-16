@@ -3,14 +3,13 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
 import type { EmployeeFaceData } from "@/lib/faceApi";
-import { speakVi, playCompanyAudio, unlockAudio } from "@/lib/speech";
+import { speakVi, playCompanyAudio, unlockAudio, stopAudio } from "@/lib/speech";
 import { Clock, UserCircle, Cpu, ScanFace, CheckCircle2, AlertTriangle, UserX, HelpCircle, LogOut } from "lucide-react";
 
 type Phase =
   | "welcome"
   | "loading"
   | "camera"
-  | "head_turn"
   | "scanning"
   | "success"
   | "no_face"
@@ -63,15 +62,9 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   const detectingRef = useRef(false);
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Refs cho auto check-in
   const matchCountRef = useRef(0);
   const lastMatchIdRef = useRef<string | null>(null);
   const autoCheckingRef = useRef(false);
-
-  // Refs cho head turn challenge
-  const headTurnDirRef = useRef<"left" | "right">("left");
-  const headTurnTargetRef = useRef<{ id: string; name: string } | null>(null);
-  const headTurnBaselineRef = useRef<number | null>(null);
 
   const [phase, setPhase] = useState<Phase>("welcome");
   const [result, setResult] = useState<CheckInResult | null>(null);
@@ -82,11 +75,9 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   const [faceDetected, setFaceDetected] = useState(false);
   const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
   const [matchCount, setMatchCount] = useState(0);
-  const [headTurnDir, setHeadTurnDir] = useState<"left" | "right">("left");
-  const [headTurnCountdown, setHeadTurnCountdown] = useState(5);
 
   // Cancel speech khi unmount
-  useEffect(() => () => { speakVi(""); window.speechSynthesis?.cancel(); }, []);
+  useEffect(() => () => { stopAudio(); window.speechSynthesis?.cancel(); }, []);
 
   // Đồng hồ realtime
   useEffect(() => {
@@ -101,7 +92,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
     });
   }, []);
 
-  // Phát welcome khi load
+  // Phát welcome khi load (desktop auto-plays, mobile blocked until tap)
   useEffect(() => {
     const t = setTimeout(() => {
       playCompanyAudio(company.slug, "welcome.mp3", `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`);
@@ -145,9 +136,9 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // Gán stream vào video SAU KHI phase = "camera" hoặc "head_turn"
+  // Gán stream vào video SAU KHI phase = "camera"
   useEffect(() => {
-    if ((phase === "camera" || phase === "head_turn") && videoRef.current && streamRef.current) {
+    if (phase === "camera" && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch(() => {});
     }
@@ -162,12 +153,12 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
     const runDetect = async () => {
       if (autoCheckingRef.current) return;
       if (!alive || detectingRef.current) {
-        if (alive) loopRef.current = setTimeout(runDetect, 500);
+        if (alive) loopRef.current = setTimeout(runDetect, 250);
         return;
       }
       const video = videoRef.current;
       if (!video || video.readyState < 2 || video.videoWidth === 0) {
-        if (alive) loopRef.current = setTimeout(runDetect, 300);
+        if (alive) loopRef.current = setTimeout(runDetect, 200);
         return;
       }
 
@@ -205,15 +196,10 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
                     }
                     setMatchCount(matchCountRef.current);
 
-                    // 2 lần khớp liên tiếp → head turn challenge
+                    // 2 lần khớp liên tiếp → check-in luôn, không cần head turn
                     if (matchCountRef.current >= 2 && !autoCheckingRef.current) {
                       autoCheckingRef.current = true;
-                      const dir = Math.random() < 0.5 ? "left" : "right";
-                      headTurnDirRef.current = dir;
-                      headTurnTargetRef.current = { id: match.id, name: match.name };
-                      headTurnBaselineRef.current = null;
-                      setHeadTurnDir(dir);
-                      setPhase("head_turn");
+                      void doCheckIn(match.id, match.name);
                       return;
                     }
                   } else {
@@ -238,11 +224,11 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
         }
       } catch { /* ignore */ } finally {
         detectingRef.current = false;
-        if (alive && !autoCheckingRef.current) loopRef.current = setTimeout(runDetect, 600);
+        if (alive && !autoCheckingRef.current) loopRef.current = setTimeout(runDetect, 250);
       }
     };
 
-    loopRef.current = setTimeout(runDetect, 300);
+    loopRef.current = setTimeout(runDetect, 150);
 
     return () => {
       alive = false;
@@ -254,79 +240,6 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
       lastMatchIdRef.current = null;
       autoCheckingRef.current = false;
       setMatchCount(0);
-    };
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Head turn challenge — theo dõi face box X để phát hiện cử động đầu
-  useEffect(() => {
-    if (phase !== "head_turn") return;
-
-    let alive = true;
-    let cdVal = 5;
-    setHeadTurnCountdown(cdVal);
-
-    const cdInterval = setInterval(() => {
-      cdVal--;
-      setHeadTurnCountdown(cdVal);
-      if (cdVal <= 0) {
-        clearInterval(cdInterval);
-        if (alive) {
-          alive = false;
-          if (loopRef.current) clearTimeout(loopRef.current);
-          headTurnBaselineRef.current = null;
-          headTurnTargetRef.current = null;
-          matchCountRef.current = 0;
-          lastMatchIdRef.current = null;
-          setMatchCount(0);
-          setPhase("camera");
-        }
-      }
-    }, 1000);
-
-    const run = async () => {
-      if (!alive) return;
-      const video = videoRef.current;
-      if (!video || video.readyState < 2 || video.videoWidth === 0) {
-        if (alive) loopRef.current = setTimeout(run, 200);
-        return;
-      }
-
-      try {
-        const { detectFaceBox } = await import("@/lib/faceApi");
-        const box = await detectFaceBox(video);
-
-        if (alive && box) {
-          const vW = video.videoWidth || 640;
-          const centerX = (box.x + box.width / 2) / vW; // normalize 0–1
-
-          if (headTurnBaselineRef.current === null) {
-            headTurnBaselineRef.current = centerX;
-          } else {
-            const displacement = centerX - headTurnBaselineRef.current;
-            const dir = headTurnDirRef.current;
-            // Front camera (user-facing): user looks LEFT → face box moves RIGHT in raw video (X increases)
-            const moved = dir === "left" ? displacement > 0.15 : displacement < -0.15;
-
-            if (moved) {
-              clearInterval(cdInterval);
-              alive = false;
-              handleHeadTurnConfirmed();
-              return;
-            }
-          }
-        }
-      } catch { /* ignore */ }
-
-      if (alive) loopRef.current = setTimeout(run, 150);
-    };
-
-    // 700ms delay — dừng lại để user đọc hướng dẫn trước khi bắt đầu track
-    loopRef.current = setTimeout(run, 700);
-
-    return () => {
-      alive = false;
-      clearInterval(cdInterval);
-      if (loopRef.current) clearTimeout(loopRef.current);
     };
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -344,15 +257,11 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
     autoCheckingRef.current = false;
     matchCountRef.current = 0;
     lastMatchIdRef.current = null;
-    headTurnTargetRef.current = null;
-    headTurnBaselineRef.current = null;
     setMatchCount(0);
   }, [stopCamera]);
 
-  // Nhận diện + head turn xong → lấy GPS → check-in
-  const handleHeadTurnConfirmed = useCallback(async () => {
-    const target = headTurnTargetRef.current;
-    if (!target) return;
+  // Nhận diện xong → lấy GPS → check-in
+  const doCheckIn = useCallback(async (employeeId: string, employeeName: string) => {
     stopCamera();
     setPhase("scanning");
 
@@ -363,7 +272,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: target.id,
+          employeeId,
           lat: gps?.lat ?? null,
           lng: gps?.lng ?? null,
         }),
@@ -374,7 +283,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
         setPhase("error");
         return;
       }
-      setResult({ ...data, employeeName: target.name });
+      setResult({ ...data, employeeName });
       setPhase("success");
     } catch (e) {
       setErrorMsg(`Lỗi: ${e instanceof Error ? e.message : String(e)}`);
@@ -383,6 +292,7 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
   }, [stopCamera]);
 
   const startCamera = async () => {
+    stopAudio(); // Dừng mọi audio đang phát trước khi chào
     unlockAudio();
     playCompanyAudio(company.slug, "welcome.mp3", `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`);
 
@@ -424,15 +334,15 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
       : `Đang xác nhận... (${matchCount}/2)`
     : "Đưa mặt vào khung hình";
 
-  const isVideoPhase = phase === "camera" || phase === "head_turn";
+  const isVideoPhase = phase === "camera";
 
-  const videoBorderColor =
-    phase === "head_turn" ? "#f97316" :
-    faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#60a5fa";
+  const videoBorderColor = faceDetected
+    ? (matchCount > 0 ? "#facc15" : "#22c55e")
+    : "#60a5fa";
 
   return (
     <div className="kiosk-mode min-h-screen bg-gradient-to-br from-slate-900 to-blue-900 flex flex-col select-none">
-      {/* Top bar — ẩn khi full screen camera/head_turn trên mobile */}
+      {/* Top bar — ẩn khi full screen camera trên mobile */}
       {!isVideoPhase && (
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <div>
@@ -484,20 +394,19 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
           </div>
         )}
 
-        {/* CAMERA + HEAD TURN — video giữ nguyên, chỉ overlay thay đổi */}
+        {/* CAMERA — full screen mobile, boxed desktop */}
         {isVideoPhase && (
           <div className="fixed inset-0 z-40 bg-black flex flex-col
                           md:relative md:inset-auto md:z-auto md:bg-transparent
                           md:w-[640px] md:max-w-[90vw]">
 
-            {/* Status bar trên cùng */}
+            {/* Status bar */}
             <div className="px-6 pt-5 pb-3 text-center">
               <p className={`font-medium text-base transition-colors duration-300 ${
-                phase === "head_turn" ? "text-orange-300" :
                 matchCount > 0 ? "text-yellow-300" :
                 faceDetected ? "text-green-300" : "text-white/80"
               }`}>
-                {phase === "head_turn" ? "Xác thực chống gian lận" : cameraStatusText}
+                {cameraStatusText}
               </p>
             </div>
 
@@ -511,7 +420,8 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
                 className="w-full h-full object-cover block md:h-auto md:aspect-[4/3]"
                 style={{
                   transformOrigin: "50% 50%",
-                  transform: `translate(${zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`,
+                  // scaleX(-1) = mirror như gương selfie — bên phải người dùng = bên phải màn hình
+                  transform: `translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale}) scaleX(-1)`,
                   transition: "transform 0.5s ease",
                 }}
                 muted
@@ -522,40 +432,21 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
               {/* Oval guide overlay */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${
-                  phase === "head_turn" ? "border-orange-400 opacity-90" :
                   matchCount > 0 ? "border-yellow-400 opacity-90" :
                   faceDetected ? "border-green-400 opacity-80" : "border-blue-400 opacity-40"
                 }`} />
               </div>
 
-              {/* Badge top-right (chỉ hiện ở phase camera) */}
-              {phase === "camera" && (
-                <div className="absolute top-3 right-3 pointer-events-none">
-                  <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
-                    matchCount > 0 ? "bg-yellow-500 text-white" :
-                    faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
-                  }`}>
-                    {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
-                     faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
-                  </span>
-                </div>
-              )}
-
-              {/* Head turn challenge overlay */}
-              {phase === "head_turn" && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/60">
-                  <div className="text-center px-8 py-7">
-                    <p className="text-orange-300 text-sm font-semibold uppercase tracking-widest mb-4">
-                      Xác thực bạn là người thật
-                    </p>
-                    <p className="text-white font-black drop-shadow-lg"
-                      style={{ fontSize: "clamp(2.5rem, 8vw, 4rem)", lineHeight: 1.1 }}>
-                      {headTurnDir === "left" ? "← Nhìn TRÁI" : "Nhìn PHẢI →"}
-                    </p>
-                    <p className="text-white/50 text-lg mt-5">{headTurnCountdown}s...</p>
-                  </div>
-                </div>
-              )}
+              {/* Badge top-right */}
+              <div className="absolute top-3 right-3 pointer-events-none">
+                <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
+                  matchCount > 0 ? "bg-yellow-500 text-white" :
+                  faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
+                }`}>
+                  {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
+                   faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
+                </span>
+              </div>
             </div>
 
             {/* Bottom button */}

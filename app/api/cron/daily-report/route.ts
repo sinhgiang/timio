@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   }
 
   const today = getTodayString();
-  const todayDate = new Date().toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const todayDate = new Date().toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" });
 
   // Get all branches with a telegramChatId and their company's bot token
   const branches = await prisma.branch.findMany({
