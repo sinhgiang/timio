@@ -432,10 +432,14 @@ export default function EmployeesClient({
 
   const handleFaceComplete = async (descriptors: number[][]) => {
     if (!faceTarget) return;
-    await fetch(`/api/employees/${faceTarget.id}/face`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descriptors }),
-    });
+    if (descriptors.length > 0) {
+      // Camera capture path — POST to server
+      await fetch(`/api/employees/${faceTarget.id}/face`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descriptors }),
+      });
+    }
+    // If descriptors.length === 0, mobile already saved the face via /api/register-face
     setFaceTarget(null);
     router.refresh();
   };
@@ -456,7 +460,7 @@ export default function EmployeesClient({
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {faceTarget && (
-        <FaceCapture employeeName={faceTarget.name} onComplete={handleFaceComplete} onCancel={() => setFaceTarget(null)} />
+        <FaceCapture employeeId={faceTarget.id} employeeName={faceTarget.name} onComplete={handleFaceComplete} onCancel={() => setFaceTarget(null)} />
       )}
 
       <div className="flex items-center justify-between mb-6">
