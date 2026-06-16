@@ -45,6 +45,32 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager" });
 
+  // Zalo OA inline setup
+  const [zaloReady, setZaloReady] = useState(zaloConfigured);
+  const [zaloTokenInput, setZaloTokenInput] = useState("");
+  const [zaloSetupSaving, setZaloSetupSaving] = useState(false);
+  const [zaloSetupMsg, setZaloSetupMsg] = useState("");
+  const [showZaloSetup, setShowZaloSetup] = useState(false);
+
+  const saveZaloOaToken = async () => {
+    if (!zaloTokenInput.trim()) { setZaloSetupMsg("Vui lòng nhập token"); return; }
+    setZaloSetupSaving(true);
+    setZaloSetupMsg("");
+    const res = await fetch("/api/company/zalo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ zaloOaToken: zaloTokenInput.trim() }),
+    });
+    setZaloSetupSaving(false);
+    if (res.ok) {
+      setZaloReady(true);
+      setShowZaloSetup(false);
+      setZaloTokenInput("");
+    } else {
+      setZaloSetupMsg("Lưu thất bại, thử lại");
+    }
+  };
+
   const isOwner = currentRole === "owner";
   const subUsersCount = members.filter((m) => m.role !== "owner").length;
   const canAddMore = isOwner && (subUserLimit === Infinity || subUsersCount < subUserLimit);
@@ -116,6 +142,60 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
         )}
       </div>
 
+      {/* Zalo OA setup banner — hiện khi chưa cấu hình và là owner */}
+      {!zaloReady && isOwner && (
+        <div className="mb-5 bg-blue-50 border border-blue-200 rounded-2xl p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-blue-500 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-blue-800">Kết nối Zalo OA để bật thông báo Zalo</p>
+                <p className="text-xs text-blue-500 mt-0.5">Nhập Access Token từ Zalo Developer Console để bật thông báo qua Zalo cho từng thành viên.</p>
+              </div>
+            </div>
+            {!showZaloSetup && (
+              <button onClick={() => setShowZaloSetup(true)}
+                className="shrink-0 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">
+                Cấu hình
+              </button>
+            )}
+          </div>
+
+          {showZaloSetup && (
+            <div className="mt-4 space-y-3">
+              <div className="bg-white border border-blue-100 rounded-xl p-3 text-xs text-blue-700 space-y-1">
+                <p className="font-semibold">Cách lấy Zalo OA Access Token:</p>
+                <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+                  <li>Vào <strong>developers.zalo.me</strong> → Đăng nhập → Tạo ứng dụng</li>
+                  <li>Liên kết với Zalo Official Account của bạn tại <strong>oa.zalo.me</strong></li>
+                  <li>Vào tab <strong>Official Account API</strong> → Tạo Access Token</li>
+                  <li>Dán token vào ô dưới và bấm Lưu</li>
+                </ol>
+                <p className="text-blue-400 pt-1">Nhân viên/thành viên phải <strong>follow OA</strong> mới nhận được tin nhắn.</p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={zaloTokenInput}
+                  onChange={(e) => setZaloTokenInput(e.target.value)}
+                  placeholder="Dán Zalo OA Access Token vào đây..."
+                  className="flex-1 border border-blue-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button onClick={saveZaloOaToken} disabled={zaloSetupSaving}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+                  {zaloSetupSaving ? "Đang lưu..." : "Lưu & kích hoạt"}
+                </button>
+                <button onClick={() => setShowZaloSetup(false)}
+                  className="p-2 text-blue-400 hover:text-blue-600 rounded-lg hover:bg-blue-100">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {zaloSetupMsg && <p className="text-xs text-red-500 font-medium">{zaloSetupMsg}</p>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Member list */}
       <div className="space-y-3">
         {members.map((m) => {
@@ -177,7 +257,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                   </button>
 
                   {/* Zalo toggle */}
-                  {zaloConfigured ? (
+                  {zaloReady ? (
                     <button
                       onClick={() => canEdit && togglePref(m.id, "receiveZalo", !m.receiveZalo)}
                       disabled={!canEdit}
@@ -206,7 +286,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                 )}
 
                 {/* Zalo User ID input */}
-                {m.receiveZalo && zaloConfigured && canEdit && (
+                {m.receiveZalo && zaloReady && canEdit && (
                   <ZaloInput
                     value={m.zaloUserId ?? ""}
                     onSave={(val) => saveZalo(m.id, val)}
