@@ -22,11 +22,13 @@ export function calculateCheckInStatus(
   penaltyRules: LateRule[]
 ): CheckInResult {
   const [hours, minutes] = scheduledTime.split(":").map(Number);
-  const scheduled = new Date(checkInAt);
-  scheduled.setHours(hours, minutes, 0, 0);
-
-  const diffMs = checkInAt.getTime() - scheduled.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
+  // Compare in Vietnam time (UTC+7) — server runs on UTC so setHours() would be wrong
+  const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const checkInVNMs = (checkInAt.getTime() + VN_OFFSET_MS) % (24 * 60 * 60 * 1000);
+  const checkInMinutes = Math.floor(checkInVNMs / 60000);
+  const scheduledMinutes = hours * 60 + minutes;
+  let diffMinutes = checkInMinutes - scheduledMinutes;
+  if (diffMinutes < -720) diffMinutes += 1440; // overnight shift edge case
 
   if (diffMinutes <= gracePeriod) {
     return {

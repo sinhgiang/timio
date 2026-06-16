@@ -71,10 +71,13 @@ export async function POST(req: NextRequest) {
       const shift = shiftData;
       const checkOutTime = shift.checkOutTime ?? employee.branch.checkOutTime;
       const [coH, coM] = checkOutTime.split(":").map(Number);
-      const scheduled = new Date(now);
-      scheduled.setHours(coH, coM, 0, 0);
-      const diffMs = now.getTime() - scheduled.getTime();
-      const minutesOvertime = diffMs > 0 ? Math.floor(diffMs / 60000) : 0;
+      // Compare in Vietnam time to avoid UTC server bias
+      const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+      const nowVNMinutes = Math.floor(((now.getTime() + VN_OFFSET_MS) % (24 * 60 * 60 * 1000)) / 60000);
+      const coScheduledMinutes = coH * 60 + coM;
+      let coMinutesDiff = nowVNMinutes - coScheduledMinutes;
+      if (coMinutesDiff < -720) coMinutesDiff += 1440;
+      const minutesOvertime = coMinutesDiff > 0 ? coMinutesDiff : 0;
 
       // Tính tiền tăng ca: (lương CB / 26 ngày / 8 giờ) * giờ OT * hệ số
       const overtimeRates = employee.company.overtimeRates

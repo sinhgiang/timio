@@ -49,9 +49,12 @@ export async function POST(req: NextRequest) {
         : {};
       const checkOutTime = shiftOut.checkOutTime ?? employee.branch.checkOutTime;
       const [coH, coM] = checkOutTime.split(":").map(Number);
-      const scheduled = new Date(now);
-      scheduled.setHours(coH, coM, 0, 0);
-      const minutesOvertime = now.getTime() > scheduled.getTime() ? Math.floor((now.getTime() - scheduled.getTime()) / 60000) : 0;
+      const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+      const nowVNMinutes = Math.floor(((now.getTime() + VN_OFFSET_MS) % (24 * 60 * 60 * 1000)) / 60000);
+      const coScheduledMinutes = coH * 60 + coM;
+      let coMinutesDiff = nowVNMinutes - coScheduledMinutes;
+      if (coMinutesDiff < -720) coMinutesDiff += 1440;
+      const minutesOvertime = coMinutesDiff > 0 ? coMinutesDiff : 0;
 
       const overtimeRates = employee.company.overtimeRates
         ? (JSON.parse(employee.company.overtimeRates) as { weekday?: number; weekend?: number })

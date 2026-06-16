@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { unlockAudio } from "@/lib/speech";
 import { Clock, UserCircle, ScanFace, CheckCircle2, AlertTriangle, Cpu, Copy, QrCode } from "lucide-react";
 
-type Phase = "welcome" | "loading" | "camera" | "head_turn" | "form" | "submitting" | "handover_qr" | "success" | "error";
+type Phase = "welcome" | "loading" | "camera" | "form" | "submitting" | "handover_qr" | "success" | "error";
 
 interface EmployeeData {
   id: string;
@@ -51,9 +51,6 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const matchCountRef = useRef(0);
   const lastMatchIdRef = useRef<string | null>(null);
   const autoCheckingRef = useRef(false);
-  const headTurnDirRef = useRef<"left" | "right">("left");
-  const headTurnTargetRef = useRef<EmployeeData | null>(null);
-  const headTurnBaselineRef = useRef<number | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const sigCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -97,8 +94,6 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const [modelsReady, setModelsReady] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [matchCount, setMatchCount] = useState(0);
-  const [headTurnDir, setHeadTurnDir] = useState<"left" | "right">("left");
-  const [headTurnCountdown, setHeadTurnCountdown] = useState(5);
   const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
 
   const [matchedEmployee, setMatchedEmployee] = useState<EmployeeData | null>(null);
@@ -107,7 +102,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   const [leaveType, setLeaveType] = useState<string>("annual");
   const [q1, setQ1] = useState("");
   const [handoverEmployeeId, setHandoverEmployeeId] = useState<string>("");
-  const [q3UseDefault, setQ3UseDefault] = useState(true); // true = dùng SĐT đã đăng ký, false = nhập số mới
+  const [q3UseDefault, setQ3UseDefault] = useState(true);
   const [q3Phone, setQ3Phone] = useState("");
   const [q4, setQ4] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -144,8 +139,6 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
     autoCheckingRef.current = false;
     matchCountRef.current = 0;
     lastMatchIdRef.current = null;
-    headTurnTargetRef.current = null;
-    headTurnBaselineRef.current = null;
     setFromDate(todayStr()); setToDate(todayStr());
     setLeaveType("annual");
     setQ1(""); setHandoverEmployeeId(""); setQ3UseDefault(true); setQ3Phone(""); setQ4("");
@@ -153,7 +146,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
   }, [stopCamera]);
 
   useEffect(() => {
-    if ((phase === "camera" || phase === "head_turn") && videoRef.current && streamRef.current) {
+    if (phase === "camera" && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch(() => {});
     }
@@ -165,12 +158,12 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
     let alive = true;
     const run = async () => {
       if (autoCheckingRef.current || !alive || detectingRef.current) {
-        if (alive && !autoCheckingRef.current) loopRef.current = setTimeout(run, 500);
+        if (alive && !autoCheckingRef.current) loopRef.current = setTimeout(run, 250);
         return;
       }
       const video = videoRef.current;
       if (!video || video.readyState < 2 || video.videoWidth === 0) {
-        if (alive) loopRef.current = setTimeout(run, 300);
+        if (alive) loopRef.current = setTimeout(run, 200);
         return;
       }
       detectingRef.current = true;
@@ -197,9 +190,10 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
                   if (matchCountRef.current >= 2 && !autoCheckingRef.current) {
                     autoCheckingRef.current = true;
                     const emp = employees.find((e) => e.id === match.id) ?? null;
-                    const dir = Math.random() < 0.5 ? "left" : "right";
-                    headTurnDirRef.current = dir; headTurnTargetRef.current = emp; headTurnBaselineRef.current = null;
-                    setHeadTurnDir(dir); setPhase("head_turn"); return;
+                    stopCamera();
+                    setMatchedEmployee(emp);
+                    setPhase("form");
+                    return;
                   }
                 } else {
                   matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
@@ -213,10 +207,10 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
         }
       } catch { /* ignore */ } finally {
         detectingRef.current = false;
-        if (alive && !autoCheckingRef.current) loopRef.current = setTimeout(run, 600);
+        if (alive && !autoCheckingRef.current) loopRef.current = setTimeout(run, 250);
       }
     };
-    loopRef.current = setTimeout(run, 300);
+    loopRef.current = setTimeout(run, 150);
     return () => {
       alive = false;
       if (loopRef.current) clearTimeout(loopRef.current);
@@ -224,50 +218,6 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
       setZoomStyle({ scale: 1, tx: 0, ty: 0 }); setFaceDetected(false);
       matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
     };
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Head turn
-  useEffect(() => {
-    if (phase !== "head_turn") return;
-    let alive = true, cdVal = 5;
-    setHeadTurnCountdown(cdVal);
-    const cdInterval = setInterval(() => {
-      cdVal--;
-      setHeadTurnCountdown(cdVal);
-      if (cdVal <= 0) {
-        clearInterval(cdInterval);
-        if (alive) { alive = false; if (loopRef.current) clearTimeout(loopRef.current); matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0); setPhase("camera"); }
-      }
-    }, 1000);
-    const run = async () => {
-      if (!alive) return;
-      const video = videoRef.current;
-      if (!video || video.readyState < 2) { if (alive) loopRef.current = setTimeout(run, 200); return; }
-      try {
-        const { detectFaceBox } = await import("@/lib/faceApi");
-        const box = await detectFaceBox(video);
-        if (alive && box) {
-          const vW = video.videoWidth || 640;
-          const centerX = (box.x + box.width / 2) / vW;
-          if (headTurnBaselineRef.current === null) headTurnBaselineRef.current = centerX;
-          else {
-            const disp = centerX - headTurnBaselineRef.current;
-            const moved = headTurnDirRef.current === "left" ? disp > 0.15 : disp < -0.15;
-            if (moved) {
-              clearInterval(cdInterval); alive = false;
-              const emp = headTurnTargetRef.current;
-              stopCamera();
-              if (emp) { setMatchedEmployee(emp); setPhase("form"); }
-              else setPhase("camera");
-              return;
-            }
-          }
-        }
-      } catch { /* ignore */ }
-      if (alive) loopRef.current = setTimeout(run, 150);
-    };
-    loopRef.current = setTimeout(run, 700);
-    return () => { alive = false; clearInterval(cdInterval); if (loopRef.current) clearTimeout(loopRef.current); };
   }, [phase, stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // QR code for handover link
@@ -355,7 +305,7 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
 
   const timeStr = currentTime.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   const dateStr = currentTime.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
-  const isVideoPhase = phase === "camera" || phase === "head_turn";
+  const isVideoPhase = phase === "camera";
   const days = calcDays(fromDate, toDate);
 
   const colleagues = matchedEmployee
@@ -409,42 +359,27 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
           </div>
         )}
 
-        {/* CAMERA + HEAD TURN */}
+        {/* CAMERA */}
         {isVideoPhase && (
           <div className="fixed inset-0 z-40 bg-black flex flex-col md:relative md:inset-auto md:z-auto md:bg-transparent md:w-[640px] md:max-w-[90vw]">
             <div className="px-6 pt-5 pb-3 text-center">
               <p className={`font-medium text-base transition-colors duration-300 ${
-                phase === "head_turn" ? "text-orange-300" :
                 matchCount > 0 ? "text-yellow-300" :
                 faceDetected ? "text-blue-300" : "text-white/80"}`}>
-                {phase === "head_turn" ? "Xác thực chống gian lận"
-                  : faceDetected ? (matchCount > 0 ? `Đang xác nhận... (${matchCount}/2)` : "Đang xác nhận danh tính...")
-                  : "Đưa mặt vào khung hình"}
+                {faceDetected ? (matchCount > 0 ? `Đang xác nhận... (${matchCount}/2)` : "Đang xác nhận danh tính...") : "Đưa mặt vào khung hình"}
               </p>
             </div>
             <div className="relative flex-1 overflow-hidden md:flex-none md:rounded-2xl md:shadow-2xl md:border-4 md:transition-colors"
-              style={{ borderColor: phase === "head_turn" ? "#f97316" : faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#4ade80" }}>
+              style={{ borderColor: faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#4ade80" }}>
               <video ref={videoRef}
                 className="w-full h-full object-cover block md:h-auto md:aspect-[4/3]"
-                style={{ transform: `translate(${zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`, transition: "transform 0.5s ease", transformOrigin: "50% 50%" }}
+                style={{ transform: `scaleX(-1) translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`, transition: "transform 0.5s ease", transformOrigin: "50% 50%" }}
                 muted playsInline autoPlay />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${
-                  phase === "head_turn" ? "border-orange-400 opacity-90"
-                  : matchCount > 0 ? "border-yellow-400 opacity-90"
+                  matchCount > 0 ? "border-yellow-400 opacity-90"
                   : faceDetected ? "border-green-400 opacity-80" : "border-green-400 opacity-30"}`} />
               </div>
-              {phase === "head_turn" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
-                  <div className="text-center px-8 py-7">
-                    <p className="text-orange-300 text-sm font-semibold uppercase tracking-widest mb-4">Xác thực bạn là người thật</p>
-                    <p className="text-white font-black drop-shadow-lg" style={{ fontSize: "clamp(2.5rem, 8vw, 4rem)", lineHeight: 1.1 }}>
-                      {headTurnDir === "left" ? "← Nhìn TRÁI" : "Nhìn PHẢI →"}
-                    </p>
-                    <p className="text-white/50 text-lg mt-5">{headTurnCountdown}s...</p>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="px-6 py-6 flex justify-center">
               <button onClick={resetToWelcome} className="px-10 py-3 border border-white/30 text-white/80 rounded-xl font-medium hover:bg-white/10 text-base transition-colors">Hủy</button>
