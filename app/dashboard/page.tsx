@@ -17,7 +17,7 @@ export default async function DashboardPage() {
     prisma.employee.count({ where: { companyId, status: "active" } }),
     prisma.attendanceLog.findMany({
       where: { employee: { companyId }, date: today },
-      include: { employee: true },
+      include: { employee: { include: { branch: true } } },
       orderBy: { checkInAt: "asc" },
     }),
     prisma.company.findUnique({
@@ -46,6 +46,21 @@ export default async function DashboardPage() {
 
   const checkInUrl = company?.slug ? `/checkin/${company.slug}` : null;
   const isNewCompany = totalEmployees === 0;
+
+  const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const calcMinutesEarly = (log: typeof todayLogs[0]): number => {
+    if (!log.checkOutAt) return 0;
+    let checkOutTime = log.employee.branch.checkOutTime;
+    try {
+      const ov = log.employee.shiftOverride ? JSON.parse(log.employee.shiftOverride) : {};
+      if (ov.checkOutTime) checkOutTime = ov.checkOutTime;
+    } catch { /* ignore */ }
+    const [coH, coM] = checkOutTime.split(":").map(Number);
+    const scheduledMinutes = coH * 60 + coM;
+    const actualMinutes = Math.floor(((log.checkOutAt.getTime() + VN_OFFSET_MS) % (24 * 60 * 60 * 1000)) / 60000);
+    const diff = scheduledMinutes - actualMinutes;
+    return diff > (log.employee.branch.gracePeriod ?? 5) ? diff : 0;
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -169,28 +184,37 @@ export default async function DashboardPage() {
           <>
             {/* Mobile: card list */}
             <div className="md:hidden divide-y divide-gray-50">
-              {todayLogs.map((log) => (
-                <div key={log.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-800 truncate">{log.employee.name}</p>
-                      {log.employee.department && (
-                        <p className="text-xs text-gray-400 mt-0.5">{log.employee.department}</p>
+              {todayLogs.map((log) => {
+                const mEarly = calcMinutesEarly(log);
+                const total = log.minutesLate + mEarly;
+                return (
+                  <div key={log.id} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 truncate">{log.employee.name}</p>
+                        {log.employee.department && (
+                          <p className="text-xs text-gray-400 mt-0.5">{log.employee.department}</p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                        {getStatusLabel(log.status)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 font-mono flex-wrap">
+                      <span>↓ {formatTime(log.checkInAt)}</span>
+                      {log.checkOutAt && <span>↑ {formatTime(log.checkOutAt)}</span>}
+                      {log.minutesLate > 0 && <span className="text-yellow-600 font-semibold">Trễ {log.minutesLate}p</span>}
+                      {mEarly > 0 && <span className="text-orange-500 font-semibold">Sớm {mEarly}p</span>}
+                      {log.penaltyAmount > 0 && (
+                        <span className="text-red-500 font-semibold not-italic">−{formatCurrency(log.penaltyAmount)}</span>
                       )}
                     </div>
-                    <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                      {getStatusLabel(log.status)}{log.minutesLate > 0 && ` (${log.minutesLate}p)`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 font-mono">
-                    <span>↓ {formatTime(log.checkInAt)}</span>
-                    {log.checkOutAt && <span>↑ {formatTime(log.checkOutAt)}</span>}
-                    {log.penaltyAmount > 0 && (
-                      <span className="text-red-500 font-semibold not-italic">−{formatCurrency(log.penaltyAmount)}</span>
+                    {total > 0 && (
+                      <div className="mt-1 text-xs text-gray-400">Tổng vi phạm: <span className="text-red-500 font-semibold">{total} phút</span></div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Desktop: table */}
@@ -198,42 +222,58 @@ export default async function DashboardPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Nhân viên</th>
-                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ vào</th>
-                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ ra</th>
-                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Trạng thái</th>
-                    <th className="text-right px-5 py-3 text-gray-500 font-medium">Trễ (phút)</th>
-                    <th className="text-right px-5 py-3 text-gray-500 font-medium">Phạt</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Nhân viên</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Giờ vào</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Giờ ra</th>
+                    <th className="text-left px-4 py-3 text-gray-500 font-medium">Trạng thái</th>
+                    <th className="text-right px-4 py-3 text-gray-500 font-medium">Trễ vào</th>
+                    <th className="text-right px-4 py-3 text-gray-500 font-medium">Ra sớm</th>
+                    <th className="text-right px-4 py-3 text-gray-500 font-medium">Tổng</th>
+                    <th className="text-right px-4 py-3 text-gray-500 font-medium">Phạt</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {todayLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-5 py-3 font-medium text-gray-800">
-                        {log.employee.name}
-                        {log.employee.department && (
-                          <span className="ml-2 text-xs text-gray-400">{log.employee.department}</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
-                      <td className="px-5 py-3 font-mono text-gray-500">
-                        {log.checkOutAt ? formatTime(log.checkOutAt) : "—"}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                          {getStatusLabel(log.status)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right font-mono">
-                        {log.minutesLate > 0
-                          ? <span className="text-yellow-600 font-semibold">{log.minutesLate} phút</span>
-                          : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-5 py-3 text-right text-red-600 font-medium">
-                        {log.penaltyAmount > 0 ? `-${formatCurrency(log.penaltyAmount)}` : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {todayLogs.map((log) => {
+                    const mEarly = calcMinutesEarly(log);
+                    const total = log.minutesLate + mEarly;
+                    return (
+                      <tr key={log.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-800">
+                          {log.employee.name}
+                          {log.employee.department && (
+                            <span className="ml-2 text-xs text-gray-400">{log.employee.department}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
+                        <td className="px-4 py-3 font-mono text-gray-500">
+                          {log.checkOutAt ? formatTime(log.checkOutAt) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                            {getStatusLabel(log.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          {log.minutesLate > 0
+                            ? <span className="text-yellow-600 font-semibold">{log.minutesLate} phút</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          {mEarly > 0
+                            ? <span className="text-orange-500 font-semibold">{mEarly} phút</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          {total > 0
+                            ? <span className="text-red-600 font-bold">{total} phút</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right text-red-600 font-medium">
+                          {log.penaltyAmount > 0 ? `-${formatCurrency(log.penaltyAmount)}` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
