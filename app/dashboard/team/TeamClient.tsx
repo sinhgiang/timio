@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserPlus, Trash2, Mail, MessageCircle, Crown, Shield, Calculator, Send, X, Eye, EyeOff } from "lucide-react";
 
 interface TeamMember {
@@ -292,6 +292,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
 
 function TelegramInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [val, setVal] = useState(value);
+  useEffect(() => { setVal(value); }, [value]);
   return (
     <div className="flex gap-2">
       <input
@@ -310,6 +311,7 @@ function TelegramInput({ value, onSave }: { value: string; onSave: (v: string) =
 
 function ZaloInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [val, setVal] = useState(value);
+  useEffect(() => { setVal(value); }, [value]);
   return (
     <div className="space-y-1.5">
       <div className="flex gap-2">

@@ -32,16 +32,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
     }
 
+    // Derive companyId from the employee record — never trust the request body
     const employee = await prisma.employee.findFirst({
-      where: { id: employeeId, companyId: bodyCompanyId },
-      select: { id: true, name: true, department: true },
+      where: { id: employeeId },
+      select: { id: true, name: true, department: true, companyId: true },
     });
     if (!employee) return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
+    const companyId = employee.companyId;
 
     const request = await prisma.leaveRequest.create({
       data: {
         employeeId,
-        companyId: bodyCompanyId,
+        companyId,
         type,
         fromDate,
         toDate,
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Gửi email thông báo cho admin — fire-and-forget
     void notifyAdminNewLeave({
-      companyId: bodyCompanyId,
+      companyId,
       employeeName: employee.name,
       department: employee.department ?? "",
       type,

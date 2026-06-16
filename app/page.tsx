@@ -780,9 +780,9 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <li className="flex items-center gap-2 text-xs text-gray-700 list-none mb-6">
+                <div className="flex items-center gap-2 text-xs text-gray-700 mb-6">
                   <CheckCircle2 size={13} className="text-blue-500 shrink-0" /> Thông báo Zalo OA ✓
-                </li>
+                </div>
               </div>
               <Link href="/dashboard/billing" className="mt-auto block text-center bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-colors text-sm">
                 Nâng cấp lên Pro
@@ -816,9 +816,9 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <li className="flex items-center gap-2 text-xs text-slate-300 list-none mb-6">
+                <div className="flex items-center gap-2 text-xs text-slate-300 mb-6">
                   <CheckCircle2 size={13} className="text-emerald-400 shrink-0" /> Thông báo Zalo OA ✓
-                </li>
+                </div>
               </div>
               <Link href="/dashboard/billing?plan=business" className="mt-auto block text-center bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-sm">
                 Nâng cấp Business
