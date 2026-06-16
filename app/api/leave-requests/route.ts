@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { leaveRequestEmail } from "@/lib/emailTemplates";
+import { sendZaloMessage } from "@/lib/zalo";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -84,11 +85,11 @@ async function notifyAdminNewLeave(opts: {
   const [admins, company] = await Promise.all([
     prisma.admin.findMany({
       where: { companyId: opts.companyId },
-      select: { email: true, name: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true },
+      select: { email: true, name: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true },
     }),
     prisma.company.findUnique({
       where: { id: opts.companyId },
-      select: { telegramBotToken: true },
+      select: { telegramBotToken: true, zaloOaToken: true },
     }),
   ]);
 
@@ -133,6 +134,20 @@ async function notifyAdminNewLeave(opts: {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: admin.telegramChatId, text, parse_mode: "Markdown" }),
         }).catch((e) => console.error("[telegram] Gửi thất bại:", e));
+      }
+
+      // Zalo notification
+      if (admin.receiveZalo && admin.zaloUserId && company?.zaloOaToken) {
+        const zaloText = [
+          `📋 Đơn xin nghỉ mới`,
+          `👤 ${opts.employeeName}${opts.department ? ` — ${opts.department}` : ""}`,
+          `📅 ${opts.fromDate} → ${opts.toDate} (${opts.days} ngày)`,
+          `🏷 ${typeLabel[opts.type] ?? opts.type}`,
+          opts.reason ? `📝 ${opts.reason.slice(0, 200)}` : "",
+          `\nXem & duyệt: ${dashboardUrl}`,
+        ].filter(Boolean).join("\n");
+
+        await sendZaloMessage({ oaToken: company.zaloOaToken, userId: admin.zaloUserId, text: zaloText });
       }
     })
   );

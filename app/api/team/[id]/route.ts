@@ -34,11 +34,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.receiveLeaveEmail !== undefined) data.receiveLeaveEmail = Boolean(body.receiveLeaveEmail);
   if (body.receiveTelegram !== undefined) data.receiveTelegram = Boolean(body.receiveTelegram);
   if (body.telegramChatId !== undefined) data.telegramChatId = body.telegramChatId || null;
+  if (body.receiveZalo !== undefined) data.receiveZalo = Boolean(body.receiveZalo);
+  if (body.zaloUserId !== undefined) data.zaloUserId = body.zaloUserId || null;
 
   const updated = await prisma.admin.update({
     where: { id: params.id },
     data,
-    select: { id: true, name: true, email: true, role: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true },
   });
 
   return NextResponse.json(updated);

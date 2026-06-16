@@ -35,6 +35,7 @@ export default async function SettingsPage() {
         accountingChatId: company?.accountingChatId ?? null,
         signatureUrl: company?.signatureUrl ?? null,
         stampUrl: company?.stampUrl ?? null,
+        zaloOaToken: company?.zaloOaToken ?? null,
       }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}

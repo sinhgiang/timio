@@ -11,6 +11,8 @@ interface TeamMember {
   receiveLeaveEmail: boolean;
   receiveTelegram: boolean;
   telegramChatId: string | null;
+  receiveZalo: boolean;
+  zaloUserId: string | null;
   createdAt: string | Date;
 }
 
@@ -20,6 +22,7 @@ interface Props {
   currentRole: string;
   plan: string;
   subUserLimit: number;
+  zaloConfigured: boolean;
 }
 
 const ROLE_LABELS: Record<string, string> = { owner: "Chủ tài khoản", manager: "Quản lý", accountant: "Kế toán" };
@@ -34,7 +37,7 @@ const ROLE_COLORS: Record<string, string> = {
   accountant: "bg-green-100 text-green-700",
 };
 
-export default function TeamClient({ initialMembers, currentUserEmail, currentRole, plan, subUserLimit }: Props) {
+export default function TeamClient({ initialMembers, currentUserEmail, currentRole, plan, subUserLimit, zaloConfigured }: Props) {
   const [members, setMembers] = useState<TeamMember[]>(initialMembers);
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -59,7 +62,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
     setShowAdd(false);
   };
 
-  const togglePref = async (id: string, field: "receiveLeaveEmail" | "receiveTelegram", value: boolean) => {
+  const togglePref = async (id: string, field: "receiveLeaveEmail" | "receiveTelegram" | "receiveZalo", value: boolean) => {
     const res = await fetch(`/api/team/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
     if (res.ok) {
       const updated = await res.json();
@@ -69,6 +72,14 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
 
   const saveTelegram = async (id: string, chatId: string) => {
     const res = await fetch(`/api/team/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telegramChatId: chatId }) });
+    if (res.ok) {
+      const updated = await res.json();
+      setMembers((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    }
+  };
+
+  const saveZalo = async (id: string, userId: string) => {
+    const res = await fetch(`/api/team/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ zaloUserId: userId }) });
     if (res.ok) {
       const updated = await res.json();
       setMembers((prev) => prev.map((m) => (m.id === id ? updated : m)));
@@ -164,6 +175,26 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                     <Send className="w-3.5 h-3.5" />
                     Telegram {m.receiveTelegram ? "BẬT" : "TẮT"}
                   </button>
+
+                  {/* Zalo toggle */}
+                  {zaloConfigured ? (
+                    <button
+                      onClick={() => canEdit && togglePref(m.id, "receiveZalo", !m.receiveZalo)}
+                      disabled={!canEdit}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        m.receiveZalo ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"
+                      } ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Zalo {m.receiveZalo ? "BẬT" : "TẮT"}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border border-dashed border-gray-200 text-gray-300 cursor-not-allowed">
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Zalo
+                      <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">Chưa cấu hình OA</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Telegram Chat ID input */}
@@ -171,6 +202,14 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                   <TelegramInput
                     value={m.telegramChatId ?? ""}
                     onSave={(val) => saveTelegram(m.id, val)}
+                  />
+                )}
+
+                {/* Zalo User ID input */}
+                {m.receiveZalo && zaloConfigured && canEdit && (
+                  <ZaloInput
+                    value={m.zaloUserId ?? ""}
+                    onSave={(val) => saveZalo(m.id, val)}
                   />
                 )}
               </div>
@@ -265,6 +304,29 @@ function TelegramInput({ value, onSave }: { value: string; onSave: (v: string) =
         className="flex items-center gap-1 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-xs font-semibold hover:bg-sky-600">
         <MessageCircle className="w-3.5 h-3.5" /> Lưu
       </button>
+    </div>
+  );
+}
+
+function ZaloInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [val, setVal] = useState(value);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2">
+        <input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          placeholder="Zalo User ID (lấy từ Zalo OA dashboard)"
+          className="flex-1 border border-blue-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+        <button onClick={() => onSave(val)}
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600">
+          <MessageCircle className="w-3.5 h-3.5" /> Lưu
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-400">
+        Người dùng phải follow Zalo OA của bạn trước. ID lấy tại: Zalo OA → Người quan tâm → chọn người → xem User ID.
+      </p>
     </div>
   );
 }

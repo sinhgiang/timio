@@ -18,6 +18,7 @@ model Company {
   customOptions   String? // JSON: { departments: string[], positions: string[] }
   telegramBotToken String? // Telegram bot token for notifications
   accountingChatId String? // Telegram chat ID cho kế toán (nhận thông báo duyệt nghỉ phép)
+  zaloOaToken      String? // Zalo Official Account access token
   overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
@@ -46,6 +47,8 @@ model Admin {
   receiveLeaveEmail Boolean @default(true)
   receiveTelegram   Boolean @default(false)
   telegramChatId    String?
+  receiveZalo       Boolean @default(false)
+  zaloUserId        String? // Zalo user ID (người dùng phải follow OA trước)
   createdAt DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

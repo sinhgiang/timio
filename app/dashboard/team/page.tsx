@@ -15,10 +15,10 @@ export default async function TeamPage() {
   const [members, company] = await Promise.all([
     prisma.admin.findMany({
       where: { companyId: user.companyId },
-      select: { id: true, name: true, email: true, role: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.company.findUnique({ where: { id: user.companyId }, select: { plan: true } }),
+    prisma.company.findUnique({ where: { id: user.companyId }, select: { plan: true, zaloOaToken: true } }),
   ]);
 
   const plan = company?.plan ?? "starter";
@@ -31,6 +31,7 @@ export default async function TeamPage() {
       currentRole={user.role ?? "owner"}
       plan={plan}
       subUserLimit={subUserLimit}
+      zaloConfigured={!!company?.zaloOaToken}
     />
   );
 }

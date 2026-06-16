@@ -780,9 +780,8 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <li className="flex items-center gap-2 text-xs text-blue-400 list-none mb-6">
-                  <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full border border-blue-200">Sắp ra mắt</span>
-                  Thông báo Zalo
+                <li className="flex items-center gap-2 text-xs text-gray-700 list-none mb-6">
+                  <CheckCircle2 size={13} className="text-blue-500 shrink-0" /> Thông báo Zalo OA ✓
                 </li>
               </div>
               <Link href="/dashboard/billing" className="mt-auto block text-center bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-colors text-sm">
@@ -817,9 +816,8 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <li className="flex items-center gap-2 text-xs text-slate-400 list-none mb-6">
-                  <span className="text-[10px] font-bold bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full border border-slate-600">Sắp ra mắt</span>
-                  Thông báo Zalo
+                <li className="flex items-center gap-2 text-xs text-slate-300 list-none mb-6">
+                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" /> Thông báo Zalo OA ✓
                 </li>
               </div>
               <Link href="/dashboard/billing?plan=business" className="mt-auto block text-center bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-sm">

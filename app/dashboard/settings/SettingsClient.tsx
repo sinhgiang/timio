@@ -42,7 +42,7 @@ interface RewardRule {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   referralStats?: { registered: number; converted: number };
@@ -75,6 +75,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [telegramSaving, setTelegramSaving] = useState(false);
   const [telegramMsg, setTelegramMsg] = useState("");
   const [testChatId, setTestChatId] = useState("");
+
+  // Zalo OA
+  const [zaloToken, setZaloToken] = useState(company.zaloOaToken ?? "");
+  const [zaloSaving, setZaloSaving] = useState(false);
+  const [zaloMsg, setZaloMsg] = useState("");
 
   // Test email
   const [emailTesting, setEmailTesting] = useState(false);
@@ -393,6 +398,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     });
     setTelegramSaving(false);
     setTelegramMsg("Đã lưu!");
+    router.refresh();
+  };
+
+  const saveZaloToken = async () => {
+    setZaloSaving(true);
+    setZaloMsg("");
+    const res = await fetch("/api/company/zalo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ zaloOaToken: zaloToken }),
+    });
+    setZaloSaving(false);
+    setZaloMsg(res.ok ? "✅ Đã lưu Zalo OA Token!" : "❌ Lưu thất bại");
     router.refresh();
   };
 
@@ -917,6 +935,48 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <code className="block mt-1 text-xs bg-white px-2 py-1 rounded border border-amber-200">
               https://api.telegram.org/bot&#123;TOKEN&#125;/getUpdates
             </code>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Zalo OA ── */}
+      <div className="mt-8 border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <MessageSquare size={20} className="text-blue-500" />
+          <h2 className="text-base font-bold text-gray-800">Thông báo Zalo</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Nhận thông báo khi nhân viên xin nghỉ qua Zalo Official Account. Sau khi lưu token, vào{" "}
+          <strong>Nhóm &amp; Quyền</strong> để bật Zalo cho từng thành viên.
+        </p>
+        <div className="space-y-3 max-w-xl">
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1.5">Zalo OA Access Token</label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={zaloToken}
+                onChange={(e) => setZaloToken(e.target.value)}
+                placeholder="Dán token từ Zalo Developer Console"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <button
+                onClick={saveZaloToken}
+                disabled={zaloSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >Lưu</button>
+            </div>
+            {zaloMsg && <p className={`text-xs mt-1.5 font-medium ${zaloMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{zaloMsg}</p>}
+            <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1.5">
+              <p className="font-semibold">Cách lấy Zalo OA Token:</p>
+              <ol className="list-decimal list-inside space-y-1 text-blue-600">
+                <li>Vào <strong>developers.zalo.me</strong> → Đăng nhập → Tạo ứng dụng</li>
+                <li>Liên kết với Zalo Official Account của bạn</li>
+                <li>Vào tab <strong>Official Account API</strong> → Tạo Access Token</li>
+                <li>Dán token vào ô trên và bấm Lưu</li>
+              </ol>
+              <p className="text-blue-500 mt-1">Người dùng phải <strong>follow OA</strong> của bạn mới nhận được tin nhắn.</p>
+            </div>
           </div>
         </div>
       </div>
