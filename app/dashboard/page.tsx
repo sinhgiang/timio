@@ -202,6 +202,7 @@ export default async function DashboardPage() {
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ vào</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Giờ ra</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Trạng thái</th>
+                    <th className="text-right px-5 py-3 text-gray-500 font-medium">Trễ (phút)</th>
                     <th className="text-right px-5 py-3 text-gray-500 font-medium">Phạt</th>
                   </tr>
                 </thead>
@@ -221,8 +222,12 @@ export default async function DashboardPage() {
                       <td className="px-5 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
                           {getStatusLabel(log.status)}
-                          {log.minutesLate > 0 && ` (${log.minutesLate}p)`}
                         </span>
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono">
+                        {log.minutesLate > 0
+                          ? <span className="text-yellow-600 font-semibold">{log.minutesLate} phút</span>
+                          : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-5 py-3 text-right text-red-600 font-medium">
                         {log.penaltyAmount > 0 ? `-${formatCurrency(log.penaltyAmount)}` : "—"}

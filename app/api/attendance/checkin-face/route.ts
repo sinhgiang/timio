@@ -90,22 +90,50 @@ export async function POST(req: NextRequest) {
       const hourlyRate = dailyRate / 8;
       const overtimeAmount = minutesOvertime > 0 ? Math.floor(hourlyRate * (minutesOvertime / 60) * multiplier) : 0;
 
+      // Ra sớm: phạt nếu checkout trước giờ tan ca
+      const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
+      let earlyLeavePenalty = 0;
+      if (minutesEarly > (employee.branch.gracePeriod ?? 5)) {
+        const earlyRules = employee.company.penaltyRules
+          .filter((r) => r.type === "early_leave")
+          .sort((a, b) => a.fromMinutes - b.fromMinutes);
+        for (const rule of earlyRules) {
+          if (minutesEarly >= rule.fromMinutes && minutesEarly <= rule.toMinutes) { earlyLeavePenalty = rule.amount; break; }
+          if (minutesEarly > rule.toMinutes) earlyLeavePenalty = rule.amount;
+        }
+      }
+
       // Tăng ca: lưu trạng thái "pending" — chỉ tính tiền khi sếp duyệt
       const overtimeStatus = minutesOvertime > 0 ? "pending" : "none";
       await prisma.attendanceLog.update({
         where: { id: existingLog.id },
-        data: { checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus },
+        data: {
+          checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus,
+          ...(earlyLeavePenalty > 0 && { penaltyAmount: { increment: earlyLeavePenalty } }),
+        },
       });
-      // Không cập nhật MonthlySummary OT cho đến khi được duyệt
+      if (earlyLeavePenalty > 0) {
+        await prisma.monthlySummary.upsert({
+          where: { employeeId_year_month: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1 } },
+          create: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1, totalPenalty: earlyLeavePenalty },
+          update: { totalPenalty: { increment: earlyLeavePenalty } },
+        });
+      }
 
+      const totalPenalty = existingLog.penaltyAmount + earlyLeavePenalty;
+      const msgs: string[] = [];
+      if (minutesEarly > 0 && earlyLeavePenalty > 0) msgs.push(`Ra sớm ${minutesEarly} phút`);
+      if (minutesOvertime > 0) msgs.push(`Tăng ca ${minutesOvertime} phút — chờ duyệt`);
       return NextResponse.json({
         action: "check_out",
         status: existingLog.status,
         minutesLate: existingLog.minutesLate,
-        penaltyAmount: existingLog.penaltyAmount,
+        penaltyAmount: totalPenalty,
+        minutesEarly,
+        earlyLeavePenalty,
         minutesOvertime,
         overtimeAmount,
-        message: minutesOvertime > 0 ? `Ra ca · Tăng ca ${minutesOvertime} phút — chờ duyệt` : "Ra ca thành công",
+        message: msgs.length > 0 ? `Ra ca · ${msgs.join(" · ")}` : "Ra ca thành công",
       });
     }
 
