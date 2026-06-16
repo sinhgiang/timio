@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   CreditCard,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/reports", label: "Báo cáo tháng", Icon: BarChart3 },
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
   { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
+  { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
   { href: "/dashboard/billing", label: "Gói dịch vụ", Icon: CreditCard },
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },

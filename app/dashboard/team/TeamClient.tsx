@@ -1,0 +1,270 @@
+"use client";
+
+import { useState } from "react";
+import { UserPlus, Trash2, Mail, MessageCircle, Crown, Shield, Calculator, Send, X, Eye, EyeOff } from "lucide-react";
+
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  receiveLeaveEmail: boolean;
+  receiveTelegram: boolean;
+  telegramChatId: string | null;
+  createdAt: string | Date;
+}
+
+interface Props {
+  initialMembers: TeamMember[];
+  currentUserEmail: string;
+  currentRole: string;
+  plan: string;
+  subUserLimit: number;
+}
+
+const ROLE_LABELS: Record<string, string> = { owner: "Chủ tài khoản", manager: "Quản lý", accountant: "Kế toán" };
+const ROLE_ICONS: Record<string, React.ReactNode> = {
+  owner: <Crown className="w-3.5 h-3.5" />,
+  manager: <Shield className="w-3.5 h-3.5" />,
+  accountant: <Calculator className="w-3.5 h-3.5" />,
+};
+const ROLE_COLORS: Record<string, string> = {
+  owner: "bg-amber-100 text-amber-700",
+  manager: "bg-blue-100 text-blue-700",
+  accountant: "bg-green-100 text-green-700",
+};
+
+export default function TeamClient({ initialMembers, currentUserEmail, currentRole, plan, subUserLimit }: Props) {
+  const [members, setMembers] = useState<TeamMember[]>(initialMembers);
+  const [showAdd, setShowAdd] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager" });
+
+  const isOwner = currentRole === "owner";
+  const subUsersCount = members.filter((m) => m.role !== "owner").length;
+  const canAddMore = isOwner && (subUserLimit === Infinity || subUsersCount < subUserLimit);
+
+  const addMember = async () => {
+    setAddError("");
+    if (!form.name || !form.email || !form.password) { setAddError("Vui lòng điền đầy đủ thông tin"); return; }
+    setAdding(true);
+    const res = await fetch("/api/team", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const data = await res.json();
+    setAdding(false);
+    if (!res.ok) { setAddError(data.error ?? "Lỗi thêm thành viên"); return; }
+    setMembers((prev) => [...prev, data]);
+    setForm({ name: "", email: "", password: "", role: "manager" });
+    setShowAdd(false);
+  };
+
+  const togglePref = async (id: string, field: "receiveLeaveEmail" | "receiveTelegram", value: boolean) => {
+    const res = await fetch(`/api/team/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
+    if (res.ok) {
+      const updated = await res.json();
+      setMembers((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    }
+  };
+
+  const saveTelegram = async (id: string, chatId: string) => {
+    const res = await fetch(`/api/team/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telegramChatId: chatId }) });
+    if (res.ok) {
+      const updated = await res.json();
+      setMembers((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    }
+  };
+
+  const deleteMember = async (id: string) => {
+    if (!confirm("Xóa thành viên này?")) return;
+    const res = await fetch(`/api/team/${id}`, { method: "DELETE" });
+    if (res.ok) setMembers((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-extrabold text-gray-900">Thành viên nhóm</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {subUserLimit === Infinity
+              ? `Gói ${plan} — không giới hạn thành viên`
+              : subUserLimit === 0
+              ? "Gói Starter — nâng cấp để thêm thành viên"
+              : `Gói ${plan} — ${subUsersCount}/${subUserLimit} thành viên phụ`}
+          </p>
+        </div>
+        {isOwner && (
+          <button
+            onClick={() => { if (!canAddMore) { alert(subUserLimit === 0 ? "Nâng cấp lên Pro để thêm thành viên." : "Đã đạt giới hạn. Nâng cấp lên Business."); return; } setShowAdd(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" /> Thêm thành viên
+          </button>
+        )}
+      </div>
+
+      {/* Member list */}
+      <div className="space-y-3">
+        {members.map((m) => {
+          const isSelf = m.email === currentUserEmail;
+          const canEdit = isOwner || isSelf;
+          return (
+            <div key={m.id} className="bg-white border border-gray-100 rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-gray-200 flex items-center justify-center text-sm font-bold text-gray-600">
+                    {m.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-gray-900">{m.name}</p>
+                      {isSelf && <span className="text-xs text-gray-400">(bạn)</span>}
+                    </div>
+                    <p className="text-sm text-gray-500">{m.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_COLORS[m.role]}`}>
+                    {ROLE_ICONS[m.role]} {ROLE_LABELS[m.role]}
+                  </span>
+                  {isOwner && m.role !== "owner" && (
+                    <button onClick={() => deleteMember(m.id)} className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-lg hover:bg-red-50">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Notification prefs */}
+              <div className="border-t border-gray-50 pt-4 space-y-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Nhận thông báo khi nhân viên xin nghỉ</p>
+                <div className="flex flex-wrap gap-3">
+                  {/* Email toggle */}
+                  <button
+                    onClick={() => canEdit && togglePref(m.id, "receiveLeaveEmail", !m.receiveLeaveEmail)}
+                    disabled={!canEdit}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      m.receiveLeaveEmail ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"
+                    } ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    Email {m.receiveLeaveEmail ? "BẬT" : "TẮT"}
+                  </button>
+
+                  {/* Telegram toggle */}
+                  <button
+                    onClick={() => canEdit && togglePref(m.id, "receiveTelegram", !m.receiveTelegram)}
+                    disabled={!canEdit}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      m.receiveTelegram ? "bg-sky-50 border-sky-200 text-sky-700" : "bg-gray-50 border-gray-200 text-gray-400"
+                    } ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Telegram {m.receiveTelegram ? "BẬT" : "TẮT"}
+                  </button>
+                </div>
+
+                {/* Telegram Chat ID input */}
+                {m.receiveTelegram && canEdit && (
+                  <TelegramInput
+                    value={m.telegramChatId ?? ""}
+                    onSave={(val) => saveTelegram(m.id, val)}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add member modal */}
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-bold text-gray-900 text-lg">Thêm thành viên</h2>
+              <button onClick={() => { setShowAdd(false); setAddError(""); }} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">Họ tên</label>
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nguyễn Văn A" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">Email đăng nhập</label>
+                <input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  type="email" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ketoan@cty.com" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">Mật khẩu</label>
+                <div className="relative">
+                  <input value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    type={showPass ? "text" : "password"}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" placeholder="Tối thiểu 6 ký tự" />
+                  <button type="button" onClick={() => setShowPass((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">Vai trò</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["manager", "accountant"] as const).map((r) => (
+                    <button key={r} onClick={() => setForm((f) => ({ ...f, role: r }))}
+                      className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                        form.role === r ? `border-blue-500 ${ROLE_COLORS[r]}` : "border-gray-200 text-gray-500 hover:border-gray-300"
+                      }`}>
+                      {ROLE_ICONS[r]} {ROLE_LABELS[r]}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  {form.role === "manager"
+                    ? "Có thể duyệt nghỉ phép, quản lý nhân viên, xem báo cáo"
+                    : "Chỉ xem báo cáo và xuất Excel, không duyệt nghỉ phép"}
+                </p>
+              </div>
+            </div>
+
+            {addError && <p className="mt-3 text-sm text-red-500 font-medium">{addError}</p>}
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => { setShowAdd(false); setAddError(""); }}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                Hủy
+              </button>
+              <button onClick={addMember} disabled={adding}
+                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                {adding ? "Đang thêm..." : "Thêm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TelegramInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [val, setVal] = useState(value);
+  return (
+    <div className="flex gap-2">
+      <input
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        placeholder="Telegram Chat ID (ví dụ: -100123456)"
+        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-400"
+      />
+      <button onClick={() => onSave(val)}
+        className="flex items-center gap-1 px-3 py-1.5 bg-sky-500 text-white rounded-lg text-xs font-semibold hover:bg-sky-600">
+        <MessageCircle className="w-3.5 h-3.5" /> Lưu
+      </button>
+    </div>
+  );
+}

@@ -723,16 +723,24 @@ export default function HomePage() {
                 <p className="text-gray-400 text-xs mb-5">Thử nghiệm không giới hạn thời gian</p>
                 <div className="text-3xl font-extrabold text-gray-900 mb-1">0đ</div>
                 <p className="text-xs text-gray-400 mb-6">mãi mãi miễn phí</p>
-                <ul className="space-y-2.5 mb-6">
+                <ul className="space-y-2.5 mb-4">
                   {[
-                    "5 nhân viên",
-                    "1 chi nhánh",
+                    "5 nhân viên · 1 chi nhánh",
+                    "1 người dùng (chỉ chủ tài khoản)",
                     "Chấm công PIN",
                     "Báo cáo cơ bản",
                     "Lưu 90 ngày",
+                    "Thông báo Email ✓",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
                       <CheckCircle2 size={13} className="text-green-500 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <ul className="space-y-2 mb-6">
+                  {["Telegram", "Zalo"].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-gray-300">
+                      <XCircle size={13} className="shrink-0" /> Thông báo {f}
                     </li>
                   ))}
                 </ul>
@@ -755,15 +763,16 @@ export default function HomePage() {
                   <span className="text-gray-500 text-xs">/tháng</span>
                 </div>
                 <div className="text-xs text-green-600 font-semibold mb-5">✨ Thành viên mới: 150.000đ × 2 tháng đầu</div>
-                <ul className="space-y-2.5 mb-6">
+                <ul className="space-y-2.5 mb-4">
                   {[
-                    "30 nhân viên",
-                    "5 chi nhánh",
+                    "30 nhân viên · 5 chi nhánh",
+                    "3 người dùng (chủ + 2 thành viên)",
                     "Chấm công khuôn mặt AI",
-                    "Cảnh báo Telegram",
                     "Báo cáo đầy đủ + xuất Excel",
                     "Quản lý nghỉ phép",
                     "Lưu dữ liệu 1 năm",
+                    "Thông báo Email ✓",
+                    "Thông báo Telegram ✓",
                     "Hỗ trợ qua email",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-gray-700">
@@ -771,6 +780,10 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
+                <li className="flex items-center gap-2 text-xs text-blue-400 list-none mb-6">
+                  <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full border border-blue-200">Sắp ra mắt</span>
+                  Thông báo Zalo
+                </li>
               </div>
               <Link href="/dashboard/billing" className="mt-auto block text-center bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-colors text-sm">
                 Nâng cấp lên Pro
@@ -787,14 +800,16 @@ export default function HomePage() {
                   <span className="text-slate-400 text-xs">/tháng</span>
                 </div>
                 <p className="text-xs text-slate-500 mb-5">~26.600đ/ngày</p>
-                <ul className="space-y-2.5 mb-6">
+                <ul className="space-y-2.5 mb-4">
                   {[
-                    "100 nhân viên",
-                    "20 chi nhánh",
+                    "100 nhân viên · 20 chi nhánh",
+                    "Không giới hạn người dùng",
                     "Tất cả tính năng Pro",
                     "Chữ ký số phiếu duyệt",
                     "Xuất báo cáo nâng cao",
                     "Lưu dữ liệu 3 năm",
+                    "Thông báo Email ✓",
+                    "Thông báo Telegram ✓",
                     "Hỗ trợ ưu tiên",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-slate-300">
@@ -802,6 +817,10 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
+                <li className="flex items-center gap-2 text-xs text-slate-400 list-none mb-6">
+                  <span className="text-[10px] font-bold bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full border border-slate-600">Sắp ra mắt</span>
+                  Thông báo Zalo
+                </li>
               </div>
               <Link href="/dashboard/billing?plan=business" className="mt-auto block text-center bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-sm">
                 Nâng cấp Business

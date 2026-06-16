@@ -42,7 +42,10 @@ model Admin {
   email     String   @unique
   name      String
   password  String?
-  role      String   @default("admin")
+  role      String   @default("owner") // "owner" | "manager" | "accountant"
+  receiveLeaveEmail Boolean @default(true)
+  receiveTelegram   Boolean @default(false)
+  telegramChatId    String?
   createdAt DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

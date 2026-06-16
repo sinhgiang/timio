@@ -81,26 +81,59 @@ async function notifyAdminNewLeave(opts: {
   days: number;
   reason: string;
 }) {
-  const admin = await prisma.admin.findFirst({
-    where: { companyId: opts.companyId, role: "admin" },
-    select: { email: true, name: true },
-  });
-  if (!admin) return;
+  const [admins, company] = await Promise.all([
+    prisma.admin.findMany({
+      where: { companyId: opts.companyId },
+      select: { email: true, name: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true },
+    }),
+    prisma.company.findUnique({
+      where: { id: opts.companyId },
+      select: { telegramBotToken: true },
+    }),
+  ]);
 
   const siteUrl = process.env.NEXTAUTH_URL ?? "https://timio.vn";
-  await sendEmail({
-    to: admin.email,
-    subject: `📋 ${opts.employeeName} vừa gửi đơn xin nghỉ`,
-    html: leaveRequestEmail({
-      adminName: admin.name,
-      employeeName: opts.employeeName,
-      department: opts.department,
-      type: opts.type,
-      fromDate: opts.fromDate,
-      toDate: opts.toDate,
-      days: opts.days,
-      reason: opts.reason,
-      dashboardUrl: `${siteUrl}/dashboard/leave`,
-    }),
-  });
+  const dashboardUrl = `${siteUrl}/dashboard/leave`;
+  const typeLabel: Record<string, string> = { annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương", maternity: "Thai sản", other: "Khác" };
+
+  await Promise.all(
+    admins.map(async (admin) => {
+      // Email notification
+      if (admin.receiveLeaveEmail) {
+        await sendEmail({
+          to: admin.email,
+          subject: `📋 ${opts.employeeName} vừa gửi đơn xin nghỉ`,
+          html: leaveRequestEmail({
+            adminName: admin.name,
+            employeeName: opts.employeeName,
+            department: opts.department,
+            type: opts.type,
+            fromDate: opts.fromDate,
+            toDate: opts.toDate,
+            days: opts.days,
+            reason: opts.reason,
+            dashboardUrl,
+          }),
+        });
+      }
+
+      // Telegram notification
+      if (admin.receiveTelegram && admin.telegramChatId && company?.telegramBotToken) {
+        const text = [
+          `📋 *Đơn xin nghỉ mới*`,
+          `👤 *${opts.employeeName}*${opts.department ? ` — ${opts.department}` : ""}`,
+          `📅 ${opts.fromDate} → ${opts.toDate} (${opts.days} ngày)`,
+          `🏷 ${typeLabel[opts.type] ?? opts.type}`,
+          opts.reason ? `📝 ${opts.reason.slice(0, 200)}` : "",
+          `\n[Xem & duyệt](${dashboardUrl})`,
+        ].filter(Boolean).join("\n");
+
+        await fetch(`https://api.telegram.org/bot${company.telegramBotToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: admin.telegramChatId, text, parse_mode: "Markdown" }),
+        }).catch((e) => console.error("[telegram] Gửi thất bại:", e));
+      }
+    })
+  );
 }
