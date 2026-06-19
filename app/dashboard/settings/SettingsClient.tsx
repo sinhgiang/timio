@@ -24,6 +24,7 @@ import {
   Gift,
   Users,
   Mail,
+  ArrowRightLeft,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -524,6 +525,21 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           <div>
             <p className="font-medium text-gray-800 group-hover:text-blue-700">Quản lý Chi nhánh &amp; Ca làm</p>
             <p className="text-sm text-gray-500">Thêm, sửa, xóa chi nhánh · Cấu hình giờ vào/ra · Chọn ngày làm việc</p>
+          </div>
+        </div>
+        <span className="text-gray-400 group-hover:text-blue-600">→</span>
+      </Link>
+
+      {/* Migration card */}
+      <Link
+        href="/dashboard/migrate"
+        className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-6 hover:border-blue-300 hover:bg-blue-50/30 transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <ArrowRightLeft size={22} className="text-blue-500" strokeWidth={1.5} />
+          <div>
+            <p className="font-medium text-gray-800 group-hover:text-blue-700">Chuyển dữ liệu từ phần mềm khác</p>
+            <p className="text-sm text-gray-500">Import nhân viên &amp; chấm công từ Tanca, Amis, Base HRM, 1Office, ACheckin...</p>
           </div>
         </div>
         <span className="text-gray-400 group-hover:text-blue-600">→</span>
