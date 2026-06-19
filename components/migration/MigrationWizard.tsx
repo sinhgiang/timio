@@ -93,37 +93,42 @@ const COMPETITORS: Competitor[] = [
 // ── Column alias tables ─────────────────────────────────────────────────────
 
 const EMP_ALIASES: Record<string, string[]> = {
-  name: ["họ và tên", "tên nhân viên", "họ tên", "full name", "name", "tên", "nhân viên", "họ & tên"],
-  code: ["mã nv", "mã nhân viên", "employee id", "employee code", "mã", "id nhân viên", "mã số nv"],
-  department: ["phòng ban", "department", "bộ phận", "phòng/ban", "phòng"],
-  position: ["chức vụ", "chức danh", "position", "job title", "vị trí", "vai trò"],
-  phone: ["điện thoại", "số điện thoại", "phone", "sđt", "phone number", "mobile"],
-  baseSalary: ["lương cơ bản", "basic salary", "lương cb", "salary", "mức lương", "lương"],
-  dateOfBirth: ["ngày sinh", "date of birth", "dob", "birthday", "năm sinh"],
+  name: ["họ và tên", "tên nhân viên", "họ tên", "full name", "name", "tên", "nhân viên", "họ & tên", "tên đầy đủ"],
+  code: ["mã nv", "mã nhân viên", "employee id", "employee code", "mã", "id nhân viên", "mã số nv", "mã số nhân viên", "id nv", "staff id", "staff code"],
+  department: ["phòng ban", "department", "bộ phận", "phòng/ban", "phòng", "dept"],
+  position: ["chức vụ", "chức danh", "position", "job title", "vị trí", "vai trò", "title"],
+  phone: ["điện thoại", "số điện thoại", "phone", "sđt", "phone number", "mobile", "di động"],
+  baseSalary: ["lương cơ bản", "basic salary", "lương cb", "salary", "mức lương", "lương", "base salary"],
+  dateOfBirth: ["ngày sinh", "date of birth", "dob", "birthday", "năm sinh", "ngày/tháng/năm sinh"],
 };
 
 const ATT_ALIASES: Record<string, string[]> = {
-  employeeCode: ["mã nv", "mã nhân viên", "employee id", "employee code", "mã", "id"],
-  employeeName: ["họ và tên", "tên nhân viên", "họ tên", "full name", "name", "tên", "nhân viên"],
-  date: ["ngày", "date", "ngày làm việc", "ngày chấm công", "workdate", "work date"],
-  checkInTime: ["giờ vào", "vào", "check in", "time in", "giờ vào ca", "ca vào", "giờ đến", "in time"],
-  checkOutTime: ["giờ ra", "ra", "check out", "time out", "giờ ra ca", "ca ra", "giờ về", "out time"],
-  minutesLate: ["phút trễ", "đi muộn", "minutes late", "phút đi muộn", "số phút đi muộn", "late minutes"],
+  employeeCode: ["mã nv", "mã nhân viên", "employee id", "employee code", "mã", "id nhân viên", "mã số nv", "mã số nhân viên", "id nv", "staff id", "staff code"],
+  employeeName: ["họ và tên", "tên nhân viên", "họ tên", "full name", "name", "tên", "nhân viên", "tên đầy đủ"],
+  date: ["ngày", "date", "ngày làm việc", "ngày chấm công", "workdate", "work date", "ngày/tháng/năm", "ngày công"],
+  checkInTime: ["giờ vào", "vào", "check in", "time in", "giờ vào ca", "ca vào", "giờ đến", "in time", "giờ check in", "giờ check-in", "giờ checkin", "thời gian vào", "check-in", "checkin time"],
+  checkOutTime: ["giờ ra", "ra", "check out", "time out", "giờ ra ca", "ca ra", "giờ về", "out time", "giờ check out", "giờ check-out", "giờ checkout", "thời gian ra", "check-out", "checkout time"],
+  minutesLate: ["phút trễ", "đi muộn", "minutes late", "phút đi muộn", "số phút đi muộn", "late minutes", "phút muộn", "đi trễ", "muộn (phút)", "trễ (phút)", "số phút trễ"],
 };
 
 function detectColumns(headers: string[], aliases: Record<string, string[]>): Record<string, string> {
   const mapping: Record<string, string> = {};
   const lower = headers.map(h => h.toLowerCase().trim());
+
+  // Pass 1: exact match (highest priority)
   for (const [field, variants] of Object.entries(aliases)) {
     for (const v of variants) {
       const idx = lower.findIndex(h => h === v);
       if (idx !== -1) { mapping[field] = headers[idx]; break; }
     }
-    if (!mapping[field]) {
-      for (const v of variants) {
-        const idx = lower.findIndex(h => h.includes(v) || v.includes(h));
-        if (idx !== -1) { mapping[field] = headers[idx]; break; }
-      }
+  }
+  // Pass 2: partial/contains match (only for aliases >= 4 chars to avoid false positives)
+  for (const [field, variants] of Object.entries(aliases)) {
+    if (mapping[field]) continue;
+    for (const v of variants) {
+      if (v.length < 4) continue; // skip short aliases in fuzzy mode
+      const idx = lower.findIndex(h => h.includes(v) || v.includes(h));
+      if (idx !== -1) { mapping[field] = headers[idx]; break; }
     }
   }
   return mapping;
