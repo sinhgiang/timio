@@ -520,49 +520,69 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Row 2 — Dashboard */}
+          {/* Row 2 — Dashboard báo cáo tháng */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="order-2 md:order-1">
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
+            <div className="order-2 md:order-1 overflow-x-auto">
+              <div className="bg-white border border-gray-200 rounded-2xl shadow-sm min-w-[420px]">
+                {/* Header bar */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <div>
                     <div className="font-bold text-gray-900 text-sm">Báo cáo tháng 6/2026</div>
-                    <div className="text-gray-500 text-xs">Văn phòng chính · 20 nhân viên</div>
+                    <div className="text-gray-400 text-[11px]">Văn phòng chính · 20 nhân viên</div>
                   </div>
-                  <div className="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <FileSpreadsheet size={11} /> Xuất Excel
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Tổng kết</span>
+                    <div className="bg-green-100 text-green-700 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <FileSpreadsheet size={10} /> Xuất
+                    </div>
                   </div>
                 </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left text-gray-500 py-1.5 font-medium">Nhân viên</th>
-                      <th className="text-center text-gray-500 py-1.5 font-medium">Công</th>
-                      <th className="text-center text-gray-500 py-1.5 font-medium">Phạt</th>
-                      <th className="text-right text-gray-500 py-1.5 font-medium">Lương</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { name: "Nguyễn M. Tuấn", work: 22, fine: 0, salary: "12.500.000" },
-                      { name: "Trần Thị Lan", work: 20, fine: 150000, salary: "11.350.000" },
-                      { name: "Lê Văn Hùng", work: 22, fine: 0, salary: "10.000.000" },
-                      { name: "Phạm Thu Hà", work: 21, fine: 50000, salary: "9.950.000" },
-                    ].map((r) => (
-                      <tr key={r.name} className="border-b border-gray-100">
-                        <td className="py-2 text-gray-800 font-medium">{r.name}</td>
-                        <td className="py-2 text-center text-gray-600">{r.work}</td>
-                        <td className={`py-2 text-center ${r.fine > 0 ? "text-red-500 font-medium" : "text-gray-400"}`}>
-                          {r.fine > 0 ? `-${r.fine.toLocaleString("vi-VN")}` : "—"}
-                        </td>
-                        <td className="py-2 text-right text-gray-900 font-semibold">{r.salary}đ</td>
+                {/* Table */}
+                <div className="px-3 pb-3">
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left text-gray-400 py-2 font-medium pr-2">Nhân viên</th>
+                        <th className="text-center text-gray-400 py-2 font-medium px-1">Đi làm</th>
+                        <th className="text-center text-gray-400 py-2 font-medium px-1">Trễ</th>
+                        <th className="text-center text-blue-500 py-2 font-semibold px-1">Lương CB</th>
+                        <th className="text-center text-orange-500 py-2 font-semibold px-1">Phạt</th>
+                        <th className="text-center text-green-600 py-2 font-semibold px-1">Thưởng</th>
+                        <th className="text-right text-gray-700 py-2 font-bold px-1">Thực nhận</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
-                  <span className="text-gray-500 text-xs">Tổng chi lương tháng 6</span>
-                  <span className="text-blue-700 font-bold text-sm">43.800.000đ</span>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: "Giàng A Sinh",  role: "Giám Đốc", work: 22, late: 0,  base: "5.000.000", fine: "",          bonus: "",         net: "5.000.000", netColor: "text-gray-900" },
+                        { name: "Giàng A Ký",    role: "Giám Đốc", work: 22, late: 0,  base: "7.000.000", fine: "",          bonus: "+419.831", net: "7.419.831", netColor: "text-gray-900" },
+                        { name: "Hầu Thị Chính", role: "Marketing", work: 20, late: 3, base: "5.000.000", fine: "-250.000",  bonus: "",         net: "4.750.000", netColor: "text-red-600" },
+                        { name: "Thầu A Chính",  role: "Giám Đốc", work: 21, late: 0,  base: "9.000.000", fine: "",          bonus: "",         net: "9.000.000", netColor: "text-gray-900" },
+                      ].map((r) => (
+                        <tr key={r.name} className="border-b border-gray-50 hover:bg-gray-50/50">
+                          <td className="py-2 pr-2">
+                            <div className="font-semibold text-gray-800 truncate max-w-[90px]">{r.name}</div>
+                            <div className="text-gray-400 text-[9px]">{r.role}</div>
+                          </td>
+                          <td className="py-2 text-center text-gray-600 px-1">{r.work}</td>
+                          <td className="py-2 text-center px-1">
+                            {r.late > 0 ? <span className="text-yellow-600 font-semibold">{r.late}</span> : <span className="text-gray-300">0</span>}
+                          </td>
+                          <td className="py-2 text-center text-blue-600 font-medium px-1">{r.base}</td>
+                          <td className="py-2 text-center px-1">
+                            {r.fine ? <span className="text-red-500 font-semibold">{r.fine}</span> : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="py-2 text-center px-1">
+                            {r.bonus ? <span className="text-green-600 font-semibold">{r.bonus}</span> : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className={`py-2 text-right font-bold px-1 ${r.netColor}`}>{r.net}đ</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-gray-400 text-[10px]">Tổng chi lương tháng 6</span>
+                    <span className="text-blue-700 font-bold text-xs">26.169.831đ</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -574,13 +594,13 @@ export default function HomePage() {
                 Cuối tháng xuất lương trong 30 giây — không phải 3 ngày
               </h3>
               <p className="text-gray-500 leading-relaxed mb-5">
-                Hệ thống tự tính công dựa trên dữ liệu check-in thực tế. Không cần kế toán ngồi đối soát thủ công. Không còn tranh cãi vì lương — mọi thứ có log rõ ràng.
+                Hệ thống tự tính lương từ dữ liệu check-in thực tế: ngày công, phút trễ, thưởng, tăng ca — tất cả tự động. Kế toán chỉ cần bấm Xuất Excel.
               </p>
               <ul className="space-y-3">
                 {[
                   "Tự động tổng hợp công theo tháng, quý",
-                  "Quy tắc phạt/thưởng linh hoạt — tùy chỉnh theo công ty",
-                  "Báo cáo chi tiết từng nhân viên, từng ngày",
+                  "Tính phạt/thưởng/tăng ca theo quy tắc của công ty",
+                  "Xem chi tiết từng nhân viên, từng ngày làm việc",
                   "So sánh hiệu suất giữa các chi nhánh",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-2 text-sm text-gray-700">
