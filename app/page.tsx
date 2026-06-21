@@ -27,6 +27,9 @@ import {
   ChevronRight,
   MapPin,
   VolumeX,
+  ArrowRightLeft,
+  CalendarOff,
+  QrCode,
 } from "lucide-react";
 
 /* ── Custom SVG icon backgrounds — replaces emoji ─────────────────── */
@@ -325,7 +328,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
                 icon: Shield,
@@ -348,10 +351,17 @@ export default function HomePage() {
                 desc: "Dashboard xem được từ điện thoại của bạn — dù đang đi công tác hay nghỉ cuối tuần. Cảnh báo Telegram ngay khi có nhân viên đến muộn hoặc vắng mặt.",
                 points: ["Dashboard live trên điện thoại", "Telegram alert tức thì", "Báo cáo đa chi nhánh tổng hợp"],
               },
+              {
+                icon: CalendarOff,
+                color: "green",
+                title: "Quản lý nghỉ phép thông minh",
+                desc: "Nhân viên xin nghỉ ngay tại kiosk — quét mặt, điền đơn, ký tên. Admin duyệt trên điện thoại, tự tạo phiếu A4 có chữ ký số.",
+                points: ["Kiosk xin nghỉ phép có xác thực mặt", "Phiếu duyệt A4 + chữ ký số + dấu công ty", "Bàn giao công việc tự động trước khi nghỉ"],
+              },
             ].map((sol) => (
-              <div key={sol.title} className="border border-gray-100 rounded-2xl p-7 hover:shadow-xl transition-shadow">
+              <div key={sol.title} className="border border-gray-100 rounded-2xl p-6 hover:shadow-xl transition-shadow">
                 <SolIcon icon={sol.icon} color={sol.color} />
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{sol.title}</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">{sol.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed mb-4">{sol.desc}</p>
                 <ul className="space-y-2">
                   {sol.points.map((p) => (
@@ -618,6 +628,7 @@ export default function HomePage() {
               { criteria: "Nhiều chi nhánh", old: "Mỗi nơi 1 file, tổng hợp thủ công", timio: "1 dashboard tổng hợp tất cả" },
               { criteria: "Tranh chấp lương", old: "Không có bằng chứng để đối chiếu", timio: "Log đầy đủ từng giây, minh bạch 100%" },
               { criteria: "Chi phí setup", old: "Hàng chục triệu + đào tạo kéo dài", timio: "Miễn phí, cài xong trong 10 phút" },
+              { criteria: "Chuyển từ phần mềm khác", old: "Mất dữ liệu cũ, bắt đầu lại từ đầu", timio: "Import toàn bộ từ Tanca/Amis/Base HRM trong 5 phút" },
               { criteria: "Nhân viên dùng được không", old: "Chỉ IT mới hiểu, sau 2 tháng bỏ", timio: "Ai cũng dùng được — chỉ nhìn vào camera" },
             ].map((r, i) => (
               <div key={r.criteria} className={`grid grid-cols-3 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/50" : ""}`}>
@@ -632,6 +643,94 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── MIGRATION CALLOUT ── */}
+      <section className="py-16 px-4 bg-white border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-3xl p-8 sm:p-10">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 rounded-full px-4 py-1.5 text-sm font-semibold mb-4">
+                  <ArrowRightLeft size={14} />
+                  Chuyển đổi không đau
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">
+                  Đang dùng Tanca, Amis, Base HRM?<br />
+                  <span className="text-blue-600">Mang cả lịch sử dữ liệu sang Timio</span>
+                </h2>
+                <p className="text-gray-600 leading-relaxed mb-5">
+                  Wizard import thông minh tự nhận diện cột Excel — không cần chỉnh tay. Nhân viên, lịch sử chấm công nhiều tháng — import hết trong vài phút. Không mất dữ liệu, không bắt đầu lại từ đầu.
+                </p>
+                <ul className="space-y-2 mb-6">
+                  {[
+                    "Hỗ trợ: Tanca · Amis HRM · Base HRM · 1Office · ACheckin",
+                    "Tự nhận diện cột tiếng Việt và tiếng Anh",
+                    "Import tối đa 5.000 bản ghi/lần — miễn phí hoàn toàn",
+                    "Không mất lịch sử chấm công cũ",
+                  ].map((t) => (
+                    <li key={t} className="flex items-start gap-2 text-sm text-gray-700">
+                      <CheckCircle2 size={15} className="text-blue-500 shrink-0 mt-0.5" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/register" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-colors text-sm">
+                  Chuyển sang Timio ngay <ArrowRight size={16} />
+                </Link>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">3 bước chuyển đổi:</p>
+                {[
+                  { step: "01", title: "Xuất Excel từ phần mềm cũ", desc: "Mở Tanca / Amis / Base HRM → Báo cáo → Xuất Excel. Mất khoảng 2 phút." },
+                  { step: "02", title: "Upload vào Timio", desc: "Kéo thả file Excel vào wizard. Hệ thống tự nhận diện cột Mã NV, Ngày, Giờ vào/ra." },
+                  { step: "03", title: "Xác nhận & Import", desc: "Xem preview 5 hàng đầu, bấm Import. Toàn bộ nhân viên và lịch sử được chuyển sang." },
+                ].map((s) => (
+                  <div key={s.step} className="bg-white border border-blue-100 rounded-xl p-4 flex gap-4">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-extrabold flex items-center justify-center shrink-0">{s.step}</div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">{s.title}</p>
+                      <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── MOBILE FACE REGISTRATION CALLOUT ── */}
+      <section className="py-12 px-4 bg-gray-50">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-lg shadow-green-200">
+              <QrCode size={28} className="text-white" strokeWidth={1.5} />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="font-bold text-gray-900 text-base mb-1">Đăng ký khuôn mặt ngay từ điện thoại cá nhân</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Admin gửi QR code riêng cho từng nhân viên. Họ quét bằng điện thoại của mình, chụp 5 góc — xong. Không cần tập trung, không cần admin ngồi chụp từng người.
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-3 text-xs text-gray-500">
+              <div className="text-center">
+                <div className="font-bold text-green-600 text-lg">QR</div>
+                <div>Gửi link</div>
+              </div>
+              <ChevronRight size={16} className="text-gray-300" />
+              <div className="text-center">
+                <div className="font-bold text-blue-600 text-lg">📸</div>
+                <div>Nhân viên tự chụp</div>
+              </div>
+              <ChevronRight size={16} className="text-gray-300" />
+              <div className="text-center">
+                <div className="font-bold text-emerald-600 text-lg">✓</div>
+                <div>Sẵn sàng check-in</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
