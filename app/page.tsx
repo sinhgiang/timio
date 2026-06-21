@@ -441,24 +441,24 @@ export default function HomePage() {
       <section id="demo" className="py-20 px-4 bg-white">
         <div className="max-w-6xl mx-auto space-y-24">
 
-          {/* Row 1 — Kiosk */}
+          {/* Row 1 — Kiosk + QR face */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center gap-1.5 text-blue-600 text-xs font-bold uppercase tracking-wider bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 mb-4">
-                <Smartphone size={12} /> Kiosk PWA
+                <Smartphone size={12} /> Kiosk PWA + Đăng ký qua điện thoại
               </div>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-4">
-                Điện thoại cũ cũng làm được kiosk chấm công
+                Không cần mua thiết bị — điện thoại cũ là đủ
               </h3>
               <p className="text-gray-500 leading-relaxed mb-5">
-                Chỉ cần 1 chiếc điện thoại hoặc tablet đặt tại lối vào. Mở trình duyệt, vào link kiosk — nhân viên tự check-in bằng khuôn mặt. <strong className="text-gray-700">Không cần mua máy chấm công, không cần lắp đặt phần cứng.</strong>
+                Đặt 1 điện thoại/tablet tại lối vào làm kiosk chấm công. Nhân viên nhìn vào camera — AI nhận diện khuôn mặt trong vòng 1 giây. <strong className="text-gray-700">Không cần máy chấm công riêng, không cần phần cứng đặc biệt.</strong>
               </p>
-              <ul className="space-y-3">
+              <ul className="space-y-3 mb-5">
                 {[
-                  "Hoạt động trên mọi điện thoại/tablet có camera",
-                  "Tự nhận diện, không cần chạm tay — vệ sinh hơn",
-                  "Thông báo giọng nói tiếng Việt sau check-in",
-                  "Một link kiosk cho mỗi chi nhánh — quản lý riêng",
+                  "Kiosk hoạt động trên mọi điện thoại/tablet có camera",
+                  "Tự nhận diện, không chạm tay — nhanh, vệ sinh",
+                  "Thông báo giọng nói tiếng Việt ngay sau check-in",
+                  "Mỗi chi nhánh 1 link kiosk riêng — quản lý độc lập",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-2 text-sm text-gray-700">
                     <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
@@ -466,25 +466,54 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
+              {/* QR highlight box */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
+                  <QrCode size={20} className="text-white" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="font-semibold text-emerald-800 text-sm">Đăng ký khuôn mặt qua điện thoại cá nhân</p>
+                  <p className="text-emerald-700 text-xs mt-0.5 leading-relaxed">
+                    Admin gửi QR cho từng nhân viên — họ tự chụp mặt từ điện thoại của mình, không cần tập trung lại văn phòng. Xong trong 30 giây.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-center">
-              <div className="w-56 bg-gray-900 rounded-[2.5rem] p-3 shadow-2xl border-4 border-gray-800">
-                <div className="bg-blue-950 rounded-[2rem] overflow-hidden p-4 flex flex-col items-center justify-center gap-3" style={{ minHeight: 380 }}>
-                  <div className="w-24 h-24 rounded-full border-2 border-blue-400 flex items-center justify-center relative">
-                    <div className="w-16 h-16 rounded-full bg-blue-600/20 flex items-center justify-center">
-                      <Users size={28} className="text-blue-300" />
+            <div className="flex justify-center gap-4 items-end">
+              {/* Kiosk phone */}
+              <div className="w-44 bg-gray-900 rounded-[2rem] p-2.5 shadow-2xl border-4 border-gray-800">
+                <div className="bg-blue-950 rounded-[1.5rem] overflow-hidden p-3 flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 300 }}>
+                  <div className="text-blue-400 text-[10px] font-semibold uppercase tracking-wider mb-1">Kiosk văn phòng</div>
+                  <div className="w-20 h-20 rounded-full border-2 border-blue-400 flex items-center justify-center relative">
+                    <div className="w-14 h-14 rounded-full bg-blue-600/20 flex items-center justify-center">
+                      <Users size={24} className="text-blue-300" />
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <CheckCircle2 size={14} className="text-white" />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                      <CheckCircle2 size={12} className="text-white" />
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-green-400 text-sm font-bold">Nhận diện thành công</div>
-                    <div className="text-slate-300 text-base font-semibold mt-1">Nguyễn Minh Tuấn</div>
-                    <div className="text-blue-400 text-xs mt-0.5">Check-in 08:02 · Đúng giờ</div>
+                    <div className="text-green-400 text-xs font-bold">Nhận diện thành công</div>
+                    <div className="text-slate-300 text-sm font-semibold mt-0.5">Nguyễn Minh Tuấn</div>
+                    <div className="text-blue-400 text-[10px] mt-0.5">08:02 · Đúng giờ</div>
                   </div>
-                  <div className="w-full bg-blue-900/40 rounded-xl p-2.5 text-center border border-blue-700/30">
-                    <div className="text-white/60 text-xs">Văn phòng Hà Nội</div>
+                  <div className="w-full bg-blue-900/40 rounded-lg p-2 text-center border border-blue-700/30">
+                    <div className="text-white/50 text-[10px]">Văn phòng Hà Nội</div>
+                  </div>
+                </div>
+              </div>
+              {/* QR registration phone */}
+              <div className="w-36 bg-gray-900 rounded-[1.8rem] p-2 shadow-xl border-4 border-gray-800 mb-4">
+                <div className="bg-slate-900 rounded-[1.3rem] overflow-hidden p-3 flex flex-col items-center gap-2" style={{ minHeight: 240 }}>
+                  <div className="text-emerald-400 text-[9px] font-semibold uppercase tracking-wider">Đăng ký mặt</div>
+                  <div className="w-14 h-14 rounded-xl border-2 border-emerald-400/50 bg-emerald-900/20 flex items-center justify-center">
+                    <QrCode size={28} className="text-emerald-400" strokeWidth={1} />
+                  </div>
+                  <div className="text-center">
+                    <div className="text-slate-300 text-[10px] leading-tight">Quét QR từ<br/>điện thoại cá nhân</div>
+                  </div>
+                  <div className="w-full bg-emerald-900/30 border border-emerald-700/40 rounded-lg p-1.5 text-center">
+                    <div className="text-emerald-400 text-[9px] font-semibold">✓ Xong trong 30 giây</div>
                   </div>
                 </div>
               </div>
