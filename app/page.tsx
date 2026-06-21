@@ -122,51 +122,60 @@ export default function HomePage() {
               <p className="text-slate-500 text-sm mt-4">Không cần thẻ tín dụng · Cài đặt xong trong 10 phút · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
             </div>
 
-            {/* Dashboard Mockup */}
+            {/* Dashboard Mockup — updated to match real dashboard */}
             <div className="hidden md:block">
               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 shadow-2xl">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-3">
                   <div className="w-3 h-3 rounded-full bg-red-400" />
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
                   <div className="w-3 h-3 rounded-full bg-green-400" />
-                  <span className="ml-2 text-slate-500 text-xs">timio.app/dashboard — Hôm nay</span>
+                  <span className="ml-2 text-slate-500 text-xs">timio.vn/dashboard — Hôm nay</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mb-3">
+                {/* Stats row */}
+                <div className="grid grid-cols-4 gap-1.5 mb-3">
                   {[
-                    { label: "Đúng giờ", value: "16", color: "text-green-400" },
-                    { label: "Đi muộn", value: "3", color: "text-red-400" },
-                    { label: "Vắng mặt", value: "1", color: "text-yellow-400" },
+                    { label: "Đúng giờ", value: "14", color: "text-green-400" },
+                    { label: "Đi trễ", value: "3", color: "text-red-400" },
+                    { label: "Chưa vào", value: "2", color: "text-slate-400" },
+                    { label: "Nghỉ phép", value: "1", color: "text-purple-400" },
                   ].map((s) => (
-                    <div key={s.label} className="bg-slate-700/50 rounded-lg p-2.5">
-                      <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
-                      <div className="text-slate-500 text-xs mt-0.5">{s.label}</div>
+                    <div key={s.label} className="bg-slate-700/50 rounded-lg p-2">
+                      <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+                      <div className="text-slate-500 text-[10px] mt-0.5">{s.label}</div>
                     </div>
                   ))}
                 </div>
-                <div className="bg-slate-700/30 rounded-lg p-2 space-y-1.5">
+                {/* Table header */}
+                <div className="bg-slate-700/30 rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-6 px-2 py-1.5 border-b border-slate-700/50">
+                    {["Nhân viên", "Vào", "Trạng thái", "Trễ vào", "Ra sớm", "Phạt"].map(h => (
+                      <span key={h} className="text-slate-500 text-[9px] font-semibold uppercase tracking-wide">{h}</span>
+                    ))}
+                  </div>
                   {[
-                    { name: "Nguyễn Minh Tuấn", time: "08:02", status: "Đúng giờ", ok: true },
-                    { name: "Trần Thị Lan", time: "08:47", status: "Muộn 47 phút", ok: false },
-                    { name: "Lê Văn Hùng", time: "07:58", status: "Đúng giờ", ok: true },
-                    { name: "Phạm Thu Hà", time: "09:12", status: "Muộn 72 phút", ok: false },
+                    { name: "N. Minh Tuấn", time: "08:02", status: "Đúng giờ", statusColor: "text-green-400", late: "—", early: "—", fine: "—" },
+                    { name: "Trần Thị Lan",  time: "08:47", status: "Trễ nhiều",  statusColor: "text-red-400",   late: "47p", early: "—", fine: "-50k" },
+                    { name: "Lê Văn Hùng",   time: "07:58", status: "Đúng giờ", statusColor: "text-green-400", late: "—", early: "15p", fine: "-20k" },
+                    { name: "Phạm Thu Hà",   time: "09:12", status: "Trễ nhiều",  statusColor: "text-red-400",   late: "72p", early: "—", fine: "-100k" },
                   ].map((r) => (
-                    <div key={r.name} className="flex items-center justify-between py-1 px-2 rounded">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-600/30 border border-blue-500/30 flex items-center justify-center text-xs text-blue-300 font-bold">
+                    <div key={r.name} className="grid grid-cols-6 items-center px-2 py-1.5 border-b border-slate-700/20 hover:bg-slate-700/10">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full bg-blue-600/30 border border-blue-500/30 flex items-center justify-center text-[9px] text-blue-300 font-bold shrink-0">
                           {r.name[0]}
                         </div>
-                        <span className="text-slate-300 text-xs">{r.name}</span>
+                        <span className="text-slate-300 text-[10px] truncate">{r.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-500 text-xs">{r.time}</span>
-                        <span className={`text-xs font-semibold ${r.ok ? "text-green-400" : "text-red-400"}`}>{r.status}</span>
-                      </div>
+                      <span className="text-slate-400 text-[10px]">{r.time}</span>
+                      <span className={`text-[10px] font-semibold ${r.statusColor}`}>{r.status}</span>
+                      <span className={`text-[10px] font-semibold ${r.late !== "—" ? "text-yellow-400" : "text-slate-600"}`}>{r.late}</span>
+                      <span className={`text-[10px] font-semibold ${r.early !== "—" ? "text-orange-400" : "text-slate-600"}`}>{r.early}</span>
+                      <span className={`text-[10px] font-semibold ${r.fine !== "—" ? "text-red-400" : "text-slate-600"}`}>{r.fine}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 bg-red-900/30 border border-red-800/40 rounded-lg p-2.5 flex items-center gap-2">
-                  <Bell size={13} className="text-red-400 shrink-0" />
-                  <span className="text-red-300 text-xs">🔴 Phạm Thu Hà muộn 72 phút — Telegram đã gửi đến bạn</span>
+                <div className="mt-2.5 bg-red-900/30 border border-red-800/40 rounded-lg p-2 flex items-center gap-2">
+                  <Bell size={12} className="text-red-400 shrink-0" />
+                  <span className="text-red-300 text-[10px]">Phạm Thu Hà trễ 72 phút · -100.000đ — Telegram đã gửi</span>
                 </div>
               </div>
             </div>
@@ -856,22 +865,22 @@ export default function HomePage() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-gray-900 mb-1">Pro</h3>
-                <p className="text-gray-500 text-xs mb-4">Dành cho doanh nghiệp đang phát triển</p>
+                <p className="text-gray-500 text-xs mb-4">Cho doanh nghiệp 6–20 người, 1–3 chi nhánh</p>
                 <div className="mb-0.5">
                   <span className="text-3xl font-extrabold text-gray-900">299.000đ</span>
                   <span className="text-gray-500 text-xs">/tháng</span>
                 </div>
                 <div className="text-xs text-green-600 font-semibold mb-5">✨ Thành viên mới: 150.000đ × 2 tháng đầu</div>
-                <ul className="space-y-2.5 mb-4">
+                <ul className="space-y-2.5 mb-6">
                   {[
-                    "30 nhân viên · 5 chi nhánh",
+                    "20 nhân viên · 3 chi nhánh",
                     "3 người dùng (chủ + 2 thành viên)",
                     "Chấm công khuôn mặt AI",
+                    "Quản lý nghỉ phép (kiosk + phiếu duyệt)",
+                    "Import từ Tanca / Amis / Base HRM",
                     "Báo cáo đầy đủ + xuất Excel",
-                    "Quản lý nghỉ phép",
                     "Lưu dữ liệu 1 năm",
-                    "Thông báo Email ✓",
-                    "Thông báo Telegram ✓",
+                    "Thông báo Email + Telegram + Zalo ✓",
                     "Hỗ trợ qua email",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-gray-700">
@@ -879,9 +888,6 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <div className="flex items-center gap-2 text-xs text-gray-700 mb-6">
-                  <CheckCircle2 size={13} className="text-blue-500 shrink-0" /> Thông báo Zalo OA ✓
-                </div>
               </div>
               <Link href="/dashboard/billing" className="mt-auto block text-center bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-colors text-sm">
                 Nâng cấp lên Pro
@@ -892,32 +898,28 @@ export default function HomePage() {
             <div className="border-2 border-slate-800 rounded-2xl p-7 relative bg-slate-900 flex flex-col">
               <div>
                 <h3 className="text-base font-bold text-white mb-1">Business</h3>
-                <p className="text-slate-400 text-xs mb-4">Cho doanh nghiệp lớn, nhiều chi nhánh</p>
+                <p className="text-slate-400 text-xs mb-4">Cho doanh nghiệp 21–100 người, nhiều chi nhánh</p>
                 <div className="mb-0.5">
                   <span className="text-3xl font-extrabold text-white">799.000đ</span>
                   <span className="text-slate-400 text-xs">/tháng</span>
                 </div>
-                <p className="text-xs text-slate-500 mb-5">~26.600đ/ngày</p>
-                <ul className="space-y-2.5 mb-4">
+                <p className="text-xs text-slate-500 mb-5">~26.600đ/ngày · ~8.000đ/nhân viên</p>
+                <ul className="space-y-2.5 mb-6">
                   {[
                     "100 nhân viên · 20 chi nhánh",
-                    "Không giới hạn người dùng",
+                    "Không giới hạn người dùng quản lý",
                     "Tất cả tính năng Pro",
-                    "Chữ ký số phiếu duyệt",
-                    "Xuất báo cáo nâng cao",
+                    "Phiếu duyệt A4 có chữ ký số + dấu công ty",
+                    "Báo cáo nâng cao + so sánh chi nhánh",
                     "Lưu dữ liệu 3 năm",
-                    "Thông báo Email ✓",
-                    "Thông báo Telegram ✓",
-                    "Hỗ trợ ưu tiên",
+                    "Thông báo Email + Telegram + Zalo ✓",
+                    "Hỗ trợ ưu tiên (phản hồi trong 4h)",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-slate-300">
                       <CheckCircle2 size={13} className="text-emerald-400 shrink-0" /> {f}
                     </li>
                   ))}
                 </ul>
-                <div className="flex items-center gap-2 text-xs text-slate-300 mb-6">
-                  <CheckCircle2 size={13} className="text-emerald-400 shrink-0" /> Thông báo Zalo OA ✓
-                </div>
               </div>
               <Link href="/dashboard/billing?plan=business" className="mt-auto block text-center bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 transition-colors text-sm">
                 Nâng cấp Business
