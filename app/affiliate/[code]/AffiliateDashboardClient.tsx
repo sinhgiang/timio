@@ -6,6 +6,7 @@ import {
   Clock, Copy, Check, TrendingUp, Users, DollarSign, BarChart3,
   ExternalLink, Info, MousePointer, Smartphone, Monitor, Tablet,
   Globe, ArrowRight, Pencil, X, Loader2, CheckCircle2, AlertCircle,
+  User, Banknote, Save,
 } from "lucide-react";
 
 interface ClickStats {
@@ -25,6 +26,7 @@ interface Props {
   affiliate: {
     name: string; email: string; code: string;
     phone: string | null; channel: string | null; createdAt: string;
+    bankName: string | null; bankAccount: string | null; accountName: string | null;
   };
   stats: {
     registered: number; converted: number; revenue: number;
@@ -72,7 +74,42 @@ const DESTINATIONS = [
 export default function AffiliateDashboardClient({ affiliate, stats, tier, referrals, clickStats }: Props) {
   const [copiedLink, setCopiedLink]   = useState(false);
   const [copiedDash, setCopiedDash]   = useState(false);
-  const [activeTab, setActiveTab]     = useState<"overview" | "analytics" | "referrals">("overview");
+  const [activeTab, setActiveTab]     = useState<"overview" | "analytics" | "referrals" | "account">("overview");
+
+  // Account / profile state
+  const [profileForm, setProfileForm] = useState({
+    name:        affiliate.name,
+    phone:       affiliate.phone ?? "",
+    channel:     affiliate.channel ?? "",
+    bankName:    affiliate.bankName ?? "",
+    bankAccount: affiliate.bankAccount ?? "",
+    accountName: affiliate.accountName ?? "",
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg]       = useState<{ ok: boolean; text: string } | null>(null);
+
+  const saveProfile = async () => {
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      const res = await fetch("/api/affiliate/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: currentCode, ...profileForm }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProfileMsg({ ok: true, text: "Đã lưu thành công!" });
+      } else {
+        setProfileMsg({ ok: false, text: data.error ?? "Lỗi lưu thông tin" });
+      }
+    } catch {
+      setProfileMsg({ ok: false, text: "Lỗi kết nối, thử lại sau." });
+    } finally {
+      setProfileSaving(false);
+      setTimeout(() => setProfileMsg(null), 4000);
+    }
+  };
   const [destination, setDestination] = useState("/");
 
   // Slug editor state
@@ -220,8 +257,8 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
-          {(["overview", "analytics", "referrals"] as const).map((tab) => {
-            const labels = { overview: "Tổng quan", analytics: "Phân tích Click", referrals: `Công ty (${referrals.length})` };
+          {(["overview", "analytics", "referrals", "account"] as const).map((tab) => {
+            const labels = { overview: "Tổng quan", analytics: "Phân tích Click", referrals: `Công ty (${referrals.length})`, account: "Tài khoản" };
             return (
               <button
                 key={tab}
@@ -780,6 +817,159 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ===================== TAB: ACCOUNT ===================== */}
+        {activeTab === "account" && (
+          <div className="space-y-6 max-w-2xl">
+
+            {/* Profile */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <User className="w-4 h-4 text-gray-500" />
+                <h2 className="font-bold text-gray-900">Thông tin cá nhân</h2>
+              </div>
+              <div className="space-y-4">
+
+                {/* Email readonly */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Email <span className="font-normal text-gray-400">(không đổi được)</span></label>
+                  <div className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono">{affiliate.email}</div>
+                </div>
+
+                {/* Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tên hiển thị *</label>
+                  <input
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
+                    placeholder="Nguyễn Văn A"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Số điện thoại</label>
+                  <input
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
+                    placeholder="0912 345 678"
+                    type="tel"
+                  />
+                </div>
+
+                {/* Channel */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Kênh giới thiệu chính</label>
+                  <select
+                    value={profileForm.channel}
+                    onChange={(e) => setProfileForm({ ...profileForm, channel: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 bg-white"
+                  >
+                    <option value="">— Chọn kênh —</option>
+                    <option value="blog">Blog / Website</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="zalo">Zalo</option>
+                    <option value="consulting">Tư vấn trực tiếp</option>
+                    <option value="other">Khác</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Bank account */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Banknote className="w-4 h-4 text-green-600" />
+                <h2 className="font-bold text-gray-900">Tài khoản nhận hoa hồng</h2>
+              </div>
+              <p className="text-xs text-gray-400 mb-5">
+                Hoa hồng được chuyển khoản vào ngày 15 hàng tháng. Điền đúng thông tin để nhận tiền đúng hạn.
+              </p>
+              <div className="space-y-4">
+
+                {/* Bank name */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Ngân hàng</label>
+                  <input
+                    value={profileForm.bankName}
+                    onChange={(e) => setProfileForm({ ...profileForm, bankName: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400"
+                    placeholder="VCB / Vietcombank, TCB / Techcombank, MB Bank..."
+                  />
+                </div>
+
+                {/* Account number */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Số tài khoản</label>
+                  <input
+                    value={profileForm.bankAccount}
+                    onChange={(e) => setProfileForm({ ...profileForm, bankAccount: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400 font-mono"
+                    placeholder="1234567890"
+                  />
+                </div>
+
+                {/* Account holder name */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tên chủ tài khoản <span className="text-gray-400 font-normal">(đúng như trên CCCD, in hoa)</span></label>
+                  <input
+                    value={profileForm.accountName}
+                    onChange={(e) => setProfileForm({ ...profileForm, accountName: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-green-400 font-mono uppercase"
+                    placeholder="NGUYEN VAN A"
+                  />
+                </div>
+
+                {/* Bank info status */}
+                {affiliate.bankAccount ? (
+                  <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    Đã cài tài khoản ngân hàng — bạn sẽ nhận hoa hồng vào ngày 15 hàng tháng khi đủ điều kiện.
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    Chưa có tài khoản ngân hàng — hoa hồng sẽ bị giữ cho đến khi bạn điền đầy đủ.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div>
+              {profileMsg && (
+                <p className={`text-sm mb-3 ${profileMsg.ok ? "text-green-600" : "text-red-500"}`}>{profileMsg.text}</p>
+              )}
+              <button
+                onClick={saveProfile}
+                disabled={profileSaving}
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+              >
+                {profileSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {profileSaving ? "Đang lưu..." : "Lưu thông tin"}
+              </button>
+            </div>
+
+            {/* Dashboard URL reminder */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex gap-3">
+              <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-amber-800 font-semibold text-sm">Link dashboard của bạn</p>
+                <p className="text-amber-700 text-xs mt-1">Lưu link này lại — đây là cách duy nhất để vào dashboard:</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-amber-800 font-mono text-xs font-bold flex-1">{dashboardUrl}</span>
+                  <button onClick={() => copy(dashboardUrl, setCopiedDash)} className="text-amber-600 hover:text-amber-800">
+                    {copiedDash ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

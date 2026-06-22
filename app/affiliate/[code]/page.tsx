@@ -188,12 +188,15 @@ export default async function AffiliateDashboardPage({ params }: { params: { cod
   return (
     <AffiliateDashboardClient
       affiliate={{
-        name:      affiliate.name,
-        email:     affiliate.email,
-        code:      affiliate.code,
-        phone:     affiliate.phone,
-        channel:   affiliate.channel,
-        createdAt: affiliate.createdAt.toISOString(),
+        name:        affiliate.name,
+        email:       affiliate.email,
+        code:        affiliate.code,
+        phone:       affiliate.phone,
+        channel:     affiliate.channel,
+        bankName:    affiliate.bankName,
+        bankAccount: affiliate.bankAccount,
+        accountName: affiliate.accountName,
+        createdAt:   affiliate.createdAt.toISOString(),
       }}
       stats={{
         registered:       referrals.length,

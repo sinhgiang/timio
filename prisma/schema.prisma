@@ -235,15 +235,18 @@ model ImpersonationLog {
 }
 
 model Affiliate {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  code      String   @unique  // unique affiliate code, used in ?aff=CODE links
-  phone     String?
-  channel   String?           // "blog", "youtube", "zalo", "facebook", etc.
-  status    String   @default("pending") // "pending" | "active"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  code        String   @unique  // unique affiliate code, used in ?aff=CODE links
+  phone       String?
+  channel     String?           // "blog", "youtube", "zalo", "facebook", etc.
+  status      String   @default("pending") // "pending" | "active"
+  bankName    String?           // Tên ngân hàng (VCB, TCB, MB, ...)
+  bankAccount String?           // Số tài khoản ngân hàng
+  accountName String?           // Tên chủ tài khoản (đúng như CCCD)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   clicks        AffiliateClick[]
   codeHistories AffiliateCodeHistory[]
