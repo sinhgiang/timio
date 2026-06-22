@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AffiliateDashboardClient from "./AffiliateDashboardClient";
+import { getAffSession } from "@/lib/affiliateAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,12 @@ function detectSource(referrer: string | null): string {
 }
 
 export default async function AffiliateDashboardPage({ params }: { params: { code: string } }) {
+  // Auth check: phải đăng nhập qua OTP
+  const session = getAffSession();
+  if (!session || session.code !== params.code) {
+    redirect(`/affiliate/${params.code}/login`);
+  }
+
   let affiliate = await prisma.affiliate.findUnique({ where: { code: params.code } });
 
   // Nếu dùng code cũ → redirect về URL mới (affiliate đã đổi slug)

@@ -206,8 +206,20 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
             </div>
             <span className="font-bold text-gray-900 text-sm">Timio · Đối tác</span>
           </Link>
-          <div className={`text-xs font-bold px-3 py-1 rounded-full border ${tierBadgeClass}`}>
-            {tier.icon} Hạng {tier.name} · {tier.rate}%
+          <div className="flex items-center gap-3">
+            <div className={`text-xs font-bold px-3 py-1 rounded-full border ${tierBadgeClass}`}>
+              {tier.icon} Hạng {tier.name} · {tier.rate}%
+            </div>
+            <button
+              onClick={async () => {
+                await fetch(`/api/affiliate/logout?code=${affiliate.code}`, { method: "POST" });
+                window.location.href = `/affiliate/${affiliate.code}/login`;
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100"
+              title="Đăng xuất"
+            >
+              Đăng xuất
+            </button>
           </div>
         </div>
       </header>
