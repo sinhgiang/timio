@@ -269,44 +269,68 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
             {/* Conversion funnel */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="font-bold text-gray-900 mb-5">Phễu chuyển đổi</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {[
-                  { label: "Lượt click",   value: clickStats.total,        pct: 100,                        color: "bg-indigo-500" },
-                  { label: "Đăng ký",      value: stats.registered,        pct: clickStats.clickToRegRate,  color: "bg-blue-500" },
-                  { label: "Trả phí",      value: stats.converted,         pct: clickStats.regToProRate,    color: "bg-green-500" },
-                ].map((step, i, arr) => (
-                  <div key={step.label} className="flex items-center gap-2 flex-1">
-                    <div className="flex-1 text-center">
-                      <div className={`h-12 ${step.color} rounded-xl flex items-center justify-center mb-2`}
-                           style={{ opacity: 0.15 + 0.85 * (step.pct / 100) }}>
-                        <span className="text-white font-extrabold text-lg" style={{ opacity: 1 / (0.15 + 0.85 * (step.pct / 100)) }}>
+                  {
+                    label: "Lượt click",
+                    value: clickStats.total,
+                    sub: "người đã click link",
+                    color: "indigo",
+                    active: true,
+                  },
+                  {
+                    label: "Đăng ký",
+                    value: stats.registered,
+                    sub: clickStats.total > 0
+                      ? `${clickStats.clickToRegRate}% từ click`
+                      : "chưa có đăng ký",
+                    color: "blue",
+                    active: stats.registered > 0,
+                  },
+                  {
+                    label: "Trả phí",
+                    value: stats.converted,
+                    sub: stats.registered > 0
+                      ? `${clickStats.regToProRate}% từ đăng ký`
+                      : "chưa có trả phí",
+                    color: "green",
+                    active: stats.converted > 0,
+                  },
+                ].map((step, i, arr) => {
+                  const colorMap: Record<string, { bg: string; text: string; bar: string; barEmpty: string }> = {
+                    indigo: { bg: "bg-indigo-50", text: "text-indigo-700", bar: "bg-indigo-500", barEmpty: "bg-indigo-100" },
+                    blue:   { bg: "bg-blue-50",   text: "text-blue-700",   bar: "bg-blue-500",   barEmpty: "bg-blue-100" },
+                    green:  { bg: "bg-green-50",  text: "text-green-700",  bar: "bg-green-500",  barEmpty: "bg-green-100" },
+                  };
+                  const c = colorMap[step.color];
+                  const pct = i === 0 ? 100 : arr[i - 1].value > 0 ? Math.round(step.value / arr[i - 1].value * 100) : 0;
+                  return (
+                    <div key={step.label} className="flex items-center gap-3 flex-1">
+                      <div className={`flex-1 rounded-2xl border-2 p-4 transition-all ${step.active ? `${c.bg} border-transparent` : "bg-gray-50 border-gray-100"}`}>
+                        {/* Value */}
+                        <div className={`text-3xl font-extrabold mb-1 ${step.active ? c.text : "text-gray-300"}`}>
                           {step.value}
-                        </span>
+                        </div>
+                        <div className={`text-xs font-semibold mb-1 ${step.active ? "text-gray-700" : "text-gray-400"}`}>
+                          {step.label}
+                        </div>
+                        <div className={`text-[11px] ${step.active ? "text-gray-500" : "text-gray-300"}`}>
+                          {step.sub}
+                        </div>
+                        {/* Progress bar */}
+                        <div className={`mt-3 h-1.5 rounded-full ${c.barEmpty}`}>
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${c.bar}`}
+                            style={{ width: step.active ? `${Math.max(pct, 8)}%` : "0%" }}
+                          />
+                        </div>
                       </div>
-                      <p className="text-xs font-semibold text-gray-700">{step.label}</p>
-                      {i > 0 && (
-                        <p className="text-xs text-gray-400 mt-0.5">{arr[i-1].value > 0 ? Math.round(step.value / arr[i-1].value * 100) : 0}% chuyển đổi</p>
+                      {i < arr.length - 1 && (
+                        <ArrowRight className={`w-4 h-4 shrink-0 ${arr[i + 1].active ? "text-gray-400" : "text-gray-200"}`} />
                       )}
                     </div>
-                    {i < arr.length - 1 && <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-3 border-t border-gray-50 pt-4">
-                <div className="text-center">
-                  <div className="text-lg font-extrabold text-indigo-600">{clickStats.clickToRegRate}%</div>
-                  <div className="text-xs text-gray-400">Click → Đăng ký</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-extrabold text-blue-600">{clickStats.regToProRate}%</div>
-                  <div className="text-xs text-gray-400">Đăng ký → Pro</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-extrabold text-green-600">
-                    {clickStats.total > 0 ? Math.round(stats.converted / clickStats.total * 100) : 0}%
-                  </div>
-                  <div className="text-xs text-gray-400">Click → Trả phí (tổng)</div>
-                </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -428,19 +452,37 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
                     { name: "Bạc",  icon: "🥈", rate: 15, min: 6 },
                     { name: "Vàng", icon: "🥇", rate: 20, min: 21 },
                   ].map((t) => {
-                    const isActive  = tier.name === t.name;
-                    const isReached = stats.converted >= t.min;
+                    const isActive = tier.name === t.name;
+                    const isPast   = stats.converted >= t.min && !isActive;
+                    const isLocked = !isActive && !isPast;
+
+                    let containerCls = "flex items-center gap-3 p-3 rounded-xl border-2 transition-all ";
+                    if (isActive)    containerCls += "bg-blue-50 border-blue-400 shadow-sm";
+                    else if (isPast) containerCls += "bg-green-50 border-green-300";
+                    else             containerCls += "bg-gray-50 border-dashed border-gray-200";
+
                     return (
-                      <div key={t.name} className={`flex items-center gap-3 p-3 rounded-xl ${isActive ? "bg-blue-50 border border-blue-200" : isReached ? "bg-gray-50" : "opacity-50"}`}>
-                        <span className="text-xl">{t.icon}</span>
+                      <div key={t.name} className={containerCls}>
+                        <span className={`text-xl ${isLocked ? "grayscale opacity-40" : ""}`}>{t.icon}</span>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className={`text-sm font-bold ${isActive ? "text-blue-700" : "text-gray-600"}`}>{t.name}</span>
-                            <span className={`text-xs font-bold ${isActive ? "text-blue-600" : "text-gray-500"}`}>{t.rate}%</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold ${isActive ? "text-blue-700" : isPast ? "text-green-700" : "text-gray-400"}`}>
+                              {t.name}
+                            </span>
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${isActive ? "bg-blue-100 text-blue-600" : isPast ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+                              {t.rate}% hoa hồng
+                            </span>
                           </div>
+                          {isLocked && (
+                            <p className="text-[11px] text-gray-400 mt-0.5">Cần {t.min} chuyển đổi để mở khoá</p>
+                          )}
+                          {isPast && (
+                            <p className="text-[11px] text-green-600 mt-0.5">Đã đạt · đang ở hạng cao hơn</p>
+                          )}
                         </div>
-                        {isActive && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">Hiện tại</span>}
-                        {!isActive && isReached && <Check className="w-4 h-4 text-green-500" />}
+                        {isActive  && <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full font-bold shrink-0">Hiện tại</span>}
+                        {isPast    && <Check className="w-4 h-4 text-green-500 shrink-0" />}
+                        {isLocked  && <span className="text-base shrink-0 opacity-40">🔒</span>}
                       </div>
                     );
                   })}
