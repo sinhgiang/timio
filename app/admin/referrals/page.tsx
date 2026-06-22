@@ -53,7 +53,16 @@ export default async function AdminReferralsPage() {
     const revenue = paidReferrals.reduce((s, c) => s + planRevenue(c.plan), 0);
     const tier = getTier(converted);
     const commission = Math.round(revenue * tier.rate / 100);
-    return { ...a, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString(), referred: referred.length, converted, revenue, commission, tier };
+    const planBreakdown = {
+      starter:  referred.filter((c) => c.plan === "starter").length,
+      pro:      referred.filter((c) => c.plan === "pro").length,
+      business: referred.filter((c) => c.plan === "business").length,
+    };
+    const referredCompanies = referred.map((c) => ({
+      id: c.id, name: c.name, slug: c.slug, plan: c.plan,
+      createdAt: c.createdAt.toISOString(),
+    }));
+    return { ...a, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString(), referred: referred.length, converted, revenue, commission, tier, planBreakdown, referredCompanies };
   }).sort((a, b) => b.converted - a.converted);
 
   const totalAffCommission = affiliateStats.reduce((s, a) => s + a.commission, 0);

@@ -7,11 +7,17 @@ import { Users, DollarSign, TrendingUp, Gift, ExternalLink, ChevronDown, Chevron
 function fmtCurrency(n: number) { return n.toLocaleString("vi-VN") + "đ"; }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString("vi-VN"); }
 
+interface ReferredCompany {
+  id: string; name: string; slug: string; plan: string; createdAt: string;
+}
+
 interface AffiliateRow {
   id: string; name: string; email: string; code: string; phone: string | null;
   channel: string | null; status: string; createdAt: string; updatedAt: string;
   referred: number; converted: number; revenue: number; commission: number;
   tier: { name: string; icon: string; rate: number };
+  planBreakdown: { starter: number; pro: number; business: number };
+  referredCompanies: ReferredCompany[];
 }
 
 interface ReferrerRow {
@@ -52,17 +58,95 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
   );
 }
 
+const PLAN_LABEL: Record<string, { label: string; cls: string }> = {
+  starter:  { label: "Free",     cls: "bg-gray-100 text-gray-500" },
+  pro:      { label: "Pro",      cls: "bg-green-100 text-green-700" },
+  business: { label: "Business", cls: "bg-blue-100 text-blue-700" },
+};
+
+function PlanBadge({ plan }: { plan: string }) {
+  const p = PLAN_LABEL[plan] ?? { label: plan, cls: "bg-gray-100 text-gray-500" };
+  return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${p.cls}`}>{p.label}</span>;
+}
+
+function PlanBar({ breakdown, total }: { breakdown: { starter: number; pro: number; business: number }; total: number }) {
+  if (total === 0) return <span className="text-xs text-gray-300">—</span>;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex gap-1 items-center">
+        {breakdown.starter > 0 && (
+          <span className="text-xs bg-gray-100 text-gray-500 font-semibold px-2 py-0.5 rounded-full">
+            Free ×{breakdown.starter}
+          </span>
+        )}
+        {breakdown.pro > 0 && (
+          <span className="text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">
+            Pro ×{breakdown.pro}
+          </span>
+        )}
+        {breakdown.business > 0 && (
+          <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+            Business ×{breakdown.business}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AffiliatesTab({ affiliates, summary }: { affiliates: AffiliateRow[]; summary: Props["affiliateSummary"] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Tổng phân loại gói từ tất cả affiliates
+  const totalStarter  = affiliates.reduce((s, a) => s + a.planBreakdown.starter, 0);
+  const totalPro      = affiliates.reduce((s, a) => s + a.planBreakdown.pro, 0);
+  const totalBusiness = affiliates.reduce((s, a) => s + a.planBreakdown.business, 0);
+
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <StatCard label="Tổng đối tác" value={summary.total} sub="đã đăng ký" icon={Users} color="blue" />
-        <StatCard label="Đã chuyển đổi" value={summary.converted} sub="công ty mua Pro/Business qua affiliate" icon={TrendingUp} color="green" />
+        <StatCard label="Đã chuyển đổi" value={summary.converted} sub="công ty mua Pro/Business" icon={TrendingUp} color="green" />
         <StatCard label="Doanh thu từ affiliate" value={fmtCurrency(summary.revenue)} sub="lũy kế" icon={DollarSign} color="purple" />
         <StatCard label="Hoa hồng phải trả" value={fmtCurrency(summary.commission)} sub="tổng tất cả đối tác" icon={Gift} color="yellow" />
       </div>
+
+      {/* Plan distribution tổng */}
+      {summary.total > 0 && (
+        <div className="bg-white border border-gray-100 rounded-2xl px-6 py-4 mb-6 flex items-center gap-6 flex-wrap">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Phân bổ gói — tất cả công ty qua affiliate</p>
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-gray-500">{totalStarter}</p>
+              <p className="text-xs text-gray-400">Free</p>
+            </div>
+            <div className="w-px h-8 bg-gray-100" />
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-green-600">{totalPro}</p>
+              <p className="text-xs text-gray-400">Pro</p>
+            </div>
+            <div className="w-px h-8 bg-gray-100" />
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-blue-600">{totalBusiness}</p>
+              <p className="text-xs text-gray-400">Business</p>
+            </div>
+            <div className="w-px h-8 bg-gray-100" />
+            <div className="text-center">
+              <p className="text-xl font-extrabold text-gray-900">{totalStarter + totalPro + totalBusiness}</p>
+              <p className="text-xs text-gray-400">Tổng</p>
+            </div>
+          </div>
+          {(totalPro + totalBusiness) > 0 && (
+            <div className="ml-auto text-right">
+              <p className="text-xs text-gray-400">Tỷ lệ chuyển đổi</p>
+              <p className="text-lg font-extrabold text-green-600">
+                {Math.round((totalPro + totalBusiness) / (totalStarter + totalPro + totalBusiness) * 100)}%
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {affiliates.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 py-20 text-center text-gray-400">
@@ -84,79 +168,118 @@ function AffiliatesTab({ affiliates, summary }: { affiliates: AffiliateRow[]; su
             {affiliates.map((a) => (
               <div key={a.id}>
                 <div
-                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer flex items-center gap-4"
+                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer"
                   onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
                 >
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {a.name.charAt(0).toUpperCase()}
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {a.name.charAt(0).toUpperCase()}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-gray-900">{a.name}</p>
+                        <TierBadge tier={a.tier} />
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {a.status === "active" ? "Hoạt động" : "Chờ duyệt"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{a.email}{a.phone ? ` · ${a.phone}` : ""} · tham gia {fmtDate(a.createdAt)}</p>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="hidden md:flex items-center gap-6 text-center shrink-0">
+                      <div>
+                        <p className="text-lg font-bold text-gray-900">{a.referred}</p>
+                        <p className="text-xs text-gray-400">đăng ký</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-green-700">{a.converted}</p>
+                        <p className="text-xs text-gray-400">trả phí</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-purple-700">{fmtCurrency(a.commission)}</p>
+                        <p className="text-xs text-gray-400">hoa hồng</p>
+                      </div>
+                    </div>
+
+                    {/* Link + expand */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link
+                        href={`/affiliate/${a.code}`}
+                        target="_blank"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 border border-blue-200 px-2 py-1 rounded-lg"
+                      >
+                        Dashboard <ExternalLink className="w-3 h-3" />
+                      </Link>
+                      {expandedId === a.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                    </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900">{a.name}</p>
-                      <TierBadge tier={a.tier} />
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                        {a.status === "active" ? "Hoạt động" : "Chờ duyệt"}
-                      </span>
+                  {/* Plan breakdown inline — luôn hiện */}
+                  {a.referred > 0 && (
+                    <div className="mt-2.5 ml-14 flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Gói:</span>
+                      <PlanBar breakdown={a.planBreakdown} total={a.referred} />
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{a.email}{a.phone ? ` · ${a.phone}` : ""} · tham gia {fmtDate(a.createdAt)}</p>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="hidden md:flex items-center gap-6 text-center shrink-0">
-                    <div>
-                      <p className="text-lg font-bold text-gray-900">{a.referred}</p>
-                      <p className="text-xs text-gray-400">đăng ký</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-green-700">{a.converted}</p>
-                      <p className="text-xs text-gray-400">trả phí</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-purple-700">{fmtCurrency(a.commission)}</p>
-                      <p className="text-xs text-gray-400">hoa hồng</p>
-                    </div>
-                  </div>
-
-                  {/* Link + expand */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Link
-                      href={`/affiliate/${a.code}`}
-                      target="_blank"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 border border-blue-200 px-2 py-1 rounded-lg"
-                    >
-                      Dashboard <ExternalLink className="w-3 h-3" />
-                    </Link>
-                    {expandedId === a.id ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-                  </div>
+                  )}
                 </div>
 
-                {/* Expanded detail */}
+                {/* Expanded — danh sách công ty */}
                 {expandedId === a.id && (
-                  <div className="px-6 pb-4 bg-blue-50/50 border-t border-blue-100">
-                    <div className="py-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="border-t border-blue-100 bg-blue-50/40">
+                    {/* Meta */}
+                    <div className="px-6 py-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm border-b border-blue-100">
                       <div>
-                        <p className="text-xs text-gray-500 font-medium">Code</p>
+                        <p className="text-xs text-gray-400 font-medium">Mã giới thiệu</p>
                         <p className="font-mono font-bold text-blue-700">{a.code}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 font-medium">Kênh</p>
+                        <p className="text-xs text-gray-400 font-medium">Kênh</p>
                         <p className="text-gray-700 font-medium">{a.channel || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 font-medium">Doanh thu tạo ra</p>
+                        <p className="text-xs text-gray-400 font-medium">Doanh thu tạo ra</p>
                         <p className="text-gray-700 font-bold">{fmtCurrency(a.revenue)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 font-medium">Hoa hồng ({a.tier.rate}%)</p>
+                        <p className="text-xs text-gray-400 font-medium">Hoa hồng ({a.tier.rate}%)</p>
                         <p className="text-green-700 font-bold">{fmtCurrency(a.commission)}</p>
                       </div>
                     </div>
-                    <div className="mt-1">
-                      <p className="text-xs text-gray-500 font-medium mb-1">Link giới thiệu</p>
+
+                    {/* Company list */}
+                    {a.referredCompanies.length === 0 ? (
+                      <p className="px-6 py-4 text-sm text-gray-400">Chưa có công ty nào đăng ký qua link này.</p>
+                    ) : (
+                      <div className="px-6 py-3">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                          {a.referredCompanies.length} công ty đã đăng ký
+                        </p>
+                        <div className="space-y-1.5">
+                          {a.referredCompanies.map((c) => (
+                            <div key={c.id} className="flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100">
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">
+                                {c.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-800 truncate">{c.name}</p>
+                                <p className="text-xs text-gray-400 font-mono">{c.slug}</p>
+                              </div>
+                              <PlanBadge plan={c.plan} />
+                              <p className="text-xs text-gray-400 shrink-0">{fmtDate(c.createdAt)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Link */}
+                    <div className="px-6 py-3 border-t border-blue-100">
+                      <p className="text-xs text-gray-400 font-medium mb-1">Link giới thiệu</p>
                       <code className="text-xs bg-white border border-gray-200 px-3 py-1.5 rounded-lg block text-blue-700">
                         https://timio.vn/register?aff={a.code}
                       </code>
