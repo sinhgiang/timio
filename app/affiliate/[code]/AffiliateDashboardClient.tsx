@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Clock, Copy, Check, TrendingUp, Users, DollarSign, BarChart3,
   ExternalLink, Info, MousePointer, Smartphone, Monitor, Tablet,
-  Globe, ArrowRight,
+  Globe, ArrowRight, Pencil, X, Loader2, CheckCircle2, AlertCircle,
 } from "lucide-react";
 
 interface ClickStats {
@@ -62,18 +62,88 @@ function deviceLabel(d: string) {
   return d;
 }
 
+const DESTINATIONS = [
+  { label: "Trang chủ",  value: "/",          desc: "timio.vn" },
+  { label: "Bảng giá",  value: "/#pricing",  desc: "timio.vn/#pricing" },
+  { label: "Tính năng", value: "/#demo",      desc: "timio.vn/#demo" },
+  { label: "Đăng ký",   value: "/register",   desc: "timio.vn/register" },
+];
+
 export default function AffiliateDashboardClient({ affiliate, stats, tier, referrals, clickStats }: Props) {
   const [copiedLink, setCopiedLink]   = useState(false);
   const [copiedDash, setCopiedDash]   = useState(false);
   const [activeTab, setActiveTab]     = useState<"overview" | "analytics" | "referrals">("overview");
+  const [destination, setDestination] = useState("/");
 
-  const affiliateLink = `https://timio.vn/register?aff=${affiliate.code}`;
-  const dashboardUrl  = `https://timio.vn/affiliate/${affiliate.code}`;
+  // Slug editor state
+  const [editingSlug, setEditingSlug]     = useState(false);
+  const [slugInput, setSlugInput]         = useState(affiliate.code);
+  const [slugStatus, setSlugStatus]       = useState<"idle" | "checking" | "available" | "taken" | "error">("idle");
+  const [slugMsg, setSlugMsg]             = useState("");
+  const [slugSaving, setSlugSaving]       = useState(false);
+  const [currentCode, setCurrentCode]     = useState(affiliate.code);
+  const checkTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const buildLink = (code: string, dest: string) => {
+    const base = "https://timio.vn";
+    if (dest === "/") return `${base}/?aff=${code}`;
+    if (dest.startsWith("/#")) return `${base}/?aff=${code}${dest}`;
+    return `${base}${dest}?aff=${code}`;
+  };
+
+  const affiliateLink = buildLink(currentCode, destination);
+  const dashboardUrl  = `https://timio.vn/affiliate/${currentCode}`;
 
   const copy = async (text: string, setCopied: (v: boolean) => void) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Live-check slug availability
+  const handleSlugChange = (val: string) => {
+    const clean = val.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    setSlugInput(clean);
+    setSlugStatus("idle");
+    setSlugMsg("");
+    if (checkTimer.current) clearTimeout(checkTimer.current);
+    if (!clean || clean === currentCode) return;
+    if (clean.length < 3) { setSlugStatus("error"); setSlugMsg("Tối thiểu 3 ký tự"); return; }
+    setSlugStatus("checking");
+    checkTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/affiliate/check-code?code=${encodeURIComponent(clean)}&current=${encodeURIComponent(currentCode)}`);
+        const data = await res.json();
+        setSlugStatus(data.available ? "available" : "taken");
+        setSlugMsg(data.reason ?? "");
+      } catch {
+        setSlugStatus("error");
+        setSlugMsg("Không kiểm tra được, thử lại sau.");
+      }
+    }, 500);
+  };
+
+  const saveSlug = async () => {
+    if (slugStatus !== "available" && slugInput !== currentCode) return;
+    setSlugSaving(true);
+    try {
+      const res = await fetch("/api/affiliate/update-code", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentCode, newCode: slugInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSlugStatus("error"); setSlugMsg(data.error ?? "Lỗi"); return; }
+      setCurrentCode(data.code);
+      setEditingSlug(false);
+      // Redirect về URL mới
+      window.location.href = `/affiliate/${data.code}`;
+    } catch {
+      setSlugStatus("error");
+      setSlugMsg("Lỗi kết nối, thử lại sau.");
+    } finally {
+      setSlugSaving(false);
+    }
   };
 
   const tierBadgeClass =
@@ -242,11 +312,92 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
 
             {/* Link + Tier */}
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Affiliate link */}
+              {/* Affiliate link + slug editor */}
               <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                <h2 className="font-bold text-gray-900 mb-4">Link giới thiệu của bạn</h2>
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-3">
-                  <p className="text-blue-700 text-sm font-mono break-all">{affiliateLink}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-gray-900">Link giới thiệu</h2>
+                  {!editingSlug && (
+                    <button
+                      onClick={() => { setEditingSlug(true); setSlugInput(currentCode); setSlugStatus("idle"); }}
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      <Pencil className="w-3 h-3" /> Đổi slug
+                    </button>
+                  )}
+                </div>
+
+                {/* Slug editor */}
+                {editingSlug && (
+                  <div className="mb-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <p className="text-xs text-gray-600 font-medium mb-2">Slug tùy chỉnh <span className="text-gray-400">(chỉ a–z, 0–9, dấu -)</span></p>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-gray-400 shrink-0">timio.vn/?aff=</span>
+                      <input
+                        value={slugInput}
+                        onChange={(e) => handleSlugChange(e.target.value)}
+                        className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-1.5 font-mono focus:outline-none focus:border-blue-500"
+                        placeholder="ten-cua-ban"
+                        maxLength={40}
+                      />
+                    </div>
+                    {/* Status message */}
+                    {slugStatus !== "idle" && (
+                      <div className={`flex items-center gap-1.5 text-xs mt-2 ${
+                        slugStatus === "available" ? "text-green-600" :
+                        slugStatus === "taken" || slugStatus === "error" ? "text-red-500" :
+                        "text-gray-400"
+                      }`}>
+                        {slugStatus === "checking" && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {slugStatus === "available" && <CheckCircle2 className="w-3 h-3" />}
+                        {(slugStatus === "taken" || slugStatus === "error") && <AlertCircle className="w-3 h-3" />}
+                        {slugStatus === "checking" ? "Đang kiểm tra..." : slugStatus === "available" ? "Có thể dùng!" : slugMsg}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={saveSlug}
+                        disabled={slugSaving || (slugStatus !== "available" && slugInput !== currentCode)}
+                        className="flex-1 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {slugSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {slugSaving ? "Đang lưu..." : "Lưu slug mới"}
+                      </button>
+                      <button
+                        onClick={() => setEditingSlug(false)}
+                        className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-amber-600 mt-2 leading-relaxed">
+                      ⚠️ Link cũ vẫn tracking được. Dashboard sẽ tự chuyển sang URL mới sau khi lưu.
+                    </p>
+                  </div>
+                )}
+
+                {/* Destination selector */}
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-2 font-medium">Trang đích khi người dùng click:</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {DESTINATIONS.map((d) => (
+                      <button
+                        key={d.value}
+                        onClick={() => setDestination(d.value)}
+                        className={`text-xs px-3 py-2 rounded-lg border font-medium transition-colors text-left ${
+                          destination === d.value
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="font-semibold">{d.label}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{d.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 mb-3">
+                  <p className="text-blue-700 text-xs font-mono break-all leading-relaxed">{affiliateLink}</p>
                 </div>
                 <button
                   onClick={() => copy(affiliateLink, setCopiedLink)}

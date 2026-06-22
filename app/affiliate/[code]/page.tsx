@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AffiliateDashboardClient from "./AffiliateDashboardClient";
 
@@ -66,8 +66,17 @@ function detectSource(referrer: string | null): string {
 }
 
 export default async function AffiliateDashboardPage({ params }: { params: { code: string } }) {
-  const affiliate = await prisma.affiliate.findUnique({ where: { code: params.code } });
-  if (!affiliate) return notFound();
+  let affiliate = await prisma.affiliate.findUnique({ where: { code: params.code } });
+
+  // Nếu dùng code cũ → redirect về URL mới (affiliate đã đổi slug)
+  if (!affiliate) {
+    const history = await prisma.affiliateCodeHistory.findUnique({
+      where: { oldCode: params.code },
+      include: { affiliate: true },
+    });
+    if (history) redirect(`/affiliate/${history.affiliate.code}`);
+    return notFound();
+  }
 
   const [referrals, allClicks] = await Promise.all([
     prisma.company.findMany({

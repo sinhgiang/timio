@@ -245,13 +245,14 @@ model Affiliate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clicks    AffiliateClick[]
+  clicks        AffiliateClick[]
+  codeHistories AffiliateCodeHistory[]
 }
 
 model AffiliateClick {
   id            String    @id @default(cuid())
   affiliateCode String
-  affiliate     Affiliate @relation(fields: [affiliateCode], references: [code], onDelete: Cascade)
+  affiliate     Affiliate @relation(fields: [affiliateCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
   ip            String?
   userAgent     String?
   referrer      String?   // full referrer URL
@@ -262,4 +263,15 @@ model AffiliateClick {
 
   @@index([affiliateCode])
   @@index([createdAt(sort: Desc)])
+}
+
+// Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được
+model AffiliateCodeHistory {
+  id          String    @id @default(cuid())
+  affiliateId String
+  oldCode     String    @unique
+  createdAt   DateTime  @default(now())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId])
 }

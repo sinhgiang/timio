@@ -37,11 +37,20 @@ export async function POST(req: NextRequest) {
     if (referrer) validReferredBy = referrer.slug;
   }
 
-  // Verify affiliate code
+  // Verify affiliate code — check current code or old codes (AffiliateCodeHistory)
   let validAffiliateCode: string | null = null;
   if (affiliateCode) {
     const aff = await prisma.affiliate.findUnique({ where: { code: affiliateCode }, select: { code: true } });
-    if (aff) validAffiliateCode = aff.code;
+    if (aff) {
+      validAffiliateCode = aff.code;
+    } else {
+      // Cookie có thể chứa code cũ khi affiliate đã đổi slug
+      const history = await prisma.affiliateCodeHistory.findUnique({
+        where: { oldCode: affiliateCode },
+        include: { affiliate: { select: { code: true } } },
+      });
+      if (history) validAffiliateCode = history.affiliate.code;
+    }
   }
 
   // Generate unique slug

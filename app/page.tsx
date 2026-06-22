@@ -1,5 +1,6 @@
 import Link from "next/link";
 import SalesNavLinks from "@/components/SalesNavLinks";
+import AffiliateTracker from "@/components/affiliate/AffiliateTracker";
 import {
   Clock,
   Users,
@@ -62,9 +63,12 @@ function SolIcon({ icon: Icon, color }: { icon: React.ElementType; color: string
   );
 }
 
-export default function HomePage() {
+export default function HomePage({ searchParams }: { searchParams?: { aff?: string } }) {
+  const affCode = searchParams?.aff;
   return (
     <div className="min-h-screen bg-white font-sans">
+      {/* Track affiliate click nếu có ?aff= trong URL */}
+      {affCode && <AffiliateTracker code={affCode} />}
 
       {/* ── NAVBAR ── */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
