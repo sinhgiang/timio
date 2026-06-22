@@ -441,79 +441,89 @@ export default function HomePage() {
       <section id="demo" className="py-20 px-4 bg-white">
         <div className="max-w-6xl mx-auto space-y-24">
 
-          {/* Row 1 — Kiosk + QR face */}
+          {/* Row 1 — QR check-in */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center gap-1.5 text-blue-600 text-xs font-bold uppercase tracking-wider bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 mb-4">
-                <Smartphone size={12} /> Kiosk PWA + Đăng ký qua điện thoại
+                <QrCode size={12} /> Chấm công không cần thiết bị
               </div>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-4">
-                Không cần mua thiết bị — điện thoại cũ là đủ
+                In QR dán tường — nhân viên quét là check-in xong
               </h3>
               <p className="text-gray-500 leading-relaxed mb-5">
-                Đặt 1 điện thoại/tablet tại lối vào làm kiosk chấm công. Nhân viên nhìn vào camera — AI nhận diện khuôn mặt trong vòng 1 giây. <strong className="text-gray-700">Không cần máy chấm công riêng, không cần phần cứng đặc biệt.</strong>
+                Không cần mua máy chấm công. Không cần điện thoại để tại văn phòng. Chỉ cần in 1 tờ A4 dán tại lối vào — nhân viên dùng điện thoại cá nhân quét QR, nhìn vào camera, AI nhận diện trong 1 giây. <strong className="text-gray-700">Xong.</strong>
               </p>
-              <ul className="space-y-3 mb-5">
+              {/* 3-step flow */}
+              <div className="space-y-3 mb-5">
                 {[
-                  "Kiosk hoạt động trên mọi điện thoại/tablet có camera",
-                  "Tự nhận diện, không chạm tay — nhanh, vệ sinh",
-                  "Thông báo giọng nói tiếng Việt ngay sau check-in",
-                  "Mỗi chi nhánh 1 link kiosk riêng — quản lý độc lập",
+                  { num: "1", title: "In QR code — dán tại lối vào", desc: "Admin in ra, dán lên tường hoặc bàn lễ tân. Miễn phí, mỗi chi nhánh 1 mã riêng." },
+                  { num: "2", title: "Nhân viên quét bằng điện thoại cá nhân", desc: "Mở camera, quét QR → trang check-in mở ngay trên điện thoại của họ." },
+                  { num: "3", title: "Nhìn vào camera — check-in trong 1 giây", desc: "AI nhận diện khuôn mặt, ghi giờ vào, báo giọng nói tiếng Việt. Không cần chạm tay." },
+                ].map((s) => (
+                  <div key={s.num} className="flex gap-3 items-start">
+                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-extrabold flex items-center justify-center shrink-0 mt-0.5">{s.num}</div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">{s.title}</p>
+                      <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <ul className="space-y-2">
+                {[
+                  "Không cần máy chấm công — tiết kiệm 3–15 triệu đồng",
+                  "Không cần ứng dụng cài đặt — chỉ cần camera điện thoại",
+                  "Chống gian lận: nhận diện khuôn mặt, không ký hộ được",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-2 text-sm text-gray-700">
-                    <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={15} className="text-green-500 shrink-0 mt-0.5" />
                     {t}
                   </li>
                 ))}
               </ul>
-              {/* QR highlight box */}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
-                  <QrCode size={20} className="text-white" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <p className="font-semibold text-emerald-800 text-sm">Đăng ký khuôn mặt qua điện thoại cá nhân</p>
-                  <p className="text-emerald-700 text-xs mt-0.5 leading-relaxed">
-                    Admin gửi QR cho từng nhân viên — họ tự chụp mặt từ điện thoại của mình, không cần tập trung lại văn phòng. Xong trong 30 giây.
-                  </p>
-                </div>
-              </div>
             </div>
-            <div className="flex justify-center gap-4 items-end">
-              {/* Kiosk phone */}
-              <div className="w-44 bg-gray-900 rounded-[2rem] p-2.5 shadow-2xl border-4 border-gray-800">
-                <div className="bg-blue-950 rounded-[1.5rem] overflow-hidden p-3 flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 300 }}>
-                  <div className="text-blue-400 text-[10px] font-semibold uppercase tracking-wider mb-1">Kiosk văn phòng</div>
-                  <div className="w-20 h-20 rounded-full border-2 border-blue-400 flex items-center justify-center relative">
-                    <div className="w-14 h-14 rounded-full bg-blue-600/20 flex items-center justify-center">
-                      <Users size={24} className="text-blue-300" />
+            {/* Illustration: QR on wall + employee phone */}
+            <div className="flex justify-center">
+              <div className="relative">
+                {/* Wall / background */}
+                <div className="w-72 h-80 bg-gradient-to-b from-gray-100 to-gray-200 rounded-2xl border border-gray-200 shadow-inner flex flex-col items-center justify-center gap-4 relative overflow-hidden">
+                  {/* Wall texture hint */}
+                  <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 39px, #d1d5db 39px, #d1d5db 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, #d1d5db 39px, #d1d5db 40px)" }} />
+                  {/* QR poster on wall */}
+                  <div className="bg-white rounded-xl border-2 border-gray-300 p-3 shadow-md z-10 w-28">
+                    <div className="text-center text-[9px] font-bold text-gray-700 mb-1.5">TIMIO · VĂN PHÒNG</div>
+                    {/* QR code visual */}
+                    <div className="w-full aspect-square bg-white border border-gray-200 rounded p-1 grid grid-cols-7 gap-0.5">
+                      {Array.from({ length: 49 }).map((_, i) => {
+                        const on = [0,1,2,3,4,5,6,7,13,14,20,21,22,23,24,25,26,27,28,35,36,42,43,44,45,46,47,48,8,15,10,17,11,18,31,38,30,37,32,39].includes(i);
+                        return <div key={i} className={`rounded-[1px] ${on ? "bg-gray-900" : "bg-white"}`} />;
+                      })}
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                      <CheckCircle2 size={12} className="text-white" />
-                    </div>
+                    <div className="text-center text-[8px] text-gray-400 mt-1.5">Quét để chấm công</div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-green-400 text-xs font-bold">Nhận diện thành công</div>
-                    <div className="text-slate-300 text-sm font-semibold mt-0.5">Nguyễn Minh Tuấn</div>
-                    <div className="text-blue-400 text-[10px] mt-0.5">08:02 · Đúng giờ</div>
-                  </div>
-                  <div className="w-full bg-blue-900/40 rounded-lg p-2 text-center border border-blue-700/30">
-                    <div className="text-white/50 text-[10px]">Văn phòng Hà Nội</div>
+                  {/* Arrow */}
+                  <div className="z-10 flex flex-col items-center gap-1">
+                    <div className="text-2xl">↓</div>
+                    <div className="text-[10px] text-gray-500 font-medium">Nhân viên quét QR</div>
                   </div>
                 </div>
-              </div>
-              {/* QR registration phone */}
-              <div className="w-36 bg-gray-900 rounded-[1.8rem] p-2 shadow-xl border-4 border-gray-800 mb-4">
-                <div className="bg-slate-900 rounded-[1.3rem] overflow-hidden p-3 flex flex-col items-center gap-2" style={{ minHeight: 240 }}>
-                  <div className="text-emerald-400 text-[9px] font-semibold uppercase tracking-wider">Đăng ký mặt</div>
-                  <div className="w-14 h-14 rounded-xl border-2 border-emerald-400/50 bg-emerald-900/20 flex items-center justify-center">
-                    <QrCode size={28} className="text-emerald-400" strokeWidth={1} />
-                  </div>
-                  <div className="text-center">
-                    <div className="text-slate-300 text-[10px] leading-tight">Quét QR từ<br/>điện thoại cá nhân</div>
-                  </div>
-                  <div className="w-full bg-emerald-900/30 border border-emerald-700/40 rounded-lg p-1.5 text-center">
-                    <div className="text-emerald-400 text-[9px] font-semibold">✓ Xong trong 30 giây</div>
+                {/* Employee phone — overlapping bottom right */}
+                <div className="absolute -bottom-6 -right-6 w-32 bg-gray-900 rounded-[1.8rem] p-2 shadow-2xl border-4 border-gray-800 z-20">
+                  <div className="bg-blue-950 rounded-[1.3rem] overflow-hidden p-2.5 flex flex-col items-center gap-2" style={{ minHeight: 190 }}>
+                    <div className="text-blue-400 text-[8px] font-semibold uppercase tracking-wider">timio.vn/checkin</div>
+                    <div className="w-14 h-14 rounded-full border-2 border-blue-400 flex items-center justify-center relative">
+                      <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center">
+                        <Users size={18} className="text-blue-300" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <CheckCircle2 size={10} className="text-white" />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-green-400 text-[9px] font-bold">Đúng giờ ✓</div>
+                      <div className="text-slate-300 text-[10px] font-semibold mt-0.5">Nguyễn M. Tuấn</div>
+                      <div className="text-blue-400 text-[8px]">08:02</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -553,10 +563,10 @@ export default function HomePage() {
                     </thead>
                     <tbody>
                       {[
-                        { name: "Giàng A Sinh",  role: "Giám Đốc", work: 22, late: 0,  base: "5.000.000", fine: "",          bonus: "",         net: "5.000.000", netColor: "text-gray-900" },
-                        { name: "Giàng A Ký",    role: "Giám Đốc", work: 22, late: 0,  base: "7.000.000", fine: "",          bonus: "+419.831", net: "7.419.831", netColor: "text-gray-900" },
-                        { name: "Hầu Thị Chính", role: "Marketing", work: 20, late: 3, base: "5.000.000", fine: "-250.000",  bonus: "",         net: "4.750.000", netColor: "text-red-600" },
-                        { name: "Thầu A Chính",  role: "Giám Đốc", work: 21, late: 0,  base: "9.000.000", fine: "",          bonus: "",         net: "9.000.000", netColor: "text-gray-900" },
+                        { name: "Nguyễn Minh Tuấn", role: "Kinh doanh",  work: 22, late: 0, base: "7.000.000", fine: "",         bonus: "+419.831", net: "7.419.831", netColor: "text-gray-900" },
+                        { name: "Trần Thị Lan",     role: "Marketing",   work: 20, late: 3, base: "5.000.000", fine: "-250.000", bonus: "",         net: "4.750.000", netColor: "text-red-600" },
+                        { name: "Lê Văn Hùng",      role: "Kỹ thuật",    work: 22, late: 0, base: "8.000.000", fine: "",         bonus: "",         net: "8.000.000", netColor: "text-gray-900" },
+                        { name: "Phạm Thu Hà",      role: "Kế toán",     work: 21, late: 0, base: "6.000.000", fine: "",         bonus: "",         net: "6.000.000", netColor: "text-gray-900" },
                       ].map((r) => (
                         <tr key={r.name} className="border-b border-gray-50 hover:bg-gray-50/50">
                           <td className="py-2 pr-2">
