@@ -473,7 +473,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   </div>
                 ))}
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-2 mb-5">
                 {[
                   "Không cần máy chấm công — tiết kiệm 3–15 triệu đồng",
                   "Không cần ứng dụng cài đặt — chỉ cần camera điện thoại",
@@ -485,6 +485,23 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   </li>
                 ))}
               </ul>
+
+              {/* Pain point: no technician needed */}
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <p className="text-xs font-bold text-orange-700 uppercase tracking-wider mb-2">Phần mềm khác tính thêm tiền gì?</p>
+                <ul className="space-y-1.5">
+                  {[
+                    { old: "Phí thuê thợ kéo dây, thi công lắp máy",       new: "Timio: in QR dán lên tường — xong" },
+                    { old: "Phí cài đặt & cấu hình phần mềm tại chỗ",     new: "Timio: tự cài trong 10 phút qua trình duyệt" },
+                    { old: "Mỗi chi nhánh mới lại gọi thợ, tốn thêm tiền", new: "Timio: in thêm tờ QR, dán — không mất đồng nào" },
+                  ].map((r) => (
+                    <li key={r.old} className="grid grid-cols-2 gap-2 text-xs">
+                      <span className="text-orange-600 line-through leading-relaxed">{r.old}</span>
+                      <span className="text-green-700 font-medium leading-relaxed">{r.new}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
             {/* Illustration: QR on wall + employee phone */}
             <div className="flex justify-center">
