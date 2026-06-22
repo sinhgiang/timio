@@ -5,9 +5,10 @@ import type { EmployeeFaceData } from "@/lib/faceApi";
 
 interface PageProps {
   params: { slug: string };
+  searchParams?: { b?: string };
 }
 
-export default async function CheckInPage({ params }: PageProps) {
+export default async function CheckInPage({ params, searchParams }: PageProps) {
   const company = await prisma.company.findUnique({
     where: { slug: params.slug },
   });
@@ -28,6 +29,16 @@ export default async function CheckInPage({ params }: PageProps) {
       : [],
   }));
 
+  // Load branch name if ?b= is provided
+  let branchName: string | undefined;
+  if (searchParams?.b) {
+    const branch = await prisma.branch.findFirst({
+      where: { id: searchParams.b, companyId: company.id },
+      select: { name: true },
+    });
+    branchName = branch?.name;
+  }
+
   // Parse custom kiosk messages nếu có
   const messages = company.kioskMessages
     ? (JSON.parse(company.kioskMessages) as {
@@ -43,6 +54,7 @@ export default async function CheckInPage({ params }: PageProps) {
       company={{ name: company.name, slug: company.slug }}
       employees={employeeFaceData}
       messages={messages}
+      branchName={branchName}
     />
   );
 }

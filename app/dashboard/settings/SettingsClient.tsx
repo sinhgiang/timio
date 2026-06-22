@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
+import BranchQRCard from "@/components/settings/BranchQRCard";
 import {
   Monitor,
   Building2,
@@ -42,10 +43,16 @@ interface RewardRule {
   label: string;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
 interface Props {
   company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
+  branches?: Branch[];
   referralStats?: { registered: number; converted: number };
 }
 
@@ -67,7 +74,7 @@ interface HolidayProps extends Props {
   holidays: Holiday[];
 }
 
-export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, referralStats }: HolidayProps & { referralStats?: { registered: number; converted: number } }) {
+export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number } }) {
   const router = useRouter();
   const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
   const [loading, setLoading] = useState(false);
@@ -514,6 +521,30 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
 
       </div>
+
+      {/* QR per branch */}
+      {branches.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <QrCode size={16} className="text-blue-600" />
+            <span className="font-semibold text-gray-800 text-sm">QR riêng từng chi nhánh</span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Mỗi chi nhánh 1 mã</span>
+          </div>
+          <p className="text-xs text-gray-400 mb-3">
+            Mỗi chi nhánh có 1 mã QR riêng. In ra dán tại lối vào — nhân viên quét đúng kiosk chi nhánh của họ.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {branches.map((branch) => (
+              <BranchQRCard
+                key={branch.id}
+                branch={branch}
+                companySlug={company.slug}
+                companyName={company.name}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Branch link card */}
       <Link

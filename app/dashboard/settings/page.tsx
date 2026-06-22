@@ -9,7 +9,7 @@ export default async function SettingsPage() {
   if (!companyId) return null;
 
   const currentYear = new Date().getFullYear();
-  const [company, penaltyRules, rewardRules, holidays] = await Promise.all([
+  const [company, penaltyRules, rewardRules, holidays, branches] = await Promise.all([
     prisma.company.findUnique({ where: { id: companyId } }),
     prisma.penaltyRule.findMany({ where: { companyId }, orderBy: { fromMinutes: "asc" } }),
     prisma.rewardRule.findMany({ where: { companyId } }),
@@ -17,6 +17,7 @@ export default async function SettingsPage() {
       where: { companyId, date: { gte: `${currentYear}-01-01`, lte: `${currentYear}-12-31` } },
       orderBy: { date: "asc" },
     }),
+    prisma.branch.findMany({ where: { companyId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const slug = company?.slug ?? "";
@@ -40,6 +41,7 @@ export default async function SettingsPage() {
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}
       holidays={holidays}
+      branches={branches}
       referralStats={{ registered: referralRegistered, converted: referralConverted }}
     />
   );

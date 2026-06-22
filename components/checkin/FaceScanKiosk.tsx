@@ -36,6 +36,7 @@ interface Props {
   company: { name: string; slug: string };
   employees: EmployeeFaceData[];
   messages?: KioskMessages;
+  branchName?: string;
 }
 
 function getGPS(): Promise<{ lat: number; lng: number } | null> {
@@ -49,7 +50,7 @@ function getGPS(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
-export default function FaceScanKiosk({ company, employees, messages }: Props) {
+export default function FaceScanKiosk({ company, employees, messages, branchName }: Props) {
   const msg = {
     welcome: messages?.welcome ?? `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`,
     checkinOntime: messages?.checkinOntime ?? `Cảm ơn {name}! Chúc bạn có một ngày làm việc tràn đầy năng lượng!`,
@@ -350,6 +351,9 @@ export default function FaceScanKiosk({ company, employees, messages }: Props) {
               <Clock size={14} /> Timio
             </div>
             <div className="text-white text-lg font-bold mt-0.5">{company.name}</div>
+            {branchName && (
+              <div className="text-blue-300 text-sm mt-0.5">{branchName}</div>
+            )}
           </div>
           <div className="text-right">
             <div className="text-white text-3xl font-mono font-bold">{timeStr}</div>
