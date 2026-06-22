@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SHIFT_PRESETS } from "@/lib/presets";
-import { MapPin } from "lucide-react";
+import { MapPin, QrCode } from "lucide-react";
+import BranchQRCard from "@/components/settings/BranchQRCard";
 
 interface Branch {
   id: string;
@@ -70,11 +71,7 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [gpsLoading, setGpsLoading] = useState(false);
-
-  const checkinUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/checkin/${companySlug}`
-      : `/checkin/${companySlug}`;
+  const [showQR, setShowQR] = useState<string | null>(null);
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); };
 
@@ -169,17 +166,12 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
         </button>
       </div>
 
-      {/* Kiosk URL */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-        <p className="text-sm font-medium text-blue-700 mb-1">🖥️ Link chấm công (đặt điện thoại văn phòng mở link này)</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 text-sm bg-white px-3 py-2 rounded-lg border border-blue-200 text-blue-800 truncate">
-            {checkinUrl}
-          </code>
-          <button
-            onClick={() => navigator.clipboard.writeText(checkinUrl)}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-          >Copy</button>
+      {/* QR info banner */}
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-start gap-3">
+        <QrCode size={18} className="text-blue-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-blue-800">Mỗi chi nhánh có QR riêng</p>
+          <p className="text-xs text-blue-600 mt-0.5">Bấm <strong>Xem QR</strong> trên từng chi nhánh để tải về hoặc in ra dán tại lối vào. Nhân viên quét bằng điện thoại cá nhân — không cần thiết bị thêm.</p>
         </div>
       </div>
 
@@ -356,10 +348,25 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
                 </div>
               </div>
               <div className="flex gap-2 ml-4 shrink-0">
+                <button
+                  onClick={() => setShowQR(showQR === b.id ? null : b.id)}
+                  className={`px-3 py-1 text-sm rounded-lg flex items-center gap-1 ${showQR === b.id ? "bg-blue-600 text-white" : "text-blue-600 hover:bg-blue-50"}`}
+                >
+                  <QrCode size={13} /> QR
+                </button>
                 <button onClick={() => handleEdit(b)} className="px-3 py-1 text-blue-600 text-sm hover:bg-blue-50 rounded-lg">Sửa</button>
                 <button onClick={() => handleDelete(b.id, b.name, b.employeeCount)} className="px-3 py-1 text-red-500 text-sm hover:bg-red-50 rounded-lg">Xóa</button>
               </div>
             </div>
+            {showQR === b.id && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <BranchQRCard
+                  branch={{ id: b.id, name: b.name }}
+                  companySlug={companySlug}
+                  companyName={b.name}
+                />
+              </div>
+            )}
           </div>
         ))}
         {branches.length === 0 && (

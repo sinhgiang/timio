@@ -21,6 +21,7 @@ interface EmployeeData {
 interface Props {
   company: { id: string; name: string; slug: string };
   employees: EmployeeData[];
+  branchName?: string;
 }
 
 const LEAVE_TYPES = [
@@ -43,7 +44,7 @@ function formatDOB(s: string) {
   return `${d}/${m}/${y}`;
 }
 
-export default function LeaveRequestKiosk({ company, employees }: Props) {
+export default function LeaveRequestKiosk({ company, employees, branchName }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -321,6 +322,9 @@ export default function LeaveRequestKiosk({ company, employees }: Props) {
               <Clock size={14} /> Timio · Nghỉ phép
             </div>
             <div className="text-white text-lg font-bold mt-0.5">{company.name}</div>
+            {branchName && (
+              <div className="text-blue-300 text-sm mt-0.5">{branchName}</div>
+            )}
           </div>
           <div className="text-right">
             <div className="text-white text-3xl font-mono font-bold">{timeStr}</div>

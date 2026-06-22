@@ -2,12 +2,28 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import LeaveRequestKiosk from "@/components/leave/LeaveRequestKiosk";
 
-export default async function LeaveKioskPage({ params }: { params: { slug: string } }) {
+export default async function LeaveKioskPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { b?: string };
+}) {
   const company = await prisma.company.findUnique({
     where: { slug: params.slug },
     select: { id: true, name: true, slug: true },
   });
   if (!company) notFound();
+
+  // Load branch name if ?b= is provided
+  let branchName: string | undefined;
+  if (searchParams?.b) {
+    const branch = await prisma.branch.findFirst({
+      where: { id: searchParams.b, companyId: company.id },
+      select: { name: true },
+    });
+    branchName = branch?.name;
+  }
 
   const employees = await prisma.employee.findMany({
     where: { companyId: company.id, status: "active" },
@@ -26,5 +42,5 @@ export default async function LeaveKioskPage({ params }: { params: { slug: strin
     descriptors: e.faceDescriptors ? (JSON.parse(e.faceDescriptors) as number[][]) : [],
   }));
 
-  return <LeaveRequestKiosk company={company} employees={faceData} />;
+  return <LeaveRequestKiosk company={company} employees={faceData} branchName={branchName} />;
 }
