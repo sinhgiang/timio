@@ -74,7 +74,9 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
 
   const isOwner = currentRole === "owner";
   const subUsersCount = members.filter((m) => m.role !== "owner").length;
-  const canAddMore = isOwner && (subUserLimit === Infinity || subUsersCount < subUserLimit);
+  const isStarterPlan = plan === "starter";
+  const isBusinessPlan = plan === "business";
+  const canAddMore = isOwner && !isStarterPlan && (isBusinessPlan || subUsersCount < subUserLimit);
 
   const addMember = async () => {
     setAddError("");
@@ -126,11 +128,11 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
         <div>
           <h1 className="text-xl font-extrabold text-gray-900">Thành viên nhóm</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {subUserLimit === Infinity
-              ? `Gói ${plan} — không giới hạn thành viên`
-              : subUserLimit === 0
+            {isBusinessPlan
+              ? `Gói Business — không giới hạn thành viên`
+              : isStarterPlan
               ? "Gói Starter — 1 người dùng"
-              : `Gói ${plan} — ${subUsersCount}/${subUserLimit} thành viên phụ`}
+              : `Gói Pro — ${subUsersCount}/${subUserLimit} thành viên phụ`}
           </p>
         </div>
         {isOwner && canAddMore && (
@@ -141,19 +143,19 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
             <UserPlus className="w-4 h-4" /> Thêm thành viên
           </button>
         )}
-        {isOwner && !canAddMore && subUserLimit !== Infinity && (
+        {isOwner && (isStarterPlan || (!isBusinessPlan && subUsersCount >= subUserLimit)) && (
           <Link
-            href="/dashboard/billing"
+            href={isStarterPlan ? "/dashboard/billing" : "/dashboard/billing?plan=business"}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
           >
             <Zap className="w-4 h-4" />
-            {subUserLimit === 0 ? "Nâng cấp để thêm" : "Nâng cấp Business"}
+            {isStarterPlan ? "Nâng cấp để thêm" : "Nâng cấp Business"}
           </Link>
         )}
       </div>
 
       {/* Upgrade callout — Starter plan */}
-      {isOwner && subUserLimit === 0 && (
+      {isOwner && isStarterPlan && (
         <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
@@ -185,7 +187,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
       )}
 
       {/* Upgrade callout — Pro hit limit */}
-      {isOwner && subUserLimit > 0 && subUserLimit !== Infinity && subUsersCount >= subUserLimit && (
+      {isOwner && !isStarterPlan && !isBusinessPlan && subUsersCount >= subUserLimit && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-amber-800 text-sm">Đã dùng hết {subUserLimit} thành viên phụ của gói Pro</p>
