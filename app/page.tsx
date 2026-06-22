@@ -712,7 +712,8 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
             </div>
             {[
               { criteria: "Chấm công", old: "Ký tay — dễ ký hộ, gian lận", timio: "Nhận diện khuôn mặt AI, không thể gian lận" },
-              { criteria: "Tính lương", old: "Kế toán mất 2–3 ngày/tháng", timio: "Tự động, kế toán chỉ cần 30 giây" },
+              { criteria: "Tính lương hàng tháng", old: "Kế toán mất 2–3 ngày/tháng", timio: "Tự động, kế toán chỉ cần 30 giây" },
+              { criteria: "Lương tháng 13", old: "Tính tay trên Excel, dễ sai sót", timio: "Tự động từ dữ liệu chấm công thực tế" },
               { criteria: "Kiểm soát từ xa", old: "Không thể — chỉ biết khi về VP", timio: "Real-time từ bất kỳ đâu, Telegram alert" },
               { criteria: "Nhiều chi nhánh", old: "Mỗi nơi 1 file, tổng hợp thủ công", timio: "1 dashboard tổng hợp tất cả" },
               { criteria: "Tranh chấp lương", old: "Không có bằng chứng để đối chiếu", timio: "Log đầy đủ từng giây, minh bạch 100%" },
@@ -957,6 +958,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     "3 người dùng (chủ + 2 thành viên)",
                     "Chấm công khuôn mặt AI",
                     "Quản lý nghỉ phép (kiosk + phiếu duyệt)",
+                    "Tính lương tháng 13 tự động",
                     "Import từ Tanca / Amis / Base HRM",
                     "Báo cáo đầy đủ + xuất Excel",
                     "Lưu dữ liệu 1 năm",
