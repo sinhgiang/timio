@@ -175,7 +175,7 @@ export default function WelcomePage() {
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gói Pro bao gồm</p>
             <div className="grid grid-cols-2 gap-2.5 mb-5">
               {[
-                { icon: Users, text: "30 nhân viên, 5 chi nhánh" },
+                { icon: Users, text: "20 nhân viên · 3 chi nhánh" },
                 { icon: BarChart3, text: "Báo cáo đầy đủ + so sánh chi nhánh" },
                 { icon: Bell, text: "Cảnh báo Telegram tức thì" },
                 { icon: Shield, text: "Quản lý nghỉ phép & lương tháng 13" },

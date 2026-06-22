@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserPlus, Trash2, Mail, MessageCircle, Crown, Shield, Calculator, Send, X, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Trash2, Mail, MessageCircle, Crown, Shield, Calculator, Send, X, Eye, EyeOff, Zap, Users, Check } from "lucide-react";
+import Link from "next/link";
 
 interface TeamMember {
   id: string;
@@ -128,19 +129,76 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
             {subUserLimit === Infinity
               ? `Gói ${plan} — không giới hạn thành viên`
               : subUserLimit === 0
-              ? "Gói Starter — nâng cấp để thêm thành viên"
+              ? "Gói Starter — 1 người dùng"
               : `Gói ${plan} — ${subUsersCount}/${subUserLimit} thành viên phụ`}
           </p>
         </div>
-        {isOwner && (
+        {isOwner && canAddMore && (
           <button
-            onClick={() => { if (!canAddMore) { alert(subUserLimit === 0 ? "Nâng cấp lên Pro để thêm thành viên." : "Đã đạt giới hạn. Nâng cấp lên Business."); return; } setShowAdd(true); }}
+            onClick={() => setShowAdd(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
           >
             <UserPlus className="w-4 h-4" /> Thêm thành viên
           </button>
         )}
+        {isOwner && !canAddMore && subUserLimit !== Infinity && (
+          <Link
+            href="/dashboard/billing"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+          >
+            <Zap className="w-4 h-4" />
+            {subUserLimit === 0 ? "Nâng cấp để thêm" : "Nâng cấp Business"}
+          </Link>
+        )}
       </div>
+
+      {/* Upgrade callout — Starter plan */}
+      {isOwner && subUserLimit === 0 && (
+        <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-gray-900 mb-0.5">Thêm kế toán và quản lý vào nhóm</p>
+              <p className="text-sm text-gray-500 mb-4">Gói Pro cho phép thêm tối đa 2 thành viên — họ có thể duyệt nghỉ phép, xem báo cáo mà không cần dùng chung tài khoản chủ.</p>
+              <div className="flex flex-wrap gap-3 mb-4">
+                {[
+                  "Thêm Kế toán — chỉ xem báo cáo + xuất Excel",
+                  "Thêm Quản lý — duyệt nghỉ phép, quản lý NV",
+                  "Nhận thông báo Telegram / Email riêng từng người",
+                ].map((f) => (
+                  <div key={f} className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-100 rounded-lg px-3 py-1.5">
+                    <Check className="w-3.5 h-3.5 text-blue-500" /> {f}
+                  </div>
+                ))}
+              </div>
+              <Link
+                href="/dashboard/billing"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <Zap className="w-4 h-4" /> Nâng cấp lên Pro — 299.000đ/tháng
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade callout — Pro hit limit */}
+      {isOwner && subUserLimit > 0 && subUserLimit !== Infinity && subUsersCount >= subUserLimit && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-amber-800 text-sm">Đã dùng hết {subUserLimit} thành viên phụ của gói Pro</p>
+            <p className="text-xs text-amber-600 mt-0.5">Nâng cấp lên Business để thêm không giới hạn người dùng quản lý.</p>
+          </div>
+          <Link
+            href="/dashboard/billing?plan=business"
+            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 transition-colors whitespace-nowrap"
+          >
+            <Zap className="w-4 h-4" /> Lên Business
+          </Link>
+        </div>
+      )}
 
       {/* Zalo OA setup banner — hiện khi chưa cấu hình và là owner */}
       {!zaloReady && isOwner && (
