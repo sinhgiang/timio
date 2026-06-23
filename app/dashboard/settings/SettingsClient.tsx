@@ -49,7 +49,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; kioskMessages?: string | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -88,6 +88,32 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [zaloToken, setZaloToken] = useState(company.zaloOaToken ?? "");
   const [zaloSaving, setZaloSaving] = useState(false);
   const [zaloMsg, setZaloMsg] = useState("");
+
+  // Kiosk messages
+  const defaultKioskMessages = () => {
+    try { return JSON.parse(company.kioskMessages ?? "{}"); } catch { return {}; }
+  };
+  const km = defaultKioskMessages();
+  const [kioskMsg, setKioskMsg] = useState({
+    welcome:       km.welcome       ?? "Xin chào! Nhìn vào camera để chấm công",
+    checkinOntime: km.checkinOntime ?? "Chào {name}! Chúc bạn một ngày làm việc hiệu quả",
+    checkinLate:   km.checkinLate   ?? "Chào {name}! Bạn đến trễ {minutes} phút hôm nay",
+    checkout:      km.checkout      ?? "Tạm biệt {name}! Hẹn gặp lại",
+  });
+  const [kioskSaving, setKioskSaving] = useState(false);
+  const [kioskSaveMsg, setKioskSaveMsg] = useState("");
+
+  const saveKioskMessages = async () => {
+    setKioskSaving(true); setKioskSaveMsg("");
+    const res = await fetch("/api/company/kiosk-messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(kioskMsg),
+    });
+    setKioskSaveMsg(res.ok ? "✅ Đã lưu!" : "❌ Lỗi lưu");
+    setKioskSaving(false);
+    if (res.ok) setTimeout(() => setKioskSaveMsg(""), 3000);
+  };
 
   // Test email
   const [emailTesting, setEmailTesting] = useState(false);
@@ -1056,6 +1082,50 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         <p className="text-xs text-gray-400 mt-2">
           Email kiểm tra sẽ được gửi đến địa chỉ email đăng nhập của bạn.
         </p>
+      </div>
+
+      {/* ── Kiosk Messages ── */}
+      <div className="mt-8 border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Monitor size={20} className="text-indigo-500" />
+          <h2 className="text-base font-bold text-gray-800">Lời chào trên màn hình kiosk</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Tùy chỉnh lời chào hiển thị trên kiosk chấm công. Dùng <code className="bg-gray-100 px-1 rounded">{"{name}"}</code> cho tên nhân viên, <code className="bg-gray-100 px-1 rounded">{"{minutes}"}</code> cho số phút trễ.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {([
+            { key: "welcome",       label: "Màn hình chờ",        placeholder: "Xin chào! Nhìn vào camera để chấm công" },
+            { key: "checkinOntime", label: "Check-in đúng giờ",   placeholder: "Chào {name}! Chúc bạn một ngày làm việc hiệu quả" },
+            { key: "checkinLate",   label: "Check-in đi trễ",     placeholder: "Chào {name}! Bạn đến trễ {minutes} phút hôm nay" },
+            { key: "checkout",      label: "Check-out về",        placeholder: "Tạm biệt {name}! Hẹn gặp lại" },
+          ] as { key: keyof typeof kioskMsg; label: string; placeholder: string }[]).map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+              <input
+                type="text"
+                value={kioskMsg[key]}
+                onChange={(e) => setKioskMsg((prev) => ({ ...prev, [key]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 mt-4">
+          <button
+            onClick={saveKioskMessages}
+            disabled={kioskSaving}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {kioskSaving ? "Đang lưu..." : "Lưu lời chào"}
+          </button>
+          {kioskSaveMsg && (
+            <span className={`text-sm font-medium ${kioskSaveMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+              {kioskSaveMsg}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Chữ ký & Dấu công ty ── */}

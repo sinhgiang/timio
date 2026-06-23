@@ -13,7 +13,12 @@ export default async function DashboardPage() {
 
   const today = getTodayString();
 
-  const [totalEmployees, todayLogs, company, onLeaveToday] = await Promise.all([
+  // 7-day trend
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+
+  const [totalEmployees, todayLogs, company, onLeaveToday, weekLogs] = await Promise.all([
     prisma.employee.count({ where: { companyId, status: "active" } }),
     prisma.attendanceLog.findMany({
       where: { employee: { companyId }, date: today },
@@ -33,7 +38,25 @@ export default async function DashboardPage() {
       },
       include: { employee: { select: { name: true, department: true, code: true } } },
     }),
+    prisma.attendanceLog.findMany({
+      where: { employee: { companyId }, date: { gte: sevenDaysAgoStr, lte: today } },
+      select: { date: true, status: true },
+    }),
   ]);
+
+  // Build 7-day chart data
+  const chartDays: { label: string; onTime: number; late: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayLogs = weekLogs.filter((l) => l.date === dateStr);
+    chartDays.push({
+      label: d.toLocaleDateString("vi-VN", { weekday: "short", timeZone: "Asia/Ho_Chi_Minh" }),
+      onTime: dayLogs.filter((l) => l.status === "on_time").length,
+      late: dayLogs.filter((l) => l.status === "late" || l.status === "very_late").length,
+    });
+  }
 
   const onTime = todayLogs.filter((l) => l.status === "on_time").length;
   const late = todayLogs.filter((l) => l.status === "late" || l.status === "very_late").length;
@@ -156,6 +179,40 @@ export default async function DashboardPage() {
                 <span className="text-purple-400">đến {lr.toDate.split("-").reverse().slice(0, 2).join("/")}</span>
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 7-day trend chart */}
+      {!isNewCompany && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 mb-5">
+          <h2 className="text-sm font-semibold text-gray-600 mb-4">Xu hướng 7 ngày qua</h2>
+          <div className="flex items-end gap-2 h-24">
+            {chartDays.map((day, i) => {
+              const total = day.onTime + day.late;
+              const maxVal = Math.max(...chartDays.map((d) => d.onTime + d.late), 1);
+              const barH = total === 0 ? 0 : Math.max(Math.round((total / maxVal) * 80), 4);
+              const onTimeH = total === 0 ? 0 : Math.round((day.onTime / total) * barH);
+              const lateH = barH - onTimeH;
+              const isToday = i === 6;
+              return (
+                <div key={day.label} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-xs text-gray-400 tabular-nums">{total > 0 ? total : ""}</span>
+                  <div className="w-full flex flex-col justify-end" style={{ height: 80 }}>
+                    <div className="w-full flex flex-col rounded-sm overflow-hidden" style={{ height: barH || 2 }}>
+                      {lateH > 0 && <div className="w-full bg-yellow-400" style={{ height: lateH }} />}
+                      {onTimeH > 0 && <div className="w-full bg-green-400" style={{ height: onTimeH }} />}
+                      {total === 0 && <div className="w-full bg-gray-100 rounded-sm" style={{ height: 2 }} />}
+                    </div>
+                  </div>
+                  <span className={`text-xs ${isToday ? "font-bold text-blue-600" : "text-gray-400"}`}>{day.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-400 inline-block" />Đúng giờ</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" />Đi trễ</span>
           </div>
         </div>
       )}

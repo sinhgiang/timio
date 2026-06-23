@@ -37,6 +37,7 @@ export default async function SettingsPage() {
         signatureUrl: company?.signatureUrl ?? null,
         stampUrl: company?.stampUrl ?? null,
         zaloOaToken: company?.zaloOaToken ?? null,
+        kioskMessages: company?.kioskMessages ?? null,
       }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}
