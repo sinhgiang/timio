@@ -6,7 +6,7 @@ const PLAN_PRICES: Record<string, number> = { pro: 299000, business: 799000 };
 function planRevenue(plan: string) { return PLAN_PRICES[plan] ?? 0; }
 function isPaid(plan: string) { return plan === "pro" || plan === "business"; }
 
-const COMMISSION_WINDOW_MS = 180 * 24 * 60 * 60 * 1000; // 6 tháng
+const COMMISSION_WINDOW_MS = 365 * 24 * 60 * 60 * 1000; // 12 tháng
 
 function getTier(converted: number) {
   if (converted >= 21) return { name: "Vàng", icon: "🥇", rate: 20 };

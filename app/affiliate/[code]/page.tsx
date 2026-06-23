@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const PLAN_PRICES: Record<string, number> = { pro: 299000, business: 799000 };
 function planPrice(plan: string) { return PLAN_PRICES[plan] ?? 0; }
 
-const COMMISSION_WINDOW_MS = 180 * 24 * 60 * 60 * 1000; // 6 tháng
+const COMMISSION_WINDOW_MS = 365 * 24 * 60 * 60 * 1000; // 12 tháng
 const HOLD_MS = 30 * 24 * 60 * 60 * 1000;               // 30 ngày giữ đơn
 
 // Ngày thanh toán = ngày 15 của tháng đó nếu eligibleDate < 15, ngược lại tháng sau
@@ -117,7 +117,7 @@ export default async function AffiliateDashboardPage({ params }: { params: { cod
   const now = new Date();
 
   // Phân loại từng công ty đã trả phí
-  const paidEligible: typeof referrals = [];   // qua 30 ngày & trong 6 tháng → tính commission
+  const paidEligible: typeof referrals = [];   // qua 30 ngày & trong 12 tháng → tính commission
   const paidPending: typeof referrals = [];    // chưa qua 30 ngày → đang giữ đơn
 
   for (const r of referrals) {
@@ -127,7 +127,7 @@ export default async function AffiliateDashboardPage({ params }: { params: { cod
     const age = now.getTime() - fp.getTime();
     const inWindow = age < COMMISSION_WINDOW_MS;
     const isEligible = age >= HOLD_MS;
-    if (!inWindow) continue; // ngoài 6 tháng
+    if (!inWindow) continue; // ngoài 12 tháng
     if (isEligible) paidEligible.push(r);
     else paidPending.push(r);
   }

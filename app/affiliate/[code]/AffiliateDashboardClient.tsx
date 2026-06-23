@@ -261,7 +261,7 @@ export default function AffiliateDashboardClient({ affiliate, stats, tier, refer
               </strong>
               {stats.commission > 0
                 ? <> · Liên hệ <strong>admin@timio.vn</strong> để yêu cầu</>
-                : <> · Hoa hồng tính trong <strong>6 tháng đầu</strong> từ lần mua đầu</>
+                : <> · Hoa hồng tính trong <strong>12 tháng đầu</strong> từ lần mua đầu</>
               }
             </span>
           </div>

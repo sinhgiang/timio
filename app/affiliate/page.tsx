@@ -53,8 +53,8 @@ const FAQS = [
   { q: "Hoa hồng được tính như thế nào?", a: "Mỗi khi công ty bạn giới thiệu mua gói Pro (299.000đ) hoặc Business (799.000đ), bạn nhận hoa hồng theo tier của mình. Tier tăng lũy kế theo tổng số lần chuyển đổi thành công." },
   { q: "Khi nào tôi nhận được tiền?", a: "Mỗi đơn hàng được giữ 30 ngày để đảm bảo không có yêu cầu hoàn tiền. Sau 30 ngày xác nhận thành công, hoa hồng sẽ được thanh toán vào ngày 15 của tháng đó (nếu đã qua ngày 15 thì sang ngày 15 tháng sau). Ví dụ: mua ngày 5/1 → eligible 4/2 → thanh toán 15/2. Mua ngày 20/1 → eligible 19/2 → thanh toán 15/3." },
   { q: "Ai có thể tham gia?", a: "Bất kỳ ai — freelancer, kế toán viên, tư vấn HR, blogger, YouTuber, hoặc đơn giản là người dùng Timio muốn giới thiệu cho bạn bè." },
-  { q: "Link giới thiệu có hiệu lực bao lâu?", a: "Link không hết hạn. Khi ai đó click link của bạn, cookie theo dõi được lưu 6 tháng — nghĩa là họ có thể đăng ký bất kỳ lúc nào trong 6 tháng đó và bạn vẫn được ghi nhận." },
-  { q: "Tôi nhận hoa hồng trong bao lâu?", a: "Bạn nhận hoa hồng trong 6 tháng đầu kể từ lần mua đầu tiên của mỗi công ty bạn giới thiệu. Sau 6 tháng, dù họ gia hạn tiếp, hoa hồng sẽ không còn được tính cho công ty đó nữa." },
+  { q: "Link giới thiệu có hiệu lực bao lâu?", a: "Link không hết hạn. Khi ai đó click link của bạn, cookie theo dõi được lưu 12 tháng — nghĩa là họ có thể đăng ký bất kỳ lúc nào trong 12 tháng đó và bạn vẫn được ghi nhận." },
+  { q: "Tôi nhận hoa hồng trong bao lâu?", a: "Bạn nhận hoa hồng trong 12 tháng đầu kể từ lần mua đầu tiên của mỗi công ty bạn giới thiệu. Sau 12 tháng, dù họ gia hạn tiếp, hoa hồng sẽ không còn được tính cho công ty đó nữa." },
   { q: "Tôi có thể theo dõi hiệu quả không?", a: "Có. Sau khi đăng ký, bạn có dashboard cá nhân xem số lượt click, số đăng ký, số chuyển đổi có phí, ngày hết hoa hồng từng công ty, tier hiện tại và tổng hoa hồng." },
 ];
 
@@ -192,8 +192,14 @@ export default function AffiliatePage() {
             ))}
           </div>
 
+          {/* Commission window note */}
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Hoa hồng có hiệu lực <strong className="text-gray-700 mx-1">12 tháng</strong> kể từ lần mua đầu tiên của mỗi công ty được giới thiệu.
+          </div>
+
           {/* Example calc */}
-          <div className="mt-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white text-center">
+          <div className="mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white text-center">
             <div className="w-12 h-12 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-6 h-6 text-white" strokeWidth={1.5} />
             </div>
