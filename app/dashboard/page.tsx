@@ -3,8 +3,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTodayString, formatTime, formatCurrency } from "@/lib/utils";
 import { getStatusColor, getStatusLabel } from "@/lib/attendance";
-import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, UserPlus, Scan, ExternalLink, type LucideIcon } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import OnboardingBanner from "@/components/dashboard/OnboardingBanner";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -105,46 +106,8 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* Onboarding: hiện khi công ty mới chưa có nhân viên */}
-      {isNewCompany && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-6">
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Bắt đầu nào 🚀</p>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Thiết lập Timio trong 3 bước</h2>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Link href="/dashboard/employees" className="group bg-white rounded-xl p-4 border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-blue-600 transition-colors">
-                <UserPlus className="w-5 h-5 text-blue-600 group-hover:text-white transition-colors" strokeWidth={1.5} />
-              </div>
-              <p className="font-semibold text-gray-900 text-sm mb-0.5">1. Thêm nhân viên</p>
-              <p className="text-xs text-gray-500">Thêm danh sách nhân viên của công ty</p>
-            </Link>
-            <Link href="/dashboard/employees" className="group bg-white rounded-xl p-4 border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-purple-600 transition-colors">
-                <Scan className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors" strokeWidth={1.5} />
-              </div>
-              <p className="font-semibold text-gray-900 text-sm mb-0.5">2. Đăng ký khuôn mặt</p>
-              <p className="text-xs text-gray-500">Chụp ảnh để nhận diện khi chấm công</p>
-            </Link>
-            {checkInUrl ? (
-              <a href={checkInUrl} target="_blank" className="group bg-white rounded-xl p-4 border border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-green-600 transition-colors">
-                  <ExternalLink className="w-5 h-5 text-green-600 group-hover:text-white transition-colors" strokeWidth={1.5} />
-                </div>
-                <p className="font-semibold text-gray-900 text-sm mb-0.5">3. Mở kiosk chấm công</p>
-                <p className="text-xs text-gray-500">Đặt màn hình tại văn phòng để check-in</p>
-              </a>
-            ) : (
-              <div className="bg-white rounded-xl p-4 border border-blue-100 opacity-50">
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mb-3">
-                  <ExternalLink className="w-5 h-5 text-green-600" strokeWidth={1.5} />
-                </div>
-                <p className="font-semibold text-gray-900 text-sm mb-0.5">3. Mở kiosk chấm công</p>
-                <p className="text-xs text-gray-500">Cần tạo chi nhánh trước</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Onboarding banner — dismissable, lưu localStorage */}
+      {isNewCompany && <OnboardingBanner checkInUrl={checkInUrl} />}
 
       {/* Mobile quick-glance bar */}
       {!isNewCompany && (
