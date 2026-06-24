@@ -15,8 +15,6 @@ export const metadata: Metadata = {
   title: { template: "%s | Timio", default: "Dashboard | Timio" },
 };
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL ?? "admin@sinhgiang.com";
-
 export default async function DashboardLayout({
   children,
 }: {
@@ -31,7 +29,7 @@ export default async function DashboardLayout({
   const isImpersonating = user?.impersonating === true;
 
   // Super admin không impersonating → về thẳng admin panel
-  if (session.user?.email === SUPER_ADMIN_EMAIL && !isImpersonating) {
+  if (userRole === "super_admin" && !isImpersonating) {
     redirect("/admin");
   }
 

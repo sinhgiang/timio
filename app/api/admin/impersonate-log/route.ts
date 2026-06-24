@@ -3,11 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL ?? "admin@sinhgiang.com";
+function isSuperAdmin(session: { user?: unknown } | null) {
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  return role === "super_admin";
+}
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || session.user.email !== SUPER_ADMIN_EMAIL) {
+  if (!session?.user?.email || !isSuperAdmin(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || session.user.email !== SUPER_ADMIN_EMAIL) {
+  if (!session?.user?.email || !isSuperAdmin(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

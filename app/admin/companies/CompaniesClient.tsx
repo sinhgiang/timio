@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Building2, Users, DollarSign, TrendingUp, LogIn, Search, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Building2, Users, DollarSign, TrendingUp, LogIn, Search, ExternalLink, Plus } from "lucide-react";
 
 interface Company {
   id: string; name: string; slug: string; plan: string;
@@ -50,9 +51,18 @@ export default function CompaniesClient({ companies, summary }: Props) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-gray-900">Danh sách Công ty</h1>
-        <p className="text-gray-500 text-sm mt-1">Quản lý tất cả công ty trên nền tảng · Bấm "Đi vào" để xem dashboard của họ</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-extrabold text-gray-900">Danh sách Công ty</h1>
+          <p className="text-gray-500 text-sm mt-1">Quản lý tất cả công ty trên nền tảng · Bấm "Đi vào" để xem dashboard của họ</p>
+        </div>
+        <Link
+          href="/admin/companies/new"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          Tạo tài khoản mới
+        </Link>
       </div>
 
       {/* Stats */}

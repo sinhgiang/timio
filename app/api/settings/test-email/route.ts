@@ -16,7 +16,7 @@ export async function POST() {
     );
   }
 
-  const to = session.user.email;
+  const to = process.env.ADMIN_NOTIFY_EMAIL || session.user.email;
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f9fafb;border-radius:12px;">
       <div style="background:#1e40af;border-radius:10px 10px 0 0;padding:20px 24px;text-align:center;">

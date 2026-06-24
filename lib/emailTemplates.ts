@@ -129,6 +129,105 @@ export function affiliateSaleEmail(opts: {
   return base(`Hoa hồng mới từ Timio — ${opts.companyName}`, content);
 }
 
+// ─── Admin Timio: thông báo có đơn mua mới ────────────────────────────────
+
+export function adminPaymentNotifyEmail(opts: {
+  companyName: string;
+  companySlug: string;
+  planLabel: string;
+  planPrice: number;
+  months: number;
+  affiliateCode: string | null;
+  affiliateName: string | null;
+  newExpiry: Date;
+}) {
+  const content = `
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">💰 Đơn thanh toán mới!</h1>
+    <p style="margin:0 0 28px;font-size:15px;color:#6b7280;">Một khách hàng vừa thanh toán thành công trên Timio.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;">
+      <tr><td style="padding:20px 24px;">
+        ${[
+          ["Công ty", `${opts.companyName} (${opts.companySlug})`],
+          ["Gói mua", `${opts.planLabel} — ${fmtVND(opts.planPrice)}/tháng`],
+          ["Thời hạn", `${opts.months} tháng`],
+          ["Hết hạn mới", fmtDate(opts.newExpiry)],
+          ["Affiliate", opts.affiliateCode ? `${opts.affiliateName ?? ""} (@${opts.affiliateCode})` : "Không có"],
+        ].map(([label, val], i, arr) => `
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;${i < arr.length - 1 ? "border-bottom:1px solid #d1fae5;" : ""}">
+                <span style="font-size:13px;color:#6b7280;">${label}</span>
+              </td>
+              <td style="padding:8px 0;text-align:right;${i < arr.length - 1 ? "border-bottom:1px solid #d1fae5;" : ""}">
+                <span style="font-size:14px;font-weight:600;color:#111827;">${val}</span>
+              </td>
+            </tr>
+          </table>
+        `).join("")}
+      </td></tr>
+    </table>
+
+    <div style="text-align:center;">
+      <a href="https://timio.vn/admin" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+        Xem trang Admin →
+      </a>
+    </div>
+  `;
+  return base(`Đơn mua mới: ${opts.companyName} — ${opts.planLabel}`, content);
+}
+
+// ─── Khách hàng: xác nhận mua hàng thành công ─────────────────────────────
+
+export function customerPaymentConfirmEmail(opts: {
+  adminName: string;
+  companyName: string;
+  planLabel: string;
+  planPrice: number;
+  months: number;
+  newExpiry: Date;
+}) {
+  const content = `
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">✅ Thanh toán thành công!</h1>
+    <p style="margin:0 0 28px;font-size:15px;color:#6b7280;">Xin chào <strong>${opts.adminName}</strong>, gói dịch vụ Timio của <strong>${opts.companyName}</strong> đã được kích hoạt.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:24px;">
+      <tr><td style="padding:20px 24px;">
+        ${[
+          ["Gói dịch vụ", opts.planLabel],
+          ["Số tiền", fmtVND(opts.planPrice * opts.months)],
+          ["Thời hạn", `${opts.months} tháng`],
+          ["Ngày hết hạn", fmtDate(opts.newExpiry)],
+        ].map(([label, val], i, arr) => `
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;${i < arr.length - 1 ? "border-bottom:1px solid #e5e7eb;" : ""}">
+                <span style="font-size:13px;color:#6b7280;">${label}</span>
+              </td>
+              <td style="padding:8px 0;text-align:right;${i < arr.length - 1 ? "border-bottom:1px solid #e5e7eb;" : ""}">
+                <span style="font-size:14px;font-weight:600;color:#111827;">${val}</span>
+              </td>
+            </tr>
+          </table>
+        `).join("")}
+      </td></tr>
+    </table>
+
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:28px;">
+      <p style="margin:0;font-size:13px;color:#1e40af;">
+        🎉 Cảm ơn bạn đã tin tưởng Timio! Nếu cần hỗ trợ, liên hệ chúng tôi qua <a href="mailto:support@timio.vn" style="color:#1d4ed8;">support@timio.vn</a>
+      </p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://timio.vn/dashboard" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+        Vào Dashboard →
+      </a>
+    </div>
+  `;
+  return base(`Thanh toán thành công — Gói ${opts.planLabel} Timio`, content);
+}
+
 // ─── Admin: nhân viên gửi đơn xin nghỉ ────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {

@@ -3,11 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import AdminSidebar from "./AdminSidebar";
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL ?? "admin@sinhgiang.com";
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email || session.user.email !== SUPER_ADMIN_EMAIL) {
+  const role = (session?.user as { role?: string })?.role;
+  if (!session || role !== "super_admin") {
     redirect("/dashboard");
   }
   return (

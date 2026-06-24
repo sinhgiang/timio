@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
-import { affiliateSaleEmail } from "@/lib/emailTemplates";
+import { affiliateSaleEmail, adminPaymentNotifyEmail, customerPaymentConfirmEmail } from "@/lib/emailTemplates";
 
 const SEPAY_API_KEY = process.env.SEPAY_WEBHOOK_KEY || "timio_sepay_webhook_2026";
 const HOLD_MS = 30 * 24 * 60 * 60 * 1000;
-const COMMISSION_WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
+const COMMISSION_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 
 const PLAN_PRICES: Record<string, number> = { pro: 299000, business: 799000 };
 
@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
   ]);
 
   const isPaidPlan = payment.plan === "pro" || payment.plan === "business";
+  const planLabel = payment.plan === "business" ? "Business" : "Pro";
+  const planPrice = PLAN_PRICES[payment.plan] ?? 299000;
 
   // ── Referral reward: tặng 30 ngày cho cả 2 bên khi lần đầu mua ──────────
   if (isPaidPlan && company.referredBy) {
@@ -93,73 +95,118 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Affiliate commission: gửi email thông báo hoa hồng ───────────────────
-  if (isPaidPlan && company.affiliateCode) {
-    void notifyAffiliate({ company, payment, now });
-  }
+  // ── 3 email thông báo song song ───────────────────────────────────────────
+  void sendPaymentEmails({ company, payment, planLabel, planPrice, newExpiry, now });
 
   return NextResponse.json({ success: true });
 }
 
-async function notifyAffiliate(opts: {
-  company: { name: string; affiliateCode: string | null };
-  payment: { plan: string };
+async function sendPaymentEmails(opts: {
+  company: { id: string; name: string; slug: string; affiliateCode: string | null };
+  payment: { plan: string; months: number };
+  planLabel: string;
+  planPrice: number;
+  newExpiry: Date;
   now: Date;
 }) {
-  const { company, payment, now } = opts;
-  if (!company.affiliateCode) return;
+  const { company, payment, planLabel, planPrice, newExpiry, now } = opts;
 
-  const affiliate = await prisma.affiliate.findUnique({ where: { code: company.affiliateCode } });
-  if (!affiliate) return;
+  // Lấy thông tin affiliate (nếu có) và owner của công ty song song
+  const [affiliate, ownerAdmin] = await Promise.all([
+    company.affiliateCode
+      ? prisma.affiliate.findUnique({ where: { code: company.affiliateCode } })
+      : null,
+    prisma.admin.findFirst({
+      where: { companyId: company.id, role: "owner" },
+      select: { name: true, email: true },
+    }),
+  ]);
 
-  // Xác định tier dựa trên số công ty đã eligible (đã qua hold + trong window)
-  const affiliateCompanies = await prisma.company.findMany({
-    where: { affiliateCode: company.affiliateCode },
-    select: { id: true },
-  });
-  const companyIds = affiliateCompanies.map((c) => c.id);
+  const tasks: Promise<void>[] = [];
 
-  const allPayments = await prisma.payment.findMany({
-    where: { companyId: { in: companyIds }, status: "completed" },
-    select: { companyId: true, paidAt: true },
-    orderBy: { paidAt: "asc" },
-  });
+  // Email 1: Affiliate — thông báo có hoa hồng
+  if (affiliate && company.affiliateCode) {
+    const affiliateCompanies = await prisma.company.findMany({
+      where: { affiliateCode: company.affiliateCode },
+      select: { id: true },
+    });
+    const companyIds = affiliateCompanies.map((c) => c.id);
 
-  // Lấy lần trả tiền đầu tiên của mỗi công ty
-  const firstPaidMap = new Map<string, Date>();
-  for (const p of allPayments) {
-    if (p.paidAt && !firstPaidMap.has(p.companyId)) {
-      firstPaidMap.set(p.companyId, p.paidAt);
+    const allPayments = await prisma.payment.findMany({
+      where: { companyId: { in: companyIds }, status: "completed" },
+      select: { companyId: true, paidAt: true },
+      orderBy: { paidAt: "asc" },
+    });
+
+    const firstPaidMap = new Map<string, Date>();
+    for (const p of allPayments) {
+      if (p.paidAt && !firstPaidMap.has(p.companyId)) {
+        firstPaidMap.set(p.companyId, p.paidAt);
+      }
     }
+
+    let eligibleCount = 0;
+    firstPaidMap.forEach((fp) => {
+      const age = now.getTime() - fp.getTime();
+      if (age >= HOLD_MS && age < COMMISSION_WINDOW_MS) eligibleCount++;
+    });
+
+    const rate = eligibleCount >= 21 ? 20 : eligibleCount >= 6 ? 15 : 10;
+    const commission = Math.round(planPrice * rate / 100);
+    const holdEndsAt = new Date(now.getTime() + HOLD_MS);
+    const payoutDate = getPayoutDate(holdEndsAt);
+
+    tasks.push(sendEmail({
+      to: affiliate.email,
+      subject: `🎉 Timio: ${company.name} vừa mua gói ${planLabel} — hoa hồng ${new Intl.NumberFormat("vi-VN").format(commission)}đ`,
+      html: affiliateSaleEmail({
+        affiliateName: affiliate.name,
+        companyName: company.name,
+        planLabel,
+        planPrice,
+        rate,
+        commission,
+        holdEndsAt,
+        payoutDate,
+        affiliateCode: affiliate.code,
+      }),
+    }));
   }
 
-  let eligibleCount = 0;
-  firstPaidMap.forEach((fp) => {
-    const age = now.getTime() - fp.getTime();
-    if (age >= HOLD_MS && age < COMMISSION_WINDOW_MS) eligibleCount++;
-  });
+  // Email 2: Admin Timio — thông báo có đơn mua mới
+  const adminNotifyEmail = process.env.ADMIN_NOTIFY_EMAIL;
+  if (adminNotifyEmail) {
+    tasks.push(sendEmail({
+      to: adminNotifyEmail,
+      subject: `💰 Timio: ${company.name} vừa mua gói ${planLabel}`,
+      html: adminPaymentNotifyEmail({
+        companyName: company.name,
+        companySlug: company.slug,
+        planLabel,
+        planPrice,
+        months: payment.months,
+        affiliateCode: company.affiliateCode,
+        affiliateName: affiliate?.name ?? null,
+        newExpiry,
+      }),
+    }));
+  }
 
-  const rate = eligibleCount >= 21 ? 20 : eligibleCount >= 6 ? 15 : 10;
-  const planPrice = PLAN_PRICES[payment.plan] ?? 299000;
-  const commission = Math.round(planPrice * rate / 100);
-  const planLabel = payment.plan === "business" ? "Business" : "Pro";
+  // Email 3: Khách hàng — xác nhận mua hàng thành công
+  if (ownerAdmin) {
+    tasks.push(sendEmail({
+      to: ownerAdmin.email,
+      subject: `✅ Timio: Thanh toán thành công — Gói ${planLabel}`,
+      html: customerPaymentConfirmEmail({
+        adminName: ownerAdmin.name,
+        companyName: company.name,
+        planLabel,
+        planPrice,
+        months: payment.months,
+        newExpiry,
+      }),
+    }));
+  }
 
-  const holdEndsAt = new Date(now.getTime() + HOLD_MS);
-  const payoutDate = getPayoutDate(holdEndsAt);
-
-  await sendEmail({
-    to: affiliate.email,
-    subject: `🎉 Timio: ${company.name} vừa mua gói ${planLabel} — hoa hồng ${new Intl.NumberFormat("vi-VN").format(commission)}đ`,
-    html: affiliateSaleEmail({
-      affiliateName: affiliate.name,
-      companyName: company.name,
-      planLabel,
-      planPrice,
-      rate,
-      commission,
-      holdEndsAt,
-      payoutDate,
-      affiliateCode: affiliate.code,
-    }),
-  });
+  await Promise.all(tasks);
 }
