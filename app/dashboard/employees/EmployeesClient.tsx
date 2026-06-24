@@ -248,6 +248,7 @@ export default function EmployeesClient({
       dateOfBirth: "",
       phone: "",
       cccd: "",
+      pin: "",
     };
   }
 
@@ -342,6 +343,7 @@ export default function EmployeesClient({
       dateOfBirth: emp.dateOfBirth ?? "",
       phone: emp.phone ?? "",
       cccd: emp.cccd ?? "",
+      pin: "",
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -409,6 +411,7 @@ export default function EmployeesClient({
         dateOfBirth: form.dateOfBirth || null,
         phone: form.phone || null,
         cccd: form.cccd || null,
+        pin: form.pin || undefined,
       }),
     });
 
@@ -655,6 +658,20 @@ export default function EmployeesClient({
                     </div>
                     <Field label="Số điện thoại" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="VD: 0901234567" />
                     <Field label="Căn cước công dân" value={form.cccd} onChange={(v) => setForm({ ...form, cccd: v })} placeholder="12 số" />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        PIN cổng nhân viên {!editingId && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={form.pin}
+                        onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                        placeholder={editingId ? "Để trống = giữ PIN cũ" : "4–6 số (VD: 1234)"}
+                        maxLength={6}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Nhân viên dùng để đăng nhập tại timio.vn/employee/{"{slug}"}</p>
+                    </div>
                   </div>
 
                   <Field label="Mã nhân viên *" value={form.code} onChange={(v) => setForm({ ...form, code: v })} required placeholder="VD: NV001" />
