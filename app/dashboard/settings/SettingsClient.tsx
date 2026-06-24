@@ -219,6 +219,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
   const [copiedCheckin, setCopiedCheckin] = useState(false);
   const [copiedLeave, setCopiedLeave] = useState(false);
+  const [copiedEmployee, setCopiedEmployee] = useState(false);
 
   const copyCheckinUrl = () => {
     navigator.clipboard.writeText(checkinUrl).catch(() => {});
@@ -230,6 +231,12 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     navigator.clipboard.writeText(leaveUrl).catch(() => {});
     setCopiedLeave(true);
     setTimeout(() => setCopiedLeave(false), 2000);
+  };
+
+  const copyEmployeeUrl = () => {
+    navigator.clipboard.writeText(employeeUrl).catch(() => {});
+    setCopiedEmployee(true);
+    setTimeout(() => setCopiedEmployee(false), 2000);
   };
 
   // QR code canvas — check-in
@@ -613,6 +620,10 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <div className="flex items-center gap-1.5 mb-2 w-full">
             <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-violet-800 break-all min-w-0">{employeeUrl}</code>
+            <button onClick={copyEmployeeUrl} title="Copy link"
+              className={`shrink-0 p-1.5 rounded-lg border transition-all ${copiedEmployee ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-600"}`}>
+              {copiedEmployee ? <Check size={14} /> : <Copy size={14} />}
+            </button>
           </div>
           <div className="flex gap-2 w-full">
             <button onClick={downloadEmployeeQR} disabled={!qrEmployeeReady}
