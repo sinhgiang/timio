@@ -10,14 +10,20 @@ function hashOTP(otp: string): string {
 export async function POST(req: NextRequest) {
   try {
     const { code, email, otp } = await req.json().catch(() => ({}));
-    if (!code || !email || !otp) {
+    if (!email || !otp) {
       return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
     }
 
-    const affiliate = await prisma.affiliate.findUnique({
-      where: { code },
-      select: { id: true, email: true, otp: true, otpExpiresAt: true },
-    });
+    // Tìm theo code (flow cũ) hoặc email (flow general login)
+    const affiliate = code
+      ? await prisma.affiliate.findUnique({
+          where: { code },
+          select: { id: true, code: true, email: true, otp: true, otpExpiresAt: true },
+        })
+      : await prisma.affiliate.findFirst({
+          where: { email: { equals: email.trim(), mode: "insensitive" } },
+          select: { id: true, code: true, email: true, otp: true, otpExpiresAt: true },
+        });
 
     if (!affiliate || affiliate.email.toLowerCase() !== email.trim().toLowerCase()) {
       return NextResponse.json({ error: "Thông tin không hợp lệ" }, { status: 403 });
@@ -42,8 +48,8 @@ export async function POST(req: NextRequest) {
       data: { otp: null, otpExpiresAt: null },
     });
 
-    const token    = signAffToken(code, affiliate.email);
-    const response = NextResponse.json({ success: true });
+    const token    = signAffToken(affiliate.code, affiliate.email);
+    const response = NextResponse.json({ success: true, code: affiliate.code });
     response.cookies.set(AFF_COOKIE, token, AFF_COOKIE_OPTIONS);
     return response;
   } catch (err) {

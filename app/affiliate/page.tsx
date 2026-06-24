@@ -71,7 +71,7 @@ export default function AffiliatePage() {
             <span className="font-bold text-gray-900">Timio</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Đăng nhập</Link>
+            <Link href="/affiliate/login" className="text-sm text-gray-600 hover:text-blue-600 font-medium transition-colors">Đăng nhập đối tác</Link>
             <Link href="/affiliate/register" className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
               Đăng ký ngay
             </Link>
