@@ -300,6 +300,59 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     win.document.close();
   };
 
+  // QR code canvas — employee portal
+  const qrEmployeeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [qrEmployeeReady, setQrEmployeeReady] = useState(false);
+  const employeeUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/employee/${company.slug}`
+      : `/employee/${company.slug}`;
+
+  useEffect(() => {
+    if (!qrEmployeeCanvasRef.current) return;
+    import("qrcode").then(({ toCanvas }) => {
+      toCanvas(qrEmployeeCanvasRef.current!, employeeUrl, {
+        width: 260,
+        margin: 2,
+        color: { dark: "#7c3aed", light: "#ffffff" },
+      }).then(() => setQrEmployeeReady(true));
+    });
+  }, [employeeUrl]);
+
+  const downloadEmployeeQR = () => {
+    if (!qrEmployeeCanvasRef.current) return;
+    const link = document.createElement("a");
+    link.download = `qrcode-employee-${company.slug}.png`;
+    link.href = qrEmployeeCanvasRef.current.toDataURL("image/png");
+    link.click();
+  };
+
+  const printEmployeeQR = () => {
+    if (!qrEmployeeCanvasRef.current) return;
+    const dataUrl = qrEmployeeCanvasRef.current.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>QR Tra Cứu Chấm Công — ${company.name}</title>
+      <style>
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; background: #fff; }
+        img { width: 280px; height: 280px; }
+        h2 { font-size: 22px; margin: 16px 0 8px; color: #7c3aed; }
+        p { font-size: 13px; color: #64748b; margin: 0; }
+        .url { font-size: 11px; color: #94a3b8; margin-top: 8px; font-family: monospace; }
+        @media print { @page { margin: 1cm; } }
+      </style></head>
+      <body>
+        <img src="${dataUrl}" />
+        <h2>${company.name}</h2>
+        <p>Tra cứu chấm công cá nhân</p>
+        <p class="url">${employeeUrl}</p>
+        <script>window.onload = () => { window.print(); window.close(); }<\/script>
+      </body></html>
+    `);
+    win.document.close();
+  };
+
   // Signature / Stamp upload
   const [sigUrl, setSigUrl] = useState<string | null>(company.signatureUrl ?? null);
   const [stampUrl, setStampUrl] = useState<string | null>(company.stampUrl ?? null);
@@ -540,6 +593,33 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               <Download size={14} /> Tải PNG
             </button>
             <button onClick={printLeaveQR} disabled={!qrLeaveReady}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
+              <Printer size={14} /> In ngay
+            </button>
+          </div>
+        </div>
+
+        {/* QR — Employee portal */}
+        <div className="flex flex-col items-center bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-1 self-start">
+            <QrCode size={16} className="text-violet-600" />
+            <span className="font-semibold text-gray-800 text-sm">QR Tra cứu chấm công</span>
+            <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">Nhân viên tự xem</span>
+          </div>
+          <p className="text-xs text-gray-400 mb-3 self-start">Nhân viên quét → nhập mã NV + PIN → xem lịch chấm công + xin điều chỉnh.</p>
+          <div className="bg-violet-50 p-3 rounded-xl border border-violet-100 mb-3">
+            <canvas ref={qrEmployeeCanvasRef} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 180, height: 180 }} />
+            {!qrEmployeeReady && <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">Đang tạo QR...</div>}
+          </div>
+          <div className="flex items-center gap-1.5 mb-2 w-full">
+            <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-violet-800 break-all min-w-0">{employeeUrl}</code>
+          </div>
+          <div className="flex gap-2 w-full">
+            <button onClick={downloadEmployeeQR} disabled={!qrEmployeeReady}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-violet-600 text-white rounded-lg text-sm hover:bg-violet-700 disabled:opacity-50">
+              <Download size={14} /> Tải PNG
+            </button>
+            <button onClick={printEmployeeQR} disabled={!qrEmployeeReady}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
               <Printer size={14} /> In ngay
             </button>
