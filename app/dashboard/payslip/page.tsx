@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import PayslipListClient from "./PayslipListClient";
+import { calculateTax } from "@/lib/taxCalculator";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,12 @@ export default async function PayslipPage({ searchParams }: Props) {
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, code: true, department: true, position: true,
-        baseSalary: true, joinDate: true,
+        baseSalary: true, joinDate: true, dependents: true,
         summaries: {
           where: { year, month },
           select: {
             daysPresent: true, daysLate: true, daysAbsent: true,
-            totalMinutesLate: true, totalPenalty: true,
+            totalMinutesLate: true, totalPenalty: true, totalReward: true,
             totalOvertimeAmount: true, totalMinutesOvertime: true,
           },
         },
@@ -46,7 +47,10 @@ export default async function PayslipPage({ searchParams }: Props) {
     const s = e.summaries[0];
     const base = e.baseSalary ?? 0;
     const penalty = s?.totalPenalty ?? 0;
+    const reward = s?.totalReward ?? 0;
     const overtime = s?.totalOvertimeAmount ?? 0;
+    const grossIncome = base - penalty + reward + overtime;
+    const tax = calculateTax({ baseSalary: base, grossIncome, dependents: e.dependents ?? 0 });
     return {
       id: e.id,
       name: e.name,
@@ -61,7 +65,9 @@ export default async function PayslipPage({ searchParams }: Props) {
       totalPenalty: penalty,
       totalOvertimeAmount: overtime,
       totalMinutesOvertime: s?.totalMinutesOvertime ?? 0,
-      netSalary: base - penalty + overtime,
+      bhxhEmployee: tax.bhxhEmployee,
+      tncn: tax.tncn,
+      netSalary: tax.netTakeHome,
     };
   });
 

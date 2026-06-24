@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Printer, TrendingDown, TrendingUp } from "lucide-react";
+import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck } from "lucide-react";
 
 interface PayslipRow {
   id: string;
@@ -18,6 +18,8 @@ interface PayslipRow {
   totalPenalty: number;
   totalOvertimeAmount: number;
   totalMinutesOvertime: number;
+  bhxhEmployee: number;
+  tncn: number;
   netSalary: number;
 }
 
@@ -38,9 +40,11 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
   const totalNet = rows.reduce((s, r) => s + r.netSalary, 0);
   const totalPenalty = rows.reduce((s, r) => s + r.totalPenalty, 0);
   const totalOvertime = rows.reduce((s, r) => s + r.totalOvertimeAmount, 0);
+  const totalBhxh = rows.reduce((s, r) => s + r.bhxhEmployee, 0);
+  const totalTncn = rows.reduce((s, r) => s + r.tncn, 0);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -56,23 +60,34 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-blue-50 rounded-xl p-4">
+      <div className="grid grid-cols-5 gap-3 mb-6">
+        <div className="bg-blue-50 rounded-xl p-4 col-span-1">
           <p className="text-xs text-blue-600 font-medium mb-1">Tổng thực nhận</p>
-          <p className="text-xl font-bold text-blue-700">{fmt(totalNet)}</p>
+          <p className="text-lg font-bold text-blue-700">{fmt(totalNet)}</p>
           <p className="text-xs text-gray-500 mt-1">{rows.length} nhân viên</p>
         </div>
         <div className="bg-red-50 rounded-xl p-4">
           <p className="text-xs text-red-600 font-medium mb-1 flex items-center gap-1">
             <TrendingDown size={13} /> Tổng phạt
           </p>
-          <p className="text-xl font-bold text-red-600">{fmt(totalPenalty)}</p>
+          <p className="text-lg font-bold text-red-600">{fmt(totalPenalty)}</p>
         </div>
         <div className="bg-green-50 rounded-xl p-4">
           <p className="text-xs text-green-600 font-medium mb-1 flex items-center gap-1">
             <TrendingUp size={13} /> Tổng tăng ca
           </p>
-          <p className="text-xl font-bold text-green-600">{fmt(totalOvertime)}</p>
+          <p className="text-lg font-bold text-green-600">{fmt(totalOvertime)}</p>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-4">
+          <p className="text-xs text-orange-600 font-medium mb-1 flex items-center gap-1">
+            <ShieldCheck size={13} /> Tổng BHXH NV
+          </p>
+          <p className="text-lg font-bold text-orange-600">{fmt(totalBhxh)}</p>
+          <p className="text-xs text-gray-400 mt-1">10.5% lương CB</p>
+        </div>
+        <div className="bg-purple-50 rounded-xl p-4">
+          <p className="text-xs text-purple-600 font-medium mb-1">Tổng thuế TNCN</p>
+          <p className="text-lg font-bold text-purple-600">{totalTncn > 0 ? fmt(totalTncn) : "0đ (miễn thuế)"}</p>
         </div>
       </div>
 
@@ -83,16 +98,17 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
           <p className="text-gray-500">Chưa có nhân viên</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Nhân viên</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-600">Ngày công</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-600">Trễ</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-600">Lương cơ bản</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-600 text-red-600">Phạt</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-600 text-green-600">Tăng ca</th>
+                <th className="text-center px-3 py-3 font-semibold text-gray-600">Công</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-600">Lương CB</th>
+                <th className="text-right px-3 py-3 font-semibold text-red-500">Phạt</th>
+                <th className="text-right px-3 py-3 font-semibold text-green-600">Tăng ca</th>
+                <th className="text-right px-3 py-3 font-semibold text-orange-500">BHXH (10.5%)</th>
+                <th className="text-right px-3 py-3 font-semibold text-purple-600">Thuế TNCN</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-800">Thực nhận</th>
                 <th className="px-3 py-3"></th>
               </tr>
@@ -108,15 +124,18 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
                     <span className="font-medium">{r.daysPresent}</span>
                     {r.daysAbsent > 0 && <span className="text-xs text-red-400 ml-1">(-{r.daysAbsent})</span>}
                   </td>
-                  <td className="text-center px-3 py-3 text-gray-500 text-xs">
-                    {r.daysLate > 0 ? `${r.daysLate} lần` : "—"}
-                  </td>
                   <td className="text-right px-3 py-3 text-gray-600">{fmt(r.baseSalary)}</td>
                   <td className="text-right px-3 py-3 text-red-500 font-medium">
                     {r.totalPenalty > 0 ? `-${fmt(r.totalPenalty)}` : "—"}
                   </td>
                   <td className="text-right px-3 py-3 text-green-600 font-medium">
                     {r.totalOvertimeAmount > 0 ? `+${fmt(r.totalOvertimeAmount)}` : "—"}
+                  </td>
+                  <td className="text-right px-3 py-3 text-orange-500 font-medium">
+                    {r.bhxhEmployee > 0 ? `-${fmt(r.bhxhEmployee)}` : "—"}
+                  </td>
+                  <td className="text-right px-3 py-3 text-purple-600 font-medium">
+                    {r.tncn > 0 ? `-${fmt(r.tncn)}` : <span className="text-gray-400 text-xs">miễn thuế</span>}
                   </td>
                   <td className="text-right px-4 py-3">
                     <span className="font-bold text-gray-900">{fmt(r.netSalary)}</span>
@@ -136,7 +155,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
             </tbody>
             <tfoot>
               <tr className="bg-blue-50/60 border-t-2 border-blue-100">
-                <td className="px-4 py-3 font-bold text-gray-700" colSpan={3}>Tổng cộng ({rows.length} NV)</td>
+                <td className="px-4 py-3 font-bold text-gray-700" colSpan={2}>Tổng cộng ({rows.length} NV)</td>
                 <td className="text-right px-3 py-3 font-bold text-gray-700">
                   {fmt(rows.reduce((s, r) => s + r.baseSalary, 0))}
                 </td>
@@ -146,6 +165,12 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
                 <td className="text-right px-3 py-3 font-bold text-green-600">
                   {totalOvertime > 0 ? `+${fmt(totalOvertime)}` : "—"}
                 </td>
+                <td className="text-right px-3 py-3 font-bold text-orange-500">
+                  {totalBhxh > 0 ? `-${fmt(totalBhxh)}` : "—"}
+                </td>
+                <td className="text-right px-3 py-3 font-bold text-purple-600">
+                  {totalTncn > 0 ? `-${fmt(totalTncn)}` : "—"}
+                </td>
                 <td className="text-right px-4 py-3 font-bold text-blue-700 text-base">{fmt(totalNet)}</td>
                 <td></td>
               </tr>
@@ -154,9 +179,8 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
         </div>
       )}
 
-      {/* Export hint */}
       <p className="text-xs text-gray-400 mt-4 text-center">
-        Tháng {mon}/{year} · Bấm "In phiếu" để xem và in phiếu lương cá nhân
+        Tháng {mon}/{year} · &quot;Thực nhận&quot; = Lương CB + Tăng ca − Phạt − BHXH (10.5%) − Thuế TNCN · Bấm &quot;In phiếu&quot; để xem chi tiết
       </p>
     </div>
   );

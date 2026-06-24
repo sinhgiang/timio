@@ -63,12 +63,18 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
         style={{ width: "210mm", minHeight: "297mm", padding: "18mm 20mm", fontFamily: "Arial, sans-serif", fontSize: "13px" }}
       >
         {/* Header */}
-        <div style={{ borderBottom: "2px solid #1e40af", paddingBottom: "12px", marginBottom: "16px" }}>
-          <p style={{ fontSize: "11px", color: "#6b7280", marginBottom: "2px" }}>{data.companyName}</p>
-          <h1 style={{ fontSize: "20px", fontWeight: "bold", color: "#1e40af", margin: 0 }}>PHIẾU LƯƠNG</h1>
-          <p style={{ fontSize: "13px", color: "#374151", marginTop: "4px" }}>
-            Tháng {String(data.month).padStart(2, "0")} / {data.year}
-          </p>
+        <div style={{ borderBottom: "2px solid #1e40af", paddingBottom: "12px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <p style={{ fontSize: "11px", color: "#6b7280", marginBottom: "2px" }}>{data.companyName}</p>
+            <h1 style={{ fontSize: "20px", fontWeight: "bold", color: "#1e40af", margin: 0 }}>PHIẾU LƯƠNG</h1>
+            <p style={{ fontSize: "13px", color: "#374151", marginTop: "4px" }}>
+              Tháng {String(data.month).padStart(2, "0")} / {data.year}
+            </p>
+          </div>
+          <div style={{ textAlign: "right", fontSize: "11px", color: "#6b7280" }}>
+            <p>Số: PL-{data.employeeCode}-{String(data.month).padStart(2, "0")}{data.year}</p>
+            <p style={{ marginTop: "2px" }}>Ngày phát hành: ___ / {String(data.month).padStart(2, "0")} / {data.year}</p>
+          </div>
         </div>
 
         {/* Employee info */}
@@ -140,32 +146,21 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
                 B. KHẤU TRỪ BẮT BUỘC
               </td>
             </tr>
-            <TRow label="(-) BHXH + BHYT + BHTN (10.5% lương CB)" value={`- ${fmt(data.bhxhEmployee)} đ`} highlight="red" />
-            <tr>
-              <td style={{ ...tdStyle, paddingLeft: "24px", fontSize: "11px", color: "#9ca3af" }}>
-                Giảm trừ bản thân
+            <TRow label="(-) BHXH 8% + BHYT 1.5% + BHTN 1% = 10.5% lương CB" value={`- ${fmt(data.bhxhEmployee)} đ`} highlight="red" />
+            <tr style={{ backgroundColor: "#fafafa" }}>
+              <td colSpan={2} style={{ ...tdStyle, fontSize: "10px", color: "#9ca3af", paddingTop: "3px", paddingBottom: "6px", paddingLeft: "24px" }}>
+                Tính thuế TNCN: Thu nhập − BHXH − Giảm trừ bản thân (11.000.000đ) − Giảm trừ gia cảnh ({data.dependents} × 4.400.000đ)
               </td>
-              <td style={{ ...tdStyle, textAlign: "right", fontSize: "11px", color: "#9ca3af" }}>- 11.000.000 đ</td>
             </tr>
-            {data.dependents > 0 && (
-              <tr>
-                <td style={{ ...tdStyle, paddingLeft: "24px", fontSize: "11px", color: "#9ca3af" }}>
-                  Giảm trừ {data.dependents} người phụ thuộc
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontSize: "11px", color: "#9ca3af" }}>
-                  - {fmt(data.dependents * 4_400_000)} đ
-                </td>
-              </tr>
-            )}
             <tr>
               <td style={{ ...tdStyle, paddingLeft: "24px", fontSize: "11px", color: "#6b7280" }}>
-                Thu nhập tính thuế
+                Thu nhập tính thuế TNCN
               </td>
               <td style={{ ...tdStyle, textAlign: "right", fontSize: "11px", color: "#6b7280" }}>
                 {fmt(data.taxableIncome)} đ
               </td>
             </tr>
-            <TRow label="(-) Thuế TNCN" value={data.tncn > 0 ? `- ${fmt(data.tncn)} đ` : "0 đ (miễn thuế)"} highlight={data.tncn > 0 ? "red" : undefined} />
+            <TRow label="(-) Thuế TNCN (lũy tiến 7 bậc)" value={data.tncn > 0 ? `- ${fmt(data.tncn)} đ` : "0 đ (miễn thuế)"} highlight={data.tncn > 0 ? "red" : undefined} />
           </tbody>
           <tfoot>
             <tr style={{ backgroundColor: "#dbeafe" }}>
@@ -185,7 +180,12 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
             <SectionTitle>III. Công ty đóng thêm (tham khảo)</SectionTitle>
             <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px" }}>
               <tbody>
-                <TRow label="BHXH + BHYT + BHTN + BHTNNLĐ (22% lương CB)" value={`${fmt(data.bhxhEmployer)} đ`} />
+                <TRow label="BHXH 17.5% + BHYT 3% + BHTN 1% + BHTNNLĐ 0.5% = 22% lương CB" value={`${fmt(data.bhxhEmployer)} đ`} />
+                <tr>
+                  <td style={{ ...tdStyle, paddingLeft: "16px", fontSize: "10px", color: "#9ca3af" }} colSpan={2}>
+                    Đây là chi phí công ty trả thêm ngoài lương — nhân viên không bị trừ khoản này
+                  </td>
+                </tr>
               </tbody>
             </table>
           </>
@@ -200,9 +200,10 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
         </div>
 
         {/* Chữ ký */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px", marginTop: "16px" }}>
-          <SignBlock title="Nhân viên xác nhận" subtitle="(Ký, ghi rõ họ tên)" />
-          <SignBlock title="Phụ trách lương" subtitle="(Ký, ghi rõ họ tên)" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "24px", marginTop: "16px" }}>
+          <SignBlock title="Người nhận lương" subtitle="(Ký, ghi rõ họ tên)" />
+          <SignBlock title="Kế toán / Người lập" subtitle="(Ký, ghi rõ họ tên)" />
+          <SignBlock title="Giám đốc" subtitle="(Ký, đóng dấu)" />
         </div>
 
         {/* Footer */}
