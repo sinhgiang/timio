@@ -51,6 +51,8 @@ export const authOptions: NextAuthOptions = {
           name: admin.company.name,
           image: admin.companyId,
           picture: admin.role,
+          // branchId piggybacked via unused field — decoded in jwt callback
+          phoneNumber: admin.branchId ?? "",
         };
       },
     }),
@@ -98,15 +100,18 @@ export const authOptions: NextAuthOptions = {
       if (user && (account?.provider === "setup" || account?.provider === "credentials")) {
         token.companyId = user.image;
         token.role = (user as { picture?: string }).picture ?? "admin";
+        const br = (user as { phoneNumber?: string }).phoneNumber;
+        token.branchId = br || null;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        const u = session.user as { companyId?: string; role?: string; impersonating?: boolean };
+        const u = session.user as { companyId?: string; role?: string; impersonating?: boolean; branchId?: string | null };
         u.companyId = token.companyId as string;
         u.role = token.role as string;
         u.impersonating = (token.impersonating as boolean) ?? false;
+        u.branchId = (token.branchId as string | null) ?? null;
       }
       return session;
     },

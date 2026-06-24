@@ -9,6 +9,8 @@ interface TeamMember {
   name: string;
   email: string;
   role: string;
+  branchId: string | null;
+  branch: { name: string } | null;
   receiveLeaveEmail: boolean;
   receiveTelegram: boolean;
   telegramChatId: string | null;
@@ -24,6 +26,7 @@ interface Props {
   plan: string;
   subUserLimit: number;
   zaloConfigured: boolean;
+  branches: { id: string; name: string }[];
 }
 
 const ROLE_LABELS: Record<string, string> = { owner: "Chủ tài khoản", manager: "Quản lý", accountant: "Kế toán" };
@@ -38,13 +41,13 @@ const ROLE_COLORS: Record<string, string> = {
   accountant: "bg-green-100 text-green-700",
 };
 
-export default function TeamClient({ initialMembers, currentUserEmail, currentRole, plan, subUserLimit, zaloConfigured }: Props) {
+export default function TeamClient({ initialMembers, currentUserEmail, currentRole, plan, subUserLimit, zaloConfigured, branches }: Props) {
   const [members, setMembers] = useState<TeamMember[]>(initialMembers);
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager", branchId: "" });
 
   // Zalo OA inline setup
   const [zaloReady, setZaloReady] = useState(zaloConfigured);
@@ -87,7 +90,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
     setAdding(false);
     if (!res.ok) { setAddError(data.error ?? "Lỗi thêm thành viên"); return; }
     setMembers((prev) => [...prev, data]);
-    setForm({ name: "", email: "", password: "", role: "manager" });
+    setForm({ name: "", email: "", password: "", role: "manager", branchId: "" });
     setShowAdd(false);
   };
 
@@ -269,9 +272,14 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                     {m.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-gray-900">{m.name}</p>
                       {isSelf && <span className="text-xs text-gray-400">(bạn)</span>}
+                      {m.branch && (
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-medium">
+                          {m.branch.name}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-500">{m.email}</p>
                   </div>
@@ -409,6 +417,24 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                     : "Chỉ xem báo cáo và xuất Excel, không duyệt nghỉ phép"}
                 </p>
               </div>
+
+              {/* Branch scope — chỉ hiện khi role = manager */}
+              {form.role === "manager" && branches.length > 0 && (
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-1.5">Phạm vi chi nhánh</label>
+                  <select
+                    value={form.branchId}
+                    onChange={(e) => setForm((f) => ({ ...f, branchId: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">Toàn công ty (xem tất cả chi nhánh)</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name} (chỉ chi nhánh này)</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Giới hạn chi nhánh → quản lý chỉ thấy dữ liệu chi nhánh được giao</p>
+                </div>
+              )}
             </div>
 
             {addError && <p className="mt-3 text-sm text-red-500 font-medium">{addError}</p>}

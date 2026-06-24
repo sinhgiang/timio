@@ -12,13 +12,15 @@ export default async function TeamPage() {
   const user = session?.user as { companyId?: string; role?: string; email?: string } | undefined;
   if (!user?.companyId) redirect("/login");
 
-  const [members, company] = await Promise.all([
+  const [members, company, branches] = await Promise.all([
     prisma.admin.findMany({
       where: { companyId: user.companyId },
-      select: { id: true, name: true, email: true, role: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
+        branch: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.company.findUnique({ where: { id: user.companyId }, select: { plan: true, zaloOaToken: true } }),
+    prisma.branch.findMany({ where: { companyId: user.companyId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   const plan = company?.plan ?? "starter";
@@ -32,6 +34,7 @@ export default async function TeamPage() {
       plan={plan}
       subUserLimit={subUserLimit}
       zaloConfigured={!!company?.zaloOaToken}
+      branches={branches}
     />
   );
 }

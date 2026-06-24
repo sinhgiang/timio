@@ -31,6 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Role không hợp lệ" }, { status: 400 });
   }
   if (isOwner && body.role !== undefined) data.role = body.role;
+  if (isOwner && body.branchId !== undefined) data.branchId = body.branchId || null;
   if (body.receiveLeaveEmail !== undefined) data.receiveLeaveEmail = Boolean(body.receiveLeaveEmail);
   if (body.receiveTelegram !== undefined) data.receiveTelegram = Boolean(body.receiveTelegram);
   if (body.telegramChatId !== undefined) data.telegramChatId = body.telegramChatId || null;
@@ -40,7 +41,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const updated = await prisma.admin.update({
     where: { id: params.id },
     data,
-    select: { id: true, name: true, email: true, role: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
+      branch: { select: { name: true } } },
   });
 
   return NextResponse.json(updated);

@@ -44,6 +44,7 @@ model Admin {
   name      String
   password  String?
   role      String   @default("owner") // "owner" | "manager" | "accountant"
+  branchId  String?  // null = xem toàn công ty, có value = chỉ xem chi nhánh này
   receiveLeaveEmail Boolean @default(true)
   receiveTelegram   Boolean @default(false)
   telegramChatId    String?
@@ -52,6 +53,7 @@ model Admin {
   createdAt DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
 }
 
 model Branch {
@@ -71,6 +73,7 @@ model Branch {
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employees Employee[]
   logs      AttendanceLog[]
+  admins    Admin[]
 }
 
 model Employee {

@@ -541,98 +541,98 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
 
-      {/* QR Codes — 2 cột */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      {/* QR Codes — 3 cột */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
 
         {/* QR Chấm công */}
-        <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-1 self-start">
-            <QrCode size={16} className="text-blue-600" />
-            <span className="font-semibold text-gray-800 text-sm">QR Chấm công</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">In & dán</span>
+        <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-col items-center">
+          <div className="flex items-center gap-1.5 mb-1 self-start flex-wrap">
+            <QrCode size={14} className="text-blue-600" />
+            <span className="font-semibold text-gray-800 text-xs">QR Chấm công</span>
+            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">In & dán</span>
           </div>
-          <p className="text-xs text-gray-400 mb-3 self-start">Nhân viên quét → camera → nhận diện mặt → check-in tự động.</p>
-          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-3">
-            <canvas ref={qrCanvasRef} className={qrReady ? "block" : "hidden"} style={{ width: 180, height: 180 }} />
-            {!qrReady && <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">Đang tạo QR...</div>}
+          <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét mặt → check-in tự động.</p>
+          <div className="bg-blue-50 p-2 rounded-xl border border-blue-100 mb-2">
+            <canvas ref={qrCanvasRef} className={qrReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            {!qrReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
-          <div className="flex items-center gap-1.5 mb-2 w-full">
-            <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all min-w-0">{checkinUrl}</code>
+          <div className="flex items-center gap-1 mb-2 w-full">
+            <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-blue-800 break-all min-w-0 leading-tight">{checkinUrl}</code>
             <button onClick={copyCheckinUrl} title="Copy link"
-              className={`shrink-0 p-1.5 rounded-lg border transition-all ${copiedCheckin ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"}`}>
-              {copiedCheckin ? <Check size={14} /> : <Copy size={14} />}
+              className={`shrink-0 p-1 rounded-lg border transition-all ${copiedCheckin ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"}`}>
+              {copiedCheckin ? <Check size={12} /> : <Copy size={12} />}
             </button>
           </div>
-          <div className="flex gap-2 w-full">
+          <div className="flex gap-1.5 w-full">
             <button onClick={downloadQR} disabled={!qrReady}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-              <Download size={14} /> Tải PNG
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] hover:bg-blue-700 disabled:opacity-50">
+              <Download size={11} /> Tải
             </button>
             <button onClick={printQR} disabled={!qrReady}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
-              <Printer size={14} /> In ngay
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-[11px] hover:bg-gray-50 disabled:opacity-50">
+              <Printer size={11} /> In
             </button>
           </div>
         </div>
 
         {/* QR Nghỉ phép */}
-        <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-1 self-start">
-            <QrCode size={16} className="text-blue-600" />
-            <span className="font-semibold text-gray-800 text-sm">QR Xin nghỉ phép</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">In & dán</span>
+        <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-col items-center">
+          <div className="flex items-center gap-1.5 mb-1 self-start flex-wrap">
+            <QrCode size={14} className="text-green-700" />
+            <span className="font-semibold text-gray-800 text-xs">QR Xin nghỉ phép</span>
+            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">In & dán</span>
           </div>
-          <p className="text-xs text-gray-400 mb-3 self-start">Nhân viên quét → xác nhận mặt → điền đơn nghỉ → gửi quản lý.</p>
-          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-3">
-            <canvas ref={qrLeaveCanvasRef} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 180, height: 180 }} />
-            {!qrLeaveReady && <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">Đang tạo QR...</div>}
+          <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét mặt → gửi đơn nghỉ.</p>
+          <div className="bg-green-50 p-2 rounded-xl border border-green-100 mb-2">
+            <canvas ref={qrLeaveCanvasRef} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            {!qrLeaveReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
-          <div className="flex items-center gap-1.5 mb-2 w-full">
-            <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-blue-800 break-all min-w-0">{leaveUrl}</code>
+          <div className="flex items-center gap-1 mb-2 w-full">
+            <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-green-800 break-all min-w-0 leading-tight">{leaveUrl}</code>
             <button onClick={copyLeaveUrl} title="Copy link"
-              className={`shrink-0 p-1.5 rounded-lg border transition-all ${copiedLeave ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"}`}>
-              {copiedLeave ? <Check size={14} /> : <Copy size={14} />}
+              className={`shrink-0 p-1 rounded-lg border transition-all ${copiedLeave ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-green-50 hover:border-green-200 hover:text-green-600"}`}>
+              {copiedLeave ? <Check size={12} /> : <Copy size={12} />}
             </button>
           </div>
-          <div className="flex gap-2 w-full">
+          <div className="flex gap-1.5 w-full">
             <button onClick={downloadLeaveQR} disabled={!qrLeaveReady}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-              <Download size={14} /> Tải PNG
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-700 text-white rounded-lg text-[11px] hover:bg-green-800 disabled:opacity-50">
+              <Download size={11} /> Tải
             </button>
             <button onClick={printLeaveQR} disabled={!qrLeaveReady}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
-              <Printer size={14} /> In ngay
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-[11px] hover:bg-gray-50 disabled:opacity-50">
+              <Printer size={11} /> In
             </button>
           </div>
         </div>
 
-        {/* QR — Employee portal */}
-        <div className="flex flex-col items-center bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-1 self-start">
-            <QrCode size={16} className="text-violet-600" />
-            <span className="font-semibold text-gray-800 text-sm">QR Tra cứu chấm công</span>
-            <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">Nhân viên tự xem</span>
+        {/* QR Tra cứu chấm công */}
+        <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-col items-center">
+          <div className="flex items-center gap-1.5 mb-1 self-start flex-wrap">
+            <QrCode size={14} className="text-violet-600" />
+            <span className="font-semibold text-gray-800 text-xs">QR Tra cứu</span>
+            <span className="text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">Nhân viên tự xem</span>
           </div>
-          <p className="text-xs text-gray-400 mb-3 self-start">Nhân viên quét → nhập mã NV + PIN → xem lịch chấm công + xin điều chỉnh.</p>
-          <div className="bg-violet-50 p-3 rounded-xl border border-violet-100 mb-3">
-            <canvas ref={qrEmployeeCanvasRef} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 180, height: 180 }} />
-            {!qrEmployeeReady && <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">Đang tạo QR...</div>}
+          <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét → nhập mã + PIN → xem lịch.</p>
+          <div className="bg-violet-50 p-2 rounded-xl border border-violet-100 mb-2">
+            <canvas ref={qrEmployeeCanvasRef} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            {!qrEmployeeReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
-          <div className="flex items-center gap-1.5 mb-2 w-full">
-            <code className="flex-1 text-xs bg-gray-100 px-2 py-1.5 rounded text-violet-800 break-all min-w-0">{employeeUrl}</code>
+          <div className="flex items-center gap-1 mb-2 w-full">
+            <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-violet-800 break-all min-w-0 leading-tight">{employeeUrl}</code>
             <button onClick={copyEmployeeUrl} title="Copy link"
-              className={`shrink-0 p-1.5 rounded-lg border transition-all ${copiedEmployee ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-600"}`}>
-              {copiedEmployee ? <Check size={14} /> : <Copy size={14} />}
+              className={`shrink-0 p-1 rounded-lg border transition-all ${copiedEmployee ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-600"}`}>
+              {copiedEmployee ? <Check size={12} /> : <Copy size={12} />}
             </button>
           </div>
-          <div className="flex gap-2 w-full">
+          <div className="flex gap-1.5 w-full">
             <button onClick={downloadEmployeeQR} disabled={!qrEmployeeReady}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-violet-600 text-white rounded-lg text-sm hover:bg-violet-700 disabled:opacity-50">
-              <Download size={14} /> Tải PNG
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-violet-600 text-white rounded-lg text-[11px] hover:bg-violet-700 disabled:opacity-50">
+              <Download size={11} /> Tải
             </button>
             <button onClick={printEmployeeQR} disabled={!qrEmployeeReady}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
-              <Printer size={14} /> In ngay
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-[11px] hover:bg-gray-50 disabled:opacity-50">
+              <Printer size={11} /> In
             </button>
           </div>
         </div>

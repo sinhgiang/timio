@@ -6,17 +6,20 @@ import { DEPARTMENT_PRESETS, POSITION_PRESETS } from "@/lib/presets";
 
 export default async function EmployeesPage() {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const u = session?.user as { companyId?: string; branchId?: string | null; role?: string } | undefined;
+  const companyId = u?.companyId;
   if (!companyId) return null;
+  // Manager bị giới hạn chi nhánh: chỉ xem nhân viên của chi nhánh mình
+  const scopedBranchId = u?.role === "manager" && u?.branchId ? u.branchId : null;
 
   const [employees, branches, company, penaltyRules, rewardRules] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId },
+      where: { companyId, ...(scopedBranchId ? { branchId: scopedBranchId } : {}) },
       include: { branch: true },
       orderBy: { name: "asc" },
     }),
     prisma.branch.findMany({
-      where: { companyId },
+      where: { companyId, ...(scopedBranchId ? { id: scopedBranchId } : {}) },
       orderBy: { name: "asc" },
     }),
     prisma.company.findUnique({ where: { id: companyId }, select: { customOptions: true } }),
