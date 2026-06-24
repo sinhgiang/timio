@@ -27,6 +27,7 @@ import {
 
 interface Props {
   companyName: string;
+  companySlug?: string;
   pendingLeaveCount?: number;
   pendingCorrectionCount?: number;
   role?: string;
@@ -55,7 +56,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];
 
-export default function Sidebar({ companyName, pendingLeaveCount = 0, pendingCorrectionCount = 0, role = "owner" }: Props) {
+export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 0, pendingCorrectionCount = 0, role = "owner" }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -96,14 +97,16 @@ export default function Sidebar({ companyName, pendingLeaveCount = 0, pendingCor
         )}
       >
         {/* Logo + mobile close */}
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
               <Clock size={18} className="text-white" />
             </div>
-            <div>
-              <p className="font-bold text-gray-800 text-sm leading-tight">Timio</p>
-              <p className="text-xs text-gray-500 truncate max-w-[100px]">{companyName}</p>
+            <div className="min-w-0">
+              <p className="font-bold text-gray-900 text-sm leading-tight truncate max-w-[110px]">{companyName}</p>
+              {companySlug && (
+                <p className="text-[10px] text-gray-400 leading-tight mt-0.5">timio.vn/checkin/{companySlug}</p>
+              )}
             </div>
           </div>
           <button

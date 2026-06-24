@@ -38,7 +38,7 @@ export default async function DashboardLayout({
     companyId
       ? prisma.correctionRequest.count({ where: { employee: { companyId }, status: "pending" } }).catch(() => 0)
       : Promise.resolve(0),
-    isImpersonating && companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }) : Promise.resolve(null),
+    companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { name: true, slug: true } }) : Promise.resolve(null),
     companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, planExpires: true } }) : Promise.resolve(null),
   ]);
 
@@ -58,7 +58,7 @@ export default async function DashboardLayout({
       <UpsellChecker />
       {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
       {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
-      <Sidebar companyName={session.user?.name ?? "Công ty"} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} />
+      <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} />
       <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner ? "md:pt-10" : ""}`}>{children}</main>
       <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
       <CompanySetupModal
