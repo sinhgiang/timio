@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, Clock, ChevronDown, Filter } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronDown, Pencil, Plus } from "lucide-react";
 
 interface Correction {
   id: string;
@@ -28,13 +28,48 @@ const STATUS = {
   rejected: { label: "Từ chối", cls: "bg-red-100 text-red-700 border-red-200" },
 };
 
-export default function CorrectionsClient({ initialData }: { initialData: Correction[] }) {
+interface Employee { id: string; name: string; code: string; }
+
+export default function CorrectionsClient({ initialData, employees = [] }: { initialData: Correction[]; employees?: Employee[] }) {
   const [items, setItems] = useState<Correction[]>(initialData);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [actionId, setActionId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Admin direct edit
+  const [showManualEdit, setShowManualEdit] = useState(false);
+  const [manualForm, setManualForm] = useState({ employeeId: "", date: "", checkInAt: "", checkOutAt: "", note: "" });
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualResult, setManualResult] = useState<string | null>(null);
+
+  const handleManualEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualForm.employeeId || !manualForm.date) return;
+    setManualLoading(true);
+    setManualResult(null);
+    const toISO = (date: string, time: string) => time ? `${date}T${time}:00+07:00` : null;
+    const res = await fetch("/api/attendance/admin-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        employeeId: manualForm.employeeId,
+        date: manualForm.date,
+        checkInAt: toISO(manualForm.date, manualForm.checkInAt),
+        checkOutAt: toISO(manualForm.date, manualForm.checkOutAt),
+        note: manualForm.note,
+      }),
+    });
+    const data = await res.json();
+    setManualLoading(false);
+    if (res.ok) {
+      setManualResult(`✅ Đã lưu — Trạng thái: ${data.status === "on_time" ? "Đúng giờ" : data.status === "late" ? "Trễ" : "Vắng"}`);
+      setManualForm({ employeeId: "", date: "", checkInAt: "", checkOutAt: "", note: "" });
+    } else {
+      setManualResult(`❌ Lỗi: ${data.error}`);
+    }
+  };
 
   const displayed = filter === "all" ? items : items.filter((i) => i.status === filter);
   const pendingCount = items.filter((i) => i.status === "pending").length;
@@ -66,12 +101,82 @@ export default function CorrectionsClient({ initialData }: { initialData: Correc
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Điều chỉnh chấm công</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Nhân viên gửi yêu cầu khi quên chấm công. Xem xét và phê duyệt tại đây.
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Điều chỉnh chấm công</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Nhân viên gửi yêu cầu khi quên chấm công. Xem xét và phê duyệt tại đây.
+          </p>
+        </div>
+        <button
+          onClick={() => { setShowManualEdit(!showManualEdit); setManualResult(null); }}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+        >
+          <Pencil size={15} /> Sửa thủ công
+        </button>
       </div>
+
+      {/* Admin Manual Edit Panel */}
+      {showManualEdit && (
+        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-6">
+          <p className="font-semibold text-indigo-800 mb-1 flex items-center gap-2">
+            <Pencil size={15} /> Sửa chấm công trực tiếp
+          </p>
+          <p className="text-xs text-indigo-600 mb-4">Admin ghi đè giờ vào/ra mà không cần nhân viên xin. Tự động tính lại trạng thái trễ + phạt.</p>
+          <form onSubmit={handleManualEdit} className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <div className="col-span-2 md:col-span-1">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nhân viên *</label>
+              <select
+                required
+                value={manualForm.employeeId}
+                onChange={(e) => setManualForm({ ...manualForm, employeeId: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                <option value="">Chọn nhân viên...</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.code})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Ngày *</label>
+              <input type="date" required value={manualForm.date}
+                onChange={(e) => setManualForm({ ...manualForm, date: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Giờ vào (để trống = vắng)</label>
+              <input type="time" value={manualForm.checkInAt}
+                onChange={(e) => setManualForm({ ...manualForm, checkInAt: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Giờ ra</label>
+              <input type="time" value={manualForm.checkOutAt}
+                onChange={(e) => setManualForm({ ...manualForm, checkOutAt: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Ghi chú (optional)</label>
+              <input type="text" value={manualForm.note} placeholder="VD: Bù công ngày lễ"
+                onChange={(e) => setManualForm({ ...manualForm, note: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div className="col-span-2 md:col-span-3 flex items-center gap-3">
+              <button type="submit" disabled={manualLoading}
+                className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <Plus size={14} /> {manualLoading ? "Đang lưu..." : "Lưu chấm công"}
+              </button>
+              {manualResult && <p className="text-sm font-medium text-gray-700">{manualResult}</p>}
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">

@@ -17,6 +17,7 @@ interface Branch {
   lat: number | null;
   lng: number | null;
   gpsRadius: number;
+  standardWorkDays: number;
 }
 
 interface Props {
@@ -62,6 +63,7 @@ const emptyForm = {
   lat: "",
   lng: "",
   gpsRadius: "200",
+  standardWorkDays: "26",
 };
 
 export default function BranchesClient({ companyId, companySlug, branches }: Props) {
@@ -85,6 +87,7 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
       lat: b.lat !== null ? String(b.lat) : "",
       lng: b.lng !== null ? String(b.lng) : "",
       gpsRadius: String(b.gpsRadius),
+      standardWorkDays: String(b.standardWorkDays ?? 26),
     });
     setEditingId(b.id);
     setShowForm(true);
@@ -119,6 +122,7 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
       lat: form.lat ? Number(form.lat) : null,
       lng: form.lng ? Number(form.lng) : null,
       gpsRadius: Number(form.gpsRadius) || 200,
+      standardWorkDays: Number(form.standardWorkDays) || 26,
     };
 
     if (editingId) {
@@ -316,6 +320,27 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
               </div>
             </div>
 
+            {/* Ngày công chuẩn */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ngày công chuẩn / tháng
+              </label>
+              <select
+                value={form.standardWorkDays}
+                onChange={(e) => setForm({ ...form, standardWorkDays: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="20">20 ngày</option>
+                <option value="22">22 ngày</option>
+                <option value="24">24 ngày</option>
+                <option value="26">26 ngày (mặc định)</option>
+                <option value="27">27 ngày</option>
+                <option value="28">28 ngày</option>
+                <option value="30">30 ngày</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Dùng để tính đơn giá ngày công và tiền tăng ca</p>
+            </div>
+
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Hủy</button>
               <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-blue-700">{loading ? "Đang lưu..." : "Lưu"}</button>
@@ -335,6 +360,7 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
                   <span>⏰ {b.checkInTime} – {b.checkOutTime}</span>
                   <span>🗓 {workDaysLabel(b.workDays)}</span>
                   <span>⏱ Ân hạn {b.gracePeriod}p</span>
+                  <span>📅 {b.standardWorkDays ?? 26} ngày/tháng</span>
                   <span>👥 {b.employeeCount} nhân viên</span>
                   {b.lat !== null && b.lng !== null ? (
                     <span className="text-green-600 flex items-center gap-1">

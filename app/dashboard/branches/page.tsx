@@ -32,6 +32,7 @@ export default async function BranchesPage() {
         lat: b.lat,
         lng: b.lng,
         gpsRadius: b.gpsRadius,
+        standardWorkDays: b.standardWorkDays ?? 26,
       }))}
     />
   );

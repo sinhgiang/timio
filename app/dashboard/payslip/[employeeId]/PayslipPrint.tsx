@@ -30,6 +30,9 @@ interface PayslipData {
   netTakeHome: number;
   dependents: number;
   companyName: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankBranch?: string;
 }
 
 function fmt(n: number) {
@@ -87,6 +90,9 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
           <InfoRow label="Số điện thoại" value={data.phone || "—"} />
           {data.joinDate && <InfoRow label="Ngày vào làm" value={data.joinDate} />}
           <InfoRow label="Người phụ thuộc" value={`${data.dependents} người`} />
+          {data.bankAccount && (
+            <InfoRow label="Tài khoản NH" value={`${data.bankAccount}${data.bankName ? ` - ${data.bankName}` : ""}${data.bankBranch ? ` (${data.bankBranch})` : ""}`} />
+          )}
         </div>
 
         {/* I. Chấm công */}

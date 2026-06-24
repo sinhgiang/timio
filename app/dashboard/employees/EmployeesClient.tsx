@@ -81,6 +81,9 @@ interface Employee {
   dateOfBirth: string | null;
   phone: string | null;
   cccd: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
+  bankBranch: string | null;
 }
 
 interface Branch {
@@ -249,6 +252,9 @@ export default function EmployeesClient({
       phone: "",
       cccd: "",
       pin: "",
+      bankName: "",
+      bankAccount: "",
+      bankBranch: "",
     };
   }
 
@@ -344,6 +350,9 @@ export default function EmployeesClient({
       phone: emp.phone ?? "",
       cccd: emp.cccd ?? "",
       pin: "",
+      bankName: emp.bankName ?? "",
+      bankAccount: emp.bankAccount ?? "",
+      bankBranch: emp.bankBranch ?? "",
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -412,6 +421,9 @@ export default function EmployeesClient({
         phone: form.phone || null,
         cccd: form.cccd || null,
         pin: form.pin || undefined,
+        bankName: form.bankName || null,
+        bankAccount: form.bankAccount || null,
+        bankBranch: form.bankBranch || null,
       }),
     });
 
@@ -671,6 +683,16 @@ export default function EmployeesClient({
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                       <p className="text-xs text-gray-400 mt-1">Nhân viên dùng để đăng nhập tại timio.vn/employee/{"{slug}"}</p>
+                    </div>
+                  </div>
+
+                  {/* Thông tin ngân hàng */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Thông tin ngân hàng (để xuất phiếu lương)</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Field label="Tên ngân hàng" value={form.bankName} onChange={(v) => setForm({ ...form, bankName: v })} placeholder="VD: Vietcombank" />
+                      <Field label="Số tài khoản" value={form.bankAccount} onChange={(v) => setForm({ ...form, bankAccount: v })} placeholder="VD: 0123456789" />
+                      <Field label="Chi nhánh NH" value={form.bankBranch} onChange={(v) => setForm({ ...form, bankBranch: v })} placeholder="VD: CN Hà Nội" />
                     </div>
                   </div>
 

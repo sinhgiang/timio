@@ -57,6 +57,9 @@ export default async function EmployeesPage() {
         dateOfBirth: e.dateOfBirth ?? null,
         phone: e.phone ?? null,
         cccd: e.cccd ?? null,
+        bankName: (e as { bankName?: string | null }).bankName ?? null,
+        bankAccount: (e as { bankAccount?: string | null }).bankAccount ?? null,
+        bankBranch: (e as { bankBranch?: string | null }).bankBranch ?? null,
       }))}
       branches={branches.map((b) => ({
         id: b.id,

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const companyId = (session?.user as { companyId?: string })?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, code, pin, department, position, branchId, shiftOverride, baseSalary, joinDate, dateOfBirth, phone, cccd } =
+    const { name, code, pin, department, position, branchId, shiftOverride, baseSalary, joinDate, dateOfBirth, phone, cccd, bankName, bankAccount, bankBranch } =
       await req.json();
 
     if (!name || !code || !branchId || !companyId) {
@@ -36,6 +36,9 @@ export async function POST(req: NextRequest) {
         dateOfBirth: dateOfBirth || null,
         phone: phone || null,
         cccd: cccd || null,
+        bankName: bankName || null,
+        bankAccount: bankAccount || null,
+        bankBranch: bankBranch || null,
       },
     });
 

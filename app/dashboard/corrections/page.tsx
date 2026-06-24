@@ -12,14 +12,19 @@ export default async function CorrectionsPage() {
   const user = session?.user as { companyId?: string; role?: string } | undefined;
   if (!user?.companyId) redirect("/login");
 
-  const corrections = await prisma.correctionRequest.findMany({
-    where: { employee: { companyId: user.companyId } },
-    include: {
-      employee: { select: { name: true, code: true, department: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  }).catch(() => []);
+  const [corrections, employees] = await Promise.all([
+    prisma.correctionRequest.findMany({
+      where: { employee: { companyId: user.companyId } },
+      include: { employee: { select: { name: true, code: true, department: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }).catch(() => []),
+    prisma.employee.findMany({
+      where: { companyId: user.companyId, status: "active" },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  return <CorrectionsClient initialData={JSON.parse(JSON.stringify(corrections))} />;
+  return <CorrectionsClient initialData={JSON.parse(JSON.stringify(corrections))} employees={employees} />;
 }

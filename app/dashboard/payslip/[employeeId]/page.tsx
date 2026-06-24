@@ -30,6 +30,7 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
       select: {
         id: true, name: true, code: true, department: true, position: true,
         baseSalary: true, joinDate: true, phone: true, dependents: true,
+        bankName: true, bankAccount: true, bankBranch: true,
         branch: { select: { name: true } },
         summaries: {
           where: { year, month },
@@ -90,6 +91,9 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
     netTakeHome: tax.netTakeHome,
     dependents: employee.dependents ?? 0,
     companyName: company?.name ?? "",
+    bankName: (employee as { bankName?: string | null }).bankName ?? "",
+    bankAccount: (employee as { bankAccount?: string | null }).bankAccount ?? "",
+    bankBranch: (employee as { bankBranch?: string | null }).bankBranch ?? "",
   };
 
   return <PayslipPrint data={data} />;

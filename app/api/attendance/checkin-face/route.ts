@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       const dayOfWeek = now.getDay(); // 0=CN, 6=T7
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const multiplier = isWeekend ? (overtimeRates.weekend ?? 2.0) : (overtimeRates.weekday ?? 1.5);
-      const dailyRate = (employee.baseSalary ?? 0) / 26;
+      const dailyRate = (employee.baseSalary ?? 0) / (employee.branch.standardWorkDays ?? 26);
       const hourlyRate = dailyRate / 8;
       const overtimeAmount = minutesOvertime > 0 ? Math.floor(hourlyRate * (minutesOvertime / 60) * multiplier) : 0;
 

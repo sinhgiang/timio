@@ -64,10 +64,11 @@ model Branch {
   checkOutTime String  @default("17:30")
   gracePeriod  Int     @default(5)
   workDays     String  @default("1,2,3,4,5")
-  telegramChatId String?
-  lat          Float?
-  lng          Float?
-  gpsRadius    Int     @default(200)
+  telegramChatId    String?
+  lat               Float?
+  lng               Float?
+  gpsRadius         Int     @default(200)
+  standardWorkDays  Int     @default(26)
   createdAt    DateTime @default(now())
 
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -95,6 +96,9 @@ model Employee {
   dateOfBirth         String?   // YYYY-MM-DD
   annualLeaveBalance  Float     @default(12) // ngày phép năm còn lại
   dependents          Int       @default(0)  // số người phụ thuộc (giảm trừ thuế TNCN)
+  bankName            String?   // Tên ngân hàng (VCB, TCB, MB, ...)
+  bankAccount         String?   // Số tài khoản
+  bankBranch          String?   // Chi nhánh ngân hàng
   createdAt           DateTime  @default(now())
 
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, User, Calendar, CheckCircle2, AlertTriangle, XCircle, Send, LogOut, ChevronLeft } from "lucide-react";
+import { Clock, User, Calendar, CheckCircle2, AlertTriangle, XCircle, Send, LogOut, ChevronLeft, FileText } from "lucide-react";
 
 interface EmployeeInfo {
   employeeId: string;
@@ -29,7 +29,7 @@ interface DayLog {
   correction: { id: string; status: string; type: string } | null;
 }
 
-type Phase = "login" | "dashboard" | "correction";
+type Phase = "login" | "dashboard" | "correction" | "payslip";
 
 function fmtTime(iso: string | null) {
   if (!iso) return "—";
@@ -68,6 +68,23 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+
+  // Payslip state
+  const [payslipMonth, setPayslipMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [payslipData, setPayslipData] = useState<Record<string, unknown> | null>(null);
+  const [payslipLoading, setPayslipLoading] = useState(false);
+  const [payslipError, setPayslipError] = useState("");
+
+  const fetchPayslip = async (employeeId: string, month: string) => {
+    setPayslipLoading(true); setPayslipError("");
+    const res = await fetch(`/api/employee/payslip?employeeId=${employeeId}&month=${month}`);
+    if (res.ok) { setPayslipData(await res.json()); }
+    else { setPayslipError("Không tìm thấy dữ liệu phiếu lương"); }
+    setPayslipLoading(false);
+  };
 
   // Correction form
   const [corrDate, setCorrDate] = useState("");
@@ -338,6 +355,83 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
     );
   }
 
+  // ── Payslip ──
+  if (phase === "payslip") {
+    const ps = payslipData as {
+      month?: number; year?: number; baseSalary?: number; grossIncome?: number;
+      bhxhEmployee?: number; tncn?: number; netTakeHome?: number;
+      totalPenalty?: number; totalReward?: number; totalOvertimeAmount?: number;
+      daysPresent?: number; daysLate?: number;
+    } | null;
+    const fmt = (n: number) => n.toLocaleString("vi-VN") + "đ";
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-100 px-4 py-4">
+          <div className="max-w-lg mx-auto flex items-center gap-3">
+            <button onClick={() => setPhase("dashboard")} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+              <ChevronLeft size={20} className="text-gray-600" />
+            </button>
+            <h1 className="font-bold text-gray-900">Phiếu lương</h1>
+          </div>
+        </div>
+        <div className="max-w-lg mx-auto p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <input type="month" value={payslipMonth}
+              onChange={(e) => { setPayslipMonth(e.target.value); if (employee) fetchPayslip(employee.employeeId, e.target.value); }}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button onClick={() => employee && fetchPayslip(employee.employeeId, payslipMonth)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">
+              Xem
+            </button>
+          </div>
+          {payslipLoading && <p className="text-center text-sm text-gray-400 py-8">Đang tải...</p>}
+          {payslipError && <p className="text-center text-sm text-red-500 py-8">{payslipError}</p>}
+          {ps && !payslipLoading && (
+            <div className="space-y-3">
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <p className="font-bold text-gray-900 mb-1">Phiếu lương tháng {ps.month}/{ps.year}</p>
+                <p className="text-xs text-gray-400">{employee?.name} · {employee?.code}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="px-5 py-3 border-b border-gray-50 bg-green-50">
+                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Thu nhập</p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  <PayslipRow label="Lương cơ bản" value={fmt(ps.baseSalary ?? 0)} />
+                  {(ps.totalReward ?? 0) > 0 && <PayslipRow label="Thưởng chuyên cần" value={`+${fmt(ps.totalReward ?? 0)}`} positive />}
+                  {(ps.totalOvertimeAmount ?? 0) > 0 && <PayslipRow label="Tăng ca" value={`+${fmt(ps.totalOvertimeAmount ?? 0)}`} positive />}
+                  {(ps.totalPenalty ?? 0) > 0 && <PayslipRow label="Phạt" value={`-${fmt(ps.totalPenalty ?? 0)}`} negative />}
+                  <PayslipRow label="Thu nhập trước thuế" value={fmt(ps.grossIncome ?? 0)} bold />
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="px-5 py-3 border-b border-gray-50 bg-red-50">
+                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Khấu trừ</p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  <PayslipRow label="BHXH+BHYT+BHTN (10.5%)" value={`-${fmt(ps.bhxhEmployee ?? 0)}`} negative />
+                  <PayslipRow label="Thuế TNCN" value={ps.tncn ? `-${fmt(ps.tncn)}` : "0đ (miễn thuế)"} negative={!!ps.tncn} />
+                </div>
+              </div>
+              <div className="bg-blue-600 rounded-2xl p-5 text-white text-center">
+                <p className="text-sm opacity-80 mb-1">Thực nhận</p>
+                <p className="text-3xl font-bold">{fmt(ps.netTakeHome ?? 0)}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Chấm công</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-500">Ngày công: </span><span className="font-bold">{ps.daysPresent} ngày</span></div>
+                  <div><span className="text-gray-500">Lần trễ: </span><span className="font-bold text-orange-500">{ps.daysLate} lần</span></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── Dashboard ──
   return (
     <div className="min-h-screen bg-gray-50">
@@ -395,6 +489,26 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
           </div>
           <p className="text-xl font-bold text-blue-700">{employee?.annualLeaveBalance ?? 0} ngày</p>
         </div>
+
+        {/* Phiếu lương shortcut */}
+        <button
+          onClick={() => {
+            if (employee) { fetchPayslip(employee.employeeId, payslipMonth); }
+            setPhase("payslip");
+          }}
+          className="w-full bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <FileText size={16} className="text-indigo-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">Phiếu lương</p>
+              <p className="text-xs text-gray-400">Xem lương, BHXH, thuế tháng này</p>
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-gray-400 rotate-180" />
+        </button>
 
         {/* Attendance list */}
         <div>
@@ -468,6 +582,16 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
           Timio · Cổng thông tin nhân viên · {employee?.companyName}
         </p>
       </div>
+    </div>
+  );
+}
+
+function PayslipRow({ label, value, bold, positive, negative }: { label: string; value: string; bold?: boolean; positive?: boolean; negative?: boolean }) {
+  const color = positive ? "text-green-600" : negative ? "text-red-500" : "text-gray-800";
+  return (
+    <div className="flex items-center justify-between px-5 py-3">
+      <span className="text-sm text-gray-600">{label}</span>
+      <span className={`text-sm font-${bold ? "bold" : "medium"} ${color}`}>{value}</span>
     </div>
   );
 }
