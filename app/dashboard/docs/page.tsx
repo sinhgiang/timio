@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
-import { ARTICLES } from "./DocsNav";
+import { ARTICLES } from "./docsData";
 
 export default function DocsIndexPage() {
   return (
