@@ -96,7 +96,7 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
   // Phát welcome khi load (desktop auto-plays, mobile blocked until tap)
   useEffect(() => {
     const t = setTimeout(() => {
-      playCompanyAudio(company.slug, "welcome.mp3", `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`);
+      playCompanyAudio(company.slug, "welcome.mp3", msg.welcome);
     }, 600);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,18 +107,21 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
     if (phase === "success" && result) {
       if (result.action === "check_in") {
         if (result.status === "on_time") {
-          playCompanyAudio(company.slug, "checkin_ontime.mp3").then(() =>
-            speakVi(`Chào mừng ${result.employeeName} đến với ${company.name}!`)
-          );
+          const text = msg.checkinOntime
+            .replace("{name}", result.employeeName)
+            .replace("{minutes}", String(result.minutesLate));
+          playCompanyAudio(company.slug, "checkin_ontime.mp3").then(() => speakVi(text));
         } else {
-          playCompanyAudio(company.slug, "checkin_late.mp3").then(() =>
-            speakVi(`Chào mừng ${result.employeeName} đến với ${company.name}. Bạn đến trễ ${result.minutesLate} phút hôm nay.`)
-          );
+          const text = msg.checkinLate
+            .replace("{name}", result.employeeName)
+            .replace("{minutes}", String(result.minutesLate));
+          playCompanyAudio(company.slug, "checkin_late.mp3").then(() => speakVi(text));
         }
       } else {
-        playCompanyAudio(company.slug, "checkout.mp3").then(() =>
-          speakVi(`Tạm biệt ${result.employeeName}! Hẹn gặp lại tại ${company.name}.`)
-        );
+        const text = msg.checkout
+          .replace("{name}", result.employeeName)
+          .replace("{minutes}", String(result.minutesLate));
+        playCompanyAudio(company.slug, "checkout.mp3").then(() => speakVi(text));
       }
     }
   }, [phase, result]); // eslint-disable-line react-hooks/exhaustive-deps

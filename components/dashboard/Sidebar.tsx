@@ -20,6 +20,7 @@ import {
   X,
   CreditCard,
   UsersRound,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +44,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/branches", label: "Chi nhánh", Icon: Building2 },
   { href: "/dashboard/reports", label: "Báo cáo tháng", Icon: BarChart3 },
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
+  { href: "/dashboard/payslip", label: "Phiếu lương", Icon: FileText },
   { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
   { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
