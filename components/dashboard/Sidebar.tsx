@@ -21,12 +21,14 @@ import {
   CreditCard,
   UsersRound,
   FileText,
+  ClipboardEdit,
   type LucideIcon,
 } from "lucide-react";
 
 interface Props {
   companyName: string;
   pendingLeaveCount?: number;
+  pendingCorrectionCount?: number;
   role?: string;
 }
 
@@ -46,13 +48,14 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
   { href: "/dashboard/payslip", label: "Phiếu lương", Icon: FileText },
   { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
+  { href: "/dashboard/corrections", label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
   { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
   { href: "/dashboard/billing", label: "Gói dịch vụ", Icon: CreditCard },
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];
 
-export default function Sidebar({ companyName, pendingLeaveCount = 0, role = "owner" }: Props) {
+export default function Sidebar({ companyName, pendingLeaveCount = 0, pendingCorrectionCount = 0, role = "owner" }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -137,6 +140,11 @@ export default function Sidebar({ companyName, pendingLeaveCount = 0, role = "ow
                 {item.badgeKey === "leave" && pendingLeaveCount > 0 && (
                   <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                     {pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}
+                  </span>
+                )}
+                {item.badgeKey === "correction" && pendingCorrectionCount > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {pendingCorrectionCount > 99 ? "99+" : pendingCorrectionCount}
                   </span>
                 )}
               </Link>

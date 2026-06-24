@@ -91,13 +91,15 @@ model Employee {
   joinDate            DateTime?
   dateOfBirth         String?   // YYYY-MM-DD
   annualLeaveBalance  Float     @default(12) // ngày phép năm còn lại
+  dependents          Int       @default(0)  // số người phụ thuộc (giảm trừ thuế TNCN)
   createdAt           DateTime  @default(now())
 
-  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch        Branch           @relation(fields: [branchId], references: [id])
-  logs          AttendanceLog[]
-  summaries     MonthlySummary[]
-  leaveRequests LeaveRequest[]
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch              Branch               @relation(fields: [branchId], references: [id])
+  logs                AttendanceLog[]
+  summaries           MonthlySummary[]
+  leaveRequests       LeaveRequest[]
+  correctionRequests  CorrectionRequest[]
 
   @@unique([companyId, code])
 }
@@ -205,6 +207,26 @@ model AttendanceCorrection {
   oldValue   String?
   newValue   String?
   createdAt  DateTime @default(now())
+}
+
+// Nhân viên xin điều chỉnh chấm công (quên chấm, sai giờ)
+model CorrectionRequest {
+  id                String   @id @default(cuid())
+  employeeId        String
+  date              String   // YYYY-MM-DD
+  type              String   @default("check_in") // "check_in" | "check_out" | "both"
+  requestedCheckIn  String?  // HH:MM — giờ vào đề nghị
+  requestedCheckOut String?  // HH:MM — giờ ra đề nghị
+  reason            String
+  status            String   @default("pending") // "pending" | "approved" | "rejected"
+  adminNote         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
 }
 
 model Payment {

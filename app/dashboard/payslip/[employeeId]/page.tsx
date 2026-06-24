@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import PayslipPrint from "./PayslipPrint";
+import { calculateTax } from "@/lib/taxCalculator";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
       where: { id: params.employeeId, companyId },
       select: {
         id: true, name: true, code: true, department: true, position: true,
-        baseSalary: true, joinDate: true, phone: true, cccd: true,
+        baseSalary: true, joinDate: true, phone: true, dependents: true,
         branch: { select: { name: true } },
         summaries: {
           where: { year, month },
@@ -53,7 +54,13 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
   const penalty = s?.totalPenalty ?? 0;
   const reward = s?.totalReward ?? 0;
   const overtime = s?.totalOvertimeAmount ?? 0;
-  const net = base - penalty + reward + overtime;
+  const grossIncome = base - penalty + reward + overtime;
+
+  const tax = calculateTax({
+    baseSalary: base,
+    grossIncome,
+    dependents: employee.dependents ?? 0,
+  });
 
   const data = {
     employeeId: employee.id,
@@ -75,7 +82,13 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
     totalReward: reward,
     totalOvertimeAmount: overtime,
     totalMinutesOvertime: s?.totalMinutesOvertime ?? 0,
-    netSalary: net,
+    grossIncome,
+    bhxhEmployee: tax.bhxhEmployee,
+    bhxhEmployer: tax.bhxhEmployer,
+    taxableIncome: tax.taxableIncome,
+    tncn: tax.tncn,
+    netTakeHome: tax.netTakeHome,
+    dependents: employee.dependents ?? 0,
     companyName: company?.name ?? "",
   };
 
