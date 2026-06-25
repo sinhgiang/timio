@@ -1,15 +1,3 @@
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST ?? "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT ?? 587),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
 export async function sendEmail({
   to,
   subject,
@@ -19,18 +7,26 @@ export async function sendEmail({
   subject: string;
   html: string;
 }) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn("[email] SMTP_USER/SMTP_PASS chưa cấu hình — bỏ qua email đến:", to);
+  const apiKey = process.env.SMTP_PASS;
+  if (!apiKey) {
+    console.warn("[email] SMTP_PASS (Resend API key) chưa cấu hình — bỏ qua email đến:", to);
     return;
   }
-  try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM ?? `"Timio" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      html,
-    });
-  } catch (err) {
-    console.error("[email] Gửi thất bại đến", to, err);
+
+  const from = process.env.SMTP_FROM ?? "Timio <team@timio.vn>";
+
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    console.error("[email] Resend API lỗi đến", to, err);
+    throw new Error(`Resend API error: ${JSON.stringify(err)}`);
   }
 }
