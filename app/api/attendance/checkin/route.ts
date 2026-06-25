@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, type LateRule } from "@/lib/attendance";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
-import bcrypt from "bcryptjs";
-
 export async function POST(req: NextRequest) {
   try {
     const { employeeId, pin } = await req.json();
@@ -27,8 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
     }
 
-    const pinMatch = await bcrypt.compare(pin, employee.pin);
-    if (!pinMatch) {
+    if (!employee.pin || employee.pin !== pin) {
       return NextResponse.json({ error: "PIN không đúng" }, { status: 401 });
     }
 

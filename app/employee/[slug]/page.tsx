@@ -226,9 +226,9 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
                 <input
                   type="password"
                   value={pin}
-                  onChange={e => setPin(e.target.value)}
+                  onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   placeholder="••••"
-                  maxLength={6}
+                  maxLength={4}
                   className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />

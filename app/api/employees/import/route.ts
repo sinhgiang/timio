@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
 
 interface RowInput {
   name: string;
@@ -52,8 +51,6 @@ export async function POST(req: NextRequest) {
   const results: Array<{ row: number; name: string; ok: boolean; error?: string }> = [];
   let created = 0;
 
-  const DEFAULT_PIN = await bcrypt.hash("0000", 10);
-
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
@@ -71,15 +68,14 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const pinRaw = row.pin && /^\d{4}$/.test(String(row.pin)) ? String(row.pin) : null;
-    const hashedPin = pinRaw ? await bcrypt.hash(pinRaw, 10) : DEFAULT_PIN;
+    const plainPin = row.pin && /^\d{4}$/.test(String(row.pin)) ? String(row.pin) : "0000";
 
     try {
       await prisma.employee.create({
         data: {
           name: row.name.trim(),
           code: String(row.code).trim(),
-          pin: hashedPin,
+          pin: plainPin,
           department: row.department?.trim() || null,
           position: row.position?.trim() || null,
           branchId: row.branchId,
