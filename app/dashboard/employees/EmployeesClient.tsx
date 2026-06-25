@@ -1126,66 +1126,111 @@ export default function EmployeesClient({
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Tên</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Mã</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Phòng ban · Chức vụ</th>
-              <th className="text-left px-5 py-3 text-gray-500 font-medium">Ca làm</th>
-              <th className="text-center px-3 py-3 text-gray-500 font-medium">PIN</th>
-              <th className="text-center px-3 py-3 text-gray-500 font-medium">Khuôn mặt</th>
-              <th className="text-right px-5 py-3 text-gray-500 font-medium">Thao tác</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Nhân viên</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Phòng ban · Ca làm</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">PIN · Khuôn mặt</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {[...activeEmployees, ...inactiveEmployees].map((emp) => {
               const ov: ShiftOverride | null = emp.shiftOverride ? JSON.parse(emp.shiftOverride) : null;
+              const shiftName = ov?.name ?? null;
+              const shiftTime = ov ? `${ov.checkInTime}–${ov.checkOutTime}` : null;
               return (
-                <tr key={emp.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-800">
-                    {emp.name}
-                    {emp.status !== "active" && <span className="ml-2 text-xs text-gray-400">(đã nghỉ)</span>}
-                  </td>
-                  <td className="px-5 py-3 text-gray-500 font-mono">{emp.code}</td>
-                  <td className="px-5 py-3 text-gray-500">
-                    {emp.department ?? "—"}
-                    {emp.position && <span className="text-gray-400"> · {emp.position}</span>}
-                  </td>
-                  <td className="px-5 py-3 text-gray-500 text-xs">
-                    {ov?.name ? (
-                      <span className="text-blue-600 font-medium">{ov.name}</span>
-                    ) : (
-                      <span className="text-gray-400">Theo chi nhánh</span>
-                    )}
-                    {ov && <span className="text-gray-400 ml-1">{ov.checkInTime}–{ov.checkOutTime}</span>}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {emp.pin && !/^\$2[ab]\$/.test(emp.pin) ? (
-                      <span className="font-mono text-sm font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{emp.pin}</span>
-                    ) : (
-                      <span className="text-xs text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {emp.hasFace ? (
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="text-green-600 text-xs font-medium">✅ Đã đăng ký</span>
-                        <button onClick={() => handleDeleteFace(emp.id, emp.name)} className="text-gray-300 hover:text-red-400 text-xs ml-1" title="Xóa khuôn mặt">×</button>
+                <tr key={emp.id} className="hover:bg-gray-50/60 transition-colors">
+                  {/* Col 1: Nhân viên */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                        <span className="text-blue-600 font-bold text-xs">{emp.name.split(" ").pop()?.charAt(0) ?? "?"}</span>
                       </div>
-                    ) : (
-                      <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 border border-blue-200">📷 Đăng ký</button>
-                    )}
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm leading-tight">
+                          {emp.name}
+                          {emp.status !== "active" && <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full font-normal">đã nghỉ</span>}
+                        </p>
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">{emp.code}</p>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-5 py-3 text-right">
-                    <button onClick={() => setContractTarget({ id: emp.id, name: emp.name })} className="text-purple-600 hover:underline text-xs mr-3">HĐ</button>
-                    <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:underline text-xs mr-3">Sửa</button>
-                    <button onClick={() => handleDelete(emp.id, emp.name)} className="text-red-500 hover:underline text-xs">Xóa</button>
+
+                  {/* Col 2: Phòng ban + Ca làm */}
+                  <td className="px-4 py-3">
+                    <p className="text-sm text-gray-700 leading-tight">
+                      {emp.department ?? <span className="text-gray-300">—</span>}
+                      {emp.position && <span className="text-gray-400 text-xs"> · {emp.position}</span>}
+                    </p>
+                    <p className="text-xs mt-0.5">
+                      {shiftName ? (
+                        <span className="text-blue-600 font-medium">{shiftName}</span>
+                      ) : (
+                        <span className="text-gray-400">Theo chi nhánh</span>
+                      )}
+                      {shiftTime && <span className="text-gray-400 ml-1">{shiftTime}</span>}
+                    </p>
+                  </td>
+
+                  {/* Col 3: PIN + Khuôn mặt */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-3">
+                      {/* PIN */}
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 mb-0.5">PIN</p>
+                        {emp.pin && !/^\$2[ab]\$/.test(emp.pin) ? (
+                          <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{emp.pin}</span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </div>
+                      {/* Divider */}
+                      <div className="w-px h-8 bg-gray-100" />
+                      {/* Khuôn mặt */}
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 mb-0.5">Khuôn mặt</p>
+                        {emp.hasFace ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-green-600 text-xs font-medium">✅</span>
+                            <button onClick={() => handleDeleteFace(emp.id, emp.name)} className="text-gray-300 hover:text-red-400 text-xs" title="Xóa khuôn mặt">×</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium hover:bg-blue-100 border border-blue-200">📷 Đăng ký</button>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Col 4: Thao tác */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setContractTarget({ id: emp.id, name: emp.name })}
+                        className="px-2.5 py-1.5 text-[11px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-100 transition-colors"
+                        title="Hợp đồng"
+                      >
+                        HĐ
+                      </button>
+                      <button
+                        onClick={() => handleEdit(emp)}
+                        className="px-2.5 py-1.5 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-100 transition-colors"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => handleDelete(emp.id, emp.name)}
+                        className="px-2.5 py-1.5 text-[11px] font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100 transition-colors"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {employees.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-10 text-gray-400">Chưa có nhân viên nào. Thêm nhân viên đầu tiên!</td></tr>
+              <tr><td colSpan={4} className="text-center py-10 text-gray-400">Chưa có nhân viên nào. Thêm nhân viên đầu tiên!</td></tr>
             )}
           </tbody>
         </table>
