@@ -228,6 +228,89 @@ export function customerPaymentConfirmEmail(opts: {
   return base(`Thanh toán thành công — Gói ${opts.planLabel} Timio`, content);
 }
 
+// ─── Khách hàng: chào mừng đăng ký miễn phí ──────────────────────────────
+
+export function welcomeEmail(opts: { adminName: string; companyName: string; slug: string }) {
+  const content = `
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">Chào mừng bạn đến với Timio!</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">Xin chào <strong>${opts.adminName}</strong>, tài khoản <strong>${opts.companyName}</strong> đã được tạo thành công.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:24px;">
+      <tr><td style="padding:20px 24px;">
+        <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#374151;">Bắt đầu với 3 bước đơn giản:</p>
+        ${[
+          ["1", "Thêm nhân viên", "Vào Nhân viên → Thêm mới, điền thông tin và PIN"],
+          ["2", "Cài máy kiosk", `Mở trình duyệt, vào timio.vn/checkin/${opts.slug}`],
+          ["3", "Xem báo cáo", "Nhân viên check-in xong, xem ngay tại Báo cáo"],
+        ].map(([num, title, desc]) => `
+          <div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-start;">
+            <div style="min-width:28px;height:28px;background:#1d4ed8;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+              <span style="color:#fff;font-size:13px;font-weight:700;line-height:28px;display:block;text-align:center;">${num}</span>
+            </div>
+            <div>
+              <p style="margin:0;font-size:14px;font-weight:600;color:#111827;">${title}</p>
+              <p style="margin:2px 0 0;font-size:13px;color:#6b7280;">${desc}</p>
+            </div>
+          </div>
+        `).join("")}
+      </td></tr>
+    </table>
+
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:28px;">
+      <p style="margin:0;font-size:13px;color:#1e40af;">
+        Gói miễn phí cho phép tối đa <strong>5 nhân viên</strong> và lưu dữ liệu <strong>90 ngày</strong>.
+        Nâng cấp lên Pro khi bạn cần thêm.
+      </p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://timio.vn/dashboard" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+        Vào Dashboard ngay →
+      </a>
+    </div>
+  `;
+  return base(`Chào mừng ${opts.companyName} đến với Timio!`, content);
+}
+
+// ─── Admin Timio: thông báo có tài khoản mới đăng ký ─────────────────────
+
+export function adminNewSignupEmail(opts: {
+  companyName: string;
+  companySlug: string;
+  email: string;
+  referralCode: string | null;
+  affiliateCode: string | null;
+}) {
+  const content = `
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">🆕 Khách hàng mới đăng ký!</h1>
+    <p style="margin:0 0 28px;font-size:15px;color:#6b7280;">Có một công ty vừa tạo tài khoản Timio (gói Miễn phí).</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;">
+      <tr><td style="padding:20px 24px;">
+        ${[
+          ["Công ty", `${opts.companyName}`],
+          ["Slug", `${opts.companySlug}`],
+          ["Email", opts.email],
+          ["Giới thiệu", opts.referralCode ?? "Không"],
+          ["Affiliate", opts.affiliateCode ?? "Không"],
+        ].map(([label, val], i, arr) => `
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;${i < arr.length - 1 ? "border-bottom:1px solid #d1fae5;" : ""}">
+                <span style="font-size:13px;color:#6b7280;">${label}</span>
+              </td>
+              <td style="padding:8px 0;text-align:right;${i < arr.length - 1 ? "border-bottom:1px solid #d1fae5;" : ""}">
+                <span style="font-size:14px;font-weight:600;color:#111827;">${val}</span>
+              </td>
+            </tr>
+          </table>
+        `).join("")}
+      </td></tr>
+    </table>
+  `;
+  return base(`Đăng ký mới: ${opts.companyName}`, content);
+}
+
 // ─── Admin: nhân viên gửi đơn xin nghỉ ────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {

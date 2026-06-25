@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email";
+import { welcomeEmail, adminNewSignupEmail } from "@/lib/emailTemplates";
 
 function toSlug(str: string) {
   return str
@@ -79,6 +80,36 @@ export async function POST(req: NextRequest) {
       data: { companyId: company.id, name: "Văn phòng chính" },
     });
   });
+
+  // Gửi welcome email cho khách mới + thông báo admin (non-blocking)
+  void (async () => {
+    try {
+      await Promise.all([
+        // Email chào mừng → khách hàng
+        sendEmail({
+          to: email,
+          subject: `Chào mừng ${companyName} đến với Timio!`,
+          html: welcomeEmail({ adminName: companyName, companyName, slug }),
+        }),
+        // Email thông báo → admin Timio
+        process.env.ADMIN_NOTIFY_EMAIL
+          ? sendEmail({
+              to: process.env.ADMIN_NOTIFY_EMAIL,
+              subject: `🆕 Timio: ${companyName} vừa đăng ký miễn phí`,
+              html: adminNewSignupEmail({
+                companyName,
+                companySlug: slug,
+                email,
+                referralCode: validReferredBy,
+                affiliateCode: validAffiliateCode,
+              }),
+            })
+          : Promise.resolve(),
+      ]);
+    } catch {
+      // Non-fatal — registration already succeeded
+    }
+  })();
 
   // Gửi email thông báo cho người giới thiệu (non-blocking)
   if (companyId && validReferredBy) {
