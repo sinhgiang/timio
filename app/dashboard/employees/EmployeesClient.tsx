@@ -681,7 +681,7 @@ export default function EmployeesClient({
                         PIN cổng nhân viên {!editingId && <span className="text-red-500">*</span>}
                       </label>
                       <input
-                        type="password"
+                        type="text"
                         value={form.pin}
                         onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })}
                         placeholder={editingId ? "Để trống = giữ PIN cũ" : "4–6 số (VD: 1234)"}
