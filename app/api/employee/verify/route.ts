@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
@@ -27,11 +26,7 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!employee || !employee.pin) {
-      return NextResponse.json({ error: "Mã NV hoặc PIN không đúng" }, { status: 401 });
-    }
-    const pinMatch = await bcrypt.compare(pin, employee.pin);
-    if (!pinMatch) {
+    if (!employee || !employee.pin || employee.pin !== pin) {
       return NextResponse.json({ error: "Mã NV hoặc PIN không đúng" }, { status: 401 });
     }
 

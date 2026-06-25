@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,15 +15,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
     }
 
-    // PIN is optional (face auth is primary); default to "0000" if not provided
-    const rawPin = pin && /^\d{4}$/.test(pin) ? pin : "0000";
-    const hashedPin = await bcrypt.hash(rawPin, 10);
+    // PIN stored as plain text (4-digit kiosk PIN, not a real password)
+    const plainPin = pin && /^\d{4,6}$/.test(pin) ? pin : "0000";
 
     const employee = await prisma.employee.create({
       data: {
         name,
         code,
-        pin: hashedPin,
+        pin: plainPin,
         department: department || null,
         position: position || null,
         branchId,

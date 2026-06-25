@@ -75,6 +75,7 @@ interface Employee {
   branchName: string;
   shiftOverride: string | null;
   hasFace: boolean;
+  pin: string | null;
   createdAt: string;
   baseSalary: number | null;
   joinDate: string | null;
@@ -349,7 +350,7 @@ export default function EmployeesClient({
       dateOfBirth: emp.dateOfBirth ?? "",
       phone: emp.phone ?? "",
       cccd: emp.cccd ?? "",
-      pin: "",
+      pin: (emp.pin && !/^\$2[ab]\$/.test(emp.pin)) ? emp.pin : "",
       bankName: emp.bankName ?? "",
       bankAccount: emp.bankAccount ?? "",
       bankBranch: emp.bankBranch ?? "",
@@ -1126,6 +1127,7 @@ export default function EmployeesClient({
               <th className="text-left px-5 py-3 text-gray-500 font-medium">Mã</th>
               <th className="text-left px-5 py-3 text-gray-500 font-medium">Phòng ban · Chức vụ</th>
               <th className="text-left px-5 py-3 text-gray-500 font-medium">Ca làm</th>
+              <th className="text-center px-3 py-3 text-gray-500 font-medium">PIN</th>
               <th className="text-center px-3 py-3 text-gray-500 font-medium">Khuôn mặt</th>
               <th className="text-right px-5 py-3 text-gray-500 font-medium">Thao tác</th>
             </tr>
@@ -1153,6 +1155,13 @@ export default function EmployeesClient({
                     {ov && <span className="text-gray-400 ml-1">{ov.checkInTime}–{ov.checkOutTime}</span>}
                   </td>
                   <td className="px-3 py-3 text-center">
+                    {emp.pin && !/^\$2[ab]\$/.test(emp.pin) ? (
+                      <span className="font-mono text-sm font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{emp.pin}</span>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-center">
                     {emp.hasFace ? (
                       <div className="flex items-center justify-center gap-1">
                         <span className="text-green-600 text-xs font-medium">✅ Đã đăng ký</span>
@@ -1170,7 +1179,7 @@ export default function EmployeesClient({
               );
             })}
             {employees.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-10 text-gray-400">Chưa có nhân viên nào. Thêm nhân viên đầu tiên!</td></tr>
+              <tr><td colSpan={7} className="text-center py-10 text-gray-400">Chưa có nhân viên nào. Thêm nhân viên đầu tiên!</td></tr>
             )}
           </tbody>
         </table>

@@ -51,6 +51,7 @@ export default async function EmployeesPage() {
         branchName: e.branch.name,
         shiftOverride: e.shiftOverride,
         hasFace: !!e.faceDescriptors,
+        pin: e.pin ?? null,
         createdAt: e.createdAt.toISOString(),
         baseSalary: e.baseSalary ?? null,
         joinDate: e.joinDate ? e.joinDate.toISOString() : null,

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -34,8 +32,8 @@ export async function PATCH(
       bankBranch: bankBranch !== undefined ? (bankBranch || null) : undefined,
     };
 
-    if (pin && /^\d{4}$/.test(pin)) {
-      data.pin = await bcrypt.hash(pin, 10);
+    if (pin && /^\d{4,6}$/.test(pin)) {
+      data.pin = pin;
     }
 
     const employee = await prisma.employee.update({
