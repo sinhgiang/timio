@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
   let slug: string;
 
   if (isCronAuth) {
-    // Called via bearer token — send to ADMIN_NOTIFY_EMAIL
-    to = process.env.ADMIN_NOTIFY_EMAIL ?? "";
+    // Called via bearer token — send to override email or ADMIN_NOTIFY_EMAIL
+    const body = await req.json().catch(() => ({})) as { to?: string };
+    to = body.to ?? process.env.ADMIN_NOTIFY_EMAIL ?? "";
     if (!to) return NextResponse.json({ error: "ADMIN_NOTIFY_EMAIL not set" }, { status: 503 });
     companyName = "Demo Company";
     slug = "demo";
