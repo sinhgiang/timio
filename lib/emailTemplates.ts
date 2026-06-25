@@ -311,6 +311,59 @@ export function adminNewSignupEmail(opts: {
   return base(`Đăng ký mới: ${opts.companyName}`, content);
 }
 
+// ─── Admin: cảnh báo hợp đồng sắp hết hạn ────────────────────────────────
+
+export function contractExpiryEmail(opts: {
+  companyName: string;
+  contracts: { name: string; code: string; endDate: string; daysLeft: number }[];
+}) {
+  const rows = opts.contracts.map((c) => `
+    <tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #fee2e2;font-size:14px;color:#111827;">${c.name}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #fee2e2;font-size:13px;color:#6b7280;">${c.code}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #fee2e2;font-size:13px;color:#111827;">${c.endDate}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #fee2e2;text-align:center;">
+        <span style="background:${c.daysLeft <= 7 ? "#fee2e2" : "#fef3c7"};color:${c.daysLeft <= 7 ? "#991b1b" : "#92400e"};font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">
+          Còn ${c.daysLeft} ngày
+        </span>
+      </td>
+    </tr>
+  `).join("");
+
+  const content = `
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">⚠️ Hợp đồng sắp hết hạn</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;">
+      Các nhân viên sau của <strong>${opts.companyName}</strong> có hợp đồng hết hạn trong <strong>30 ngày tới</strong>.
+      Vui lòng liên hệ để ký gia hạn kịp thời.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #fecaca;border-radius:12px;overflow:hidden;margin-bottom:24px;">
+      <thead>
+        <tr style="background:#fef2f2;">
+          <th style="padding:10px 12px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;">Nhân viên</th>
+          <th style="padding:10px 12px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;">Mã</th>
+          <th style="padding:10px 12px;text-align:left;font-size:13px;color:#6b7280;font-weight:600;">Ngày hết hạn</th>
+          <th style="padding:10px 12px;text-align:center;font-size:13px;color:#6b7280;font-weight:600;">Còn lại</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;margin-bottom:28px;">
+      <p style="margin:0;font-size:13px;color:#92400e;">
+        Vào <strong>Nhân viên → Hồ sơ → Hợp đồng</strong> để gia hạn hoặc tạo hợp đồng mới.
+      </p>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="https://timio.vn/dashboard/employees" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+        Xem danh sách nhân viên →
+      </a>
+    </div>
+  `;
+  return base(`⚠️ ${opts.contracts.length} hợp đồng sắp hết hạn — ${opts.companyName}`, content);
+}
+
 // ─── Admin: nhân viên gửi đơn xin nghỉ ────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {
