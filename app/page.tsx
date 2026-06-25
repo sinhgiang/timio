@@ -31,6 +31,12 @@ import {
   ArrowRightLeft,
   CalendarOff,
   QrCode,
+  Volume2,
+  ClipboardList,
+  FileText,
+  UserCog,
+  Fingerprint,
+  BadgeCheck,
 } from "lucide-react";
 
 /* ── Custom SVG icon backgrounds — replaces emoji ─────────────────── */
@@ -384,6 +390,83 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     </li>
                   ))}
                 </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ADDITIONAL FEATURES ── */}
+      <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">Đầy đủ cho cả một phòng nhân sự</h2>
+            <p className="text-gray-500 text-base max-w-xl mx-auto">Ngoài chấm công và lương, Timio còn xử lý những công việc HR mà trước đây cần người làm thủ công.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                icon: Users,
+                title: "Cổng thông tin nhân viên",
+                desc: "Nhân viên tự tra lịch sử chấm công, xem phiếu lương từng tháng, gửi yêu cầu điều chỉnh — không cần hỏi kế toán.",
+                tag: "Tất cả gói",
+              },
+              {
+                icon: ClipboardList,
+                title: "Điều chỉnh chấm công",
+                desc: "Nhân viên gửi yêu cầu sửa giờ vào/ra. Admin duyệt hoặc từ chối trực tiếp trên dashboard — có log lịch sử rõ ràng.",
+                tag: "Tất cả gói",
+              },
+              {
+                icon: MapPin,
+                title: "Xác minh vị trí GPS",
+                desc: "Giới hạn chấm công trong bán kính cho phép quanh văn phòng. Ngăn nhân viên check-in từ nhà hoặc nơi khác.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: Volume2,
+                title: "Phản hồi giọng nói tiếng Việt",
+                desc: "Kiosk tự đọc tên nhân viên và trạng thái bằng giọng nói: \"Nguyễn Minh Tuấn, đúng giờ!\" — không cần ai đứng chờ.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: FileText,
+                title: "Quản lý hợp đồng lao động",
+                desc: "Lưu trữ hợp đồng theo loại: thử việc, xác định thời hạn, không xác định thời hạn. Xem, in, quản lý ngay trong dashboard.",
+                tag: "Business",
+              },
+              {
+                icon: Calculator,
+                title: "Tính BHXH & TNCN tự động",
+                desc: "Tự động tính bảo hiểm xã hội, bảo hiểm y tế và thuế thu nhập cá nhân theo đúng quy định hiện hành của Việt Nam.",
+                tag: "Business",
+              },
+              {
+                icon: UserCog,
+                title: "Phân quyền nhóm quản lý",
+                desc: "Manager chỉ xem được chi nhánh mình phụ trách. Kế toán xem lương nhưng không sửa được chấm công. Chủ tài khoản toàn quyền.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: CalendarOff,
+                title: "Quản lý ngày lễ tự động",
+                desc: "Thiết lập ngày lễ quốc gia và ngày lễ riêng công ty. Hệ thống tự áp dụng vào tính lương, báo cáo — không cần nhập tay.",
+                tag: "Pro · Business",
+              },
+            ].map((f) => (
+              <div key={f.title} className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow group">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <f.icon size={18} className="text-blue-600" strokeWidth={1.5} />
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border leading-tight ${
+                    f.tag === "Business" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                    f.tag === "Pro · Business" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                    "bg-gray-50 text-gray-500 border-gray-200"
+                  }`}>{f.tag}</span>
+                </div>
+                <h3 className="font-bold text-gray-900 text-sm mb-1.5">{f.title}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -896,6 +979,150 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
         </div>
       </section>
 
+      {/* ── PLAN COMPARISON TABLE ── */}
+      <section className="py-20 px-4 bg-gray-50">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">So sánh tính năng theo gói</h2>
+            <p className="text-gray-500 text-lg">Xem chính xác tính năng nào có trong gói nào — không có gì ẩn.</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            {/* Table header */}
+            <div className="grid grid-cols-4 border-b border-gray-200">
+              <div className="p-4 bg-gray-50" />
+              <div className="p-4 text-center border-l border-gray-100 bg-gray-50">
+                <div className="text-sm font-bold text-gray-700">Starter</div>
+                <div className="text-xs text-gray-400 mt-0.5">Miễn phí mãi mãi</div>
+              </div>
+              <div className="p-4 text-center border-l border-blue-100 bg-blue-50">
+                <div className="text-sm font-bold text-blue-700">Pro</div>
+                <div className="text-xs text-blue-500 mt-0.5">299.000đ/tháng</div>
+              </div>
+              <div className="p-4 text-center border-l border-purple-200 bg-purple-900">
+                <div className="text-sm font-bold text-white">Business</div>
+                <div className="text-xs text-purple-300 mt-0.5">799.000đ/tháng</div>
+              </div>
+            </div>
+
+            {/* Category: Quy mô */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Quy mô</div>
+            </div>
+            {[
+              { label: "Số nhân viên", starter: "≤ 5", pro: "≤ 20", biz: "≤ 100" },
+              { label: "Số chi nhánh", starter: "1", pro: "3", biz: "20" },
+              { label: "Số người dùng quản lý", starter: "1", pro: "3", biz: "Không giới hạn" },
+              { label: "Lưu dữ liệu chấm công", starter: "90 ngày", pro: "1 năm", biz: "3 năm" },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-xs text-center border-l border-gray-100 text-gray-600 font-semibold">{r.starter}</div>
+                <div className="px-4 py-2.5 text-xs text-center border-l border-blue-50 text-blue-700 font-semibold bg-blue-50/40">{r.pro}</div>
+                <div className="px-4 py-2.5 text-xs text-center border-l border-purple-100 text-purple-200 font-semibold bg-purple-900/90">{r.biz}</div>
+              </div>
+            ))}
+
+            {/* Category: Chấm công */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Chấm công & Kiosk</div>
+            </div>
+            {[
+              { label: "Chấm công PIN", starter: true, pro: true, biz: true },
+              { label: "Chấm công khuôn mặt AI", starter: false, pro: true, biz: true },
+              { label: "QR code check-in (điện thoại cá nhân)", starter: false, pro: true, biz: true },
+              { label: "Phản hồi giọng nói tiếng Việt (TTS)", starter: false, pro: true, biz: true },
+              { label: "Xác minh vị trí GPS", starter: false, pro: true, biz: true },
+              { label: "Tin nhắn kiosk tùy chỉnh", starter: false, pro: true, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+
+            {/* Category: Lương */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Lương & Báo cáo</div>
+            </div>
+            {[
+              { label: "Báo cáo tháng cơ bản + xuất Excel", starter: true, pro: true, biz: true },
+              { label: "Quy tắc phạt/thưởng linh hoạt", starter: true, pro: true, biz: true },
+              { label: "Tính lương tháng 13 tự động", starter: false, pro: true, biz: true },
+              { label: "Phiếu lương chi tiết từng nhân viên", starter: false, pro: true, biz: true },
+              { label: "Tính BHXH & TNCN tự động", starter: false, pro: false, biz: true },
+              { label: "Báo cáo so sánh đa chi nhánh", starter: false, pro: false, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+
+            {/* Category: Nhân viên */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Quản lý nhân viên & Hồ sơ</div>
+            </div>
+            {[
+              { label: "Cổng thông tin nhân viên tự tra cứu", starter: true, pro: true, biz: true },
+              { label: "Điều chỉnh chấm công có phê duyệt", starter: true, pro: true, biz: true },
+              { label: "Import từ Tanca / Amis / Base HRM", starter: false, pro: true, biz: true },
+              { label: "Quản lý hợp đồng lao động", starter: false, pro: false, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+
+            {/* Category: Nghỉ phép */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Nghỉ phép & Điều chỉnh</div>
+            </div>
+            {[
+              { label: "Kiosk xin nghỉ phép (quét mặt xác thực)", starter: false, pro: true, biz: true },
+              { label: "5 loại phép: năm / ốm / không lương / thai sản / khác", starter: false, pro: true, biz: true },
+              { label: "Phê duyệt nghỉ phép trên điện thoại", starter: false, pro: true, biz: true },
+              { label: "Bàn giao công việc tự động trước khi nghỉ", starter: false, pro: true, biz: true },
+              { label: "Phiếu nghỉ phép A4 + chữ ký số + dấu công ty", starter: false, pro: false, biz: true },
+              { label: "Quản lý ngày lễ quốc gia & lễ riêng công ty", starter: false, pro: true, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+
+            {/* Category: Thông báo & Tích hợp */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Thông báo & Tích hợp</div>
+            </div>
+            {[
+              { label: "Thông báo Email", starter: true, pro: true, biz: true },
+              { label: "Cảnh báo Telegram tức thì", starter: false, pro: true, biz: true },
+              { label: "Thông báo Zalo OA", starter: false, pro: true, biz: true },
+              { label: "Phân quyền nhóm (Manager / Kế toán)", starter: false, pro: true, biz: true },
+              { label: "Phân quyền theo chi nhánh", starter: false, pro: false, biz: true },
+              { label: "Hỗ trợ ưu tiên (phản hồi trong 4h)", starter: false, pro: false, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── PRICING ── */}
       <section id="pricing" className="py-20 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
@@ -914,12 +1141,12 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <p className="text-xs text-gray-400 mb-6">mãi mãi miễn phí</p>
                 <ul className="space-y-2.5 mb-4">
                   {[
-                    "5 nhân viên · 1 chi nhánh",
-                    "1 người dùng (chỉ chủ tài khoản)",
+                    "5 nhân viên · 1 chi nhánh · 1 quản lý",
                     "Chấm công PIN",
-                    "Báo cáo cơ bản",
-                    "Lưu 90 ngày",
-                    "Thông báo Email ✓",
+                    "Cổng nhân viên tự tra cứu",
+                    "Điều chỉnh chấm công",
+                    "Báo cáo tháng + xuất Excel",
+                    "Lưu 90 ngày · Email alert",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
                       <CheckCircle2 size={13} className="text-green-500 shrink-0" /> {f}
@@ -927,9 +1154,13 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   ))}
                 </ul>
                 <ul className="space-y-2 mb-6">
-                  {["Telegram", "Zalo"].map((f) => (
+                  {[
+                    "Chấm công khuôn mặt AI",
+                    "Quản lý nghỉ phép",
+                    "Telegram / Zalo alert",
+                  ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-gray-300">
-                      <XCircle size={13} className="shrink-0" /> Thông báo {f}
+                      <XCircle size={13} className="shrink-0" /> {f}
                     </li>
                   ))}
                 </ul>
@@ -954,16 +1185,21 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <div className="text-xs text-green-600 font-semibold mb-5">✨ Thành viên mới: 150.000đ × 2 tháng đầu</div>
                 <ul className="space-y-2.5 mb-6">
                   {[
-                    "20 nhân viên · 3 chi nhánh",
-                    "3 người dùng (chủ + 2 thành viên)",
-                    "Chấm công khuôn mặt AI",
-                    "Quản lý nghỉ phép (kiosk + phiếu duyệt)",
+                    "20 nhân viên · 3 chi nhánh · 3 quản lý",
+                    "Chấm công khuôn mặt AI + QR code",
+                    "GPS xác minh vị trí",
+                    "Phản hồi giọng nói tiếng Việt",
+                    "Cổng nhân viên đầy đủ (lịch sử + phiếu lương)",
+                    "Quản lý nghỉ phép (kiosk + phê duyệt)",
+                    "5 loại phép · bàn giao công việc",
+                    "Điều chỉnh chấm công có phê duyệt",
+                    "Phân quyền nhóm (Manager / Kế toán)",
                     "Tính lương tháng 13 tự động",
+                    "Quản lý ngày lễ",
                     "Import từ Tanca / Amis / Base HRM",
                     "Báo cáo đầy đủ + xuất Excel",
                     "Lưu dữ liệu 1 năm",
                     "Thông báo Email + Telegram + Zalo ✓",
-                    "Hỗ trợ qua email",
                   ].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-gray-700">
                       <CheckCircle2 size={13} className="text-blue-500 shrink-0" /> {f}
@@ -988,11 +1224,13 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <p className="text-xs text-slate-500 mb-5">~26.600đ/ngày · ~8.000đ/nhân viên</p>
                 <ul className="space-y-2.5 mb-6">
                   {[
-                    "100 nhân viên · 20 chi nhánh",
-                    "Không giới hạn người dùng quản lý",
+                    "100 nhân viên · 20 chi nhánh · không giới hạn quản lý",
                     "Tất cả tính năng Pro",
-                    "Phiếu duyệt A4 có chữ ký số + dấu công ty",
-                    "Báo cáo nâng cao + so sánh chi nhánh",
+                    "Phiếu nghỉ phép A4 + chữ ký số + dấu công ty",
+                    "Quản lý hợp đồng lao động",
+                    "Tính BHXH & TNCN tự động",
+                    "Báo cáo nâng cao + so sánh đa chi nhánh",
+                    "Phân quyền chi nhánh (manager chỉ thấy chi nhánh mình)",
                     "Lưu dữ liệu 3 năm",
                     "Thông báo Email + Telegram + Zalo ✓",
                     "Hỗ trợ ưu tiên (phản hồi trong 4h)",
