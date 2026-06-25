@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     // PIN stored as plain text (4-digit kiosk PIN, not a real password)
-    const plainPin = pin && /^\d{4,6}$/.test(pin) ? pin : "0000";
+    const plainPin = pin && /^\d{4}$/.test(pin) ? pin : "0000";
 
     const employee = await prisma.employee.create({
       data: {

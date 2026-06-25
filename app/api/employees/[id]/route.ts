@@ -32,7 +32,7 @@ export async function PATCH(
       bankBranch: bankBranch !== undefined ? (bankBranch || null) : undefined,
     };
 
-    if (pin && /^\d{4,6}$/.test(pin)) {
+    if (pin && /^\d{4}$/.test(pin)) {
       data.pin = pin;
     }
 

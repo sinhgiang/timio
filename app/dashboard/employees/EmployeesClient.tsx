@@ -683,9 +683,9 @@ export default function EmployeesClient({
                       <input
                         type="text"
                         value={form.pin}
-                        onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "").slice(0, 6) })}
-                        placeholder={editingId ? "Để trống = giữ PIN cũ" : "4–6 số (VD: 1234)"}
-                        maxLength={6}
+                        onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                        placeholder={editingId ? "Để trống = giữ PIN cũ" : "4 số (VD: 1234)"}
+                        maxLength={4}
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                       <p className="text-xs text-gray-400 mt-1">Nhân viên dùng để đăng nhập tại timio.vn/employee/{"{slug}"}</p>
@@ -1176,11 +1176,11 @@ export default function EmployeesClient({
                   {/* Col 3: PIN + Khuôn mặt */}
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-3">
-                      {/* PIN */}
-                      <div className="text-center">
+                      {/* PIN — fixed width so column stays aligned */}
+                      <div className="text-center w-12">
                         <p className="text-[10px] text-gray-400 mb-0.5">PIN</p>
                         {emp.pin && !/^\$2[ab]\$/.test(emp.pin) ? (
-                          <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{emp.pin}</span>
+                          <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded tracking-widest">{emp.pin}</span>
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}
