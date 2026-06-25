@@ -29,6 +29,11 @@ export async function POST(req: NextRequest) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  if (!company || company.plan !== "business") {
+    return NextResponse.json({ error: "Tính năng Hợp đồng lao động chỉ có trong gói Business" }, { status: 403 });
+  }
+
   const { employeeId, type, startDate, endDate, note, fileUrl, fileName } = await req.json();
   if (!employeeId || !type || !startDate) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });

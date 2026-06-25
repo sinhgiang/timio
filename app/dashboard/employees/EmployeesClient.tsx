@@ -1226,13 +1226,15 @@ export default function EmployeesClient({
                       >
                         <Eye size={14} />
                       </button>
-                      <button
-                        onClick={() => setContractTarget({ id: emp.id, name: emp.name })}
-                        className="px-2.5 py-1.5 text-[11px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-100 transition-colors"
-                        title="Hợp đồng"
-                      >
-                        HĐ
-                      </button>
+                      <PlanGate requiredPlan="business" feature="Hợp đồng lao động" mode="inline">
+                        <button
+                          onClick={() => setContractTarget({ id: emp.id, name: emp.name })}
+                          className="px-2.5 py-1.5 text-[11px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-100 transition-colors"
+                          title="Hợp đồng"
+                        >
+                          HĐ
+                        </button>
+                      </PlanGate>
                       <button
                         onClick={() => handleEdit(emp)}
                         className="px-2.5 py-1.5 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-100 transition-colors"

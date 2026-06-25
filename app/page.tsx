@@ -1051,7 +1051,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
               { label: "Quy tắc phạt/thưởng linh hoạt", starter: true, pro: true, biz: true },
               { label: "Tính lương tháng 13 tự động", starter: false, pro: true, biz: true },
               { label: "Phiếu lương chi tiết từng nhân viên", starter: false, pro: true, biz: true },
-              { label: "Tính BHXH & TNCN tự động", starter: false, pro: false, biz: true },
+              { label: "Tính BHXH & TNCN tự động", starter: false, pro: true, biz: true },
               { label: "Báo cáo so sánh đa chi nhánh", starter: false, pro: false, biz: true },
             ].map((r, i) => (
               <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
