@@ -1337,8 +1337,9 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const rewardDays = (stats?.converted ?? 0) * 30;
   const companies = stats?.companies ?? [];
+  // Tính thẳng từ danh sách để UI và logic luôn khớp nhau
+  const rewardDays = companies.filter((c) => c.plan === "pro" || c.plan === "business").length * 30;
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 mt-4">
@@ -1369,29 +1370,34 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
         </button>
       </div>
 
-      {/* Stats — tách rõ từng nhóm gói */}
+      {/* Stats — mỗi gói một ô riêng */}
       {(() => {
         const countFree = companies.filter((c) => c.plan === "starter").length;
         const countPro  = companies.filter((c) => c.plan === "pro").length;
         const countBiz  = companies.filter((c) => c.plan === "business").length;
-        const countPaid = countPro + countBiz;
+        // Thưởng: mỗi công ty mua Pro hoặc Business lần đầu → +30 ngày
+        // rewardDays đã tính đúng = (pro + biz) * 30 ở trên
         return (
-          <div className="grid grid-cols-4 gap-2 mb-5">
+          <div className="grid grid-cols-5 gap-2 mb-5">
             <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
-              <p className="text-2xl font-bold text-gray-700">{companies.length}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Tổng đăng ký</p>
+              <p className="text-xl font-bold text-gray-700">{companies.length}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 font-medium">Tổng</p>
             </div>
             <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-100">
-              <p className="text-2xl font-bold text-orange-500">{countFree}</p>
-              <p className="text-xs text-orange-400 mt-0.5">Gói miễn phí</p>
+              <p className="text-xl font-bold text-orange-500">{countFree}</p>
+              <p className="text-[10px] text-orange-400 mt-0.5 font-medium">Miễn phí</p>
             </div>
             <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
-              <p className="text-2xl font-bold text-blue-700">{countPaid}</p>
-              <p className="text-xs text-blue-500 mt-0.5">Đã mua gói</p>
+              <p className="text-xl font-bold text-blue-700">{countPro}</p>
+              <p className="text-[10px] text-blue-500 mt-0.5 font-medium">Gói Pro</p>
+            </div>
+            <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-100">
+              <p className="text-xl font-bold text-purple-700">{countBiz}</p>
+              <p className="text-[10px] text-purple-500 mt-0.5 font-medium">Business</p>
             </div>
             <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
-              <p className="text-2xl font-bold text-green-700">+{rewardDays}</p>
-              <p className="text-xs text-green-600 mt-0.5">Ngày thưởng</p>
+              <p className="text-xl font-bold text-green-700">+{rewardDays}</p>
+              <p className="text-[10px] text-green-600 mt-0.5 font-medium">Ngày thưởng</p>
             </div>
           </div>
         );
