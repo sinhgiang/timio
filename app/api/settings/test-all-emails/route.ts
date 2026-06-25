@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -10,20 +10,35 @@ import {
   adminPaymentNotifyEmail,
 } from "@/lib/emailTemplates";
 
-export async function POST() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function POST(req: NextRequest) {
+  // Allow both: session auth (from dashboard) OR CRON_SECRET bearer (for CLI/testing)
+  const authHeader = req.headers.get("authorization");
+  const isCronAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+  let to: string;
+  let companyName: string;
+  let slug: string;
+
+  if (isCronAuth) {
+    // Called via bearer token — send to ADMIN_NOTIFY_EMAIL
+    to = process.env.ADMIN_NOTIFY_EMAIL ?? "";
+    if (!to) return NextResponse.json({ error: "ADMIN_NOTIFY_EMAIL not set" }, { status: 503 });
+    companyName = "Demo Company";
+    slug = "demo";
+  } else {
+    // Called from dashboard — use session
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const company = await prisma.company.findFirst({
+      where: { admins: { some: { email: session.user.email } } },
+      select: { name: true, slug: true, plan: true },
+    });
+    to = session.user.email;
+    companyName = company?.name ?? "Demo Company";
+    slug = company?.slug ?? "demo";
   }
-
-  const company = await prisma.company.findFirst({
-    where: { admins: { some: { email: session.user.email } } },
-    select: { name: true, slug: true, plan: true },
-  });
-
-  const to = session.user.email;
-  const companyName = company?.name ?? "Demo Company";
-  const slug = company?.slug ?? "demo";
   const now = new Date();
   const expiry = new Date(now);
   expiry.setMonth(expiry.getMonth() + 1);
