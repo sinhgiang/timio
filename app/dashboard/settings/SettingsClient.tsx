@@ -1369,38 +1369,64 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
         </button>
       </div>
 
-      {/* Stats 3 ô */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
-          <p className="text-2xl font-bold text-gray-800">{stats?.registered ?? 0}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Đã đăng ký</p>
-        </div>
-        <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
-          <p className="text-2xl font-bold text-blue-700">{stats?.converted ?? 0}</p>
-          <p className="text-xs text-blue-500 mt-0.5">Đã mua Pro</p>
-        </div>
-        <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
-          <p className="text-2xl font-bold text-green-700">+{rewardDays}</p>
-          <p className="text-xs text-green-600 mt-0.5">Ngày thưởng</p>
-        </div>
-      </div>
+      {/* Stats — tách rõ từng nhóm gói */}
+      {(() => {
+        const countFree = companies.filter((c) => c.plan === "starter").length;
+        const countPro  = companies.filter((c) => c.plan === "pro").length;
+        const countBiz  = companies.filter((c) => c.plan === "business").length;
+        const countPaid = countPro + countBiz;
+        return (
+          <div className="grid grid-cols-4 gap-2 mb-5">
+            <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+              <p className="text-2xl font-bold text-gray-700">{companies.length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Tổng đăng ký</p>
+            </div>
+            <div className="bg-orange-50 rounded-xl p-3 text-center border border-orange-100">
+              <p className="text-2xl font-bold text-orange-500">{countFree}</p>
+              <p className="text-xs text-orange-400 mt-0.5">Gói miễn phí</p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+              <p className="text-2xl font-bold text-blue-700">{countPaid}</p>
+              <p className="text-xs text-blue-500 mt-0.5">Đã mua gói</p>
+            </div>
+            <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
+              <p className="text-2xl font-bold text-green-700">+{rewardDays}</p>
+              <p className="text-xs text-green-600 mt-0.5">Ngày thưởng</p>
+            </div>
+          </div>
+        );
+      })()}
 
-      {/* Danh sách công ty được giới thiệu */}
+      {/* Danh sách công ty — hiện rõ từng gói */}
       {companies.length > 0 ? (
         <div>
-          <p className="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wide">Công ty đã đăng ký qua link của bạn</p>
+          <p className="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wide">Danh sách công ty đăng ký qua link của bạn</p>
           <div className="border border-gray-100 rounded-xl overflow-hidden">
+            {/* Header row */}
+            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              <span>Công ty</span>
+              <span className="text-center w-28">Gói đang dùng</span>
+              <span className="text-right w-24">Thưởng của bạn</span>
+            </div>
             {companies.map((c, i) => {
-              const isPro = c.plan === "pro" || c.plan === "business";
               const date = new Date(c.joinedAt).toLocaleDateString("vi-VN");
+              const planBadge = (() => {
+                if (c.plan === "business") return { label: "Business", cls: "bg-purple-100 text-purple-700" };
+                if (c.plan === "pro")      return { label: "Pro",      cls: "bg-blue-100 text-blue-700" };
+                return                           { label: "Miễn phí",  cls: "bg-gray-100 text-gray-500" };
+              })();
+              const hasPaid = c.plan === "pro" || c.plan === "business";
               return (
-                <div key={c.slug} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? "border-t border-gray-50" : ""} ${isPro ? "bg-green-50/40" : "bg-white"}`}>
+                <div key={c.slug} className={`grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-3 ${i > 0 ? "border-t border-gray-50" : ""} ${hasPaid ? "bg-green-50/30" : "bg-white"}`}>
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{c.name}</p>
-                    <p className="text-xs text-gray-400">{date}</p>
+                    <p className="text-sm font-semibold text-gray-800">{c.name}</p>
+                    <p className="text-xs text-gray-400">Đăng ký {date}</p>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${isPro ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                    {isPro ? "✓ Đã mua Pro — bạn +30 ngày" : "Mới đăng ký"}
+                  <span className={`w-28 text-center text-[11px] font-bold px-2.5 py-1 rounded-full ${planBadge.cls}`}>
+                    {planBadge.label}
+                  </span>
+                  <span className={`w-24 text-right text-xs font-semibold ${hasPaid ? "text-green-600" : "text-gray-300"}`}>
+                    {hasPaid ? "+30 ngày ✓" : "Chờ nâng cấp"}
                   </span>
                 </div>
               );
@@ -1411,6 +1437,12 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
               <Users size={14} />
               Tổng cộng bạn đã nhận <strong className="mx-1">+{rewardDays} ngày Pro</strong> từ giới thiệu!
             </div>
+          )}
+          {companies.some((c) => c.plan === "starter") && (
+            <p className="text-xs text-orange-500 mt-2">
+              {companies.filter((c) => c.plan === "starter").length} công ty đang dùng gói miễn phí —
+              khi họ nâng cấp lên Pro, bạn sẽ tự động nhận thêm ngày thưởng.
+            </p>
           )}
         </div>
       ) : (
