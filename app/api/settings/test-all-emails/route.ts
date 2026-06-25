@@ -108,7 +108,9 @@ export async function POST(req: NextRequest) {
     },
   ];
 
-  for (const job of jobs) {
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i];
+    if (i > 0) await new Promise((r) => setTimeout(r, 3000)); // 3s delay giữa các email
     try {
       await sendEmail({ to: job.to, subject: job.subject, html: job.html });
       results.push({ type: job.type, status: "✅ Gửi thành công" });
