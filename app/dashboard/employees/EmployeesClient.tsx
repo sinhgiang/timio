@@ -4,10 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye } from "lucide-react";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
 const ContractModal = dynamic(() => import("@/components/employees/ContractModal"), { ssr: false });
+const EmployeeProfileModal = dynamic(() => import("@/components/employees/EmployeeProfileModal"), { ssr: false });
 
 // ─── Shift presets ─────────────────────────────────────────────────────────────
 
@@ -137,6 +138,7 @@ export default function EmployeesClient({
   const [loading, setLoading] = useState(false);
   const [faceTarget, setFaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [contractTarget, setContractTarget] = useState<{ id: string; name: string } | null>(null);
+  const [profileTarget, setProfileTarget] = useState<Employee | null>(null);
   const [localBranches, setLocalBranches] = useState<Branch[]>(branches);
   const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
   const [localPositions, setLocalPositions] = useState<string[]>(allPositions);
@@ -482,6 +484,9 @@ export default function EmployeesClient({
       )}
       {contractTarget && (
         <ContractModal employeeId={contractTarget.id} employeeName={contractTarget.name} onClose={() => setContractTarget(null)} />
+      )}
+      {profileTarget && (
+        <EmployeeProfileModal employee={profileTarget} onClose={() => setProfileTarget(null)} />
       )}
 
       <div className="flex items-center justify-between mb-6">
@@ -1211,6 +1216,13 @@ export default function EmployeesClient({
                   {/* Col 4: Thao tác */}
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setProfileTarget(emp)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Xem hồ sơ"
+                      >
+                        <Eye size={14} />
+                      </button>
                       <button
                         onClick={() => setContractTarget({ id: emp.id, name: emp.name })}
                         className="px-2.5 py-1.5 text-[11px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-100 transition-colors"
