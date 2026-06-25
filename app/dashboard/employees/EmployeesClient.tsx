@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace } from "lucide-react";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
 const ContractModal = dynamic(() => import("@/components/employees/ContractModal"), { ssr: false });
@@ -1191,12 +1191,18 @@ export default function EmployeesClient({
                       <div className="text-center">
                         <p className="text-[10px] text-gray-400 mb-0.5">Khuôn mặt</p>
                         {emp.hasFace ? (
-                          <div className="flex items-center gap-1">
-                            <span className="text-green-600 text-xs font-medium">✅</span>
-                            <button onClick={() => handleDeleteFace(emp.id, emp.name)} className="text-gray-300 hover:text-red-400 text-xs" title="Xóa khuôn mặt">×</button>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                              <CheckCircle2 size={13} className="text-green-600" strokeWidth={2} />
+                            </div>
+                            <button onClick={() => handleDeleteFace(emp.id, emp.name)} className="text-gray-300 hover:text-red-400" title="Xóa khuôn mặt">
+                              <X size={12} strokeWidth={2} />
+                            </button>
                           </div>
                         ) : (
-                          <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium hover:bg-blue-100 border border-blue-200">📷 Đăng ký</button>
+                          <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-medium hover:bg-blue-100 border border-blue-100 transition-colors">
+                            <ScanFace size={11} strokeWidth={1.5} /> Đăng ký
+                          </button>
                         )}
                       </div>
                     </div>
