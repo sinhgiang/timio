@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import BranchQRCard from "@/components/settings/BranchQRCard";
+import PlanGate from "@/components/ui/PlanGate";
 import {
   Monitor,
   Building2,
@@ -1019,7 +1020,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       )}
 
       {/* ── Telegram Notifications ── */}
-      <div className="mt-8 border-t border-gray-100 pt-6">
+      <PlanGate requiredPlan="pro" feature="Thông báo Telegram" className="mt-8">
+      <div className="border-t border-gray-100 pt-6">
         <div className="flex items-center gap-2 mb-1">
           <MessageSquare size={20} className="text-blue-500" />
           <h2 className="text-base font-bold text-gray-800">Thông báo Telegram</h2>
@@ -1102,9 +1104,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
         </div>
       </div>
+      </PlanGate>
 
       {/* ── Zalo OA ── */}
-      <div className="mt-8 border-t border-gray-100 pt-6">
+      <PlanGate requiredPlan="pro" feature="Thông báo Zalo OA" className="mt-8">
+      <div className="border-t border-gray-100 pt-6">
         <div className="flex items-center gap-2 mb-1">
           <MessageSquare size={20} className="text-blue-500" />
           <h2 className="text-base font-bold text-gray-800">Thông báo Zalo</h2>
@@ -1144,6 +1148,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
         </div>
       </div>
+      </PlanGate>
 
       {/* ── Email Notifications ── */}
       <div className="mt-8 border-t border-gray-100 pt-6">
@@ -1176,7 +1181,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       </div>
 
       {/* ── Kiosk Messages ── */}
-      <div className="mt-8 border-t border-gray-100 pt-6">
+      <PlanGate requiredPlan="pro" feature="Tùy chỉnh lời chào kiosk" className="mt-8">
+      <div className="border-t border-gray-100 pt-6">
         <div className="flex items-center gap-2 mb-1">
           <Monitor size={20} className="text-indigo-500" />
           <h2 className="text-base font-bold text-gray-800">Lời chào trên màn hình kiosk</h2>
@@ -1218,9 +1224,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           )}
         </div>
       </div>
+      </PlanGate>
 
       {/* ── Chữ ký & Dấu công ty ── */}
-      <div className="mt-8 border-t border-gray-100 pt-6 mb-6">
+      <PlanGate requiredPlan="business" feature="Chữ ký số & Dấu công ty" className="mt-8">
+      <div className="border-t border-gray-100 pt-6 mb-6">
         <div className="flex items-center gap-2 mb-1">
           <PenLine size={20} className="text-purple-500" />
           <h2 className="text-base font-bold text-gray-800">Chữ ký &amp; Dấu công ty</h2>
@@ -1285,6 +1293,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
         </div>
       </div>
+      </PlanGate>
 
       {/* ── ĐỔI MẬT KHẨU ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">

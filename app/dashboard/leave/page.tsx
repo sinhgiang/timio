@@ -2,11 +2,30 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import LeaveClient from "./LeaveClient";
+import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 
 export default async function LeavePage() {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return null;
+
+  const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  if (!planRow || planRow.plan === "starter") {
+    return (
+      <PlanUpgradePage
+        requiredPlan="pro"
+        feature="Quản lý nghỉ phép"
+        description="Nhân viên xin nghỉ ngay tại kiosk bằng nhận diện khuôn mặt. Admin phê duyệt trên điện thoại và in phiếu nghỉ phép A4 chuyên nghiệp."
+        bullets={[
+          "Kiosk xin nghỉ phép có xác thực khuôn mặt",
+          "5 loại phép: năm / ốm / không lương / thai sản / khác",
+          "Phê duyệt hoặc từ chối ngay trên dashboard",
+          "Bàn giao công việc tự động trước khi nghỉ",
+          "Tự động trừ số ngày phép còn lại",
+        ]}
+      />
+    );
+  }
 
   const [company, requests] = await Promise.all([
     prisma.company.findUnique({

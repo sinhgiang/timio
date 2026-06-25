@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import PayslipListClient from "./PayslipListClient";
 import { calculateTax } from "@/lib/taxCalculator";
+import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,23 @@ export default async function PayslipPage({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) redirect("/login");
+
+  const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  if (!planRow || planRow.plan === "starter") {
+    return (
+      <PlanUpgradePage
+        requiredPlan="pro"
+        feature="Phiếu lương chi tiết"
+        description="Xem phiếu lương đầy đủ từng nhân viên — ngày công, phạt/thưởng, tăng ca, BHXH. Nhân viên cũng tự xem được qua cổng thông tin cá nhân."
+        bullets={[
+          "Phiếu lương chi tiết từng nhân viên mỗi tháng",
+          "Tính tự động: ngày công, phạt trễ, thưởng KPI, tăng ca",
+          "Nhân viên tự tra cứu phiếu lương qua cổng thông tin",
+          "Xuất Excel tổng hợp toàn bộ nhân viên 1 click",
+        ]}
+      />
+    );
+  }
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

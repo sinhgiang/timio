@@ -8,6 +8,7 @@ import UpsellChecker from "@/components/dashboard/UpsellChecker";
 import CompanySetupModal from "@/components/dashboard/CompanySetupModal";
 import ImpersonationBanner from "@/components/dashboard/ImpersonationBanner";
 import PlanExpiryBanner from "@/components/dashboard/PlanExpiryBanner";
+import { PlanProvider } from "@/context/PlanContext";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -53,19 +54,24 @@ export default async function DashboardLayout({
     daysLeft <= 14 &&
     daysLeft > 0;
 
+  const currentPlan = companyPlan?.plan ?? "starter";
+  const planExpires = companyPlan?.planExpires?.toISOString() ?? null;
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      <UpsellChecker />
-      {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
-      {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
-      <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} plan={companyPlan?.plan ?? "starter"} planExpires={companyPlan?.planExpires?.toISOString() ?? null} />
-      <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner ? "md:pt-10" : ""}`}>{children}</main>
-      <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
-      <CompanySetupModal
-        needsSetup={needsSetup}
-        userEmail={session.user?.email ?? ""}
-        userName={session.user?.name ?? ""}
-      />
-    </div>
+    <PlanProvider plan={currentPlan} planExpires={planExpires}>
+      <div className="flex h-screen bg-gray-50">
+        <UpsellChecker />
+        {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
+        {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
+        <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} plan={currentPlan} planExpires={planExpires} />
+        <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner ? "md:pt-10" : ""}`}>{children}</main>
+        <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
+        <CompanySetupModal
+          needsSetup={needsSetup}
+          userEmail={session.user?.email ?? ""}
+          userName={session.user?.name ?? ""}
+        />
+      </div>
+    </PlanProvider>
   );
 }

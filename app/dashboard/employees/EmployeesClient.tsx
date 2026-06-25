@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock } from "lucide-react";
+import PlanGate from "@/components/ui/PlanGate";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
 const ContractModal = dynamic(() => import("@/components/employees/ContractModal"), { ssr: false });
@@ -497,12 +498,14 @@ export default function EmployeesClient({
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => { setShowImport(true); setImportBranchId(branches[0]?.id ?? ""); setImportRows([]); setImportResult(null); }}
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
-          >
-            <Upload size={14} /> Import Excel
-          </button>
+          <PlanGate requiredPlan="pro" feature="Import Excel" mode="inline">
+            <button
+              onClick={() => { setShowImport(true); setImportBranchId(branches[0]?.id ?? ""); setImportRows([]); setImportResult(null); }}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+            >
+              <Upload size={14} /> Import Excel
+            </button>
+          </PlanGate>
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -1205,9 +1208,11 @@ export default function EmployeesClient({
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-medium hover:bg-blue-100 border border-blue-100 transition-colors">
-                            <ScanFace size={11} strokeWidth={1.5} /> Đăng ký
-                          </button>
+                          <PlanGate requiredPlan="pro" feature="Nhận diện khuôn mặt AI" mode="inline">
+                            <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-medium hover:bg-blue-100 border border-blue-100 transition-colors">
+                              <ScanFace size={11} strokeWidth={1.5} /> Đăng ký
+                            </button>
+                          </PlanGate>
                         )}
                       </div>
                     </div>
