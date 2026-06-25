@@ -53,7 +53,7 @@ interface Props {
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
-  referralStats?: { registered: number; converted: number };
+  referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] };
 }
 
 const REWARD_CONDITIONS = [
@@ -74,7 +74,7 @@ interface HolidayProps extends Props {
   holidays: Holiday[];
 }
 
-export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number } }) {
+export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] } }) {
   const router = useRouter();
   const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
   const [loading, setLoading] = useState(false);
@@ -1325,7 +1325,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   );
 }
 
-function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: number; converted: number } }) {
+function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] } }) {
   const [copied, setCopied] = useState(false);
   const referralLink = typeof window !== "undefined"
     ? `${window.location.origin}/register?ref=${slug}`
@@ -1338,6 +1338,7 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
   };
 
   const rewardDays = (stats?.converted ?? 0) * 30;
+  const companies = stats?.companies ?? [];
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 mt-4">
@@ -1346,15 +1347,15 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
         <h2 className="text-base font-bold text-gray-800">Giới thiệu nhận thưởng</h2>
       </div>
 
-      {/* Explanation */}
+      {/* Cơ chế */}
       <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 mb-4 text-sm text-green-800 leading-relaxed">
-        Chia sẻ link dưới đây với bạn bè hoặc đồng nghiệp. Khi họ đăng ký và nâng cấp lên gói <strong>Pro</strong>,{" "}
-        <strong>cả hai bên đều được tặng thêm 30 ngày miễn phí</strong>.
+        Chia sẻ link của bạn với các doanh nghiệp khác. Khi họ đăng ký và <strong>nâng cấp lên Pro</strong> lần đầu tiên,
+        {" "}<strong>cả hai bên đều được tặng +30 ngày Pro miễn phí</strong> — tự động, không cần làm gì thêm.
       </div>
 
       {/* Referral link */}
       <p className="text-xs text-gray-500 font-medium mb-1.5 uppercase tracking-wide">Link giới thiệu của bạn</p>
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-5">
         <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 font-mono truncate select-all">
           {referralLink}
         </div>
@@ -1368,26 +1369,55 @@ function ReferralSection({ slug, stats }: { slug: string; stats?: { registered: 
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats 3 ô */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
           <p className="text-2xl font-bold text-gray-800">{stats?.registered ?? 0}</p>
           <p className="text-xs text-gray-500 mt-0.5">Đã đăng ký</p>
         </div>
         <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
           <p className="text-2xl font-bold text-blue-700">{stats?.converted ?? 0}</p>
-          <p className="text-xs text-blue-500 mt-0.5">Mua Pro</p>
+          <p className="text-xs text-blue-500 mt-0.5">Đã mua Pro</p>
         </div>
         <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
-          <p className="text-2xl font-bold text-green-700">{rewardDays}</p>
+          <p className="text-2xl font-bold text-green-700">+{rewardDays}</p>
           <p className="text-xs text-green-600 mt-0.5">Ngày thưởng</p>
         </div>
       </div>
 
-      {stats && stats.converted > 0 && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-          <Users size={14} />
-          Bạn đã giới thiệu thành công {stats.converted} công ty — được tặng <strong className="ml-1">{rewardDays} ngày Pro</strong>!
+      {/* Danh sách công ty được giới thiệu */}
+      {companies.length > 0 ? (
+        <div>
+          <p className="text-xs text-gray-500 font-medium mb-2 uppercase tracking-wide">Công ty đã đăng ký qua link của bạn</p>
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            {companies.map((c, i) => {
+              const isPro = c.plan === "pro" || c.plan === "business";
+              const date = new Date(c.joinedAt).toLocaleDateString("vi-VN");
+              return (
+                <div key={c.slug} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? "border-t border-gray-50" : ""} ${isPro ? "bg-green-50/40" : "bg-white"}`}>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{c.name}</p>
+                    <p className="text-xs text-gray-400">{date}</p>
+                  </div>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${isPro ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    {isPro ? "✓ Đã mua Pro — bạn +30 ngày" : "Mới đăng ký"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {rewardDays > 0 && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+              <Users size={14} />
+              Tổng cộng bạn đã nhận <strong className="mx-1">+{rewardDays} ngày Pro</strong> từ giới thiệu!
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-center py-5 border border-dashed border-gray-200 rounded-xl">
+          <Users size={24} className="text-gray-300 mx-auto mb-2" />
+          <p className="text-sm text-gray-500">Chưa có ai đăng ký qua link của bạn</p>
+          <p className="text-xs text-gray-400 mt-0.5">Copy link ở trên và chia sẻ để bắt đầu nhận thưởng</p>
         </div>
       )}
     </div>

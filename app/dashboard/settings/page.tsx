@@ -21,10 +21,15 @@ export default async function SettingsPage() {
   ]);
 
   const slug = company?.slug ?? "";
-  const [referralRegistered, referralConverted] = await Promise.all([
-    slug ? prisma.company.count({ where: { referredBy: slug } }) : Promise.resolve(0),
-    slug ? prisma.company.count({ where: { referredBy: slug, plan: { in: ["pro", "business"] } } }) : Promise.resolve(0),
-  ]);
+  const referredCompanies = slug
+    ? await prisma.company.findMany({
+        where: { referredBy: slug },
+        select: { name: true, slug: true, plan: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const referralRegistered = referredCompanies.length;
+  const referralConverted = referredCompanies.filter((c) => c.plan === "pro" || c.plan === "business").length;
 
   return (
     <SettingsClient
@@ -43,7 +48,7 @@ export default async function SettingsPage() {
       rewardRules={rewardRules}
       holidays={holidays}
       branches={branches}
-      referralStats={{ registered: referralRegistered, converted: referralConverted }}
+      referralStats={{ registered: referralRegistered, converted: referralConverted, companies: referredCompanies.map((c) => ({ name: c.name, slug: c.slug, plan: c.plan, joinedAt: c.createdAt.toISOString() })) }}
     />
   );
 }

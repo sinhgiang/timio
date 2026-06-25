@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { sendEmail } from "@/lib/email";
 
 function toSlug(str: string) {
   return str
@@ -78,6 +79,39 @@ export async function POST(req: NextRequest) {
       data: { companyId: company.id, name: "Văn phòng chính" },
     });
   });
+
+  // Gửi email thông báo cho người giới thiệu (non-blocking)
+  if (companyId && validReferredBy) {
+    void (async () => {
+      try {
+        const referrer = await prisma.company.findUnique({
+          where: { slug: validReferredBy },
+          include: { admins: { where: { role: "owner" }, select: { email: true, name: true }, take: 1 } },
+        });
+        const referrerAdmin = referrer?.admins[0];
+        if (referrerAdmin?.email) {
+          await sendEmail({
+            to: referrerAdmin.email,
+            subject: "Có người vừa đăng ký qua link giới thiệu của bạn!",
+            html: `
+              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+                <h2 style="color:#1d4ed8;margin-bottom:8px">Thông báo giới thiệu</h2>
+                <p>Xin chào <strong>${referrerAdmin.name}</strong>,</p>
+                <p>Công ty <strong>${companyName}</strong> vừa đăng ký Timio qua link giới thiệu của bạn.</p>
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0">
+                  <p style="margin:0;color:#166534;font-weight:600">Thưởng của bạn</p>
+                  <p style="margin:4px 0 0;color:#15803d">Khi họ nâng cấp lên gói Pro, bạn sẽ tự động nhận <strong>+30 ngày Pro miễn phí</strong>!</p>
+                </div>
+                <p style="color:#6b7280;font-size:13px">Xem danh sách giới thiệu tại: Cài đặt → Giới thiệu nhận thưởng</p>
+              </div>
+            `,
+          });
+        }
+      } catch {
+        // Non-fatal
+      }
+    })();
+  }
 
   // Mark affiliate click as converted (outside transaction so failure doesn't roll back registration)
   if (companyId && validAffiliateCode) {
