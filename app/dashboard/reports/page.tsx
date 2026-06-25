@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ReportsClient from "./ReportsClient";
+import { getRetentionCutoffDate, retentionLabel } from "@/lib/retention";
+import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 
 export default async function ReportsPage({
   searchParams,
@@ -12,9 +14,30 @@ export default async function ReportsPage({
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return null;
 
+  const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  const plan = planRow?.plan ?? "starter";
+
   const now = new Date();
   const year = Number(searchParams.year ?? now.getFullYear());
   const month = Number(searchParams.month ?? now.getMonth() + 1);
+
+  // Check if requested month is within the retention window for this plan
+  const requestedMonthStart = new Date(year, month - 1, 1);
+  const retentionCutoff = getRetentionCutoffDate(plan);
+  if (requestedMonthStart < retentionCutoff) {
+    return (
+      <PlanUpgradePage
+        requiredPlan={plan === "starter" ? "pro" : "business"}
+        feature={`Dữ liệu tháng ${month}/${year} đã hết hạn lưu trữ`}
+        description={`Gói ${plan === "starter" ? "Starter" : "Pro"} của bạn chỉ lưu dữ liệu trong ${retentionLabel(plan)} gần nhất. Dữ liệu tháng ${month}/${year} nằm ngoài khoảng thời gian này.`}
+        bullets={
+          plan === "starter"
+            ? ["Gói Pro lưu dữ liệu 1 năm", "Gói Business lưu dữ liệu 3 năm", "Nâng cấp để xem lại toàn bộ lịch sử"]
+            : ["Gói Business lưu dữ liệu 3 năm", "Xem báo cáo so sánh đa chi nhánh", "Nâng cấp để phục hồi dữ liệu lịch sử"]
+        }
+      />
+    );
+  }
 
   const monthPad = String(month).padStart(2, "0");
   const [employees, logs, leaveRequests] = await Promise.all([

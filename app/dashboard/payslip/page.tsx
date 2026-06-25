@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import PayslipListClient from "./PayslipListClient";
 import { calculateTax } from "@/lib/taxCalculator";
 import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
+import { getRetentionCutoffDate, retentionLabel } from "@/lib/retention";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,20 @@ export default async function PayslipPage({ searchParams }: Props) {
   const [yearStr, monStr] = monthStr.split("-");
   const year = parseInt(yearStr);
   const month = parseInt(monStr);
+
+  // Check retention window
+  const requestedMonthStart = new Date(year, month - 1, 1);
+  const retentionCutoff = getRetentionCutoffDate(planRow.plan);
+  if (requestedMonthStart < retentionCutoff) {
+    return (
+      <PlanUpgradePage
+        requiredPlan="business"
+        feature={`Phiếu lương tháng ${month}/${year} đã hết hạn lưu trữ`}
+        description={`Gói ${planRow.plan === "pro" ? "Pro" : "Starter"} lưu dữ liệu trong ${retentionLabel(planRow.plan)} gần nhất. Nâng cấp để xem lại phiếu lương lịch sử.`}
+        bullets={["Gói Business lưu dữ liệu 3 năm", "Phục hồi phiếu lương lịch sử khi nâng cấp"]}
+      />
+    );
+  }
 
   const [employees, company] = await Promise.all([
     prisma.employee.findMany({

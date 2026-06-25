@@ -1,25 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-// Advertised retention (shown to users on pricing page)
-const ADVERTISED_DAYS: Record<string, number> = {
-  starter: 90,
-  pro: 365,       // 1 year
-  business: 1095, // 3 years
-};
-
-// Actual deletion cutoff = advertised + 60-day grace buffer.
-// The buffer is invisible to users but allows data recovery if they
-// upgrade or contact support within 2 months after the advertised limit.
-// After the full window (advertised + 60 days), data is permanently deleted.
-const GRACE_DAYS = 60;
+import { getDeletionCutoffDate, ADVERTISED_DAYS, BUFFER_DAYS } from "@/lib/retention";
 
 /**
  * Vercel Cron: runs at 02:00 AM Vietnam time (19:00 UTC) every day.
- * Deletes AttendanceLog and resolved LeaveRequest records older than
- * the company's plan retention limit + 60-day grace buffer.
  *
- * Secured by CRON_SECRET env var — only Vercel Cron (and manual curl) can trigger.
+ * Deletion policy (invisible to users):
+ *   Starter  : advertised 90 days  + 90-day buffer  = deleted after 6 months total
+ *   Pro      : advertised 1 year   + 6-month buffer = deleted after 18 months total
+ *   Business : advertised 3 years  + 1.5-year buffer = deleted after 4.5 years total
+ *
+ * Users see the "advertised" limit only. Data becomes inaccessible in UI at
+ * the advertised limit but remains in DB until the full window expires —
+ * allowing recovery if they upgrade within the buffer period.
+ *
+ * Secured by CRON_SECRET env var.
  */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -33,18 +28,21 @@ export async function GET(req: NextRequest) {
 
   let logsDeleted = 0;
   let leavesDeleted = 0;
-  const report: { company: string; plan: string; cutoff: string; logs: number; leaves: number }[] = [];
+  const report: {
+    company: string;
+    plan: string;
+    advertisedDays: number;
+    bufferDays: number;
+    actualCutoff: string;
+    logs: number;
+    leaves: number;
+  }[] = [];
 
   for (const company of companies) {
-    const advertised = ADVERTISED_DAYS[company.plan] ?? ADVERTISED_DAYS.starter;
-    const retentionDays = advertised + GRACE_DAYS; // actual deletion is 60 days later
-
-    // Cutoff date for AttendanceLog (stored as "YYYY-MM-DD" string)
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+    const cutoffDate = getDeletionCutoffDate(company.plan);
     const cutoffStr = cutoffDate.toISOString().split("T")[0]; // "YYYY-MM-DD"
 
-    // Delete old AttendanceLog records (bulk of data)
+    // Delete AttendanceLog records (daily check-in data — the bulk)
     const { count: logCount } = await prisma.attendanceLog.deleteMany({
       where: {
         employee: { companyId: company.id },
@@ -52,7 +50,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Delete old resolved LeaveRequests (approved/rejected only — keep pending ones)
+    // Delete resolved LeaveRequests (keep pending ones)
     const { count: leaveCount } = await prisma.leaveRequest.deleteMany({
       where: {
         companyId: company.id,
@@ -68,14 +66,16 @@ export async function GET(req: NextRequest) {
       report.push({
         company: company.name,
         plan: company.plan,
-        cutoff: cutoffStr,
+        advertisedDays: ADVERTISED_DAYS[company.plan] ?? 90,
+        bufferDays: BUFFER_DAYS[company.plan] ?? 90,
+        actualCutoff: cutoffStr,
         logs: logCount,
         leaves: leaveCount,
       });
     }
   }
 
-  console.log(`[Cron Cleanup] logs=${logsDeleted} leaves=${leavesDeleted}`, report);
+  console.log(`[Cron Cleanup] companies=${companies.length} logs=${logsDeleted} leaves=${leavesDeleted}`, report);
 
   return NextResponse.json({
     success: true,
