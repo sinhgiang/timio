@@ -1,47 +1,60 @@
-// Data retention policy
-// ADVERTISED = what users see on the pricing page
-// BUFFER = hidden grace period after advertised limit, before actual deletion
-// Data becomes "inaccessible" in UI after ADVERTISED days.
-// Data is permanently deleted from DB after ADVERTISED + BUFFER days.
+/**
+ * Data retention policy — Timio
+ *
+ * FREE (starter)  : rolling 90-day window + 90-day buffer before actual deletion
+ * PAID (pro/biz)  : keep ALL data while plan is active (no rolling delete)
+ *                   → after plan expires: 6-month grace period
+ *                   → after grace period: permanently deleted
+ */
 
-export const ADVERTISED_DAYS: Record<string, number> = {
-  starter: 90,
-  pro: 365,       // 1 year
-  business: 1095, // 3 years
-};
-
-export const BUFFER_DAYS: Record<string, number> = {
-  starter: 90,   // 3 months grace (6 months total)
-  pro: 180,      // 6 months grace (18 months total)
-  business: 548, // 18 months grace (4.5 years total)
-};
+export const STARTER_RETENTION_DAYS = 90;      // advertised to free users
+export const STARTER_BUFFER_DAYS    = 90;      // hidden buffer (total 180 days before delete)
+export const PAID_GRACE_DAYS        = 180;     // 6 months after plan expiry before delete
 
 /**
- * Returns the earliest date a user on this plan can VIEW in the UI.
- * Data older than this is shown as "expired" even if it's still in DB.
+ * Can a company on this plan view data from a given month?
+ * Used by UI to decide whether to show "expired" gate.
+ *
+ * @param plan        company.plan
+ * @param planExpires company.planExpires (null = never expires / always valid)
+ * @param dataDate    the month/date the user is trying to view
  */
-export function getRetentionCutoffDate(plan: string): Date {
-  const days = ADVERTISED_DAYS[plan] ?? ADVERTISED_DAYS.starter;
+export function canViewData(
+  plan: string,
+  planExpires: Date | null,
+  dataDate: Date
+): boolean {
+  if (plan === "starter") {
+    // Free: rolling 90-day window
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - STARTER_RETENTION_DAYS);
+    return dataDate >= cutoff;
+  }
+
+  // Paid plan: check if plan is still active
+  if (!planExpires || planExpires > new Date()) {
+    // Active — can see everything
+    return true;
+  }
+
+  // Plan expired — can still see data during 6-month grace period
+  const gracePeriodEnd = new Date(planExpires);
+  gracePeriodEnd.setDate(gracePeriodEnd.getDate() + PAID_GRACE_DAYS);
+  return new Date() <= gracePeriodEnd;
+}
+
+/**
+ * Returns the earliest date a starter user can view in the UI.
+ * Not used for paid plans (they see everything while active).
+ */
+export function getStarterCutoffDate(): Date {
   const d = new Date();
-  d.setDate(d.getDate() - days);
+  d.setDate(d.getDate() - STARTER_RETENTION_DAYS);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-/**
- * Returns the earliest date used by the cron job to ACTUALLY DELETE records.
- * This is advertised + buffer — invisible to users.
- */
-export function getDeletionCutoffDate(plan: string): Date {
-  const days = (ADVERTISED_DAYS[plan] ?? ADVERTISED_DAYS.starter)
-              + (BUFFER_DAYS[plan] ?? BUFFER_DAYS.starter);
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** Human-readable retention label, e.g. "1 năm" */
+/** Human-readable retention label for UI display */
 export function retentionLabel(plan: string): string {
   const map: Record<string, string> = {
     starter: "90 ngày",

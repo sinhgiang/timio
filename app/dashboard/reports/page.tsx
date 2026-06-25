@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ReportsClient from "./ReportsClient";
-import { getRetentionCutoffDate, retentionLabel } from "@/lib/retention";
+import { canViewData, retentionLabel } from "@/lib/retention";
 import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 
 export default async function ReportsPage({
@@ -14,26 +14,38 @@ export default async function ReportsPage({
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return null;
 
-  const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  const planRow = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { plan: true, planExpires: true },
+  });
   const plan = planRow?.plan ?? "starter";
+  const planExpires = planRow?.planExpires ?? null;
 
   const now = new Date();
   const year = Number(searchParams.year ?? now.getFullYear());
   const month = Number(searchParams.month ?? now.getMonth() + 1);
 
-  // Check if requested month is within the retention window for this plan
+  // Block access if this month falls outside the allowed retention window
   const requestedMonthStart = new Date(year, month - 1, 1);
-  const retentionCutoff = getRetentionCutoffDate(plan);
-  if (requestedMonthStart < retentionCutoff) {
+  if (!canViewData(plan, planExpires, requestedMonthStart)) {
+    const planExpired = plan !== "starter" && planExpires && planExpires < now;
     return (
       <PlanUpgradePage
         requiredPlan={plan === "starter" ? "pro" : "business"}
-        feature={`Dữ liệu tháng ${month}/${year} đã hết hạn lưu trữ`}
-        description={`Gói ${plan === "starter" ? "Starter" : "Pro"} của bạn chỉ lưu dữ liệu trong ${retentionLabel(plan)} gần nhất. Dữ liệu tháng ${month}/${year} nằm ngoài khoảng thời gian này.`}
+        feature={
+          planExpired
+            ? `Gói ${plan === "pro" ? "Pro" : "Business"} đã hết hạn`
+            : `Dữ liệu tháng ${month}/${year} đã hết hạn lưu trữ`
+        }
+        description={
+          planExpired
+            ? `Gói của bạn đã hết hạn. Dữ liệu vẫn đang được giữ trong giai đoạn bảo lưu. Gia hạn ngay để truy cập lại toàn bộ lịch sử chấm công.`
+            : `Gói ${plan === "starter" ? "Starter" : "Pro"} chỉ lưu dữ liệu trong ${retentionLabel(plan)} gần nhất. Dữ liệu tháng ${month}/${year} nằm ngoài khoảng thời gian này.`
+        }
         bullets={
           plan === "starter"
-            ? ["Gói Pro lưu dữ liệu 1 năm", "Gói Business lưu dữ liệu 3 năm", "Nâng cấp để xem lại toàn bộ lịch sử"]
-            : ["Gói Business lưu dữ liệu 3 năm", "Xem báo cáo so sánh đa chi nhánh", "Nâng cấp để phục hồi dữ liệu lịch sử"]
+            ? ["Gói Pro lưu tất cả dữ liệu khi còn trả phí", "Gói Business tương tự + báo cáo đa chi nhánh", "Nâng cấp để xem lại toàn bộ lịch sử"]
+            : ["Gia hạn gói Pro để phục hồi dữ liệu ngay", "Dữ liệu được bảo lưu trong giai đoạn chờ", "Liên hệ hỗ trợ nếu cần lấy lại dữ liệu cũ"]
         }
       />
     );

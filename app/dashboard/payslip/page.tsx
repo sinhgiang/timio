@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import PayslipListClient from "./PayslipListClient";
 import { calculateTax } from "@/lib/taxCalculator";
 import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
-import { getRetentionCutoffDate, retentionLabel } from "@/lib/retention";
+import { canViewData, retentionLabel } from "@/lib/retention";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function PayslipPage({ searchParams }: Props) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) redirect("/login");
 
-  const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, planExpires: true } });
   if (!planRow || planRow.plan === "starter") {
     return (
       <PlanUpgradePage
@@ -42,16 +42,23 @@ export default async function PayslipPage({ searchParams }: Props) {
   const year = parseInt(yearStr);
   const month = parseInt(monStr);
 
-  // Check retention window
+  // Block if outside retention window
   const requestedMonthStart = new Date(year, month - 1, 1);
-  const retentionCutoff = getRetentionCutoffDate(planRow.plan);
-  if (requestedMonthStart < retentionCutoff) {
+  if (!canViewData(planRow.plan, planRow.planExpires, requestedMonthStart)) {
+    const planExpired = planRow.planExpires && planRow.planExpires < now;
     return (
       <PlanUpgradePage
-        requiredPlan="business"
-        feature={`Phiếu lương tháng ${month}/${year} đã hết hạn lưu trữ`}
-        description={`Gói ${planRow.plan === "pro" ? "Pro" : "Starter"} lưu dữ liệu trong ${retentionLabel(planRow.plan)} gần nhất. Nâng cấp để xem lại phiếu lương lịch sử.`}
-        bullets={["Gói Business lưu dữ liệu 3 năm", "Phục hồi phiếu lương lịch sử khi nâng cấp"]}
+        requiredPlan="pro"
+        feature={planExpired ? `Gói ${planRow.plan === "pro" ? "Pro" : "Business"} đã hết hạn` : `Phiếu lương tháng ${month}/${year} đã hết hạn lưu trữ`}
+        description={
+          planExpired
+            ? "Gói của bạn đã hết hạn. Dữ liệu phiếu lương vẫn đang được giữ trong giai đoạn bảo lưu. Gia hạn để truy cập lại."
+            : `Gói Starter chỉ lưu dữ liệu trong ${retentionLabel(planRow.plan)} gần nhất. Nâng cấp để xem lại phiếu lương lịch sử.`
+        }
+        bullets={planExpired
+          ? ["Gia hạn ngay để phục hồi toàn bộ phiếu lương", "Dữ liệu đang được bảo lưu trong giai đoạn chờ"]
+          : ["Gói Pro lưu tất cả dữ liệu khi còn trả phí", "Phục hồi phiếu lương lịch sử khi nâng cấp"]
+        }
       />
     );
   }
