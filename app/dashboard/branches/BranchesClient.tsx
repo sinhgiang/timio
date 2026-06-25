@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SHIFT_PRESETS } from "@/lib/presets";
 import { MapPin, QrCode } from "lucide-react";
 import BranchQRCard from "@/components/settings/BranchQRCard";
+import PlanGate from "@/components/ui/PlanGate";
 
 interface Branch {
   id: string;
@@ -268,57 +269,59 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
             </div>
 
             {/* GPS Section */}
-            <div className="border border-green-200 bg-green-50 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <MapPin size={15} className="text-green-600" />
-                  <span className="text-sm font-semibold text-green-800">Giới hạn vị trí GPS</span>
-                  <span className="text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded-full">Chống gian lận</span>
+            <PlanGate requiredPlan="pro" feature="Giới hạn vị trí GPS" mode="section">
+              <div className="border border-green-200 bg-green-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={15} className="text-green-600" />
+                    <span className="text-sm font-semibold text-green-800">Giới hạn vị trí GPS</span>
+                    <span className="text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded-full">Chống gian lận</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={getMyLocation}
+                    disabled={gpsLoading}
+                    className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {gpsLoading ? "Đang lấy..." : "📍 Lấy vị trí hiện tại"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={getMyLocation}
-                  disabled={gpsLoading}
-                  className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {gpsLoading ? "Đang lấy..." : "📍 Lấy vị trí hiện tại"}
-                </button>
+                <p className="text-xs text-green-700 mb-3">
+                  Để trống nếu không muốn giới hạn. Khi cài đặt, nhân viên phải ở trong phạm vi mới check-in được.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Vĩ độ (lat)</label>
+                    <input
+                      type="number" step="0.000001"
+                      value={form.lat}
+                      onChange={(e) => setForm({ ...form, lat: e.target.value })}
+                      placeholder="10.762622"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Kinh độ (lng)</label>
+                    <input
+                      type="number" step="0.000001"
+                      value={form.lng}
+                      onChange={(e) => setForm({ ...form, lng: e.target.value })}
+                      placeholder="106.660172"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Bán kính (m)</label>
+                    <input
+                      type="number" min="50" max="2000"
+                      value={form.gpsRadius}
+                      onChange={(e) => setForm({ ...form, gpsRadius: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-green-700 mb-3">
-                Để trống nếu không muốn giới hạn. Khi cài đặt, nhân viên phải ở trong phạm vi mới check-in được.
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Vĩ độ (lat)</label>
-                  <input
-                    type="number" step="0.000001"
-                    value={form.lat}
-                    onChange={(e) => setForm({ ...form, lat: e.target.value })}
-                    placeholder="10.762622"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Kinh độ (lng)</label>
-                  <input
-                    type="number" step="0.000001"
-                    value={form.lng}
-                    onChange={(e) => setForm({ ...form, lng: e.target.value })}
-                    placeholder="106.660172"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Bán kính (m)</label>
-                  <input
-                    type="number" min="50" max="2000"
-                    value={form.gpsRadius}
-                    onChange={(e) => setForm({ ...form, gpsRadius: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-            </div>
+            </PlanGate>
 
             {/* Ngày công chuẩn */}
             <div>

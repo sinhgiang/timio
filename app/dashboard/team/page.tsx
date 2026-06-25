@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { PLAN_SUBUSER_LIMITS } from "@/lib/permissions";
 import TeamClient from "./TeamClient";
+import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,22 @@ export default async function TeamPage() {
 
   const plan = company?.plan ?? "starter";
   const subUserLimit = PLAN_SUBUSER_LIMITS[plan] ?? 0;
+
+  if (plan === "starter") {
+    return (
+      <PlanUpgradePage
+        requiredPlan="pro"
+        feature="Phân quyền nhóm quản lý"
+        description="Thêm nhiều tài khoản quản lý với phân quyền riêng — Manager chỉ thấy chi nhánh của mình, Kế toán không chỉnh sửa được chấm công."
+        bullets={[
+          "Gói Pro: tối đa 3 quản lý — 3 chi nhánh",
+          "Gói Business: không giới hạn quản lý",
+          "Phân quyền Manager / Kế toán / Owner",
+          "Mỗi người nhận riêng thông báo Telegram / Zalo",
+        ]}
+      />
+    );
+  }
 
   return (
     <TeamClient

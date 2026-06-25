@@ -937,6 +937,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
       {/* ── Ngày Lễ ── */}
       {tab === "holiday" && (
+        <PlanGate requiredPlan="pro" feature="Quản lý ngày lễ" mode="section">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
@@ -1017,6 +1018,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             </table>
           </div>
         </div>
+        </PlanGate>
       )}
 
       {/* ── Telegram Notifications ── */}
