@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
     {
       type: "1. Welcome (gửi cho khách mới đăng ký)",
       to,
-      subject: `[TEST] Chào mừng ${companyName} đến với Timio!`,
+      subject: `Chào mừng ${companyName} đến với Timio!`,
       html: welcomeEmail({ adminName: companyName, companyName, slug }),
     },
     {
       type: "2. Admin signup (gửi cho admin khi có khách đăng ký)",
       to,
-      subject: `[TEST] 🆕 Timio: ${companyName} vừa đăng ký miễn phí`,
+      subject: `🆕 Timio: ${companyName} vừa đăng ký miễn phí`,
       html: adminNewSignupEmail({
         companyName,
         companySlug: slug,
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     {
       type: "3. Payment confirm (gửi cho khách khi mua Pro/Business)",
       to,
-      subject: `[TEST] ✅ Thanh toán thành công — Gói Pro Timio`,
+      subject: `✅ Thanh toán thành công — Gói Pro Timio`,
       html: customerPaymentConfirmEmail({
         adminName: companyName,
         companyName,
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     {
       type: "4. Admin payment (gửi cho admin khi có đơn mua)",
       to,
-      subject: `[TEST] 💰 Timio: ${companyName} vừa mua gói Pro`,
+      subject: `💰 Timio: ${companyName} vừa mua gói Pro`,
       html: adminPaymentNotifyEmail({
         companyName,
         companySlug: slug,
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     {
       type: "5. Contract expiry (gửi khi nhân viên sắp hết hợp đồng)",
       to,
-      subject: `[TEST] ⚠️ 2 hợp đồng sắp hết hạn — ${companyName}`,
+      subject: `⚠️ 2 hợp đồng sắp hết hạn — ${companyName}`,
       html: contractExpiryEmail({
         companyName,
         contracts: [
