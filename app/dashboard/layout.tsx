@@ -58,7 +58,7 @@ export default async function DashboardLayout({
       <UpsellChecker />
       {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
       {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
-      <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} />
+      <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} plan={companyPlan?.plan ?? "starter"} planExpires={companyPlan?.planExpires?.toISOString() ?? null} />
       <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner ? "md:pt-10" : ""}`}>{children}</main>
       <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
       <CompanySetupModal

@@ -31,6 +31,8 @@ interface Props {
   pendingLeaveCount?: number;
   pendingCorrectionCount?: number;
   role?: string;
+  plan?: string;
+  planExpires?: string | null;
 }
 
 const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings"]);
@@ -56,7 +58,26 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];
 
-export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 0, pendingCorrectionCount = 0, role = "owner" }: Props) {
+function PlanBadge({ plan, planExpires }: { plan: string; planExpires?: string | null }) {
+  if (plan === "business") {
+    return <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 leading-tight">BUSINESS</span>;
+  }
+  if (plan === "pro") {
+    const days = planExpires ? Math.ceil((new Date(planExpires).getTime() - Date.now()) / 86400000) : null;
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 leading-tight">
+        PRO{days !== null && days <= 30 ? <span className="text-orange-500 ml-0.5">· {days}d</span> : ""}
+      </span>
+    );
+  }
+  return (
+    <Link href="/dashboard/billing" className="inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 hover:bg-blue-50 hover:text-blue-600 leading-tight transition-colors" title="Nâng cấp lên Pro">
+      Miễn phí · Nâng cấp
+    </Link>
+  );
+}
+
+export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 0, pendingCorrectionCount = 0, role = "owner", plan = "starter", planExpires }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -104,9 +125,9 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
             </div>
             <div className="min-w-0">
               <p className="font-bold text-gray-900 text-sm leading-tight truncate max-w-[110px]">{companyName}</p>
-              {companySlug && (
-                <p className="text-[10px] text-gray-400 leading-tight mt-0.5">timio.vn/checkin/{companySlug}</p>
-              )}
+              <div className="mt-1">
+                <PlanBadge plan={plan} planExpires={planExpires} />
+              </div>
             </div>
           </div>
           <button
