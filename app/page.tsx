@@ -1028,9 +1028,9 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
             </div>
             {[
               { label: "Chấm công PIN", starter: true, pro: true, biz: true },
-              { label: "Chấm công khuôn mặt AI", starter: false, pro: true, biz: true },
-              { label: "QR code check-in (điện thoại cá nhân)", starter: false, pro: true, biz: true },
-              { label: "Phản hồi giọng nói tiếng Việt (TTS)", starter: false, pro: true, biz: true },
+              { label: "Chấm công khuôn mặt AI", starter: true, pro: true, biz: true },
+              { label: "QR code check-in (điện thoại cá nhân)", starter: true, pro: true, biz: true },
+              { label: "Phản hồi giọng nói tiếng Việt (TTS)", starter: true, pro: true, biz: true },
               { label: "Xác minh vị trí GPS", starter: false, pro: true, biz: true },
               { label: "Tin nhắn kiosk tùy chỉnh", starter: false, pro: true, biz: true },
             ].map((r, i) => (

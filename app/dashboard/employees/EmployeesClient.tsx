@@ -1208,11 +1208,9 @@ export default function EmployeesClient({
                             </button>
                           </div>
                         ) : (
-                          <PlanGate requiredPlan="pro" feature="Nhận diện khuôn mặt AI" mode="inline">
-                            <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-medium hover:bg-blue-100 border border-blue-100 transition-colors">
-                              <ScanFace size={11} strokeWidth={1.5} /> Đăng ký
-                            </button>
-                          </PlanGate>
+                          <button onClick={() => setFaceTarget({ id: emp.id, name: emp.name })} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-medium hover:bg-blue-100 border border-blue-100 transition-colors">
+                            <ScanFace size={11} strokeWidth={1.5} /> Đăng ký
+                          </button>
                         )}
                       </div>
                     </div>
