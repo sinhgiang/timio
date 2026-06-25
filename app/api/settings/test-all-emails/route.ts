@@ -8,6 +8,7 @@ import {
   adminNewSignupEmail,
   customerPaymentConfirmEmail,
   adminPaymentNotifyEmail,
+  contractExpiryEmail,
 } from "@/lib/emailTemplates";
 
 export async function POST(req: NextRequest) {
@@ -90,6 +91,18 @@ export async function POST(req: NextRequest) {
         affiliateCode: null,
         affiliateName: null,
         newExpiry: expiry,
+      }),
+    },
+    {
+      type: "5. Contract expiry (gửi khi nhân viên sắp hết hợp đồng)",
+      to,
+      subject: `[TEST] ⚠️ 2 hợp đồng sắp hết hạn — ${companyName}`,
+      html: contractExpiryEmail({
+        companyName,
+        contracts: [
+          { name: "Nguyễn Văn An", code: "NV001", endDate: "2026-07-15", daysLeft: 20 },
+          { name: "Trần Thị Bình", code: "NV002", endDate: "2026-07-25", daysLeft: 5 },
+        ],
       }),
     },
   ];
