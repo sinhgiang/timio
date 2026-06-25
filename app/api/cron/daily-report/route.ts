@@ -47,5 +47,46 @@ export async function GET(req: Request) {
     await sendTelegram(branch.company.telegramBotToken, branch.telegramChatId, message);
   }
 
-  return NextResponse.json({ ok: true, branches: branches.length });
+  // Thông báo hợp đồng sắp hết hạn (chạy 1 lần/ngày)
+  const in30Days = new Date();
+  in30Days.setDate(in30Days.getDate() + 30);
+  const in30Str = in30Days.toISOString().slice(0, 10);
+
+  const expiringContracts = await prisma.contract.findMany({
+    where: {
+      endDate: { not: null, lte: in30Str, gte: today },
+    },
+    include: {
+      employee: {
+        select: {
+          name: true, code: true,
+          company: { select: { telegramBotToken: true, accountingChatId: true, name: true } },
+        },
+      },
+    },
+  });
+
+  // Nhóm theo công ty
+  const byCompany = new Map<string, typeof expiringContracts>();
+  for (const c of expiringContracts) {
+    const companyName = c.employee.company.name;
+    if (!byCompany.has(companyName)) byCompany.set(companyName, []);
+    byCompany.get(companyName)!.push(c);
+  }
+
+  for (const contracts of Array.from(byCompany.values())) {
+    const first = contracts[0];
+    const { telegramBotToken, accountingChatId } = first.employee.company;
+    if (!telegramBotToken || !accountingChatId) continue;
+
+    const lines = contracts.map((c: typeof expiringContracts[0]) => {
+      const daysLeft = Math.ceil((new Date(c.endDate!).getTime() - new Date().getTime()) / 86400000);
+      return `• ${c.employee.name} (${c.employee.code}) — còn ${daysLeft} ngày (${c.endDate})`;
+    });
+
+    const msg = `⚠️ *Hợp đồng sắp hết hạn*\n\nCác nhân viên sau cần ký gia hạn trong 30 ngày tới:\n\n${lines.join("\n")}`;
+    await sendTelegram(telegramBotToken, accountingChatId, msg);
+  }
+
+  return NextResponse.json({ ok: true, branches: branches.length, expiringContracts: expiringContracts.length });
 }

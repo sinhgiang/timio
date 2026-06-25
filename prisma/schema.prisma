@@ -107,8 +107,23 @@ model Employee {
   summaries           MonthlySummary[]
   leaveRequests       LeaveRequest[]
   correctionRequests  CorrectionRequest[]
+  contracts           Contract[]
 
   @@unique([companyId, code])
+}
+
+model Contract {
+  id          String    @id @default(cuid())
+  employeeId  String
+  type        String    @default("fixed_term") // "probation" | "fixed_term" | "indefinite" | "seasonal" | "part_time"
+  startDate   String    // YYYY-MM-DD
+  endDate     String?   // YYYY-MM-DD — null nếu không thời hạn
+  note        String?
+  fileUrl     String?   // URL hoặc base64 của file hợp đồng scan
+  fileName    String?   // Tên file gốc
+  createdAt   DateTime  @default(now())
+
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model AttendanceLog {

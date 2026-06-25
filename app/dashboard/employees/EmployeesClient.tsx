@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Upload, Download, X, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
+const ContractModal = dynamic(() => import("@/components/employees/ContractModal"), { ssr: false });
 
 // ─── Shift presets ─────────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ export default function EmployeesClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [faceTarget, setFaceTarget] = useState<{ id: string; name: string } | null>(null);
+  const [contractTarget, setContractTarget] = useState<{ id: string; name: string } | null>(null);
   const [localBranches, setLocalBranches] = useState<Branch[]>(branches);
   const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
   const [localPositions, setLocalPositions] = useState<string[]>(allPositions);
@@ -477,6 +479,9 @@ export default function EmployeesClient({
     <div className="p-6 max-w-5xl mx-auto">
       {faceTarget && (
         <FaceCapture employeeId={faceTarget.id} employeeName={faceTarget.name} onComplete={handleFaceComplete} onCancel={() => setFaceTarget(null)} />
+      )}
+      {contractTarget && (
+        <ContractModal employeeId={contractTarget.id} employeeName={contractTarget.name} onClose={() => setContractTarget(null)} />
       )}
 
       <div className="flex items-center justify-between mb-6">
@@ -1172,6 +1177,7 @@ export default function EmployeesClient({
                     )}
                   </td>
                   <td className="px-5 py-3 text-right">
+                    <button onClick={() => setContractTarget({ id: emp.id, name: emp.name })} className="text-purple-600 hover:underline text-xs mr-3">HĐ</button>
                     <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:underline text-xs mr-3">Sửa</button>
                     <button onClick={() => handleDelete(emp.id, emp.name)} className="text-red-500 hover:underline text-xs">Xóa</button>
                   </td>

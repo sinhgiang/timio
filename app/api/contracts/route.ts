@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+// GET /api/contracts?employeeId=xxx — list contracts for employee
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const companyId = (session?.user as { companyId?: string })?.companyId;
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const employeeId = req.nextUrl.searchParams.get("employeeId");
+  if (!employeeId) return NextResponse.json({ error: "Thiếu employeeId" }, { status: 400 });
+
+  const employee = await prisma.employee.findFirst({ where: { id: employeeId, companyId } });
+  if (!employee) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+
+  const contracts = await prisma.contract.findMany({
+    where: { employeeId },
+    orderBy: { startDate: "desc" },
+  });
+
+  return NextResponse.json(contracts);
+}
+
+// POST /api/contracts — create contract
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const companyId = (session?.user as { companyId?: string })?.companyId;
+  if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { employeeId, type, startDate, endDate, note, fileUrl, fileName } = await req.json();
+  if (!employeeId || !type || !startDate) {
+    return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
+  }
+
+  const employee = await prisma.employee.findFirst({ where: { id: employeeId, companyId } });
+  if (!employee) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });
+
+  const contract = await prisma.contract.create({
+    data: { employeeId, type, startDate, endDate: endDate || null, note: note || null, fileUrl: fileUrl || null, fileName: fileName || null },
+  });
+
+  return NextResponse.json(contract, { status: 201 });
+}
