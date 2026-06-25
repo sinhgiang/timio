@@ -305,13 +305,18 @@ export default function FaceCapture({ employeeName, employeeId, onComplete, onCa
   const activeIdx = Math.min(samples.length, REQUIRED_SAMPLES - 1);
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
         {/* Header */}
-        <div className="bg-blue-600 px-6 py-4 text-white">
-          <h2 className="text-lg font-bold">Đăng ký khuôn mặt</h2>
-          <p className="text-blue-100 text-sm mt-0.5">{employeeName}</p>
+        <div className="bg-blue-600 px-6 py-4 text-white flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold">Đăng ký khuôn mặt</h2>
+            <p className="text-blue-100 text-sm mt-0.5">{employeeName}</p>
+          </div>
+          <button onClick={onCancel} className="text-blue-200 hover:text-white p-1 rounded-lg hover:bg-blue-700 transition-colors mt-0.5" title="Đóng">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
 
         {/* Tab bar */}
