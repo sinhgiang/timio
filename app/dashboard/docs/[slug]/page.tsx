@@ -3,7 +3,8 @@ import Link from "next/link";
 import {
   Zap, Camera, Users, Building2, BarChart3, FileText, Umbrella,
   CalendarDays, MessageSquare, Gift, BookOpen, Info, CheckCircle2,
-  AlertTriangle, Bookmark, ChevronRight, type LucideIcon,
+  AlertTriangle, Bookmark, ChevronRight, Banknote, Bell, Layers,
+  Shield, ScrollText, User, type LucideIcon,
 } from "lucide-react";
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
@@ -474,6 +475,346 @@ const ARTICLES: Record<string, { title: string; Icon: LucideIcon; content: React
             <BookOpen size={15} />
             Xem hướng dẫn chi tiết lương tháng 13
           </Link>
+        </div>
+      </Section>
+    ),
+  },
+
+  "salary-payment": {
+    title: "Thanh toán lương",
+    Icon: Banknote,
+    content: (
+      <Section Icon={Banknote} title="Thanh toán lương">
+        <p className="text-sm text-gray-600">Theo dõi trạng thái đã trả / chưa trả lương cho từng nhân viên mỗi tháng ngay trong trang Phiếu lương.</p>
+
+        <Callout type="tip">Tính năng này giúp kế toán không bị nhầm — ai đã nhận tiền, ai chưa, tổng đã chi bao nhiêu — tất cả hiện ngay trên một màn hình.</Callout>
+
+        <SubTitle>Cách sử dụng</SubTitle>
+        <div className="space-y-3">
+          <Step num={1} title="Vào Phiếu lương" desc="Menu trái → Phiếu lương → chọn tháng cần thanh toán." />
+          <Step num={2} title="Thanh bar trạng thái" desc="Phía trên bảng hiện: 'X/Y nhân viên đã trả · tổng đã chi'. Nếu chưa ai được trả, nhấn 'Đánh dấu tất cả đã trả'." />
+          <Step num={3} title="Đánh dấu từng người" desc="Cột 'Thanh toán' trong bảng → nhấn nút xanh 'Trả lương' để đánh dấu đã trả." />
+          <Step num={4} title="Xem ngày trả" desc="Sau khi đánh dấu, ô hiển thị badge xanh 'Đã trả' kèm ngày giờ thực hiện." />
+          <Step num={5} title="Hoàn tác nếu nhầm" desc="Nhấn link nhỏ 'Hoàn tác' dưới badge xanh để đặt lại về trạng thái chưa trả." />
+        </div>
+
+        <SubTitle>Các thao tác nhanh</SubTitle>
+        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm">
+          <table className="w-full">
+            <thead className="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium">Thao tác</th>
+                <th className="text-left px-4 py-2 font-medium">Mô tả</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Trả lương (từng người)</td><td className="px-4 py-2.5 text-gray-600">Nhấn nút xanh trong cột Thanh toán của từng hàng</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Đánh dấu tất cả đã trả</td><td className="px-4 py-2.5 text-gray-600">Nút ở thanh trạng thái phía trên bảng — đánh dấu tất cả cùng lúc</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Đặt lại tất cả</td><td className="px-4 py-2.5 text-gray-600">Khi tất cả đã trả, nút đổi thành 'Đặt lại tất cả'</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Hoàn tác từng người</td><td className="px-4 py-2.5 text-gray-600">Link nhỏ 'Hoàn tác' dưới badge Đã trả</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <SubTitle>Theo dõi tổng tiền đã chi</SubTitle>
+        <p className="text-sm text-gray-600">Thanh trạng thái luôn cập nhật realtime: số nhân viên đã trả và tổng số tiền thực nhận của những người đó. Không cần tính tay.</p>
+        <Callout type="info">Trạng thái thanh toán được lưu theo từng tháng. Tháng 1 và tháng 2 là hai bản ghi độc lập — đánh dấu tháng này không ảnh hưởng tháng khác.</Callout>
+      </Section>
+    ),
+  },
+
+  "late-alert": {
+    title: "Cảnh báo đi trễ tự động",
+    Icon: Bell,
+    content: (
+      <Section Icon={Bell} title="Cảnh báo đi trễ tự động">
+        <p className="text-sm text-gray-600">Hệ thống tự động gửi tin nhắn Telegram mỗi sáng thứ 2–6, thông báo danh sách nhân viên chưa chấm công sau giờ vào làm.</p>
+
+        <Callout type="tip">Không cần mở dashboard — sếp và quản lý nhận ngay thông báo trên điện thoại lúc 9:15 sáng nếu có nhân viên vắng mà không xin phép.</Callout>
+
+        <SubTitle>Lịch gửi cảnh báo</SubTitle>
+        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm">
+          <table className="w-full">
+            <thead className="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium">Thông số</th>
+                <th className="text-left px-4 py-2 font-medium">Giá trị</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Giờ gửi</td><td className="px-4 py-2.5 text-gray-600">9:15 sáng (giờ Việt Nam)</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Ngày gửi</td><td className="px-4 py-2.5 text-gray-600">Thứ 2 đến Thứ 6</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Điều kiện kích hoạt</td><td className="px-4 py-2.5 text-gray-600">Ngưỡng: Giờ vào + Ân hạn + 30 phút đã qua</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <SubTitle>Ví dụ thực tế</SubTitle>
+        <div className="bg-white border border-gray-100 rounded-xl p-4 text-sm space-y-2">
+          <p className="text-gray-600">Chi nhánh cấu hình giờ vào <strong>07:30</strong>, ân hạn <strong>5 phút</strong>:</p>
+          <ul className="space-y-1 text-gray-500 text-xs list-disc list-inside">
+            <li>Ngưỡng cảnh báo = 07:30 + 5 phút + 30 phút = <strong>08:05</strong></li>
+            <li>Đến 9:15 sáng, cron chạy và kiểm tra ai chưa chấm công</li>
+            <li>Danh sách những người vắng được gửi qua Telegram</li>
+          </ul>
+        </div>
+
+        <SubTitle>Tin nhắn Telegram mẫu</SubTitle>
+        <div className="bg-gray-900 text-green-400 rounded-xl p-4 text-xs font-mono space-y-1">
+          <p>⚠️ Cảnh báo chưa chấm công</p>
+          <p>🏢 Chi nhánh Hà Nội — Công ty ABC</p>
+          <p>📅 Thứ Hai, 24/06/2026 | Ca: 07:30</p>
+          <p></p>
+          <p>Chưa vào làm (3/12 NV):</p>
+          <p>• Nguyễn Văn A (Kế toán) — NV001</p>
+          <p>• Trần Thị B (Marketing) — NV007</p>
+          <p>• Lê Văn C — NV012</p>
+          <p></p>
+          <p>_Timio — Cảnh báo tự động_</p>
+        </div>
+
+        <SubTitle>Ai nhận được cảnh báo</SubTitle>
+        <div className="space-y-2">
+          <Check><strong>Telegram Chat ID của chi nhánh</strong> — nhóm riêng của mỗi chi nhánh</Check>
+          <Check><strong>Accounting Chat ID của công ty</strong> — nhóm kế toán chung (nếu có cấu hình khác với chi nhánh)</Check>
+          <Check><strong>Cá nhân admin</strong> — những admin bật &ldquo;Nhận Telegram cá nhân&rdquo; trong Cài đặt tài khoản</Check>
+        </div>
+
+        <SubTitle>Điều kiện hoạt động</SubTitle>
+        <div className="space-y-2">
+          <Check>Đã cấu hình <strong>Telegram Bot Token</strong> trong Cài đặt công ty</Check>
+          <Check>Chi nhánh có <strong>Telegram Chat ID</strong> được thiết lập</Check>
+          <Check>Nhân viên có trạng thái <strong>Đang hoạt động</strong> (không phải đã nghỉ việc)</Check>
+        </div>
+
+        <Callout type="warning">Cảnh báo <strong>không tự tắt</strong> khi nhân viên chấm công muộn sau 9:15 sáng — bạn có thể thấy tên nhân viên đã đến muộn trong tin nhắn. Đây là hành vi cố ý để ghi nhận việc đến trễ.</Callout>
+
+        <div className="mt-2">
+          <Link href="/dashboard/docs/telegram" className="text-sm text-blue-600 hover:underline">
+            → Xem hướng dẫn thiết lập Telegram →
+          </Link>
+        </div>
+      </Section>
+    ),
+  },
+
+  "branch-reports": {
+    title: "Báo cáo đa chi nhánh",
+    Icon: Layers,
+    content: (
+      <Section Icon={Layers} title="Báo cáo đa chi nhánh">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold mb-4">
+          <Shield size={11} />
+          Tính năng gói Business
+        </div>
+
+        <p className="text-sm text-gray-600">So sánh hiệu suất chấm công giữa tất cả chi nhánh trong cùng một bảng — ai chuyên cần nhất, chi nhánh nào có tỉ lệ trễ cao, tổng phạt và tăng ca mỗi nơi.</p>
+
+        <SubTitle>Cách xem</SubTitle>
+        <div className="space-y-2">
+          <Step num={1} title="Vào Báo cáo tháng" desc="Menu trái → Báo cáo tháng → chọn tháng." />
+          <Step num={2} title="Chọn tab Chi nhánh" desc="Nhấn tab 'Chi nhánh' màu tím bên cạnh tab 'Tổng quan' và 'Chi tiết'." />
+          <Step num={3} title="Đọc bảng so sánh" desc="Mỗi hàng là một chi nhánh với đầy đủ các chỉ số." />
+        </div>
+
+        <SubTitle>Các chỉ số hiển thị</SubTitle>
+        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm">
+          <table className="w-full">
+            <thead className="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium">Cột</th>
+                <th className="text-left px-4 py-2 font-medium">Ý nghĩa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">% Chuyên cần</td><td className="px-4 py-2.5 text-gray-600">Tỉ lệ ngày có mặt / tổng ngày công. Badge màu xanh/vàng/đỏ</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Nhân viên</td><td className="px-4 py-2.5 text-gray-600">Số nhân viên đang hoạt động trong chi nhánh</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Ngày công</td><td className="px-4 py-2.5 text-gray-600">Tổng ngày có mặt trong tháng</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Trễ</td><td className="px-4 py-2.5 text-gray-600">Số lần trễ và % so với tổng ngày công</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Vắng</td><td className="px-4 py-2.5 text-gray-600">Số ngày vắng không có lý do</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Tổng phạt</td><td className="px-4 py-2.5 text-gray-600">Tổng tiền phạt của chi nhánh trong tháng</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Tăng ca</td><td className="px-4 py-2.5 text-gray-600">Tổng tiền tăng ca phải chi</td></tr>
+              <tr><td className="px-4 py-2.5 font-medium text-gray-700">Lương CB</td><td className="px-4 py-2.5 text-gray-600">Tổng lương cơ bản của tất cả nhân viên trong chi nhánh</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <SubTitle>Badge chuyên cần</SubTitle>
+        <div className="grid grid-cols-3 gap-2 text-xs text-center">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+            <p className="font-bold text-green-700 text-sm">≥ 90%</p>
+            <p className="text-green-600 mt-1">Tốt</p>
+          </div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+            <p className="font-bold text-yellow-700 text-sm">70–89%</p>
+            <p className="text-yellow-600 mt-1">Trung bình</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+            <p className="font-bold text-red-700 text-sm">&lt; 70%</p>
+            <p className="text-red-600 mt-1">Cần chú ý</p>
+          </div>
+        </div>
+
+        <Callout type="info">Bảng được sắp xếp theo ngày công từ cao xuống thấp. Hàng tổng cộng xuất hiện ở cuối khi có từ 2 chi nhánh trở lên.</Callout>
+      </Section>
+    ),
+  },
+
+  "permissions": {
+    title: "Phân quyền quản lý",
+    Icon: Shield,
+    content: (
+      <Section Icon={Shield} title="Phân quyền quản lý">
+        <p className="text-sm text-gray-600">Timio hỗ trợ nhiều cấp quyền để bạn phân công nhân sự quản trị mà không lo lộ dữ liệu nhạy cảm.</p>
+
+        <SubTitle>Ba vai trò hệ thống</SubTitle>
+        <div className="space-y-3">
+          {[
+            {
+              role: "Chủ sở hữu (Owner)",
+              color: "bg-blue-50 border-blue-200 text-blue-800",
+              badge: "bg-blue-100 text-blue-700",
+              perms: ["Xem toàn bộ dữ liệu công ty", "Thêm/xóa nhân viên, chi nhánh", "Cấu hình bảng phạt, thưởng, Telegram", "Xem và thay đổi gói dịch vụ", "Thêm tài khoản quản lý và kế toán"],
+            },
+            {
+              role: "Quản lý (Manager)",
+              color: "bg-purple-50 border-purple-200 text-purple-800",
+              badge: "bg-purple-100 text-purple-700",
+              perms: ["Chỉ thấy dữ liệu chi nhánh được giao", "Xem báo cáo, phiếu lương chi nhánh mình", "Duyệt đơn nghỉ phép nhân viên chi nhánh mình", "Không xem được chi nhánh khác", "Không thay đổi cài đặt hệ thống"],
+            },
+            {
+              role: "Kế toán (Accountant)",
+              color: "bg-orange-50 border-orange-200 text-orange-800",
+              badge: "bg-orange-100 text-orange-700",
+              perms: ["Xem toàn bộ dữ liệu công ty (đọc)", "Truy cập phiếu lương, báo cáo tất cả chi nhánh", "Không thêm/xóa nhân viên", "Không thay đổi cài đặt"],
+            },
+          ].map(({ role, color, badge, perms }) => (
+            <div key={role} className={`border rounded-xl p-4 ${color}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badge}`}>{role}</span>
+              </div>
+              <ul className="space-y-1">
+                {perms.map((p) => (
+                  <li key={p} className="flex items-start gap-1.5 text-xs">
+                    <CheckCircle2 size={12} className="shrink-0 mt-0.5 opacity-70" strokeWidth={2.5} />
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <SubTitle>Thêm tài khoản mới</SubTitle>
+        <div className="space-y-2">
+          <Step num={1} title="Vào Nhóm & Phân quyền" desc="Menu trái → Nhóm → nhấn 'Thêm thành viên'." />
+          <Step num={2} title="Nhập email" desc="Nhập email tài khoản mới → chọn vai trò (Quản lý hoặc Kế toán)." />
+          <Step num={3} title="Giao chi nhánh (nếu là Manager)" desc="Chọn chi nhánh mà Manager đó sẽ phụ trách — Manager chỉ thấy dữ liệu chi nhánh này." />
+          <Step num={4} title="Người được mời đặt mật khẩu" desc="Người dùng mới vào link đăng nhập → nhập email → tạo mật khẩu lần đầu." />
+        </div>
+
+        <Callout type="info">
+          Manager được giao chi nhánh sẽ thấy <strong>đúng chi nhánh đó</strong> trong tất cả trang:
+          Dashboard, Báo cáo, Phiếu lương, Nghỉ phép. Dữ liệu chi nhánh khác hoàn toàn ẩn.
+        </Callout>
+        <Callout type="tip">Gói Starter hỗ trợ 1 tài khoản. Pro hỗ trợ 3. Business không giới hạn số lượng.</Callout>
+      </Section>
+    ),
+  },
+
+  "contracts": {
+    title: "Hợp đồng lao động",
+    Icon: ScrollText,
+    content: (
+      <Section Icon={ScrollText} title="Hợp đồng lao động">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold mb-4">
+          <Shield size={11} />
+          Tính năng gói Business
+        </div>
+
+        <p className="text-sm text-gray-600">Tạo và lưu trữ hợp đồng lao động cho từng nhân viên ngay trong hệ thống. In hợp đồng A4 với đầy đủ thông tin và chữ ký.</p>
+
+        <SubTitle>Các loại hợp đồng</SubTitle>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {[
+            ["Thử việc", "Thời gian thử việc trước khi ký chính thức"],
+            ["Xác định thời hạn", "Hợp đồng có ngày bắt đầu và kết thúc cụ thể"],
+            ["Không xác định thời hạn", "Hợp đồng dài hạn không có ngày hết"],
+            ["Mùa vụ", "Hợp đồng theo mùa hoặc dự án ngắn hạn"],
+            ["Bán thời gian", "Nhân viên làm việc dưới 8 giờ/ngày"],
+          ].map(([name, desc]) => (
+            <div key={name} className="bg-white border border-gray-100 rounded-xl p-3">
+              <p className="font-semibold text-gray-700 text-xs mb-1">{name}</p>
+              <p className="text-gray-500 text-xs">{desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <SubTitle>Tạo hợp đồng mới</SubTitle>
+        <div className="space-y-2">
+          <Step num={1} title="Vào danh sách Nhân viên" desc="Menu trái → Nhân viên → tìm nhân viên cần tạo hợp đồng." />
+          <Step num={2} title="Nhấn nút 'HĐ'" desc="Nút màu tím 'HĐ' ở cuối mỗi hàng nhân viên → mở form tạo hợp đồng." />
+          <Step num={3} title="Điền thông tin hợp đồng" desc="Chọn loại hợp đồng, ngày bắt đầu, ngày kết thúc (nếu có), lương, và các điều khoản." />
+          <Step num={4} title="Lưu hợp đồng" desc="Nhấn Lưu → hợp đồng được gắn với nhân viên và lưu trong hệ thống." />
+          <Step num={5} title="In hợp đồng" desc="Trong danh sách hợp đồng → nhấn 'In' → hợp đồng A4 có chữ ký và dấu công ty." />
+        </div>
+
+        <SubTitle>Chữ ký & Dấu công ty trên hợp đồng</SubTitle>
+        <p className="text-sm text-gray-600">Upload chữ ký và dấu đỏ một lần tại Cài đặt → Chữ ký & Dấu — sau đó tất cả hợp đồng, phiếu duyệt nghỉ phép tự động dùng ảnh đó.</p>
+        <div className="space-y-1 mt-2">
+          <Check>Vào <strong>Cài đặt → Chữ ký & Dấu</strong></Check>
+          <Check>Upload ảnh PNG nền trong suốt (max 200KB)</Check>
+          <Check>Ảnh chữ ký và dấu hiển thị trên tất cả văn bản in ra</Check>
+        </div>
+
+        <Callout type="warning">Hợp đồng chỉ khả dụng với gói <strong>Business</strong>. Nút &ldquo;HĐ&rdquo; sẽ bị khóa trên gói Starter và Pro.</Callout>
+      </Section>
+    ),
+  },
+
+  "employee-portal": {
+    title: "Cổng thông tin nhân viên",
+    Icon: User,
+    content: (
+      <Section Icon={User} title="Cổng thông tin nhân viên">
+        <p className="text-sm text-gray-600">Mỗi nhân viên có thể tự tra cứu chấm công, xem phiếu lương và gửi yêu cầu điều chỉnh — không cần hỏi sếp.</p>
+
+        <SubTitle>Link truy cập</SubTitle>
+        <div className="bg-gray-900 text-green-400 rounded-xl p-4 text-xs font-mono">
+          https://timio.vn/employee/[slug-công-ty]
+        </div>
+        <p className="text-xs text-gray-400 mt-2">Ví dụ: <code className="bg-gray-100 px-1.5 py-0.5 rounded">timio.vn/employee/abc-company</code></p>
+        <Callout type="tip">In QR code trỏ đến link này và dán ở phòng ăn / bảng thông báo để nhân viên dễ truy cập từ điện thoại cá nhân.</Callout>
+
+        <SubTitle>Quy trình đăng nhập</SubTitle>
+        <div className="space-y-2">
+          <Step num={1} title="Vào link cổng thông tin" desc="Nhân viên mở trình duyệt trên điện thoại → nhập URL hoặc quét QR." />
+          <Step num={2} title="Nhập mã nhân viên và PIN" desc="Dùng Mã NV (VD: NV001) và PIN 4 số — chính là PIN chấm công hàng ngày." />
+          <Step num={3} title="Xem thông tin cá nhân" desc="Sau khi đăng nhập thấy: ngày công, số lần trễ, tiền phạt, số ngày phép còn lại." />
+        </div>
+
+        <SubTitle>Tính năng nhân viên có thể làm</SubTitle>
+        <div className="space-y-2">
+          <Check><strong>Xem bảng chấm công tháng</strong> — lịch ngày nào đúng giờ, trễ, vắng, nghỉ phép</Check>
+          <Check><strong>Xem phiếu lương</strong> — lương CB, tăng ca, phạt, BHXH, thực nhận và số tiền bằng chữ</Check>
+          <Check><strong>Gửi yêu cầu điều chỉnh</strong> — nếu chấm công bị sai (quên check-in, check-out nhầm), điền form gửi cho admin xét duyệt</Check>
+          <Check><strong>Xem số ngày phép còn lại</strong> — tổng phép năm và số đã dùng</Check>
+        </div>
+
+        <SubTitle>Yêu cầu điều chỉnh chấm công</SubTitle>
+        <div className="space-y-2">
+          <Step num={1} title="Trong cổng NV → nhấn 'Yêu cầu điều chỉnh'" desc="Chọn ngày cần chỉnh → điền lý do (VD: 'Quên check-out lúc 17:30')." />
+          <Step num={2} title="Gửi yêu cầu" desc="Admin nhận yêu cầu trong dashboard → Cài đặt → Yêu cầu điều chỉnh." />
+          <Step num={3} title="Admin xét duyệt" desc="Admin chỉnh sửa giờ vào/ra trực tiếp hoặc từ chối với ghi chú." />
+        </div>
+
+        <Callout type="info">PIN của nhân viên là PIN chấm công 4 số. Nếu nhân viên quên PIN, admin có thể xem và đặt lại trong hồ sơ nhân viên.</Callout>
+
+        <SubTitle>Cách chia sẻ link với nhân viên</SubTitle>
+        <div className="space-y-2">
+          <Check>Vào <strong>Cài đặt</strong> → tìm ô &ldquo;Link cổng nhân viên&rdquo; → nhấn Copy</Check>
+          <Check>Gửi qua Zalo nhóm công ty hoặc in QR dán ở bảng thông báo</Check>
+          <Check>Mỗi công ty có một link riêng — nhân viên công ty khác không đăng nhập được</Check>
         </div>
       </Section>
     ),
