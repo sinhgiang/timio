@@ -12,12 +12,16 @@ export async function GET(req: NextRequest) {
   const month = Number(req.nextUrl.searchParams.get("month"));
   if (!year || !month) return NextResponse.json({ error: "Thiếu year/month" }, { status: 400 });
 
-  const payments = await prisma.salaryPayment.findMany({
-    where: { companyId, year, month },
-    select: { employeeId: true, status: true, paidAt: true, amount: true, note: true },
-  });
-
-  return NextResponse.json(payments);
+  try {
+    const payments = await prisma.salaryPayment.findMany({
+      where: { companyId, year, month },
+      select: { employeeId: true, status: true, paidAt: true, amount: true, note: true },
+    });
+    return NextResponse.json(payments);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "DB error", detail: msg }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -32,25 +36,29 @@ export async function POST(req: NextRequest) {
 
   const isPaid = (status ?? "paid") === "paid";
 
-  const payment = await prisma.salaryPayment.upsert({
-    where: { employeeId_year_month: { employeeId, year, month } },
-    create: {
-      companyId,
-      employeeId,
-      year,
-      month,
-      amount: amount ?? 0,
-      status: isPaid ? "paid" : "unpaid",
-      paidAt: isPaid ? new Date() : null,
-      note: note ?? null,
-    },
-    update: {
-      amount: amount !== undefined ? amount : undefined,
-      status: isPaid ? "paid" : "unpaid",
-      paidAt: isPaid ? new Date() : null,
-      note: note !== undefined ? note : undefined,
-    },
-  });
-
-  return NextResponse.json(payment);
+  try {
+    const payment = await prisma.salaryPayment.upsert({
+      where: { employeeId_year_month: { employeeId, year, month } },
+      create: {
+        companyId,
+        employeeId,
+        year,
+        month,
+        amount: amount ?? 0,
+        status: isPaid ? "paid" : "unpaid",
+        paidAt: isPaid ? new Date() : null,
+        note: note ?? null,
+      },
+      update: {
+        amount: amount !== undefined ? amount : undefined,
+        status: isPaid ? "paid" : "unpaid",
+        paidAt: isPaid ? new Date() : null,
+        note: note !== undefined ? note : undefined,
+      },
+    });
+    return NextResponse.json(payment);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "DB error", detail: msg }, { status: 500 });
+  }
 }

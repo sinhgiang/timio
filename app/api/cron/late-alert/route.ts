@@ -21,7 +21,9 @@ export async function GET(req: Request) {
 
   let alertsSent = 0;
 
-  const branches = await prisma.branch.findMany({
+  let branches;
+  try {
+    branches = await prisma.branch.findMany({
     include: {
       company: {
         select: {
@@ -38,7 +40,11 @@ export async function GET(req: Request) {
         select: { id: true, name: true, code: true, department: true },
       },
     },
-  });
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "DB error", detail: msg }, { status: 500 });
+  }
 
   for (const branch of branches) {
     // Check if today is a work day for this branch
@@ -65,11 +71,11 @@ export async function GET(req: Request) {
       .join("\n");
 
     const msg =
-      `⚠️ *Cảnh báo chưa chấm công*\n` +
+      `⚠️ <b>Cảnh báo chưa chấm công</b>\n` +
       `🏢 ${branch.name} — ${branch.company.name}\n` +
       `📅 ${todayDisplay} | Ca: ${branch.checkInTime}\n\n` +
       `Chưa vào làm (${absent.length}/${branch.employees.length} NV):\n${names}\n\n` +
-      `_Timio — Cảnh báo tự động_`;
+      `<i>Timio — Cảnh báo tự động</i>`;
 
     const token = branch.company.telegramBotToken;
 
