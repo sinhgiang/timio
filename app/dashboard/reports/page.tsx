@@ -76,13 +76,32 @@ export default async function ReportsPage({
     }),
   ]);
 
-  const summaries = await prisma.monthlySummary.findMany({
-    where: {
-      employee: { companyId },
-      year,
-      month,
-    },
-    include: { employee: true },
+  const [summaries, branches] = await Promise.all([
+    prisma.monthlySummary.findMany({
+      where: { employee: { companyId }, year, month },
+      include: { employee: true },
+    }),
+    prisma.branch.findMany({
+      where: { companyId },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const branchStats = branches.map((branch) => {
+    const branchEmpIds = new Set(employees.filter((e) => e.branchId === branch.id).map((e) => e.id));
+    const branchSummaries = summaries.filter((s) => branchEmpIds.has(s.employeeId));
+    const branchEmps = employees.filter((e) => e.branchId === branch.id);
+    return {
+      branchId: branch.id,
+      branchName: branch.name,
+      employeeCount: branchEmps.length,
+      daysPresent: branchSummaries.reduce((sum, s) => sum + s.daysPresent, 0),
+      daysLate: branchSummaries.reduce((sum, s) => sum + s.daysLate, 0),
+      daysAbsent: branchSummaries.reduce((sum, s) => sum + s.daysAbsent, 0),
+      totalPenalty: branchSummaries.reduce((sum, s) => sum + s.totalPenalty, 0),
+      totalOvertimeAmount: branchSummaries.reduce((sum, s) => sum + s.totalOvertimeAmount, 0),
+      totalBaseSalary: branchEmps.reduce((sum, e) => sum + (e.baseSalary ?? 0), 0),
+    };
   });
 
   return (
@@ -122,6 +141,7 @@ export default async function ReportsPage({
         totalMinutesOvertime: s.totalMinutesOvertime,
         totalOvertimeAmount: s.totalOvertimeAmount,
       }))}
+      branchStats={branchStats}
       year={year}
       month={month}
     />

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatTime, getMonthDays } from "@/lib/utils";
 import { getStatusColor } from "@/lib/attendance";
+import PlanGate from "@/components/ui/PlanGate";
 
 interface Employee {
   id: string;
@@ -50,11 +51,24 @@ interface LeaveRecord {
   days: number;
 }
 
+interface BranchStat {
+  branchId: string;
+  branchName: string;
+  employeeCount: number;
+  daysPresent: number;
+  daysLate: number;
+  daysAbsent: number;
+  totalPenalty: number;
+  totalOvertimeAmount: number;
+  totalBaseSalary: number;
+}
+
 interface Props {
   employees: Employee[];
   logs: Log[];
   summaries: Summary[];
   leaveRequests: LeaveRecord[];
+  branchStats: BranchStat[];
   year: number;
   month: number;
 }
@@ -74,9 +88,9 @@ function calcUnpaidLeaveDays(leaves: LeaveRecord[], employeeId: string, year: nu
     }, 0);
 }
 
-export default function ReportsClient({ employees, logs, summaries, leaveRequests, year, month }: Props) {
+export default function ReportsClient({ employees, logs, summaries, leaveRequests, branchStats, year, month }: Props) {
   const router = useRouter();
-  const [view, setView] = useState<"summary" | "detail">("summary");
+  const [view, setView] = useState<"summary" | "detail" | "branches">("summary");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -347,6 +361,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
               }}
               className={`px-3 py-2 text-sm font-medium transition-colors ${view === "detail" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
             >Chi tiết</button>
+            <button
+              onClick={() => setView("branches")}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${view === "branches" ? "bg-purple-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >Chi nhánh</button>
           </div>
 
           {/* Export dropdown */}
@@ -526,6 +544,131 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
             <DayTable emp={selectedEmployee} />
           )}
         </div>
+      )}
+
+      {/* ── So sánh chi nhánh view (Business) ── */}
+      {view === "branches" && (
+        <PlanGate requiredPlan="business" feature="Báo cáo so sánh đa chi nhánh">
+          <div>
+            <p className="text-xs text-gray-400 mb-4">
+              So sánh hiệu suất chấm công theo từng chi nhánh — tháng {month}/{year}
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-gray-100 shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Chi nhánh</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Nhân viên</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Ngày công</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Đi trễ</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Vắng</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Tổng phạt</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Tăng ca</th>
+                    <th className="text-right px-5 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Lương cơ bản</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {branchStats.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-10 text-gray-400 text-sm">Chưa có dữ liệu chi nhánh</td>
+                    </tr>
+                  ) : (
+                    branchStats
+                      .sort((a, b) => b.daysPresent - a.daysPresent)
+                      .map((branch, i) => {
+                        const totalDays = branch.daysPresent + branch.daysAbsent;
+                        const attendanceRate = totalDays > 0 ? Math.round((branch.daysPresent / totalDays) * 100) : 0;
+                        const lateRate = branch.daysPresent > 0 ? Math.round((branch.daysLate / branch.daysPresent) * 100) : 0;
+                        return (
+                          <tr key={branch.branchId} className={i % 2 === 1 ? "bg-gray-50/40" : "bg-white"}>
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-gray-800">{branch.branchName}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                  attendanceRate >= 90 ? "bg-green-100 text-green-700" :
+                                  attendanceRate >= 75 ? "bg-yellow-100 text-yellow-700" :
+                                  "bg-red-100 text-red-700"
+                                }`}>
+                                  {attendanceRate}% chuyên cần
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center text-gray-700 font-medium">{branch.employeeCount}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-green-700 font-semibold">{branch.daysPresent}</span>
+                              <span className="text-gray-300 text-xs"> ngày</span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {branch.daysLate > 0 ? (
+                                <span className="text-amber-600 font-semibold">
+                                  {branch.daysLate}
+                                  <span className="text-gray-400 text-xs font-normal"> ({lateRate}%)</span>
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {branch.daysAbsent > 0 ? (
+                                <span className="text-red-500 font-semibold">{branch.daysAbsent}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {branch.totalPenalty > 0 ? (
+                                <span className="text-red-600 font-medium">-{formatCurrency(branch.totalPenalty)}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {branch.totalOvertimeAmount > 0 ? (
+                                <span className="text-blue-600">+{formatCurrency(branch.totalOvertimeAmount)}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              {branch.totalBaseSalary > 0 ? (
+                                <span className="font-bold text-gray-800">{formatCurrency(branch.totalBaseSalary)}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+                {branchStats.length > 1 && (
+                  <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+                    <tr>
+                      <td className="px-4 py-3 font-bold text-gray-700 text-xs uppercase">Tổng công ty</td>
+                      <td className="px-4 py-3 text-center font-bold text-gray-700">{branchStats.reduce((s, b) => s + b.employeeCount, 0)}</td>
+                      <td className="px-4 py-3 text-center font-bold text-green-700">{branchStats.reduce((s, b) => s + b.daysPresent, 0)}</td>
+                      <td className="px-4 py-3 text-center font-bold text-amber-600">{branchStats.reduce((s, b) => s + b.daysLate, 0)}</td>
+                      <td className="px-4 py-3 text-center font-bold text-red-500">{branchStats.reduce((s, b) => s + b.daysAbsent, 0)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-red-600">
+                        {branchStats.reduce((s, b) => s + b.totalPenalty, 0) > 0
+                          ? `-${formatCurrency(branchStats.reduce((s, b) => s + b.totalPenalty, 0))}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-blue-600">
+                        {branchStats.reduce((s, b) => s + b.totalOvertimeAmount, 0) > 0
+                          ? `+${formatCurrency(branchStats.reduce((s, b) => s + b.totalOvertimeAmount, 0))}`
+                          : "—"}
+                      </td>
+                      <td className="px-5 py-3 text-right font-bold text-gray-800">
+                        {formatCurrency(branchStats.reduce((s, b) => s + b.totalBaseSalary, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+        </PlanGate>
       )}
     </div>
   );
