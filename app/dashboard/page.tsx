@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTodayString, formatTime, formatCurrency } from "@/lib/utils";
 import { getStatusColor, getStatusLabel } from "@/lib/attendance";
-import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, type LucideIcon } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, FileWarning, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import OnboardingBanner from "@/components/dashboard/OnboardingBanner";
 
@@ -24,7 +24,12 @@ export default async function DashboardPage() {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
 
-  const [totalEmployees, todayLogs, company, onLeaveToday, weekLogs] = await Promise.all([
+  // Contract expiry: next 30 days
+  const in30Days = new Date();
+  in30Days.setDate(in30Days.getDate() + 30);
+  const in30DaysStr = in30Days.toISOString().slice(0, 10);
+
+  const [totalEmployees, todayLogs, company, onLeaveToday, weekLogs, expiringContracts] = await Promise.all([
     prisma.employee.count({ where: empFilter }),
     prisma.attendanceLog.findMany({
       where: { employee: empWhereNested, date: today },
@@ -49,6 +54,18 @@ export default async function DashboardPage() {
       where: { employee: empWhereNested, date: { gte: sevenDaysAgoStr, lte: today } },
       select: { date: true, status: true },
     }),
+    prisma.contract.findMany({
+      where: {
+        endDate: { not: null, gte: today, lte: in30DaysStr },
+        employee: { ...empWhereNested, status: "active" },
+      },
+      select: {
+        id: true, endDate: true, type: true,
+        employee: { select: { name: true, code: true, department: true } },
+      },
+      orderBy: { endDate: "asc" },
+      take: 10,
+    }).catch(() => []),
   ]);
 
   // Build 7-day chart data
@@ -148,6 +165,33 @@ export default async function DashboardPage() {
                 <span className="text-purple-400">đến {lr.toDate.split("-").reverse().slice(0, 2).join("/")}</span>
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hợp đồng sắp hết hạn */}
+      {expiringContracts.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-5">
+          <p className="text-sm font-semibold text-orange-700 mb-2 flex items-center gap-1.5">
+            <FileWarning size={15} className="shrink-0" />
+            {expiringContracts.length} hợp đồng sắp hết hạn trong 30 ngày tới
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {expiringContracts.map((c) => {
+              const daysLeft = Math.ceil((new Date(c.endDate!).getTime() - Date.now()) / 86400000);
+              return (
+                <div key={c.id} className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-orange-100">
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-gray-800">{c.employee.name}</span>
+                    {c.employee.department && <span className="text-xs text-gray-400 ml-2">{c.employee.department}</span>}
+                    <span className="text-xs text-gray-400 ml-2">· {c.employee.code}</span>
+                  </div>
+                  <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${daysLeft <= 7 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
+                    {daysLeft === 0 ? "Hôm nay" : `${daysLeft} ngày`}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

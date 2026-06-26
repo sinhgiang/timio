@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/late-alert",
       "schedule": "15 2 * * 1-5"
+    },
+    {
+      "path": "/api/cron/birthday",
+      "schedule": "5 1 * * *"
     }
   ]
 }

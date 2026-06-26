@@ -83,6 +83,7 @@ interface Employee {
   baseSalary: number | null;
   joinDate: string | null;
   dateOfBirth: string | null;
+  email: string | null;
   phone: string | null;
   cccd: string | null;
   bankName: string | null;
@@ -255,6 +256,7 @@ export default function EmployeesClient({
       baseSalary: "",
       joinDate: "",
       dateOfBirth: "",
+      email: "",
       phone: "",
       cccd: "",
       pin: "",
@@ -353,6 +355,7 @@ export default function EmployeesClient({
       baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
       dateOfBirth: emp.dateOfBirth ?? "",
+      email: emp.email ?? "",
       phone: emp.phone ?? "",
       cccd: emp.cccd ?? "",
       pin: (emp.pin && !/^\$2[ab]\$/.test(emp.pin)) ? emp.pin : "",
@@ -424,6 +427,7 @@ export default function EmployeesClient({
         baseSalary: form.baseSalary ? Number(form.baseSalary) : 0,
         joinDate: form.joinDate || null,
         dateOfBirth: form.dateOfBirth || null,
+        email: form.email || null,
         phone: form.phone || null,
         cccd: form.cccd || null,
         pin: form.pin || undefined,
@@ -682,6 +686,7 @@ export default function EmployeesClient({
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>
+                    <Field label="Email cá nhân" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="VD: nguyenvan@gmail.com" />
                     <Field label="Số điện thoại" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="VD: 0901234567" />
                     <Field label="Căn cước công dân" value={form.cccd} onChange={(v) => setForm({ ...form, cccd: v })} placeholder="12 số" />
                     <div>

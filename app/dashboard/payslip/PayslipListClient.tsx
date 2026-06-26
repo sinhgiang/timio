@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck, CheckCircle2, Circle, Banknote } from "lucide-react";
+import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck, CheckCircle2, Circle, Banknote, Mail } from "lucide-react";
 
 interface PayslipRow {
   id: string;
@@ -22,6 +22,7 @@ interface PayslipRow {
   bhxhEmployee: number;
   tncn: number;
   netSalary: number;
+  email?: string | null;
 }
 
 interface PaymentInfo {
@@ -44,10 +45,29 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
   const router = useRouter();
   const [payments, setPayments] = useState<Record<string, PaymentInfo>>(paymentMap);
   const [paying, setPaying] = useState<Record<string, boolean>>({});
+  const [emailing, setEmailing] = useState<Record<string, "sending" | "sent" | "error">>({});
 
   const [year, mon] = currentMonth.split("-");
   const yearN = parseInt(year);
   const monN = parseInt(mon);
+
+  const sendPayslipEmail = useCallback(async (employeeId: string) => {
+    setEmailing((e) => ({ ...e, [employeeId]: "sending" }));
+    try {
+      const res = await fetch("/api/payslip/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, year: yearN, month: monN }),
+      });
+      setEmailing((e) => ({ ...e, [employeeId]: res.ok ? "sent" : "error" }));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Gửi email thất bại");
+      }
+    } catch {
+      setEmailing((e) => ({ ...e, [employeeId]: "error" }));
+    }
+  }, [yearN, monN]);
 
   const markPayment = useCallback(async (employeeId: string, netSalary: number, status: "paid" | "unpaid") => {
     setPaying((p) => ({ ...p, [employeeId]: true }));
@@ -185,6 +205,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
                 <th className="text-right px-3 py-3 font-semibold text-purple-600">Thuế TNCN</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-800">Thực nhận</th>
                 <th className="text-center px-3 py-3 font-semibold text-green-700">Thanh toán</th>
+                <th className="text-center px-3 py-3 font-semibold text-blue-600">Email</th>
                 <th className="px-3 py-3"></th>
               </tr>
             </thead>
@@ -252,6 +273,27 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
                       </button>
                     )}
                   </td>
+                  <td className="text-center px-3 py-3">
+                    {r.email ? (
+                      <button
+                        onClick={() => sendPayslipEmail(r.id)}
+                        disabled={emailing[r.id] === "sending"}
+                        title={`Gửi phiếu lương tới ${r.email}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          emailing[r.id] === "sent"
+                            ? "bg-green-50 text-green-600"
+                            : emailing[r.id] === "error"
+                            ? "bg-red-50 text-red-500"
+                            : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        } disabled:opacity-50`}
+                      >
+                        <Mail size={12} />
+                        {emailing[r.id] === "sending" ? "..." : emailing[r.id] === "sent" ? "Đã gửi" : emailing[r.id] === "error" ? "Lỗi" : "Gửi"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-300" title="Nhân viên chưa có email">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3">
                     <Link
                       href={`/dashboard/payslip/${r.id}?month=${currentMonth}`}
@@ -287,6 +329,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
                 <td className="text-center px-3 py-3">
                   <span className="text-xs font-medium text-green-700">{paidCount}/{rows.length} đã trả</span>
                 </td>
+                <td></td>
                 <td></td>
               </tr>
             </tfoot>

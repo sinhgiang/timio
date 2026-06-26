@@ -69,7 +69,7 @@ export default async function PayslipPage({ searchParams }: Props) {
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, code: true, department: true, position: true,
-        baseSalary: true, joinDate: true, dependents: true,
+        baseSalary: true, joinDate: true, dependents: true, email: true,
         summaries: {
           where: { year, month },
           select: {
@@ -112,6 +112,7 @@ export default async function PayslipPage({ searchParams }: Props) {
       bhxhEmployee: tax.bhxhEmployee,
       tncn: tax.tncn,
       netSalary: tax.netTakeHome,
+      email: e.email ?? null,
     };
   });
 
