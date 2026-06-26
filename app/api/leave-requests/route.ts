@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { leaveRequestEmail } from "@/lib/emailTemplates";
 import { sendZaloMessage } from "@/lib/zalo";
+import { sendTelegram } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     // Gửi email thông báo cho admin — fire-and-forget
     void notifyAdminNewLeave({
       companyId,
+      employeeId,
       employeeName: employee.name,
       department: employee.department ?? "",
       type,
@@ -82,6 +84,7 @@ export async function POST(req: NextRequest) {
 
 async function notifyAdminNewLeave(opts: {
   companyId: string;
+  employeeId: string;
   employeeName: string;
   department: string;
   type: string;
@@ -90,20 +93,48 @@ async function notifyAdminNewLeave(opts: {
   days: number;
   reason: string;
 }) {
-  const [admins, company] = await Promise.all([
+  const [admins, company, employee] = await Promise.all([
     prisma.admin.findMany({
       where: { companyId: opts.companyId },
       select: { email: true, name: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true },
     }),
     prisma.company.findUnique({
       where: { id: opts.companyId },
-      select: { telegramBotToken: true, zaloOaToken: true },
+      select: { telegramBotToken: true, zaloOaToken: true, accountingChatId: true },
+    }),
+    prisma.employee.findUnique({
+      where: { id: opts.employeeId },
+      select: { branch: { select: { telegramChatId: true, name: true } } },
     }),
   ]);
 
   const siteUrl = process.env.NEXTAUTH_URL ?? "https://timio.vn";
   const dashboardUrl = `${siteUrl}/dashboard/leave`;
   const typeLabel: Record<string, string> = { annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương", maternity: "Thai sản", other: "Khác" };
+
+  const token = company?.telegramBotToken;
+  const tgMsg =
+    `📋 <b>Đơn xin nghỉ mới</b>\n` +
+    `👤 <b>${opts.employeeName}</b>${opts.department ? ` — ${opts.department}` : ""}` +
+    (employee?.branch?.name ? ` | ${employee.branch.name}` : "") + "\n" +
+    `📅 ${opts.fromDate} → ${opts.toDate} (${opts.days} ngày)\n` +
+    `🏷 ${typeLabel[opts.type] ?? opts.type}\n` +
+    (opts.reason ? `📝 ${opts.reason.slice(0, 200)}\n` : "") +
+    `\n<a href="${dashboardUrl}">Xem &amp; duyệt trên Timio →</a>`;
+
+  // Gửi Telegram tới branch chat + accounting chat + admin cá nhân
+  const sentChats = new Set<string>();
+  if (token) {
+    const branchChatId = employee?.branch?.telegramChatId;
+    if (branchChatId) {
+      await sendTelegram(token, branchChatId, tgMsg).catch(() => null);
+      sentChats.add(branchChatId);
+    }
+    if (company?.accountingChatId && !sentChats.has(company.accountingChatId)) {
+      await sendTelegram(token, company.accountingChatId, tgMsg).catch(() => null);
+      sentChats.add(company.accountingChatId);
+    }
+  }
 
   await Promise.all(
     admins.map(async (admin) => {
@@ -126,22 +157,10 @@ async function notifyAdminNewLeave(opts: {
         });
       }
 
-      // Telegram notification
-      if (admin.receiveTelegram && admin.telegramChatId && company?.telegramBotToken) {
-        const text = [
-          `📋 *Đơn xin nghỉ mới*`,
-          `👤 *${opts.employeeName}*${opts.department ? ` — ${opts.department}` : ""}`,
-          `📅 ${opts.fromDate} → ${opts.toDate} (${opts.days} ngày)`,
-          `🏷 ${typeLabel[opts.type] ?? opts.type}`,
-          opts.reason ? `📝 ${opts.reason.slice(0, 200)}` : "",
-          `\n[Xem & duyệt](${dashboardUrl})`,
-        ].filter(Boolean).join("\n");
-
-        await fetch(`https://api.telegram.org/bot${company.telegramBotToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: admin.telegramChatId, text, parse_mode: "Markdown" }),
-        }).catch((e) => console.error("[telegram] Gửi thất bại:", e));
+      // Telegram cá nhân admin
+      if (token && admin.receiveTelegram && admin.telegramChatId && !sentChats.has(admin.telegramChatId)) {
+        await sendTelegram(token, admin.telegramChatId, tgMsg).catch(() => null);
+        sentChats.add(admin.telegramChatId);
       }
 
       // Zalo notification
