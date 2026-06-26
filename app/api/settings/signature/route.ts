@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid field" }, { status: 400 });
   }
 
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  if (company?.plan !== "business") {
+    return NextResponse.json({ error: "Chữ ký số & Dấu công ty chỉ có trong gói Business" }, { status: 403 });
+  }
+
   const updated = await prisma.company.update({
     where: { id: companyId },
     data: { [field]: value ?? null },

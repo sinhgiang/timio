@@ -13,15 +13,21 @@ export async function PATCH(
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { name, checkInTime, checkOutTime, gracePeriod, workDays, lat, lng, gpsRadius, standardWorkDays } = await req.json();
+
+    const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+    const isPro = company?.plan === "pro" || company?.plan === "business";
+
     const branch = await prisma.branch.update({
       where: { id: params.id, companyId },
       data: {
         name, checkInTime, checkOutTime,
         gracePeriod: Number(gracePeriod),
         workDays,
-        lat: lat !== undefined ? (lat !== null ? Number(lat) : null) : undefined,
-        lng: lng !== undefined ? (lng !== null ? Number(lng) : null) : undefined,
-        gpsRadius: gpsRadius !== undefined ? Number(gpsRadius) : undefined,
+        ...(isPro && {
+          lat: lat !== undefined ? (lat !== null ? Number(lat) : null) : undefined,
+          lng: lng !== undefined ? (lng !== null ? Number(lng) : null) : undefined,
+          gpsRadius: gpsRadius !== undefined ? Number(gpsRadius) : undefined,
+        }),
         standardWorkDays: standardWorkDays !== undefined ? Number(standardWorkDays) : undefined,
       },
     });

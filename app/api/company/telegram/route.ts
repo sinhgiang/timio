@@ -9,6 +9,11 @@ export async function POST(req: NextRequest) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  if (!company || company.plan === "starter") {
+    return NextResponse.json({ error: "Thông báo Telegram chỉ có trong gói Pro trở lên" }, { status: 403 });
+  }
+
   const { telegramBotToken, accountingChatId } = await req.json();
   await prisma.company.update({
     where: { id: companyId },

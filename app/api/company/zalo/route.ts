@@ -10,6 +10,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const companyRow = await prisma.company.findUnique({ where: { id: user.companyId }, select: { plan: true } });
+  if (!companyRow || companyRow.plan === "starter") {
+    return NextResponse.json({ error: "Thông báo Zalo OA chỉ có trong gói Pro trở lên" }, { status: 403 });
+  }
+
   const { zaloOaToken } = await req.json();
 
   await prisma.company.update({

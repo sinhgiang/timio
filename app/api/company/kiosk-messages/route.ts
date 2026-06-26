@@ -8,6 +8,11 @@ export async function POST(req: Request) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
+  if (!company || company.plan === "starter") {
+    return NextResponse.json({ error: "Tùy chỉnh lời chào kiosk chỉ có trong gói Pro trở lên" }, { status: 403 });
+  }
+
   const body = await req.json();
   const { welcome, checkinOntime, checkinLate, checkout } = body;
 
