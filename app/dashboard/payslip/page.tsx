@@ -63,7 +63,7 @@ export default async function PayslipPage({ searchParams }: Props) {
     );
   }
 
-  const [employees, company] = await Promise.all([
+  const [employees, company, payments] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId, status: "active" },
       orderBy: { name: "asc" },
@@ -81,6 +81,10 @@ export default async function PayslipPage({ searchParams }: Props) {
       },
     }),
     prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
+    prisma.salaryPayment.findMany({
+      where: { companyId, year, month },
+      select: { employeeId: true, status: true, paidAt: true },
+    }),
   ]);
 
   const rows = employees.map((e) => {
@@ -111,11 +115,16 @@ export default async function PayslipPage({ searchParams }: Props) {
     };
   });
 
+  const paymentMap = Object.fromEntries(
+    payments.map((p) => [p.employeeId, { status: p.status, paidAt: p.paidAt?.toISOString() ?? null }])
+  );
+
   return (
     <PayslipListClient
       rows={rows}
       companyName={company?.name ?? ""}
       currentMonth={monthStr}
+      paymentMap={paymentMap}
     />
   );
 }

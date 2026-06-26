@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck } from "lucide-react";
+import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck, CheckCircle2, Circle, Banknote } from "lucide-react";
 
 interface PayslipRow {
   id: string;
@@ -23,19 +24,58 @@ interface PayslipRow {
   netSalary: number;
 }
 
+interface PaymentInfo {
+  status: string;
+  paidAt: string | null;
+}
+
 interface Props {
   rows: PayslipRow[];
   companyName: string;
   currentMonth: string;
+  paymentMap: Record<string, PaymentInfo>;
 }
 
 function fmt(n: number) {
   return n.toLocaleString("vi-VN") + "đ";
 }
 
-export default function PayslipListClient({ rows, companyName, currentMonth }: Props) {
+export default function PayslipListClient({ rows, companyName, currentMonth, paymentMap }: Props) {
   const router = useRouter();
+  const [payments, setPayments] = useState<Record<string, PaymentInfo>>(paymentMap);
+  const [paying, setPaying] = useState<Record<string, boolean>>({});
+
   const [year, mon] = currentMonth.split("-");
+  const yearN = parseInt(year);
+  const monN = parseInt(mon);
+
+  const markPayment = useCallback(async (employeeId: string, netSalary: number, status: "paid" | "unpaid") => {
+    setPaying((p) => ({ ...p, [employeeId]: true }));
+    try {
+      const res = await fetch("/api/salary-payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, year: yearN, month: monN, amount: netSalary, status }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPayments((p) => ({
+          ...p,
+          [employeeId]: { status: data.status, paidAt: data.paidAt ?? null },
+        }));
+      }
+    } finally {
+      setPaying((p) => ({ ...p, [employeeId]: false }));
+    }
+  }, [yearN, monN]);
+
+  const markAll = async (status: "paid" | "unpaid") => {
+    for (const r of rows) {
+      await markPayment(r.id, r.netSalary, status);
+    }
+  };
+
+  const paidCount = rows.filter((r) => payments[r.id]?.status === "paid").length;
 
   const totalNet = rows.reduce((s, r) => s + r.netSalary, 0);
   const totalPenalty = rows.reduce((s, r) => s + r.totalPenalty, 0);
@@ -58,6 +98,40 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
           className="border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
+
+      {/* Payment status bar */}
+      {rows.length > 0 && (
+        <div className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 mb-4 shadow-sm flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Banknote size={18} className="text-green-600" />
+            <div>
+              <p className="text-sm font-semibold text-gray-800">
+                Trả lương tháng {mon}/{year}
+              </p>
+              <p className="text-xs text-gray-400">
+                {paidCount}/{rows.length} nhân viên đã trả · {fmt(rows.filter(r => payments[r.id]?.status === "paid").reduce((s, r) => s + r.netSalary, 0))} đã chi
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {paidCount < rows.length ? (
+              <button
+                onClick={() => markAll("paid")}
+                className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Đánh dấu tất cả đã trả
+              </button>
+            ) : (
+              <button
+                onClick={() => markAll("unpaid")}
+                className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Đặt lại tất cả
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-5 gap-3 mb-6">
@@ -110,6 +184,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
                 <th className="text-right px-3 py-3 font-semibold text-orange-500">BHXH (10.5%)</th>
                 <th className="text-right px-3 py-3 font-semibold text-purple-600">Thuế TNCN</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-800">Thực nhận</th>
+                <th className="text-center px-3 py-3 font-semibold text-green-700">Thanh toán</th>
                 <th className="px-3 py-3"></th>
               </tr>
             </thead>
@@ -139,6 +214,43 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
                   </td>
                   <td className="text-right px-4 py-3">
                     <span className="font-bold text-gray-900">{fmt(r.netSalary)}</span>
+                  </td>
+                  <td className="text-center px-3 py-3">
+                    {payments[r.id]?.status === "paid" ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1 text-green-600">
+                          <CheckCircle2 size={14} />
+                          <span className="text-xs font-medium">Đã trả</span>
+                        </div>
+                        {payments[r.id]?.paidAt && (
+                          <span className="text-xs text-gray-400">
+                            {new Date(payments[r.id].paidAt!).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => markPayment(r.id, r.netSalary, "unpaid")}
+                          disabled={paying[r.id]}
+                          className="text-xs text-gray-400 hover:text-red-500 transition-colors underline"
+                        >
+                          Hoàn tác
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => markPayment(r.id, r.netSalary, "paid")}
+                        disabled={paying[r.id]}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors disabled:opacity-50"
+                      >
+                        {paying[r.id] ? (
+                          <span className="text-xs">...</span>
+                        ) : (
+                          <>
+                            <Circle size={12} />
+                            Trả lương
+                          </>
+                        )}
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     <Link
@@ -172,6 +284,9 @@ export default function PayslipListClient({ rows, companyName, currentMonth }: P
                   {totalTncn > 0 ? `-${fmt(totalTncn)}` : "—"}
                 </td>
                 <td className="text-right px-4 py-3 font-bold text-blue-700 text-base">{fmt(totalNet)}</td>
+                <td className="text-center px-3 py-3">
+                  <span className="text-xs font-medium text-green-700">{paidCount}/{rows.length} đã trả</span>
+                </td>
                 <td></td>
               </tr>
             </tfoot>
