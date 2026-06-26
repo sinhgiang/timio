@@ -6,8 +6,11 @@ import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 
 export default async function LeavePage() {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const u = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = u?.companyId;
   if (!companyId) return null;
+
+  const scopedBranchId = u?.role === "manager" && u?.branchId ? u.branchId : null;
 
   const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
   if (!planRow || planRow.plan === "starter") {
@@ -33,7 +36,7 @@ export default async function LeavePage() {
       select: { id: true, name: true, slug: true, signatureUrl: true, stampUrl: true },
     }),
     prisma.leaveRequest.findMany({
-      where: { companyId },
+      where: { companyId, ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}) },
       include: {
         employee: {
           select: {

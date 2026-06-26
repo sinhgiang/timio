@@ -11,8 +11,11 @@ export default async function ReportsPage({
   searchParams: { month?: string; year?: string };
 }) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const u = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = u?.companyId;
   if (!companyId) return null;
+
+  const scopedBranchId = u?.role === "manager" && u?.branchId ? u.branchId : null;
 
   const planRow = await prisma.company.findUnique({
     where: { id: companyId },
@@ -52,15 +55,18 @@ export default async function ReportsPage({
   }
 
   const monthPad = String(month).padStart(2, "0");
+  const empFilter = { companyId, status: "active", ...(scopedBranchId ? { branchId: scopedBranchId } : {}) };
+  const empWhereNested = { companyId, ...(scopedBranchId ? { branchId: scopedBranchId } : {}) };
+
   const [employees, logs, leaveRequests] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId, status: "active" },
+      where: empFilter,
       include: { branch: true },
       orderBy: { name: "asc" },
     }),
     prisma.attendanceLog.findMany({
       where: {
-        employee: { companyId },
+        employee: empWhereNested,
         date: { gte: `${year}-${monthPad}-01`, lte: `${year}-${monthPad}-31` },
       },
       orderBy: { date: "asc" },
@@ -71,6 +77,7 @@ export default async function ReportsPage({
         status: "approved",
         fromDate: { lte: `${year}-${monthPad}-31` },
         toDate: { gte: `${year}-${monthPad}-01` },
+        ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}),
       },
       select: { employeeId: true, type: true, fromDate: true, toDate: true, days: true },
     }),
@@ -78,11 +85,11 @@ export default async function ReportsPage({
 
   const [summaries, branches] = await Promise.all([
     prisma.monthlySummary.findMany({
-      where: { employee: { companyId }, year, month },
+      where: { employee: empWhereNested, year, month },
       include: { employee: true },
     }),
     prisma.branch.findMany({
-      where: { companyId },
+      where: { companyId, ...(scopedBranchId ? { id: scopedBranchId } : {}) },
       orderBy: { name: "asc" },
     }),
   ]);

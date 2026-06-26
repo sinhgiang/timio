@@ -9,8 +9,13 @@ import OnboardingBanner from "@/components/dashboard/OnboardingBanner";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const u = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = u?.companyId;
   if (!companyId) return null;
+
+  const scopedBranchId = u?.role === "manager" && u?.branchId ? u.branchId : null;
+  const empFilter = { companyId, status: "active", ...(scopedBranchId ? { branchId: scopedBranchId } : {}) };
+  const empWhereNested = { companyId, ...(scopedBranchId ? { branchId: scopedBranchId } : {}) };
 
   const today = getTodayString();
 
@@ -20,9 +25,9 @@ export default async function DashboardPage() {
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
 
   const [totalEmployees, todayLogs, company, onLeaveToday, weekLogs] = await Promise.all([
-    prisma.employee.count({ where: { companyId, status: "active" } }),
+    prisma.employee.count({ where: empFilter }),
     prisma.attendanceLog.findMany({
-      where: { employee: { companyId }, date: today },
+      where: { employee: empWhereNested, date: today },
       include: { employee: { include: { branch: true } } },
       orderBy: { checkInAt: "asc" },
     }),
@@ -36,11 +41,12 @@ export default async function DashboardPage() {
         status: "approved",
         fromDate: { lte: today },
         toDate: { gte: today },
+        ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}),
       },
       include: { employee: { select: { name: true, department: true, code: true } } },
     }),
     prisma.attendanceLog.findMany({
-      where: { employee: { companyId }, date: { gte: sevenDaysAgoStr, lte: today } },
+      where: { employee: empWhereNested, date: { gte: sevenDaysAgoStr, lte: today } },
       select: { date: true, status: true },
     }),
   ]);

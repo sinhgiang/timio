@@ -8,11 +8,17 @@ import { sendZaloMessage } from "@/lib/zalo";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const scopedBranchId = user?.role === "manager" && user?.branchId ? user.branchId : null;
   const status = req.nextUrl.searchParams.get("status") ?? undefined;
-  const where = { companyId, ...(status ? { status } : {}) };
+  const where = {
+    companyId,
+    ...(status ? { status } : {}),
+    ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}),
+  };
 
   const requests = await prisma.leaveRequest.findMany({
     where,
