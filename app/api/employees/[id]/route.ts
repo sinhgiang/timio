@@ -14,24 +14,25 @@ export async function PATCH(
     const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch } =
       await req.json();
 
+    // Only include fields that were actually sent — undefined = skip (Prisma ignores undefined in updates)
     const data: Record<string, unknown> = {
-      name,
-      code,
-      department: department || null,
-      position: position || null,
-      branchId,
-      status,
-      shiftOverride: shiftOverride ? JSON.stringify(shiftOverride) : null,
-      baseSalary: baseSalary !== undefined ? Number(baseSalary) : 0,
-      joinDate: joinDate ? new Date(joinDate) : null,
-      dateOfBirth: dateOfBirth || null,
-      email: email || null,
-      avatarUrl: avatarUrl !== undefined ? (avatarUrl || null) : undefined,
-      phone: phone || null,
-      cccd: cccd || null,
-      bankName: bankName !== undefined ? (bankName || null) : undefined,
-      bankAccount: bankAccount !== undefined ? (bankAccount || null) : undefined,
-      bankBranch: bankBranch !== undefined ? (bankBranch || null) : undefined,
+      ...(name !== undefined && { name }),
+      ...(code !== undefined && { code }),
+      ...(branchId !== undefined && { branchId }),
+      ...(status !== undefined && { status }),
+      ...(department !== undefined && { department: department || null }),
+      ...(position !== undefined && { position: position || null }),
+      ...(shiftOverride !== undefined && { shiftOverride: shiftOverride ? JSON.stringify(shiftOverride) : null }),
+      ...(baseSalary !== undefined && { baseSalary: Number(baseSalary) }),
+      ...(joinDate !== undefined && { joinDate: joinDate ? new Date(joinDate) : null }),
+      ...(dateOfBirth !== undefined && { dateOfBirth: dateOfBirth || null }),
+      ...(email !== undefined && { email: email || null }),
+      ...(avatarUrl !== undefined && { avatarUrl: avatarUrl || null }),
+      ...(phone !== undefined && { phone: phone || null }),
+      ...(cccd !== undefined && { cccd: cccd || null }),
+      ...(bankName !== undefined && { bankName: bankName || null }),
+      ...(bankAccount !== undefined && { bankAccount: bankAccount || null }),
+      ...(bankBranch !== undefined && { bankBranch: bankBranch || null }),
     };
 
     if (pin && /^\d{4}$/.test(pin)) {
