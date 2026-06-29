@@ -74,21 +74,16 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Tăng ca: set pending — chỉ cộng tiền vào lương khi sếp duyệt (giống face check-in)
+      const overtimeStatus = minutesOvertime > 0 ? "pending" : "none";
       await prisma.attendanceLog.update({
         where: { id: existingLog.id },
         data: {
-          checkOutAt: now, minutesOvertime, overtimeAmount,
+          checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus,
           ...(earlyLeavePenalty > 0 && { penaltyAmount: { increment: earlyLeavePenalty } }),
         },
       });
 
-      if (minutesOvertime > 0) {
-        await prisma.monthlySummary.upsert({
-          where: { employeeId_year_month: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1 } },
-          create: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1, totalMinutesOvertime: minutesOvertime, totalOvertimeAmount: overtimeAmount },
-          update: { totalMinutesOvertime: { increment: minutesOvertime }, totalOvertimeAmount: { increment: overtimeAmount } },
-        });
-      }
       if (earlyLeavePenalty > 0) {
         await prisma.monthlySummary.upsert({
           where: { employeeId_year_month: { employeeId, year: now.getFullYear(), month: now.getMonth() + 1 } },
@@ -100,7 +95,7 @@ export async function POST(req: NextRequest) {
       const totalPenalty = existingLog.penaltyAmount + earlyLeavePenalty;
       const msgs: string[] = [];
       if (minutesEarly > 0 && earlyLeavePenalty > 0) msgs.push(`Ra sớm ${minutesEarly} phút`);
-      if (minutesOvertime > 0) msgs.push(`Tăng ca ${minutesOvertime} phút`);
+      if (minutesOvertime > 0) msgs.push(`Tăng ca ${minutesOvertime} phút — chờ duyệt`);
       return NextResponse.json({
         action: "check_out",
         status: existingLog.status,

@@ -17,6 +17,7 @@ export default async function OvertimePage() {
   const logs = await prisma.attendanceLog.findMany({
     where: {
       minutesOvertime: { gt: 0 },
+      overtimeStatus: { in: ["pending", "approved", "rejected"] },
       employee: {
         companyId: user.companyId,
         ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
