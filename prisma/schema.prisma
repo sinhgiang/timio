@@ -91,6 +91,7 @@ model Employee {
   faceDescriptors String? // JSON: number[][]  — stored face embeddings
   shiftOverride   String? // JSON: {checkInTime, checkOutTime, workDays, gracePeriod} — overrides branch defaults
   email               String?   // Email cá nhân (nhận phiếu lương)
+  avatarUrl           String?   // base64 ảnh đại diện
   phone               String?   // Số điện thoại
   cccd                String?   // Căn cước công dân
   baseSalary          Int?      @default(0)

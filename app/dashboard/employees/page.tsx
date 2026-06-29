@@ -57,6 +57,7 @@ export default async function EmployeesPage() {
         joinDate: e.joinDate ? e.joinDate.toISOString() : null,
         dateOfBirth: e.dateOfBirth ?? null,
         email: e.email ?? null,
+        avatarUrl: e.avatarUrl ?? null,
         phone: e.phone ?? null,
         cccd: e.cccd ?? null,
         bankName: (e as { bankName?: string | null }).bankName ?? null,

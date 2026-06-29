@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound } from "lucide-react";
 import PlanGate from "@/components/ui/PlanGate";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
@@ -84,6 +84,7 @@ interface Employee {
   joinDate: string | null;
   dateOfBirth: string | null;
   email: string | null;
+  avatarUrl: string | null;
   phone: string | null;
   cccd: string | null;
   bankName: string | null;
@@ -147,6 +148,21 @@ export default function EmployeesClient({
   const [customDepts, setCustomDepts] = useState<Set<string>>(() => new Set<string>());
   const [customPositions, setCustomPositions] = useState<Set<string>>(() => new Set<string>());
   const [customShifts, setCustomShifts] = useState<string[]>(savedShifts);
+
+  // ─── Reset PIN ───────────────────────────────────────────────────────────────
+  const [pinReset, setPinReset] = useState<{ id: string; value: string; saving: boolean } | null>(null);
+
+  const doResetPin = async () => {
+    if (!pinReset || !/^\d{4}$/.test(pinReset.value)) return;
+    setPinReset((s) => s ? { ...s, saving: true } : s);
+    await fetch(`/api/employees/${pinReset.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: pinReset.value }),
+    });
+    setPinReset(null);
+    router.refresh();
+  };
 
   // ─── Import Excel ────────────────────────────────────────────────────────────
   type ImportRow = { name: string; code: string; pin?: string; department?: string; position?: string; baseSalary?: number; phone?: string; dateOfBirth?: string; joinDate?: string };
@@ -257,6 +273,7 @@ export default function EmployeesClient({
       joinDate: "",
       dateOfBirth: "",
       email: "",
+      avatarUrl: "",
       phone: "",
       cccd: "",
       pin: "",
@@ -356,6 +373,7 @@ export default function EmployeesClient({
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
       dateOfBirth: emp.dateOfBirth ?? "",
       email: emp.email ?? "",
+      avatarUrl: emp.avatarUrl ?? "",
       phone: emp.phone ?? "",
       cccd: emp.cccd ?? "",
       pin: (emp.pin && !/^\$2[ab]\$/.test(emp.pin)) ? emp.pin : "",
@@ -428,6 +446,7 @@ export default function EmployeesClient({
         joinDate: form.joinDate || null,
         dateOfBirth: form.dateOfBirth || null,
         email: form.email || null,
+        avatarUrl: form.avatarUrl || null,
         phone: form.phone || null,
         cccd: form.cccd || null,
         pin: form.pin || undefined,
@@ -687,6 +706,47 @@ export default function EmployeesClient({
                       />
                     </div>
                     <Field label="Email cá nhân" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="VD: nguyenvan@gmail.com" />
+                    {/* Avatar upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Ảnh đại diện</label>
+                      <div className="flex items-center gap-3">
+                        {form.avatarUrl ? (
+                          <img src={form.avatarUrl} alt="avatar" className="w-14 h-14 rounded-full object-cover ring-2 ring-gray-200" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center border border-dashed border-blue-200">
+                            <Camera size={20} className="text-blue-300" strokeWidth={1.5} />
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-medium border border-blue-100 transition-colors">
+                            <Upload size={12} /> Chọn ảnh
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                const canvas = document.createElement("canvas");
+                                const img = new Image();
+                                img.onload = () => {
+                                  const size = Math.min(img.width, img.height);
+                                  canvas.width = 200; canvas.height = 200;
+                                  canvas.getContext("2d")?.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
+                                  setForm((f) => ({ ...f, avatarUrl: canvas.toDataURL("image/jpeg", 0.8) }));
+                                };
+                                img.src = reader.result as string;
+                              };
+                              reader.readAsDataURL(file);
+                            }} />
+                          </label>
+                          {form.avatarUrl && (
+                            <button type="button" onClick={() => setForm((f) => ({ ...f, avatarUrl: "" }))} className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600">
+                              <X size={11} /> Xóa ảnh
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">JPEG/PNG, tự động crop vuông 200×200px</p>
+                    </div>
                     <Field label="Số điện thoại" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="VD: 0901234567" />
                     <Field label="Căn cước công dân" value={form.cccd} onChange={(v) => setForm({ ...form, cccd: v })} placeholder="12 số" />
                     <div>
@@ -1157,9 +1217,13 @@ export default function EmployeesClient({
                   {/* Col 1: Nhân viên */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                        <span className="text-blue-600 font-bold text-xs">{emp.name.split(" ").pop()?.charAt(0) ?? "?"}</span>
-                      </div>
+                      {emp.avatarUrl ? (
+                        <img src={emp.avatarUrl} alt={emp.name} className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-gray-200" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                          <span className="text-blue-600 font-bold text-xs">{emp.name.split(" ").pop()?.charAt(0) ?? "?"}</span>
+                        </div>
+                      )}
                       <div>
                         <p className="font-semibold text-gray-800 text-sm leading-tight">
                           {emp.name}
@@ -1190,12 +1254,38 @@ export default function EmployeesClient({
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-3">
                       {/* PIN — fixed width so column stays aligned */}
-                      <div className="text-center w-12">
+                      <div className="text-center">
                         <p className="text-[10px] text-gray-400 mb-0.5">PIN</p>
-                        {emp.pin && !/^\$2[ab]\$/.test(emp.pin) ? (
-                          <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded tracking-widest">{emp.pin}</span>
+                        {pinReset?.id === emp.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              maxLength={4}
+                              value={pinReset.value}
+                              onChange={(e) => setPinReset((s) => s ? { ...s, value: e.target.value.replace(/\D/g, "").slice(0, 4) } : s)}
+                              className="w-12 text-center font-mono text-sm border border-blue-300 rounded px-1 py-0.5 focus:outline-none"
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === "Enter") doResetPin(); if (e.key === "Escape") setPinReset(null); }}
+                              placeholder="0000"
+                            />
+                            <button onClick={doResetPin} disabled={pinReset.saving || !/^\d{4}$/.test(pinReset.value)} className="p-0.5 text-green-600 hover:text-green-700 disabled:opacity-40"><CheckCircle2 size={14} /></button>
+                            <button onClick={() => setPinReset(null)} className="p-0.5 text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                          </div>
                         ) : (
-                          <span className="text-xs text-gray-300">—</span>
+                          <div className="flex items-center gap-1">
+                            {emp.pin && !/^\$2[ab]\$/.test(emp.pin) ? (
+                              <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded tracking-widest">{emp.pin}</span>
+                            ) : (
+                              <span className="text-xs text-gray-300">—</span>
+                            )}
+                            <button
+                              onClick={() => setPinReset({ id: emp.id, value: "", saving: false })}
+                              title="Đặt lại PIN"
+                              className="p-0.5 text-gray-300 hover:text-blue-500 transition-colors"
+                            >
+                              <KeyRound size={11} />
+                            </button>
+                          </div>
                         )}
                       </div>
                       {/* Divider */}
