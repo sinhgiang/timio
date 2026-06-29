@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTodayString, formatTime, formatCurrency } from "@/lib/utils";
 import { getStatusColor, getStatusLabel } from "@/lib/attendance";
-import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, FileWarning, type LucideIcon } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, UserX, Monitor, ClipboardList, CalendarOff, FileWarning, TrendingDown, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import OnboardingBanner from "@/components/dashboard/OnboardingBanner";
 
@@ -29,7 +29,10 @@ export default async function DashboardPage() {
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
-  const [totalEmployees, todayLogs, company, onLeaveToday, weekLogs, expiringContracts] = await Promise.all([
+  // Top late: current month
+  const monthStart = today.slice(0, 7) + "-01";
+
+  const [totalEmployees, todayLogs, company, onLeaveToday, weekLogs, expiringContracts, thisMonthLateLogs] = await Promise.all([
     prisma.employee.count({ where: empFilter }),
     prisma.attendanceLog.findMany({
       where: { employee: empWhereNested, date: today },
@@ -66,6 +69,10 @@ export default async function DashboardPage() {
       orderBy: { endDate: "asc" },
       take: 10,
     }).catch(() => []),
+    prisma.attendanceLog.findMany({
+      where: { employee: empWhereNested, date: { gte: monthStart, lte: today }, minutesLate: { gt: 0 } },
+      select: { employeeId: true, minutesLate: true, employee: { select: { name: true, department: true } } },
+    }).catch(() => []),
   ]);
 
   // Build 7-day chart data
@@ -81,6 +88,18 @@ export default async function DashboardPage() {
       late: dayLogs.filter((l) => l.status === "late" || l.status === "very_late").length,
     });
   }
+
+  // Top late employees this month
+  const lateByEmployee = new Map<string, { name: string; department: string | null; totalMinutes: number; occurrences: number }>();
+  for (const l of thisMonthLateLogs) {
+    const entry = lateByEmployee.get(l.employeeId) ?? { name: l.employee.name, department: l.employee.department, totalMinutes: 0, occurrences: 0 };
+    entry.totalMinutes += l.minutesLate;
+    entry.occurrences += 1;
+    lateByEmployee.set(l.employeeId, entry);
+  }
+  const topLateEmployees = Array.from(lateByEmployee.values())
+    .sort((a, b) => b.totalMinutes - a.totalMinutes)
+    .slice(0, 5);
 
   const onTime = todayLogs.filter((l) => l.status === "on_time").length;
   const late = todayLogs.filter((l) => l.status === "late" || l.status === "very_late").length;
@@ -226,6 +245,41 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-400 inline-block" />Đúng giờ</span>
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" />Đi trễ</span>
+          </div>
+        </div>
+      )}
+
+      {/* Top late employees this month */}
+      {!isNewCompany && topLateEmployees.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingDown size={16} className="text-red-400" strokeWidth={2} />
+            <h2 className="text-sm font-semibold text-gray-600">Đến trễ nhiều nhất tháng này</h2>
+          </div>
+          <div className="space-y-2">
+            {topLateEmployees.map((emp, idx) => {
+              const maxMin = topLateEmployees[0].totalMinutes;
+              const pct = Math.round((emp.totalMinutes / maxMin) * 100);
+              return (
+                <div key={idx} className="flex items-center gap-3">
+                  <span className={`w-5 text-xs font-bold shrink-0 ${idx === 0 ? "text-red-500" : idx === 1 ? "text-orange-500" : "text-gray-400"}`}>
+                    #{idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-sm font-medium text-gray-700 truncate">{emp.name}</span>
+                      <span className="text-xs text-gray-500 shrink-0 ml-2">{emp.totalMinutes} phút · {emp.occurrences} lần</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${idx === 0 ? "bg-red-400" : idx === 1 ? "bg-orange-400" : "bg-yellow-400"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
