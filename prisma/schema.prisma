@@ -107,6 +107,7 @@ model Employee {
   bankAccount         String?   // Số tài khoản
   bankBranch          String?   // Chi nhánh ngân hàng
   qrToken             String?   @unique // Token ngẫu nhiên để check-in bằng QR code
+  allowancesJson      String?   // JSON: [{label: "Xăng xe", amount: 500000}]
   createdAt           DateTime  @default(now())
 
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)

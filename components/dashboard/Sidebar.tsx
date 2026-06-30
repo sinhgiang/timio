@@ -26,6 +26,7 @@ import {
   Banknote,
   Wallet,
   CalendarClock,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
   { href: "/dashboard/payslip", label: "Phiếu lương", Icon: FileText },
   { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
+  { href: "/dashboard/leave-calendar", label: "Lịch nghỉ nhóm", Icon: CalendarDays },
   { href: "/dashboard/overtime", label: "Tăng ca", Icon: Timer },
   { href: "/dashboard/corrections", label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
   { href: "/dashboard/salary-payments", label: "Thanh toán lương", Icon: Banknote },

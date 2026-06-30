@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true, name: true, code: true, department: true, position: true,
       baseSalary: true, dependents: true, phone: true, joinDate: true,
-      bankName: true, bankAccount: true, bankBranch: true,
+      bankName: true, bankAccount: true, bankBranch: true, allowancesJson: true,
       branch: { select: { name: true } },
       company: { select: { name: true } },
       summaries: {
@@ -39,7 +39,11 @@ export async function GET(req: NextRequest) {
   const penalty = s?.totalPenalty ?? 0;
   const reward = s?.totalReward ?? 0;
   const overtime = s?.totalOvertimeAmount ?? 0;
-  const grossIncome = base - penalty + reward + overtime;
+  const allowances: { label: string; amount: number }[] = employee.allowancesJson
+    ? (() => { try { return JSON.parse(employee.allowancesJson) as { label: string; amount: number }[]; } catch { return []; } })()
+    : [];
+  const totalAllowances = allowances.reduce((s, a) => s + (a.amount ?? 0), 0);
+  const grossIncome = base + totalAllowances - penalty + reward + overtime;
   const tax = calculateTax({ baseSalary: base, grossIncome, dependents: employee.dependents ?? 0 });
 
   return NextResponse.json({
@@ -64,6 +68,8 @@ export async function GET(req: NextRequest) {
     totalReward: reward,
     totalOvertimeAmount: overtime,
     totalMinutesOvertime: s?.totalMinutesOvertime ?? 0,
+    allowances,
+    totalAllowances,
     grossIncome,
     bhxhEmployee: tax.bhxhEmployee,
     taxableIncome: tax.taxableIncome,

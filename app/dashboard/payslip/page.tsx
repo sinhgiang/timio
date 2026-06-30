@@ -69,7 +69,7 @@ export default async function PayslipPage({ searchParams }: Props) {
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, code: true, department: true, position: true,
-        baseSalary: true, joinDate: true, dependents: true, email: true,
+        baseSalary: true, joinDate: true, dependents: true, email: true, allowancesJson: true,
         summaries: {
           where: { year, month },
           select: {
@@ -93,7 +93,11 @@ export default async function PayslipPage({ searchParams }: Props) {
     const penalty = s?.totalPenalty ?? 0;
     const reward = s?.totalReward ?? 0;
     const overtime = s?.totalOvertimeAmount ?? 0;
-    const grossIncome = base - penalty + reward + overtime;
+    const allowances: { label: string; amount: number }[] = (e as { allowancesJson?: string | null }).allowancesJson
+      ? (() => { try { return JSON.parse((e as { allowancesJson: string }).allowancesJson) as { label: string; amount: number }[]; } catch { return []; } })()
+      : [];
+    const totalAllowances = allowances.reduce((sum, a) => sum + (a.amount ?? 0), 0);
+    const grossIncome = base + totalAllowances - penalty + reward + overtime;
     const tax = calculateTax({ baseSalary: base, grossIncome, dependents: e.dependents ?? 0 });
     return {
       id: e.id,

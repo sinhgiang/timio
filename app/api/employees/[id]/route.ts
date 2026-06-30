@@ -11,7 +11,7 @@ export async function PATCH(
     const companyId = (session?.user as { companyId?: string })?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance } =
+    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson } =
       await req.json();
 
     // Only include fields that were actually sent — undefined = skip (Prisma ignores undefined in updates)
@@ -34,6 +34,7 @@ export async function PATCH(
       ...(bankAccount !== undefined && { bankAccount: bankAccount || null }),
       ...(bankBranch !== undefined && { bankBranch: bankBranch || null }),
       ...(annualLeaveBalance !== undefined && { annualLeaveBalance: Number(annualLeaveBalance) }),
+      ...(allowancesJson !== undefined && { allowancesJson: allowancesJson ? JSON.stringify(allowancesJson) : null }),
     };
 
     if (pin && /^\d{4}$/.test(pin)) {

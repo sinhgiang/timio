@@ -91,6 +91,7 @@ interface Employee {
   bankAccount: string | null;
   bankBranch: string | null;
   annualLeaveBalance: number;
+  allowancesJson: string | null;
 }
 
 interface Branch {
@@ -285,6 +286,7 @@ export default function EmployeesClient({
       bankAccount: "",
       bankBranch: "",
       annualLeaveBalance: "12",
+      allowances: [] as { label: string; amount: string }[],
     };
   }
 
@@ -386,6 +388,9 @@ export default function EmployeesClient({
       bankAccount: emp.bankAccount ?? "",
       bankBranch: emp.bankBranch ?? "",
       annualLeaveBalance: String(emp.annualLeaveBalance ?? 12),
+      allowances: emp.allowancesJson
+        ? (() => { try { return (JSON.parse(emp.allowancesJson) as { label: string; amount: number }[]).map(a => ({ label: a.label, amount: String(a.amount) })); } catch { return []; } })()
+        : [],
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -460,6 +465,9 @@ export default function EmployeesClient({
         bankAccount: form.bankAccount || null,
         bankBranch: form.bankBranch || null,
         annualLeaveBalance: form.annualLeaveBalance ? Number(form.annualLeaveBalance) : 12,
+        allowancesJson: form.allowances.length > 0
+          ? form.allowances.filter(a => a.label && a.amount).map(a => ({ label: a.label, amount: Number(a.amount) }))
+          : null,
       }),
     });
 
@@ -906,6 +914,68 @@ export default function EmployeesClient({
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                     <p className="text-xs text-gray-400 mt-1">Mặc định 12 ngày/năm — tự động giảm khi duyệt nghỉ phép năm</p>
+                  </div>
+
+                  {/* Phụ cấp linh hoạt */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Phụ cấp linh hoạt</p>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, allowances: [...form.allowances, { label: "", amount: "" }] })}
+                        className="text-xs text-blue-600 font-medium hover:underline"
+                      >
+                        + Thêm phụ cấp
+                      </button>
+                    </div>
+                    {form.allowances.length === 0 && (
+                      <p className="text-xs text-gray-400">Chưa có phụ cấp — bấm &quot;Thêm phụ cấp&quot; để thêm xăng xe, ăn trưa, v.v.</p>
+                    )}
+                    <div className="space-y-2">
+                      {form.allowances.map((a, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Tên phụ cấp (VD: Xăng xe)"
+                            value={a.label}
+                            onChange={(e) => {
+                              const next = [...form.allowances];
+                              next[i] = { ...next[i], label: e.target.value };
+                              setForm({ ...form, allowances: next });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Số tiền"
+                            min={0}
+                            step={50000}
+                            value={a.amount}
+                            onChange={(e) => {
+                              const next = [...form.allowances];
+                              next[i] = { ...next[i], amount: e.target.value };
+                              setForm({ ...form, allowances: next });
+                            }}
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, allowances: form.allowances.filter((_, j) => j !== i) })}
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {form.allowances.some(a => a.label && a.amount) && (
+                      <p className="text-xs text-gray-400 mt-1.5">
+                        Tổng phụ cấp: {form.allowances
+                          .filter(a => a.label && a.amount)
+                          .reduce((s, a) => s + Number(a.amount), 0)
+                          .toLocaleString("vi-VN")}đ/tháng
+                      </p>
+                    )}
                   </div>
 
                   <ComboField

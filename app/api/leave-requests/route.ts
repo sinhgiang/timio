@@ -15,15 +15,18 @@ export async function GET(req: NextRequest) {
 
   const scopedBranchId = user?.role === "manager" && user?.branchId ? user.branchId : null;
   const status = req.nextUrl.searchParams.get("status") ?? undefined;
+  const fromDate = req.nextUrl.searchParams.get("fromDate") ?? undefined;
+  const toDate = req.nextUrl.searchParams.get("toDate") ?? undefined;
   const where = {
     companyId,
-    ...(status ? { status } : {}),
+    ...(status && status !== "all" ? { status } : status === "all" ? { status: { in: ["pending", "approved", "rejected"] as string[] } } : {}),
     ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}),
+    ...(fromDate && toDate ? { fromDate: { lte: toDate }, toDate: { gte: fromDate } } : {}),
   };
 
   const requests = await prisma.leaveRequest.findMany({
     where,
-    include: { employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } } },
+    include: { employee: { select: { id: true, name: true, code: true, department: true, position: true, phone: true, dateOfBirth: true, annualLeaveBalance: true, baseSalary: true, branch: { select: { name: true } } } } },
     orderBy: { createdAt: "desc" },
   });
 

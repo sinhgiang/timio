@@ -64,6 +64,7 @@ export default async function EmployeesPage() {
         bankAccount: (e as { bankAccount?: string | null }).bankAccount ?? null,
         bankBranch: (e as { bankBranch?: string | null }).bankBranch ?? null,
         annualLeaveBalance: (e as { annualLeaveBalance?: number }).annualLeaveBalance ?? 12,
+        allowancesJson: (e as { allowancesJson?: string | null }).allowancesJson ?? null,
       }))}
       branches={branches.map((b) => ({
         id: b.id,

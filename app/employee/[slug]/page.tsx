@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, User, Calendar, CheckCircle2, AlertTriangle, XCircle, Send, LogOut, ChevronLeft, FileText, Umbrella } from "lucide-react";
+import { Clock, User, Calendar, CheckCircle2, AlertTriangle, XCircle, Send, LogOut, ChevronLeft, FileText, Umbrella, CalendarClock, UserCog } from "lucide-react";
 
 interface EmployeeInfo {
   employeeId: string;
@@ -13,6 +13,7 @@ interface EmployeeInfo {
   position: string;
   branch: string;
   phone: string;
+  email: string;
   baseSalary: number;
   annualLeaveBalance: number;
   joinDate: string;
@@ -29,7 +30,7 @@ interface DayLog {
   correction: { id: string; status: string; type: string } | null;
 }
 
-type Phase = "login" | "dashboard" | "correction" | "payslip" | "leave";
+type Phase = "login" | "dashboard" | "correction" | "payslip" | "leave" | "shifts" | "profile";
 
 function fmtTime(iso: string | null) {
   if (!iso) return "—";
@@ -143,6 +144,63 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
   const [corrLoading, setCorrLoading] = useState(false);
   const [corrSuccess, setCorrSuccess] = useState(false);
   const [corrError, setCorrError] = useState("");
+
+  // Shifts state
+  const [shiftsData, setShiftsData] = useState<{date: string; shiftLabel: string; checkIn: string; checkOut: string}[]>([]);
+  const [shiftsLoading, setShiftsLoading] = useState(false);
+
+  const fetchShifts = useCallback(async (employeeId: string, m: string) => {
+    setShiftsLoading(true);
+    const [y, mo] = m.split("-");
+    const from = `${y}-${mo}-01`;
+    const lastDay = new Date(parseInt(y), parseInt(mo), 0).getDate();
+    const to = `${y}-${mo}-${String(lastDay).padStart(2, "0")}`;
+    const res = await fetch(`/api/employee/shifts?employeeId=${employeeId}&from=${from}&to=${to}`);
+    if (res.ok) setShiftsData(((await res.json()).shifts ?? []) as {date: string; shiftLabel: string; checkIn: string; checkOut: string}[]);
+    setShiftsLoading(false);
+  }, []);
+
+  // Profile state
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
+  const openProfile = () => {
+    setProfilePhone(employee?.phone ?? "");
+    setProfileEmail(employee?.email ?? "");
+    setProfileSuccess(false); setProfileError("");
+    setPhase("profile");
+  };
+
+  const submitProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    setProfileLoading(true); setProfileError("");
+    try {
+      const res = await fetch("/api/employee/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: employee.employeeId, phone: profilePhone, email: profileEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setProfileError(data.error ?? "Cập nhật thất bại"); return; }
+      setProfileSuccess(true);
+      // Update stored session data
+      const stored = sessionStorage.getItem("timio_employee");
+      if (stored) {
+        const emp = JSON.parse(stored) as EmployeeInfo;
+        emp.phone = profilePhone;
+        sessionStorage.setItem("timio_employee", JSON.stringify(emp));
+        setEmployee(emp);
+      }
+    } catch {
+      setProfileError("Lỗi kết nối");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   // Restore session
   useEffect(() => {
@@ -511,6 +569,8 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
       bhxhEmployee?: number; tncn?: number; netTakeHome?: number;
       totalPenalty?: number; totalReward?: number; totalOvertimeAmount?: number;
       daysPresent?: number; daysLate?: number;
+      allowances?: {label: string; amount: number}[];
+      totalAllowances?: number;
     } | null;
     const fmt = (n: number) => n.toLocaleString("vi-VN") + "đ";
     return (
@@ -549,6 +609,9 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
                 <div className="divide-y divide-gray-50">
                   <PayslipRow label="Lương cơ bản" value={fmt(ps.baseSalary ?? 0)} />
                   {(ps.totalReward ?? 0) > 0 && <PayslipRow label="Thưởng chuyên cần" value={`+${fmt(ps.totalReward ?? 0)}`} positive />}
+                  {(ps.allowances ?? []).map((a) => (
+                    <PayslipRow key={a.label} label={a.label} value={`+${fmt(a.amount)}`} positive />
+                  ))}
                   {(ps.totalOvertimeAmount ?? 0) > 0 && <PayslipRow label="Tăng ca" value={`+${fmt(ps.totalOvertimeAmount ?? 0)}`} positive />}
                   {(ps.totalPenalty ?? 0) > 0 && <PayslipRow label="Phạt" value={`-${fmt(ps.totalPenalty ?? 0)}`} negative />}
                   <PayslipRow label="Thu nhập trước thuế" value={fmt(ps.grossIncome ?? 0)} bold />
@@ -575,6 +638,133 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
                 </div>
               </div>
             </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Shifts ──
+  if (phase === "shifts") {
+    const DAYS = ["CN","T2","T3","T4","T5","T6","T7"];
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-100 px-4 py-4">
+          <div className="max-w-lg mx-auto flex items-center gap-3">
+            <button onClick={() => setPhase("dashboard")} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+              <ChevronLeft size={20} className="text-gray-600" />
+            </button>
+            <h1 className="font-bold text-gray-900">Lịch ca làm việc</h1>
+          </div>
+        </div>
+        <div className="max-w-lg mx-auto p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <input type="month" value={currentMonth}
+              onChange={(e) => { setCurrentMonth(e.target.value); if (employee) fetchShifts(employee.employeeId, e.target.value); }}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {shiftsLoading && <p className="text-center text-sm text-gray-400 py-8">Đang tải...</p>}
+          {!shiftsLoading && shiftsData.length === 0 && (
+            <div className="text-center py-12">
+              <CalendarClock size={40} className="text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">Chưa có lịch ca nào trong tháng này</p>
+            </div>
+          )}
+          {!shiftsLoading && shiftsData.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="divide-y divide-gray-50">
+                {shiftsData.map((s) => {
+                  const d = new Date(s.date);
+                  const dayName = DAYS[d.getDay()];
+                  return (
+                    <div key={s.date} className="flex items-center px-4 py-3 gap-3">
+                      <div className="w-12 text-center shrink-0">
+                        <p className="font-bold text-gray-900 text-sm">{s.date.split("-")[2]}</p>
+                        <p className="text-xs text-gray-400">{dayName}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{s.shiftLabel}</p>
+                        {(s.checkIn || s.checkOut) && (
+                          <p className="text-xs text-gray-400">{s.checkIn} – {s.checkOut}</p>
+                        )}
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium shrink-0">Ca làm</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Profile ──
+  if (phase === "profile") {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-100 px-4 py-4">
+          <div className="max-w-lg mx-auto flex items-center gap-3">
+            <button onClick={() => setPhase("dashboard")} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+              <ChevronLeft size={20} className="text-gray-600" />
+            </button>
+            <h1 className="font-bold text-gray-900">Thông tin cá nhân</h1>
+          </div>
+        </div>
+        <div className="max-w-lg mx-auto p-4 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <p className="font-bold text-gray-900 mb-1">{employee?.name}</p>
+            <p className="text-xs text-gray-400">{employee?.code} · {employee?.department ?? employee?.branch}</p>
+          </div>
+          {profileSuccess ? (
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+              <CheckCircle2 size={36} className="text-green-500 mx-auto mb-3" />
+              <p className="font-semibold text-green-700">Cập nhật thành công</p>
+              <button onClick={() => setPhase("dashboard")} className="mt-4 px-6 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors">
+                Về trang chính
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submitProfile} className="space-y-4">
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Số điện thoại</label>
+                  <input
+                    type="tel"
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    placeholder="VD: 0901234567"
+                    className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Email cá nhân</label>
+                  <input
+                    type="email"
+                    value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    placeholder="VD: ten@gmail.com"
+                    className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Email dùng để nhận phiếu lương điện tử</p>
+                </div>
+              </div>
+              {profileError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-700 flex items-center gap-2">
+                  <AlertTriangle size={14} /> {profileError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={profileLoading}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <UserCog size={15} />
+                {profileLoading ? "Đang lưu..." : "Lưu thông tin"}
+              </button>
+            </form>
           )}
         </div>
       </div>
@@ -671,6 +861,40 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
             <div className="text-left">
               <p className="text-sm font-semibold text-gray-900">Xin nghỉ phép</p>
               <p className="text-xs text-gray-400">Gửi đơn xin nghỉ — quản lý duyệt online</p>
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-gray-400 rotate-180" />
+        </button>
+
+        {/* Lịch ca làm việc */}
+        <button
+          onClick={() => { if (employee) fetchShifts(employee.employeeId, currentMonth); setPhase("shifts"); }}
+          className="w-full bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
+              <CalendarClock size={16} className="text-blue-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">Lịch ca làm việc</p>
+              <p className="text-xs text-gray-400">Xem ca làm việc được phân công</p>
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-gray-400 rotate-180" />
+        </button>
+
+        {/* Thông tin cá nhân */}
+        <button
+          onClick={openProfile}
+          className="w-full bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center">
+              <UserCog size={16} className="text-purple-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">Thông tin cá nhân</p>
+              <p className="text-xs text-gray-400">Cập nhật số điện thoại, email</p>
             </div>
           </div>
           <ChevronLeft size={16} className="text-gray-400 rotate-180" />
