@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         id: true, employeeId: true, date: true,
         shiftLabel: true, checkIn: true, checkOut: true, note: true,
       },
-      orderBy: [{ date: "asc" }, { employeeId: "asc" }],
+      orderBy: [{ date: "asc" }, { employeeId: "asc" }, { createdAt: "asc" }],
     });
     return NextResponse.json(shifts);
   } catch {
@@ -49,10 +49,9 @@ export async function POST(req: NextRequest) {
   if (!emp) return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
 
   try {
-    const shift = await prisma.shiftAssignment.upsert({
-      where: { employeeId_date: { employeeId, date } },
-      update: { shiftLabel, checkIn, checkOut, note: note || null },
-      create: {
+    // Use create — multiple shifts per day are now allowed
+    const shift = await prisma.shiftAssignment.create({
+      data: {
         companyId: user.companyId,
         employeeId,
         date,
@@ -97,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(shift, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Lỗi server — vui lòng chạy SQL migration" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi server — vui lòng thử lại" }, { status: 500 });
   }
 }
 
@@ -106,13 +105,17 @@ export async function DELETE(req: NextRequest) {
   const user = session?.user as { companyId?: string } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { employeeId, date } = await req.json();
-  if (!employeeId || !date) return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
+  const { id } = await req.json();
+  if (!id) return NextResponse.json({ error: "Thiếu id ca" }, { status: 400 });
 
   try {
-    await prisma.shiftAssignment.delete({
-      where: { employeeId_date: { employeeId, date } },
+    // Verify ownership before deleting
+    const existing = await prisma.shiftAssignment.findFirst({
+      where: { id, companyId: user.companyId },
     });
+    if (!existing) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+
+    await prisma.shiftAssignment.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, CalendarClock, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, X, Check, Plus } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -53,34 +53,32 @@ function getShiftColor(label: string) {
 export default function ShiftCalendarClient({ employees, initialShifts, weekStart: initWeekStart }: Props) {
   const [weekStart, setWeekStart] = useState(initWeekStart);
   const [shifts, setShifts] = useState<ShiftRow[]>(initialShifts);
+  // modal: open the "add shift" panel for a cell
   const [modal, setModal] = useState<{ employeeId: string; date: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null); // id being deleted
   const [customShift, setCustomShift] = useState({ label: "", checkIn: "08:00", checkOut: "17:00", note: "" });
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const goWeek = useCallback((delta: number) => {
-    setWeekStart(prev => addDays(prev, delta * 7));
-    setShifts([]); // clear local state — page reloads via navigation... actually we fetch
-  }, []);
-
-  const navigateWeek = async (delta: number) => {
+  const navigateWeek = useCallback(async (delta: number) => {
     const newStart = addDays(weekStart, delta * 7);
     const newEnd   = addDays(newStart, 6);
     setWeekStart(newStart);
-    // Fetch shifts for new week
     const res = await fetch(`/api/shifts?from=${newStart}&to=${newEnd}`);
     if (res.ok) setShifts(await res.json());
-  };
+  }, [weekStart]);
 
-  const getShift = (employeeId: string, date: string) =>
-    shifts.find(s => s.employeeId === employeeId && s.date === date);
+  // Return all shifts for a given employee+date (multiple allowed)
+  const getShiftsForCell = (employeeId: string, date: string) =>
+    shifts.filter(s => s.employeeId === employeeId && s.date === date);
 
   const openModal = (employeeId: string, date: string) => {
     setModal({ employeeId, date });
     setCustomShift({ label: "", checkIn: "08:00", checkOut: "17:00", note: "" });
   };
 
+  // Add a preset shift (always creates a new entry)
   const assignShift = async (preset: typeof PRESET_SHIFTS[number]) => {
     if (!modal) return;
     setSaving(true);
@@ -97,15 +95,13 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
     });
     if (res.ok) {
       const saved = await res.json() as ShiftRow;
-      setShifts(prev => {
-        const filtered = prev.filter(s => !(s.employeeId === modal.employeeId && s.date === modal.date));
-        return [...filtered, saved];
-      });
+      setShifts(prev => [...prev, saved]);
     }
     setSaving(false);
     setModal(null);
   };
 
+  // Add a custom shift
   const assignCustomShift = async () => {
     if (!modal || !customShift.label.trim()) return;
     setSaving(true);
@@ -123,26 +119,25 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
     });
     if (res.ok) {
       const saved = await res.json() as ShiftRow;
-      setShifts(prev => {
-        const filtered = prev.filter(s => !(s.employeeId === modal.employeeId && s.date === modal.date));
-        return [...filtered, saved];
-      });
+      setShifts(prev => [...prev, saved]);
     }
     setSaving(false);
     setModal(null);
   };
 
-  const clearShift = async () => {
-    if (!modal) return;
-    setSaving(true);
-    await fetch("/api/shifts", {
+  // Delete a specific shift by ID
+  const deleteShift = async (shiftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleting(shiftId);
+    const res = await fetch("/api/shifts", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId: modal.employeeId, date: modal.date }),
+      body: JSON.stringify({ id: shiftId }),
     });
-    setShifts(prev => prev.filter(s => !(s.employeeId === modal.employeeId && s.date === modal.date)));
-    setSaving(false);
-    setModal(null);
+    if (res.ok) {
+      setShifts(prev => prev.filter(s => s.id !== shiftId));
+    }
+    setDeleting(null);
   };
 
   const weekLabel = (() => {
@@ -153,7 +148,6 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
 
   const modalEmployee = modal ? employees.find(e => e.id === modal.employeeId) : null;
   const modalDate = modal ? (() => { const f = formatDate(modal.date); return `${f.dow} ${f.day}/${f.month}`; })() : "";
-  const existingShift = modal ? getShift(modal.employeeId, modal.date) : null;
 
   return (
     <div className="p-4 md:p-6 max-w-full">
@@ -161,7 +155,7 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Lịch phân ca</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Phân công ca làm việc theo tuần cho nhân viên</p>
+          <p className="text-sm text-gray-500 mt-0.5">Phân công ca làm việc theo tuần — nhân viên có thể có nhiều ca trong ngày</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -207,7 +201,7 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
                   const { dow, day, month } = formatDate(date);
                   const isToday = date === new Date().toISOString().split("T")[0];
                   return (
-                    <th key={date} className={`px-2 py-3 text-center text-xs font-semibold min-w-[100px] ${isToday ? "text-blue-600" : "text-gray-500 uppercase tracking-wide"}`}>
+                    <th key={date} className={`px-2 py-3 text-center text-xs font-semibold min-w-[110px] ${isToday ? "text-blue-600" : "text-gray-500 uppercase tracking-wide"}`}>
                       <span className={isToday ? "bg-blue-600 text-white rounded-full px-2 py-0.5" : ""}>
                         {dow}
                       </span>
@@ -226,28 +220,47 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
                     <p className="text-xs text-gray-400">{emp.code}{emp.department && ` · ${emp.department}`}</p>
                   </td>
                   {weekDates.map(date => {
-                    const shift = getShift(emp.id, date);
+                    const cellShifts = getShiftsForCell(emp.id, date);
                     return (
-                      <td key={date} className="px-1 py-1.5 text-center border-r border-gray-50 last:border-r-0">
-                        <button
-                          onClick={() => openModal(emp.id, date)}
-                          className={`w-full rounded-lg px-1 py-1.5 text-xs font-medium border transition-all hover:ring-2 hover:ring-blue-300 ${
-                            shift
-                              ? getShiftColor(shift.shiftLabel)
-                              : "bg-transparent border-dashed border-gray-200 text-gray-300 hover:border-gray-300 hover:text-gray-400"
-                          }`}
-                        >
-                          {shift ? (
-                            <>
-                              <div className="font-semibold">{shift.shiftLabel}</div>
-                              {shift.checkIn !== "00:00" && (
-                                <div className="text-[10px] opacity-75">{shift.checkIn}–{shift.checkOut}</div>
-                              )}
-                            </>
-                          ) : (
-                            <span>+</span>
-                          )}
-                        </button>
+                      <td key={date} className="px-1 py-1.5 align-top border-r border-gray-50 last:border-r-0">
+                        <div className="flex flex-col gap-0.5">
+                          {/* Stacked shift badges */}
+                          {cellShifts.map(shift => (
+                            <div
+                              key={shift.id}
+                              className={`relative group flex items-center justify-between rounded-lg px-1.5 py-1 text-xs font-medium border ${getShiftColor(shift.shiftLabel)}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold truncate leading-tight">{shift.shiftLabel}</div>
+                                {shift.checkIn !== "00:00" && (
+                                  <div className="text-[10px] opacity-70 leading-tight">{shift.checkIn}–{shift.checkOut}</div>
+                                )}
+                              </div>
+                              {/* Delete button — shown on hover */}
+                              <button
+                                onClick={(e) => deleteShift(shift.id, e)}
+                                disabled={deleting === shift.id}
+                                className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-0.5 hover:bg-black/10 disabled:opacity-50"
+                                title="Xóa ca này"
+                              >
+                                {deleting === shift.id ? (
+                                  <span className="block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <X size={10} strokeWidth={2.5} />
+                                )}
+                              </button>
+                            </div>
+                          ))}
+                          {/* "+" button to add another shift */}
+                          <button
+                            onClick={() => openModal(emp.id, date)}
+                            className="w-full rounded-lg px-1 py-1 text-xs border border-dashed border-gray-200 text-gray-300 hover:border-blue-300 hover:text-blue-400 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-0.5"
+                            title="Thêm ca"
+                          >
+                            <Plus size={10} strokeWidth={2.5} />
+                            {cellShifts.length === 0 && <span className="text-[10px]">Thêm ca</span>}
+                          </button>
+                        </div>
                       </td>
                     );
                   })}
@@ -258,7 +271,7 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal — Add shift to a cell */}
       {modal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
@@ -266,10 +279,15 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
               <div>
                 <p className="font-bold text-gray-900">{modalEmployee?.name}</p>
                 <p className="text-sm text-gray-500">{modalDate}</p>
-                {existingShift && (
-                  <span className={`inline-flex mt-1 items-center text-xs px-2 py-0.5 rounded-full border font-medium ${getShiftColor(existingShift.shiftLabel)}`}>
-                    Hiện tại: {existingShift.shiftLabel}
-                  </span>
+                {/* Show existing shifts for this cell */}
+                {modal && getShiftsForCell(modal.employeeId, modal.date).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {getShiftsForCell(modal.employeeId, modal.date).map(s => (
+                      <span key={s.id} className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full border font-medium ${getShiftColor(s.shiftLabel)}`}>
+                        {s.shiftLabel}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <button onClick={() => setModal(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
@@ -277,7 +295,7 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
               </button>
             </div>
 
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Chọn ca</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Thêm ca mới</p>
             <div className="space-y-2 mb-4">
               {PRESET_SHIFTS.map(preset => (
                 <button
@@ -294,7 +312,7 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
               ))}
             </div>
 
-            <div className="border-t border-gray-100 pt-4 mb-3">
+            <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ca tùy chỉnh</p>
               <div className="space-y-2">
                 <input
@@ -319,16 +337,6 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
                 </button>
               </div>
             </div>
-
-            {existingShift && (
-              <button
-                onClick={clearShift}
-                disabled={saving}
-                className="w-full px-4 py-2 text-sm text-red-500 border border-red-200 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
-              >
-                Xóa ca ngày này
-              </button>
-            )}
           </div>
         </div>
       )}

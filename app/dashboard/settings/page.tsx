@@ -5,7 +5,9 @@ import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const userSession = session?.user as { companyId?: string; role?: string } | undefined;
+  const companyId = userSession?.companyId;
+  const role = userSession?.role ?? "owner";
   if (!companyId) return null;
 
   const currentYear = new Date().getFullYear();
@@ -52,6 +54,7 @@ export default async function SettingsPage() {
       referralStats={{ registered: referralRegistered, converted: referralConverted, companies: referredCompanies.map((c) => ({ name: c.name, slug: c.slug, plan: c.plan, joinedAt: c.createdAt.toISOString() })) }}
       plan={company?.plan ?? "starter"}
       trialEndsAt={(company as { trialEndsAt?: Date | null })?.trialEndsAt?.toISOString() ?? null}
+      role={role}
     />
   );
 }

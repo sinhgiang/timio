@@ -39,9 +39,10 @@ model Company {
   impersonationLogs ImpersonationLog[]
   salaryPayments   SalaryPayment[]
   salaryAdvances   SalaryAdvance[]
-  shiftAssignments ShiftAssignment[]
-  overtimeRequests OvertimeRequest[]
-  auditLogs        AuditLog[]
+  shiftAssignments  ShiftAssignment[]
+  shiftSwapRequests ShiftSwapRequest[]
+  overtimeRequests  OvertimeRequest[]
+  auditLogs         AuditLog[]
   disciplineRecords   DisciplineRecord[]
   assets              Asset[]
   workHistories       WorkHistory[]
@@ -129,8 +130,10 @@ model Employee {
   contracts           Contract[]
   salaryPayments      SalaryPayment[]
   salaryAdvances      SalaryAdvance[]
-  shiftAssignments    ShiftAssignment[]
-  overtimeRequests    OvertimeRequest[]
+  shiftAssignments          ShiftAssignment[]
+  swapRequestsAsRequester   ShiftSwapRequest[] @relation("SwapRequester")
+  swapRequestsAsTarget      ShiftSwapRequest[] @relation("SwapTarget")
+  overtimeRequests          OvertimeRequest[]
   disciplineRecords   DisciplineRecord[]
   assets              Asset[]
   workHistories       WorkHistory[]
@@ -396,7 +399,7 @@ model ShiftAssignment {
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@unique([employeeId, date])
+  @@index([employeeId, date])
   @@index([companyId, date])
 }
 
@@ -533,6 +536,27 @@ model EarlyLeaveRequest {
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   @@index([companyId, status])
   @@index([employeeId])
+}
+
+model ShiftSwapRequest {
+  id            String   @id @default(cuid())
+  companyId     String
+  requesterId   String
+  targetId      String
+  requesterDate String   // YYYY-MM-DD — ngày ca của người xin đổi
+  targetDate    String   // YYYY-MM-DD — ngày ca muốn đổi sang
+  reason        String?
+  status        String   @default("pending") // "pending" | "approved" | "rejected"
+  note          String?
+  createdAt     DateTime @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requester Employee @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  target    Employee @relation("SwapTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([requesterId])
+  @@index([targetId])
 }
 
 // Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được

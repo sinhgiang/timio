@@ -57,6 +57,7 @@ interface Props {
   referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] };
   plan?: string;
   trialEndsAt?: string | null;
+  role?: string;
 }
 
 const REWARD_CONDITIONS = [
@@ -77,7 +78,7 @@ interface HolidayProps extends Props {
   holidays: Holiday[];
 }
 
-export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats, plan = "starter", trialEndsAt = null }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] }; plan?: string; trialEndsAt?: string | null }) {
+export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats, plan = "starter", trialEndsAt = null, role = "owner" }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] }; plan?: string; trialEndsAt?: string | null; role?: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
   const [loading, setLoading] = useState(false);
@@ -170,6 +171,34 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       setPwMsg({ ok: false, text: data.error ?? "Lỗi đổi mật khẩu" });
     }
     setPwLoading(false);
+  };
+
+  // Danger Zone — delete account
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmSlug, setDeleteConfirmSlug] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const deleteAccount = async () => {
+    if (deleteConfirmSlug !== company.slug) {
+      setDeleteError("Slug không khớp. Vui lòng nhập lại đúng.");
+      return;
+    }
+    setDeleteLoading(true);
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/admin/delete-account", { method: "DELETE" });
+      if (res.ok) {
+        window.location.href = "/";
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error ?? "Xóa tài khoản thất bại");
+      }
+    } catch {
+      setDeleteError("Lỗi kết nối. Vui lòng thử lại.");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   // Holidays
@@ -1398,6 +1427,67 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
       {/* Referral Section */}
       <ReferralSection slug={company.slug} stats={referralStats} />
+
+      {/* ── Vùng nguy hiểm ── */}
+      {role === "owner" && (
+        <div className="mt-8 border border-red-200 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base font-bold text-red-600">Vùng nguy hiểm</span>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Xóa tài khoản sẽ xóa toàn bộ dữ liệu công ty, nhân viên, chấm công và không thể khôi phục.
+          </p>
+          <button
+            onClick={() => { setShowDeleteModal(true); setDeleteConfirmSlug(""); setDeleteError(""); }}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+          >
+            Xóa tài khoản &amp; toàn bộ dữ liệu
+          </button>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <h2 className="text-lg font-bold text-red-600 mb-2">Xác nhận xóa tài khoản</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Hành động này không thể hoàn tác. Toàn bộ dữ liệu công ty, nhân viên và chấm công sẽ bị xóa vĩnh viễn.
+            </p>
+            <p className="text-sm font-medium text-gray-700 mb-1">
+              Nhập slug công ty để xác nhận:{" "}
+              <code className="bg-gray-100 px-1.5 py-0.5 rounded text-red-600 font-mono">{company.slug}</code>
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmSlug}
+              onChange={(e) => setDeleteConfirmSlug(e.target.value)}
+              placeholder={company.slug}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-red-400"
+              autoFocus
+            />
+            {deleteError && (
+              <p className="text-sm text-red-500 mb-3">{deleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmSlug(""); setDeleteError(""); }}
+                disabled={deleteLoading}
+                className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={deleteAccount}
+                disabled={deleteLoading || deleteConfirmSlug !== company.slug}
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleteLoading ? "Đang xóa..." : "Xóa vĩnh viễn"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

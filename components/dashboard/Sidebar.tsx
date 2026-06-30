@@ -38,6 +38,7 @@ import {
   TrendingUp,
   Filter,
   CalendarRange,
+  ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,6 +74,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/overtime", label: "Tăng ca", Icon: Timer },
   { href: "/dashboard/overtime-requests", label: "Duyệt tăng ca", Icon: Clock },
   { href: "/dashboard/early-leave-requests", label: "Duyệt về sớm", Icon: LogOut },
+  { href: "/dashboard/shift-swap-requests", label: "Đổi ca cho nhau", Icon: ArrowLeftRight },
   { href: "/dashboard/corrections", label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
   { href: "/dashboard/salary-payments", label: "Thanh toán lương", Icon: Banknote },
   { href: "/dashboard/salary-advances", label: "Tạm ứng lương", Icon: Wallet },
@@ -84,6 +86,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/certificates", label: "Chứng chỉ & Đào tạo", Icon: GraduationCap },
   { href: "/dashboard/reports/custom", label: "Báo cáo tùy chỉnh", Icon: Filter },
   { href: "/dashboard/reports/annual", label: "Tổng kết năm", Icon: CalendarRange },
+  { href: "/dashboard/analytics", label: "Phân tích xu hướng", Icon: TrendingUp },
   { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
   { href: "/dashboard/org-chart", label: "Sơ đồ tổ chức", Icon: Network },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
