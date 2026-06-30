@@ -116,7 +116,7 @@ function RegisterForm() {
 
         {/* Free tier benefits */}
         <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 mb-5 flex flex-wrap gap-x-4 gap-y-2">
-          {["Miễn phí mãi mãi", "Tối đa 5 nhân viên", "Chấm công khuôn mặt AI", "Không cần thẻ tín dụng"].map((t) => (
+          {["Miễn phí mãi mãi", "Tối đa 15 nhân viên", "Chấm công khuôn mặt AI", "Không cần thẻ tín dụng"].map((t) => (
             <span key={t} className="flex items-center gap-1.5 text-green-300 text-xs">
               <CheckCircle className="w-3.5 h-3.5" /> {t}
             </span>

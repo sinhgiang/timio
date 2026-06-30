@@ -39,6 +39,8 @@ import {
   Filter,
   CalendarRange,
   ArrowLeftRight,
+  Briefcase,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 
@@ -79,6 +81,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/salary-payments", label: "Thanh toán lương", Icon: Banknote },
   { href: "/dashboard/salary-advances", label: "Tạm ứng lương", Icon: Wallet },
   { href: "/dashboard/salary-history", label: "Lịch sử lương", Icon: TrendingUp },
+  { href: "/dashboard/commission", label: "Lương Doanh Số / KPI", Icon: Target },
   { href: "/dashboard/shifts", label: "Lịch phân ca", Icon: CalendarClock },
   { href: "/dashboard/discipline", label: "Kỷ luật lao động", Icon: ShieldAlert },
   { href: "/dashboard/assets", label: "Tài sản bàn giao", Icon: Package },
@@ -89,6 +92,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/analytics", label: "Phân tích xu hướng", Icon: TrendingUp },
   { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
   { href: "/dashboard/org-chart", label: "Sơ đồ tổ chức", Icon: Network },
+  { href: "/dashboard/recruitment", label: "Tuyển dụng", Icon: Briefcase },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
   { href: "/dashboard/export", label: "Xuất dữ liệu", Icon: Download },
   { href: "/dashboard/audit-log", label: "Nhật ký hoạt động", Icon: ShieldCheck },

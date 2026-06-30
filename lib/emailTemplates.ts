@@ -258,7 +258,7 @@ export function welcomeEmail(opts: { adminName: string; companyName: string; slu
 
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:28px;">
       <p style="margin:0;font-size:13px;color:#1e40af;">
-        Gói miễn phí cho phép tối đa <strong>5 nhân viên</strong> và lưu dữ liệu <strong>90 ngày</strong>.
+        Gói miễn phí cho phép tối đa <strong>15 nhân viên</strong> và lưu dữ liệu <strong>90 ngày</strong>.
         Nâng cấp lên Pro khi bạn cần thêm.
       </p>
     </div>

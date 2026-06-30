@@ -12,7 +12,7 @@ export async function PATCH(
     const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson } =
+    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson, salaryType, commissionRate, kpiTarget, kpiBonus } =
       await req.json();
 
     // Fetch current employee to detect salary change
@@ -43,6 +43,10 @@ export async function PATCH(
       ...(bankBranch !== undefined && { bankBranch: bankBranch || null }),
       ...(annualLeaveBalance !== undefined && { annualLeaveBalance: Number(annualLeaveBalance) }),
       ...(allowancesJson !== undefined && { allowancesJson: allowancesJson ? JSON.stringify(allowancesJson) : null }),
+      ...(salaryType !== undefined && { salaryType }),
+      ...(commissionRate !== undefined && { commissionRate: commissionRate != null ? Number(commissionRate) : null }),
+      ...(kpiTarget !== undefined && { kpiTarget: kpiTarget != null ? Number(kpiTarget) : null }),
+      ...(kpiBonus !== undefined && { kpiBonus: kpiBonus != null ? Number(kpiBonus) : null }),
     };
 
     if (pin && /^\d{4}$/.test(pin)) {

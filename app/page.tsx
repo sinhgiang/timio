@@ -129,7 +129,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   Xem demo live
                 </a>
               </div>
-              <p className="text-slate-500 text-sm mt-4">Không cần thẻ tín dụng · Cài đặt xong trong 10 phút · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
+              <p className="text-slate-500 text-sm mt-4">Không cần thẻ tín dụng · Cài đặt xong trong 10 phút · Miễn phí mãi mãi cho ≤ 15 nhân viên</p>
             </div>
 
             {/* Dashboard Mockup — updated to match real dashboard */}
@@ -1190,7 +1190,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <p className="text-xs text-gray-400 mb-6">mãi mãi miễn phí</p>
                 <ul className="space-y-2.5 mb-4">
                   {[
-                    "5 nhân viên · 1 chi nhánh · 1 quản lý",
+                    "15 nhân viên · 1 chi nhánh · 1 quản lý",
                     "Chấm công PIN",
                     "Cổng nhân viên tự tra cứu",
                     "Điều chỉnh chấm công",
@@ -1326,7 +1326,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
             Bắt đầu miễn phí ngay
             <ArrowRight size={20} />
           </Link>
-          <p className="text-blue-300 text-sm mt-4">Cài đặt xong trong 10 phút · Không cần thẻ tín dụng · Miễn phí mãi mãi cho ≤ 5 nhân viên</p>
+          <p className="text-blue-300 text-sm mt-4">Cài đặt xong trong 10 phút · Không cần thẻ tín dụng · Miễn phí mãi mãi cho ≤ 15 nhân viên</p>
         </div>
       </section>
 

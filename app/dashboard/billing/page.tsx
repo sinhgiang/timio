@@ -198,7 +198,7 @@ function BillingContent() {
           ) : currentPlan === "starter" ? (
             <div className="text-right">
               <p className="text-sm text-gray-500">Giới hạn</p>
-              <p className="font-medium text-gray-700">5 nhân viên · 1 chi nhánh</p>
+              <p className="font-medium text-gray-700">15 nhân viên · 1 chi nhánh</p>
             </div>
           ) : null}
         </div>

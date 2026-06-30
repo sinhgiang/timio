@@ -49,6 +49,9 @@ model Company {
   certificates        Certificate[]
   salaryHistories     SalaryHistory[]
   earlyLeaveRequests  EarlyLeaveRequest[]
+  salesRecords        SalesRecord[]
+  jobPostings         JobPosting[]
+  candidates          Candidate[]
 }
 
 model Admin {
@@ -119,6 +122,10 @@ model Employee {
   bankBranch          String?   // Chi nhánh ngân hàng
   qrToken             String?   @unique // Token ngẫu nhiên để check-in bằng QR code
   allowancesJson      String?   // JSON: [{label: "Xăng xe", amount: 500000}]
+  salaryType          String    @default("fixed") // "fixed" | "commission" | "kpi" | "hybrid"
+  commissionRate      Float?    // % hoa hồng trên doanh số (dùng khi salaryType=commission/hybrid)
+  kpiTarget           Float?    // Mục tiêu KPI/tháng (điểm hoặc doanh số)
+  kpiBonus            Float?    // Thưởng cố định khi đạt 100% KPI
   createdAt           DateTime  @default(now())
 
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -140,6 +147,8 @@ model Employee {
   certificates        Certificate[]
   salaryHistories     SalaryHistory[]
   earlyLeaveRequests  EarlyLeaveRequest[]
+  salesRecords        SalesRecord[]
+  candidatesApplied   Candidate[]
 
   @@unique([companyId, code])
 }
@@ -557,6 +566,67 @@ model ShiftSwapRequest {
   @@index([companyId, status])
   @@index([requesterId])
   @@index([targetId])
+}
+
+// Doanh số / KPI tháng của nhân viên (dùng cho lương commission/KPI)
+model SalesRecord {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  month       String   // YYYY-MM
+  salesAmount Float    @default(0) // Doanh số thực tế trong tháng
+  kpiScore    Float?   // 0–100 điểm KPI (null nếu không dùng KPI scoring)
+  note        String?
+  createdAt   DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month])
+  @@index([companyId, month])
+}
+
+// Vị trí tuyển dụng
+model JobPosting {
+  id           String      @id @default(cuid())
+  companyId    String
+  title        String
+  department   String?
+  location     String?
+  description  String?
+  requirements String?
+  salaryMin    Int?
+  salaryMax    Int?
+  status       String      @default("open") // "open" | "closed" | "filled"
+  createdAt    DateTime    @default(now())
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  candidates Candidate[]
+
+  @@index([companyId, status])
+}
+
+// Ứng viên
+model Candidate {
+  id         String    @id @default(cuid())
+  companyId  String
+  jobId      String
+  name       String
+  email      String?
+  phone      String?
+  status     String    @default("new") // "new" | "reviewing" | "interview" | "offer" | "hired" | "rejected"
+  notes      String?
+  source     String?   // "website" | "referral" | "linkedin" | "facebook" | "other"
+  hiredEmpId String?   // employeeId nếu được tuyển vào làm
+  appliedAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  company Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  job     JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  hiredEmployee Employee? @relation(fields: [hiredEmpId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([jobId])
 }
 
 // Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được
