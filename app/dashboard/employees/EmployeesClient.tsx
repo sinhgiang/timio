@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound, QrCode, RefreshCw } from "lucide-react";
 import PlanGate from "@/components/ui/PlanGate";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
@@ -143,6 +143,9 @@ export default function EmployeesClient({
   const [faceTarget, setFaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [contractTarget, setContractTarget] = useState<{ id: string; name: string } | null>(null);
   const [profileTarget, setProfileTarget] = useState<Employee | null>(null);
+  const [qrTarget, setQrTarget] = useState<{ id: string; name: string } | null>(null);
+  const [qrTokenData, setQrTokenData] = useState<{ token: string; qrUrl: string } | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [localBranches, setLocalBranches] = useState<Branch[]>(branches);
   const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
   const [localPositions, setLocalPositions] = useState<string[]>(allPositions);
@@ -498,6 +501,36 @@ export default function EmployeesClient({
     router.refresh();
   };
 
+  const openQR = async (emp: { id: string; name: string }) => {
+    setQrTarget(emp);
+    setQrTokenData(null);
+    setQrLoading(true);
+    try {
+      const res = await fetch(`/api/employees/${emp.id}/qr-token`);
+      const data = await res.json();
+      if (res.ok) {
+        const QRCode = await import("qrcode");
+        const url = await QRCode.toDataURL(data.qrToken, { width: 260, margin: 2 });
+        setQrTokenData({ token: data.qrToken, qrUrl: url });
+      }
+    } catch { /* ignore */ }
+    setQrLoading(false);
+  };
+
+  const regenerateQR = async (empId: string) => {
+    setQrLoading(true);
+    try {
+      const res = await fetch(`/api/employees/${empId}/qr-token`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        const QRCode = await import("qrcode");
+        const url = await QRCode.toDataURL(data.qrToken, { width: 260, margin: 2 });
+        setQrTokenData({ token: data.qrToken, qrUrl: url });
+      }
+    } catch { /* ignore */ }
+    setQrLoading(false);
+  };
+
   const activeEmployees = employees.filter((e) => e.status === "active");
   const inactiveEmployees = employees.filter((e) => e.status !== "active");
   const registeredCount = employees.filter((e) => e.hasFace).length;
@@ -515,6 +548,47 @@ export default function EmployeesClient({
       )}
       {profileTarget && (
         <EmployeeProfileModal employee={profileTarget} onClose={() => setProfileTarget(null)} />
+      )}
+      {/* QR Code Modal */}
+      {qrTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setQrTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg">Mã QR check-in</h3>
+                <p className="text-sm text-gray-500">{qrTarget.name}</p>
+              </div>
+              <button onClick={() => setQrTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            {qrLoading ? (
+              <div className="flex items-center justify-center py-16 text-gray-400">Đang tạo mã QR...</div>
+            ) : qrTokenData ? (
+              <div className="text-center">
+                <img src={qrTokenData.qrUrl} alt="QR Code" className="mx-auto mb-3 border border-gray-200 rounded-xl" />
+                <p className="text-xs text-gray-400 font-mono mb-4 break-all">{qrTokenData.token}</p>
+                <div className="flex gap-2">
+                  <a
+                    href={qrTokenData.qrUrl}
+                    download={`qr-${qrTarget.name}.png`}
+                    className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5"
+                  >
+                    <Download size={14} /> Tải PNG
+                  </a>
+                  <button
+                    onClick={() => regenerateQR(qrTarget.id)}
+                    className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1.5"
+                    title="Cấp lại mã QR mới (vô hiệu hóa mã cũ)"
+                  >
+                    <RefreshCw size={14} /> Đổi mã
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-3">In QR này dán lên thẻ nhân viên. Bấm &quot;Đổi mã&quot; để vô hiệu hóa QR cũ.</p>
+              </div>
+            ) : (
+              <p className="text-center text-red-500 py-8">Không lấy được mã QR</p>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between mb-6">
@@ -1340,6 +1414,19 @@ export default function EmployeesClient({
                             <ScanFace size={11} strokeWidth={1.5} /> Đăng ký
                           </button>
                         )}
+                      </div>
+                      {/* Divider */}
+                      <div className="w-px h-8 bg-gray-100" />
+                      {/* QR Code */}
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 mb-0.5">QR</p>
+                        <button
+                          onClick={() => openQR({ id: emp.id, name: emp.name })}
+                          className="flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-medium hover:bg-purple-100 border border-purple-100 transition-colors"
+                          title="Xem / tải mã QR check-in"
+                        >
+                          <QrCode size={11} strokeWidth={1.5} /> Xem QR
+                        </button>
                       </div>
                     </div>
                   </td>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SHIFT_PRESETS } from "@/lib/presets";
-import { MapPin, QrCode } from "lucide-react";
+import { MapPin, QrCode, Shield, Plus, X } from "lucide-react";
 import BranchQRCard from "@/components/settings/BranchQRCard";
 import PlanGate from "@/components/ui/PlanGate";
 
@@ -19,6 +19,7 @@ interface Branch {
   lng: number | null;
   gpsRadius: number;
   standardWorkDays: number;
+  allowedIPs: string | null;
 }
 
 interface Props {
@@ -75,6 +76,10 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
   const [form, setForm] = useState(emptyForm);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [showQR, setShowQR] = useState<string | null>(null);
+  const [showIP, setShowIP] = useState<string | null>(null);
+  const [ipInputs, setIpInputs] = useState<Record<string, string[]>>({});
+  const [newIP, setNewIP] = useState<Record<string, string>>({});
+  const [ipSaving, setIpSaving] = useState<string | null>(null);
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); };
 
@@ -143,6 +148,36 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
     setLoading(false);
     setShowForm(false);
     resetForm();
+    router.refresh();
+  };
+
+  const openIP = (b: Branch) => {
+    let ips: string[] = [];
+    try { ips = b.allowedIPs ? JSON.parse(b.allowedIPs) : []; } catch { /* ignore */ }
+    setIpInputs((prev) => ({ ...prev, [b.id]: ips }));
+    setNewIP((prev) => ({ ...prev, [b.id]: "" }));
+    setShowIP(showIP === b.id ? null : b.id);
+  };
+
+  const addIP = (branchId: string) => {
+    const ip = (newIP[branchId] ?? "").trim();
+    if (!ip) return;
+    setIpInputs((prev) => ({ ...prev, [branchId]: [...(prev[branchId] ?? []), ip] }));
+    setNewIP((prev) => ({ ...prev, [branchId]: "" }));
+  };
+
+  const removeIP = (branchId: string, idx: number) => {
+    setIpInputs((prev) => ({ ...prev, [branchId]: (prev[branchId] ?? []).filter((_, i) => i !== idx) }));
+  };
+
+  const saveIPs = async (branchId: string) => {
+    setIpSaving(branchId);
+    await fetch(`/api/branches/${branchId}/ip-whitelist`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ips: ipInputs[branchId] ?? [] }),
+    });
+    setIpSaving(null);
     router.refresh();
   };
 
@@ -374,6 +409,7 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
                       <MapPin size={12} /> Chưa cài GPS
                     </span>
                   )}
+                  {b.allowedIPs ? (() => { try { const ips = JSON.parse(b.allowedIPs) as string[]; return ips.length > 0 ? <span className="text-purple-600 flex items-center gap-1"><Shield size={12} /> {ips.length} IP cho phép</span> : null; } catch { return null; } })() : null}
                 </div>
               </div>
               <div className="flex gap-2 ml-4 shrink-0">
@@ -382,6 +418,13 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
                   className={`px-3 py-1 text-sm rounded-lg flex items-center gap-1 ${showQR === b.id ? "bg-blue-600 text-white" : "text-blue-600 hover:bg-blue-50"}`}
                 >
                   <QrCode size={13} /> QR
+                </button>
+                <button
+                  onClick={() => openIP(b)}
+                  className={`px-3 py-1 text-sm rounded-lg flex items-center gap-1 ${showIP === b.id ? "bg-purple-600 text-white" : "text-purple-600 hover:bg-purple-50"}`}
+                  title="Giới hạn IP"
+                >
+                  <Shield size={13} /> IP
                 </button>
                 <button onClick={() => handleEdit(b)} className="px-3 py-1 text-blue-600 text-sm hover:bg-blue-50 rounded-lg">Sửa</button>
                 <button onClick={() => handleDelete(b.id, b.name, b.employeeCount)} className="px-3 py-1 text-red-500 text-sm hover:bg-red-50 rounded-lg">Xóa</button>
@@ -394,6 +437,52 @@ export default function BranchesClient({ companyId, companySlug, branches }: Pro
                   companySlug={companySlug}
                   companyName={b.name}
                 />
+              </div>
+            )}
+            {showIP === b.id && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield size={15} className="text-purple-600" />
+                    <span className="font-semibold text-purple-800 text-sm">Giới hạn IP check-in</span>
+                    <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full">Bảo mật</span>
+                  </div>
+                  <p className="text-xs text-purple-700 mb-3">
+                    Chỉ cho phép check-in từ các địa chỉ IP này. Để trống = không giới hạn IP. Thường dùng IP wifi văn phòng.
+                  </p>
+                  <div className="space-y-2 mb-3">
+                    {(ipInputs[b.id] ?? []).map((ip, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <code className="flex-1 bg-white border border-purple-200 px-3 py-1.5 rounded-lg text-sm font-mono text-gray-700">{ip}</code>
+                        <button onClick={() => removeIP(b.id, idx)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    {(ipInputs[b.id] ?? []).length === 0 && (
+                      <p className="text-xs text-purple-500 italic">Chưa có IP nào — mọi IP đều được phép check-in</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={newIP[b.id] ?? ""}
+                      onChange={(e) => setNewIP((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addIP(b.id); } }}
+                      placeholder="VD: 192.168.1.100"
+                      className="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white font-mono"
+                    />
+                    <button onClick={() => addIP(b.id)} className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm font-medium flex items-center gap-1">
+                      <Plus size={14} /> Thêm
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => saveIPs(b.id)}
+                    disabled={ipSaving === b.id}
+                    className="mt-3 w-full py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {ipSaving === b.id ? "Đang lưu..." : "Lưu danh sách IP"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

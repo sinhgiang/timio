@@ -13,6 +13,14 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function getClientIP(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { employeeId, lat, lng } = await req.json();
@@ -31,6 +39,21 @@ export async function POST(req: NextRequest) {
 
     if (!employee || employee.status !== "active") {
       return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
+    }
+
+    // Kiểm tra IP whitelist nếu chi nhánh đã cấu hình
+    if (employee.branch.allowedIPs) {
+      try {
+        const allowed = JSON.parse(employee.branch.allowedIPs as string) as string[];
+        if (allowed.length > 0) {
+          const clientIP = getClientIP(req);
+          if (!allowed.includes(clientIP)) {
+            return NextResponse.json({
+              error: `Check-in từ IP ${clientIP} không được phép. Vui lòng check-in tại văn phòng.`,
+            }, { status: 403 });
+          }
+        }
+      } catch { /* ignore parse error */ }
     }
 
     // Kiểm tra GPS nếu chi nhánh đã cấu hình tọa độ

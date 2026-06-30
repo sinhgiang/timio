@@ -4,12 +4,14 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
 import type { EmployeeFaceData } from "@/lib/faceApi";
 import { speakVi, playCompanyAudio, unlockAudio, stopAudio } from "@/lib/speech";
-import { Clock, UserCircle, Cpu, ScanFace, CheckCircle2, AlertTriangle, UserX, HelpCircle, LogOut } from "lucide-react";
+import { Clock, UserCircle, Cpu, ScanFace, CheckCircle2, AlertTriangle, UserX, HelpCircle, LogOut, QrCode, Eye } from "lucide-react";
 
 type Phase =
   | "welcome"
   | "loading"
   | "camera"
+  | "blink"
+  | "qr_scan"
   | "scanning"
   | "success"
   | "no_face"
@@ -76,6 +78,10 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
   const [faceDetected, setFaceDetected] = useState(false);
   const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
   const [matchCount, setMatchCount] = useState(0);
+  // Blink challenge state
+  const [blinkState, setBlinkState] = useState<"waiting" | "eyes_open" | "blinking" | "done">("waiting");
+  // QR scan state
+  const [qrMsg, setQrMsg] = useState("");
 
   // Cancel speech khi unmount
   useEffect(() => () => { stopAudio(); window.speechSynthesis?.cancel(); }, []);
@@ -140,9 +146,9 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // Gán stream vào video SAU KHI phase = "camera"
+  // Gán stream vào video SAU KHI phase = "camera" hoặc "blink" hoặc "qr_scan"
   useEffect(() => {
-    if (phase === "camera" && videoRef.current && streamRef.current) {
+    if ((phase === "camera" || phase === "blink" || phase === "qr_scan") && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch(() => {});
     }
@@ -247,6 +253,107 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
     };
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // BLINK CHALLENGE — chạy trong phase "blink"
+  // EAR > 0.25 = mắt mở | EAR < 0.18 = mắt nhắm
+  useEffect(() => {
+    if (phase !== "blink") return;
+
+    let alive = true;
+    let earWasOpen = false;
+    let earWasClosed = false;
+    setBlinkState("waiting");
+
+    const poll = async () => {
+      if (!alive) return;
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || video.videoWidth === 0) {
+        if (alive) loopRef.current = setTimeout(poll, 200);
+        return;
+      }
+      try {
+        const { detectEAR } = await import("@/lib/faceApi");
+        const ear = await detectEAR(video);
+        if (alive) {
+          if (ear === null) {
+            setBlinkState("waiting");
+            earWasOpen = false;
+            earWasClosed = false;
+          } else if (!earWasOpen && ear > 0.25) {
+            earWasOpen = true;
+            setBlinkState("eyes_open");
+          } else if (earWasOpen && !earWasClosed && ear < 0.18) {
+            earWasClosed = true;
+            setBlinkState("blinking");
+          } else if (earWasOpen && earWasClosed && ear > 0.22) {
+            // Blink hoàn tất → chuyển sang face recognition
+            setBlinkState("done");
+            alive = false;
+            setPhase("camera");
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+      if (alive) loopRef.current = setTimeout(poll, 150);
+    };
+
+    loopRef.current = setTimeout(poll, 200);
+    return () => {
+      alive = false;
+      if (loopRef.current) clearTimeout(loopRef.current);
+    };
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // QR SCAN LOOP — chạy trong phase "qr_scan"
+  useEffect(() => {
+    if (phase !== "qr_scan") return;
+
+    let alive = true;
+    setQrMsg("Đưa mã QR của bạn vào khung hình...");
+
+    const poll = async () => {
+      if (!alive) return;
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || video.videoWidth === 0) {
+        if (alive) loopRef.current = setTimeout(poll, 200);
+        return;
+      }
+      try {
+        const jsQR = (await import("jsqr")).default;
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { if (alive) loopRef.current = setTimeout(poll, 200); return; }
+        ctx.drawImage(video, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
+        if (code && code.data && alive) {
+          alive = false;
+          stopCamera();
+          setPhase("scanning");
+          const gps = await getGPS();
+          const res = await fetch("/api/attendance/checkin-qr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ qrToken: code.data, lat: gps?.lat ?? null, lng: gps?.lng ?? null }),
+          });
+          const data = await res.json();
+          if (!res.ok) { setErrorMsg(data.error ?? "Mã QR không hợp lệ"); setPhase("error"); return; }
+          setResult(data);
+          setPhase("success");
+          return;
+        }
+      } catch { /* ignore */ }
+      if (alive) loopRef.current = setTimeout(poll, 250);
+    };
+
+    loopRef.current = setTimeout(poll, 300);
+    return () => {
+      alive = false;
+      if (loopRef.current) clearTimeout(loopRef.current);
+    };
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -258,6 +365,8 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
     setPhase("welcome");
     setResult(null);
     setErrorMsg("");
+    setBlinkState("waiting");
+    setQrMsg("");
     autoCheckingRef.current = false;
     matchCountRef.current = 0;
     lastMatchIdRef.current = null;
@@ -318,10 +427,36 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
         video: { facingMode: "user", width: 640, height: 480 },
       });
       streamRef.current = stream;
-      setPhase("camera");
+      setBlinkState("waiting");
+      setPhase("blink"); // Bắt đầu bằng thử thách chớp mắt trước khi nhận diện khuôn mặt
     } catch (e) {
       setErrorMsg(`Không mở được camera: ${e instanceof Error ? e.message : String(e)}`);
       setPhase("error");
+    }
+  };
+
+  const startQRScan = async () => {
+    stopAudio();
+    unlockAudio();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: 640, height: 480 },
+      });
+      streamRef.current = stream;
+      setQrMsg("Đưa mã QR của bạn vào khung hình...");
+      setPhase("qr_scan");
+    } catch {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: 640, height: 480 },
+        });
+        streamRef.current = stream;
+        setQrMsg("Đưa mã QR của bạn vào khung hình...");
+        setPhase("qr_scan");
+      } catch (e) {
+        setErrorMsg(`Không mở được camera: ${e instanceof Error ? e.message : String(e)}`);
+        setPhase("error");
+      }
     }
   };
 
@@ -338,7 +473,7 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
       : `Đang xác nhận... (${matchCount}/2)`
     : "Đưa mặt vào khung hình";
 
-  const isVideoPhase = phase === "camera";
+  const isVideoPhase = phase === "camera" || phase === "blink" || phase === "qr_scan";
 
   const videoBorderColor = faceDetected
     ? (matchCount > 0 ? "#facc15" : "#22c55e")
@@ -375,14 +510,22 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
               <UserCircle size={96} strokeWidth={1} className="text-blue-300/60" />
             </div>
             <h2 className="text-white text-3xl font-bold mb-2">Chào mừng!</h2>
-            <p className="text-blue-200 text-lg mb-10">Bấm nút bên dưới để quét mặt check in</p>
-            <button
-              onClick={startCamera}
-              className="inline-flex items-center gap-3 px-10 py-5 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white text-xl font-bold rounded-2xl shadow-2xl transition-all transform hover:scale-105 active:scale-95"
-            >
-              <ScanFace size={26} /> Quét mặt để check in
-            </button>
-            <p className="text-blue-400 text-sm mt-4 flex items-center justify-center gap-1.5">
+            <p className="text-blue-200 text-lg mb-8">Chọn phương thức điểm danh</p>
+            <div className="flex flex-col gap-4 items-center">
+              <button
+                onClick={startCamera}
+                className="inline-flex items-center gap-3 px-10 py-5 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white text-xl font-bold rounded-2xl shadow-2xl transition-all transform hover:scale-105 active:scale-95 w-72 justify-center"
+              >
+                <ScanFace size={26} /> Quét khuôn mặt
+              </button>
+              <button
+                onClick={startQRScan}
+                className="inline-flex items-center gap-3 px-10 py-5 bg-white/10 hover:bg-white/20 active:bg-white/5 text-white text-xl font-bold rounded-2xl shadow-xl border border-white/20 transition-all transform hover:scale-105 active:scale-95 w-72 justify-center"
+              >
+                <QrCode size={26} /> Quét mã QR
+              </button>
+            </div>
+            <p className="text-blue-400 text-sm mt-6 flex items-center justify-center gap-1.5">
               {modelsReady
                 ? <><CheckCircle2 size={14} className="text-green-400" /> AI sẵn sàng — {employees.filter((e) => e.descriptors.length > 0).length} nhân viên đã đăng ký</>
                 : "Đang tải AI nhận diện..."}
@@ -401,34 +544,60 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
           </div>
         )}
 
-        {/* CAMERA — full screen mobile, boxed desktop */}
+        {/* VIDEO PHASES (camera / blink / qr_scan) — full screen mobile, boxed desktop */}
         {isVideoPhase && (
           <div className="fixed inset-0 z-40 bg-black flex flex-col
                           md:relative md:inset-auto md:z-auto md:bg-transparent
                           md:w-[640px] md:max-w-[90vw]">
 
-            {/* Status bar */}
+            {/* Status bar — nội dung thay đổi theo phase */}
             <div className="px-6 pt-5 pb-3 text-center">
-              <p className={`font-medium text-base transition-colors duration-300 ${
-                matchCount > 0 ? "text-yellow-300" :
-                faceDetected ? "text-green-300" : "text-white/80"
-              }`}>
-                {cameraStatusText}
-              </p>
+              {phase === "blink" && (
+                <div>
+                  <p className={`font-bold text-lg transition-colors duration-300 ${
+                    blinkState === "eyes_open" ? "text-green-300" :
+                    blinkState === "blinking" ? "text-yellow-300" :
+                    "text-white/80"
+                  }`}>
+                    {blinkState === "waiting" ? "Nhìn thẳng vào camera..." :
+                     blinkState === "eyes_open" ? "✓ Đã nhận diện mắt — hãy CHỚP MẮT!" :
+                     blinkState === "blinking" ? "Đang nhận diện chớp mắt..." :
+                     "Xác nhận thành công!"}
+                  </p>
+                  <p className="text-blue-300/70 text-xs mt-1">Xác minh người thật trước khi điểm danh</p>
+                </div>
+              )}
+              {phase === "camera" && (
+                <p className={`font-medium text-base transition-colors duration-300 ${
+                  matchCount > 0 ? "text-yellow-300" :
+                  faceDetected ? "text-green-300" : "text-white/80"
+                }`}>
+                  {cameraStatusText}
+                </p>
+              )}
+              {phase === "qr_scan" && (
+                <p className="font-medium text-base text-white/80">{qrMsg}</p>
+              )}
             </div>
 
             {/* Video container */}
             <div
               className="relative flex-1 overflow-hidden md:flex-none md:rounded-2xl md:shadow-2xl md:border-4 md:transition-colors md:duration-300"
-              style={{ borderColor: videoBorderColor }}
+              style={{
+                borderColor: phase === "blink"
+                  ? (blinkState === "blinking" ? "#facc15" : blinkState === "eyes_open" ? "#22c55e" : "#60a5fa")
+                  : phase === "qr_scan" ? "#a78bfa"
+                  : videoBorderColor,
+              }}
             >
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover block md:h-auto md:aspect-[4/3]"
                 style={{
                   transformOrigin: "50% 50%",
-                  // scaleX(-1) = mirror như gương selfie — bên phải người dùng = bên phải màn hình
-                  transform: `translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale}) scaleX(-1)`,
+                  transform: phase === "qr_scan"
+                    ? "scaleX(1)" // QR scan: không mirror
+                    : `translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale}) scaleX(-1)`,
                   transition: "transform 0.5s ease",
                 }}
                 muted
@@ -436,24 +605,58 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
                 autoPlay
               />
 
-              {/* Oval guide overlay */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${
-                  matchCount > 0 ? "border-yellow-400 opacity-90" :
-                  faceDetected ? "border-green-400 opacity-80" : "border-blue-400 opacity-40"
-                }`} />
-              </div>
+              {/* Blink overlay — khung oval */}
+              {phase === "blink" && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${
+                    blinkState === "eyes_open" ? "border-green-400 opacity-90" :
+                    blinkState === "blinking" ? "border-yellow-400 opacity-90" :
+                    "border-blue-400 opacity-40"
+                  }`} />
+                  {blinkState === "eyes_open" && (
+                    <div className="absolute bottom-12 left-0 right-0 flex justify-center">
+                      <span className="bg-green-500 text-white text-sm font-bold px-4 py-2 rounded-full animate-bounce">
+                        <Eye size={14} className="inline mr-1" />CHỚP MẮT!
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* Badge top-right */}
-              <div className="absolute top-3 right-3 pointer-events-none">
-                <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
-                  matchCount > 0 ? "bg-yellow-500 text-white" :
-                  faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
-                }`}>
-                  {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
-                   faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
-                </span>
-              </div>
+              {/* Camera overlay — oval + badge */}
+              {phase === "camera" && (
+                <>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${
+                      matchCount > 0 ? "border-yellow-400 opacity-90" :
+                      faceDetected ? "border-green-400 opacity-80" : "border-blue-400 opacity-40"
+                    }`} />
+                  </div>
+                  <div className="absolute top-3 right-3 pointer-events-none">
+                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
+                      matchCount > 0 ? "bg-yellow-500 text-white" :
+                      faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
+                    }`}>
+                      {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
+                       faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* QR scan overlay — khung vuông */}
+              {phase === "qr_scan" && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-52 h-52 border-4 border-purple-400 opacity-80 rounded-xl">
+                    {/* Corner accents */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-purple-300 rounded-tl-xl" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-purple-300 rounded-tr-xl" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-purple-300 rounded-bl-xl" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-purple-300 rounded-br-xl" />
+                  </div>
+                  <QrCode size={28} className="absolute text-purple-300/50" />
+                </div>
+              )}
             </div>
 
             {/* Bottom button */}

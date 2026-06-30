@@ -33,6 +33,7 @@ export default async function BranchesPage() {
         lng: b.lng,
         gpsRadius: b.gpsRadius,
         standardWorkDays: b.standardWorkDays ?? 26,
+        allowedIPs: (b as { allowedIPs?: string | null }).allowedIPs ?? null,
       }))}
     />
   );

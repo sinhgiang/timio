@@ -73,6 +73,7 @@ model Branch {
   lng               Float?
   gpsRadius         Int     @default(200)
   standardWorkDays  Int     @default(26)
+  allowedIPs        String? // JSON: ["1.2.3.4","10.0.0.0/8"] — danh sách IP được phép check-in
   createdAt    DateTime @default(now())
 
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -105,6 +106,7 @@ model Employee {
   bankName            String?   // Tên ngân hàng (VCB, TCB, MB, ...)
   bankAccount         String?   // Số tài khoản
   bankBranch          String?   // Chi nhánh ngân hàng
+  qrToken             String?   @unique // Token ngẫu nhiên để check-in bằng QR code
   createdAt           DateTime  @default(now())
 
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
