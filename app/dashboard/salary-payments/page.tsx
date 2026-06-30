@@ -27,7 +27,16 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
 
   const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
 
-  const [employees, company, payments, advances] = await Promise.all([
+  // salaryAdvance table may not exist yet on Neon — safe fallback
+  let advancesRaw: { employeeId: string; amount: number }[] = [];
+  try {
+    advancesRaw = await prisma.salaryAdvance.findMany({
+      where: { companyId: user.companyId, year, month, status: "approved" },
+      select: { employeeId: true, amount: true },
+    });
+  } catch { /* table not migrated yet */ }
+
+  const [employees, company, payments] = await Promise.all([
     prisma.employee.findMany({
       where: {
         companyId: user.companyId,
@@ -52,10 +61,6 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
       where: { companyId: user.companyId, year, month },
       select: { employeeId: true, status: true, paidAt: true, note: true, amount: true },
     }),
-    prisma.salaryAdvance.findMany({
-      where: { companyId: user.companyId, year, month, status: "approved" },
-      select: { employeeId: true, amount: true },
-    }),
   ]);
 
   const paymentMap = Object.fromEntries(
@@ -68,7 +73,7 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
   );
 
   const advanceMap = new Map<string, number>();
-  for (const a of advances) {
+  for (const a of advancesRaw) {
     advanceMap.set(a.employeeId, (advanceMap.get(a.employeeId) ?? 0) + a.amount);
   }
 

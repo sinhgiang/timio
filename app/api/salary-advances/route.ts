@@ -14,18 +14,21 @@ export async function GET(req: NextRequest) {
   const month = parseInt(searchParams.get("month") ?? String(now.getMonth() + 1));
   const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
 
-  const advances = await prisma.salaryAdvance.findMany({
-    where: {
-      companyId: user.companyId, year, month,
-      employee: scopedBranchId ? { branchId: scopedBranchId } : undefined,
-    },
-    include: {
-      employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json(advances);
+  try {
+    const advances = await prisma.salaryAdvance.findMany({
+      where: {
+        companyId: user.companyId, year, month,
+        employee: scopedBranchId ? { branchId: scopedBranchId } : undefined,
+      },
+      include: {
+        employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(advances);
+  } catch {
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -41,20 +44,23 @@ export async function POST(req: NextRequest) {
   const employee = await prisma.employee.findFirst({ where: { id: employeeId, companyId: user.companyId } });
   if (!employee) return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
 
-  const advance = await prisma.salaryAdvance.create({
-    data: {
-      companyId: user.companyId,
-      employeeId,
-      year: parseInt(year),
-      month: parseInt(month),
-      amount: parseInt(amount),
-      note: note || null,
-      status: "pending",
-    },
-    include: {
-      employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } },
-    },
-  });
-
-  return NextResponse.json(advance, { status: 201 });
+  try {
+    const advance = await prisma.salaryAdvance.create({
+      data: {
+        companyId: user.companyId,
+        employeeId,
+        year: parseInt(year),
+        month: parseInt(month),
+        amount: parseInt(amount),
+        note: note || null,
+        status: "pending",
+      },
+      include: {
+        employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } },
+      },
+    });
+    return NextResponse.json(advance, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Lỗi server — vui lòng chạy SQL migration trên Neon trước" }, { status: 500 });
+  }
 }

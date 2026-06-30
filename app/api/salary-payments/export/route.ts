@@ -17,7 +17,15 @@ export async function GET(req: NextRequest) {
   const filter = searchParams.get("filter") ?? "all"; // "all" | "unpaid"
   const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
 
-  const [employees, advances, payments] = await Promise.all([
+  let advances: { employeeId: string; amount: number }[] = [];
+  try {
+    advances = await prisma.salaryAdvance.findMany({
+      where: { companyId: user.companyId, year, month, status: "approved" },
+      select: { employeeId: true, amount: true },
+    });
+  } catch { /* table not migrated yet */ }
+
+  const [employees, payments] = await Promise.all([
     prisma.employee.findMany({
       where: {
         companyId: user.companyId,
@@ -35,10 +43,6 @@ export async function GET(req: NextRequest) {
           select: { totalPenalty: true, totalReward: true, totalOvertimeAmount: true },
         },
       },
-    }),
-    prisma.salaryAdvance.findMany({
-      where: { companyId: user.companyId, year, month, status: "approved" },
-      select: { employeeId: true, amount: true },
     }),
     prisma.salaryPayment.findMany({
       where: { companyId: user.companyId, year, month },

@@ -14,7 +14,7 @@ interface EmployeeRef {
   branch: { name: string };
 }
 
-interface Advance {
+export interface AdvanceRow {
   id: string;
   employeeId: string;
   year: number;
@@ -26,6 +26,8 @@ interface Advance {
   approvedAt: string | null;
   employee: EmployeeRef;
 }
+
+type Advance = AdvanceRow;
 
 interface Props {
   advances: Advance[];

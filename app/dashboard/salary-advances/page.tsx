@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import SalaryAdvancesClient from "./SalaryAdvancesClient";
+import SalaryAdvancesClient, { type AdvanceRow } from "./SalaryAdvancesClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Tạm ứng lương" };
@@ -26,8 +26,9 @@ export default async function SalaryAdvancesPage({ searchParams }: Props) {
 
   const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
 
-  const [advances, employees] = await Promise.all([
-    prisma.salaryAdvance.findMany({
+  let advances: AdvanceRow[] = [];
+  try {
+    const raw = await prisma.salaryAdvance.findMany({
       where: {
         companyId: user.companyId, year, month,
         employee: scopedBranchId ? { branchId: scopedBranchId } : undefined,
@@ -36,21 +37,23 @@ export default async function SalaryAdvancesPage({ searchParams }: Props) {
         employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } },
       },
       orderBy: { createdAt: "desc" },
-    }),
-    prisma.employee.findMany({
-      where: {
-        companyId: user.companyId,
-        status: "active",
-        ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
-      },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } },
-    }),
-  ]);
+    });
+    advances = JSON.parse(JSON.stringify(raw)) as AdvanceRow[];
+  } catch { /* table not migrated yet — show empty state */ }
+
+  const employees = await prisma.employee.findMany({
+    where: {
+      companyId: user.companyId,
+      status: "active",
+      ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } },
+  });
 
   return (
     <SalaryAdvancesClient
-      advances={JSON.parse(JSON.stringify(advances))}
+      advances={advances}
       employees={JSON.parse(JSON.stringify(employees))}
       currentMonth={monthStr}
     />
