@@ -249,6 +249,81 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* SVG line charts — Xu hướng 7 ngày */}
+      {!isNewCompany && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+          {/* Chart 1: Lượt chấm công */}
+          {(() => {
+            const vals = chartDays.map((d) => d.onTime + d.late);
+            const maxVal = Math.max(...vals, 1);
+            const xStep = 240 / 6;
+            const points = vals.map((v, i) => {
+              const x = 20 + i * xStep;
+              const y = 90 - Math.max((v / maxVal) * 80, 0);
+              return `${x},${y}`;
+            }).join(" ");
+            return (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Lượt chấm công / ngày</p>
+                <svg viewBox="0 0 280 100" className="w-full">
+                  {/* Grid line */}
+                  <line x1="20" y1="10" x2="20" y2="90" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="20" y1="90" x2="260" y2="90" stroke="#E5E7EB" strokeWidth="1" />
+                  {/* Polyline */}
+                  <polyline points={points} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                  {/* Dots + labels */}
+                  {vals.map((v, i) => {
+                    const x = 20 + i * xStep;
+                    const y = 90 - Math.max((v / maxVal) * 80, 0);
+                    const isToday = i === 6;
+                    return (
+                      <g key={i}>
+                        <circle cx={x} cy={y} r={isToday ? 4 : 3} fill={isToday ? "#2563EB" : "#3B82F6"} />
+                        {v > 0 && <text x={x} y={y - 7} fontSize="9" fill="#6B7280" textAnchor="middle">{v}</text>}
+                        <text x={x} y="100" fontSize="9" fill={isToday ? "#2563EB" : "#9CA3AF"} textAnchor="middle" fontWeight={isToday ? "bold" : "normal"}>{chartDays[i].label}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
+          {/* Chart 2: Đi trễ */}
+          {(() => {
+            const vals = chartDays.map((d) => d.late);
+            const maxVal = Math.max(...vals, 1);
+            const xStep = 240 / 6;
+            const points = vals.map((v, i) => {
+              const x = 20 + i * xStep;
+              const y = 90 - Math.max((v / maxVal) * 80, 0);
+              return `${x},${y}`;
+            }).join(" ");
+            return (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Đi trễ / ngày</p>
+                <svg viewBox="0 0 280 100" className="w-full">
+                  <line x1="20" y1="10" x2="20" y2="90" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="20" y1="90" x2="260" y2="90" stroke="#E5E7EB" strokeWidth="1" />
+                  <polyline points={points} fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                  {vals.map((v, i) => {
+                    const x = 20 + i * xStep;
+                    const y = 90 - Math.max((v / maxVal) * 80, 0);
+                    const isToday = i === 6;
+                    return (
+                      <g key={i}>
+                        <circle cx={x} cy={y} r={isToday ? 4 : 3} fill={isToday ? "#D97706" : "#F59E0B"} />
+                        {v > 0 && <text x={x} y={y - 7} fontSize="9" fill="#6B7280" textAnchor="middle">{v}</text>}
+                        <text x={x} y="100" fontSize="9" fill={isToday ? "#D97706" : "#9CA3AF"} textAnchor="middle" fontWeight={isToday ? "bold" : "normal"}>{chartDays[i].label}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Top late employees this month */}
       {!isNewCompany && topLateEmployees.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 mb-5">

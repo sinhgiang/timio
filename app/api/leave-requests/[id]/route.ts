@@ -45,6 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       const TYPE_LABELS: Record<string, string> = {
         annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương",
         maternity: "Thai sản", other: "Khác",
+        wedding: "Nghỉ cưới", funeral: "Nghỉ tang", paternity: "Nghỉ con sinh",
       };
       void sendTelegram(
         company.telegramBotToken,

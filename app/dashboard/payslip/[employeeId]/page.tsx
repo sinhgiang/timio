@@ -48,7 +48,7 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
         id: true, name: true, code: true, department: true, position: true,
         baseSalary: true, joinDate: true, phone: true, dependents: true,
         bankName: true, bankAccount: true, bankBranch: true,
-        branch: { select: { name: true } },
+        branch: { select: { name: true, standardWorkDays: true } },
         summaries: {
           where: { year, month },
           select: {
@@ -69,10 +69,15 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
 
   const s = employee.summaries[0];
   const base = employee.baseSalary ?? 0;
+  const daysPresent = s?.daysPresent ?? 0;
+  const standardWorkDays = employee.branch.standardWorkDays ?? 26;
+  const earnedBase = standardWorkDays > 0
+    ? Math.round((base / standardWorkDays) * daysPresent)
+    : base;
   const penalty = s?.totalPenalty ?? 0;
   const reward = s?.totalReward ?? 0;
   const overtime = s?.totalOvertimeAmount ?? 0;
-  const grossIncome = base - penalty + reward + overtime;
+  const grossIncome = earnedBase - penalty + reward + overtime;
 
   const tax = calculateTax({
     baseSalary: base,
@@ -92,7 +97,9 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
     year,
     month,
     baseSalary: base,
-    daysPresent: s?.daysPresent ?? 0,
+    earnedBase,
+    standardWorkDays,
+    daysPresent,
     daysLate: s?.daysLate ?? 0,
     daysAbsent: s?.daysAbsent ?? 0,
     totalMinutesLate: s?.totalMinutesLate ?? 0,

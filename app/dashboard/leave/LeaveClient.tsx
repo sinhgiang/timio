@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 
 const LeaveApprovalForm = dynamic(() => import("@/components/leave/LeaveApprovalForm"), { ssr: false });
 
-type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other";
+type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity";
 type LeaveStatus = "pending" | "approved" | "rejected";
 
 interface LeaveRequest {
@@ -43,6 +43,9 @@ const TYPE_LABELS: Record<LeaveType, string> = {
   unpaid: "Nghỉ không lương",
   maternity: "Thai sản",
   other: "Khác",
+  wedding: "Nghỉ cưới",
+  funeral: "Nghỉ tang",
+  paternity: "Nghỉ con sinh",
 };
 
 const STATUS_CONFIG: Record<LeaveStatus, { label: string; cls: string }> = {

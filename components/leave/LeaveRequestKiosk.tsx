@@ -29,6 +29,9 @@ const LEAVE_TYPES = [
   { value: "sick", label: "Nghỉ ốm / Bệnh" },
   { value: "unpaid", label: "Nghỉ không lương" },
   { value: "maternity", label: "Nghỉ thai sản / chăm con" },
+  { value: "wedding", label: "Nghỉ cưới" },
+  { value: "funeral", label: "Nghỉ tang" },
+  { value: "paternity", label: "Nghỉ con sinh" },
   { value: "other", label: "Lý do khác" },
 ] as const;
 

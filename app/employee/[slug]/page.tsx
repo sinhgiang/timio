@@ -398,6 +398,9 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
                 <option value="sick">Nghỉ ốm</option>
                 <option value="unpaid">Nghỉ không lương</option>
                 <option value="maternity">Nghỉ thai sản</option>
+                <option value="wedding">Nghỉ cưới</option>
+                <option value="funeral">Nghỉ tang</option>
+                <option value="paternity">Nghỉ con sinh</option>
                 <option value="other">Khác</option>
               </select>
             </div>
@@ -565,7 +568,8 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
   // ── Payslip ──
   if (phase === "payslip") {
     const ps = payslipData as {
-      month?: number; year?: number; baseSalary?: number; grossIncome?: number;
+      month?: number; year?: number; baseSalary?: number; earnedBase?: number;
+      standardWorkDays?: number; grossIncome?: number;
       bhxhEmployee?: number; tncn?: number; netTakeHome?: number;
       totalPenalty?: number; totalReward?: number; totalOvertimeAmount?: number;
       daysPresent?: number; daysLate?: number;
@@ -607,7 +611,13 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
                   <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Thu nhập</p>
                 </div>
                 <div className="divide-y divide-gray-50">
-                  <PayslipRow label="Lương cơ bản" value={fmt(ps.baseSalary ?? 0)} />
+                  <PayslipRow label="Lương cơ bản (full)" value={fmt(ps.baseSalary ?? 0)} />
+                  {ps.earnedBase !== undefined && ps.earnedBase !== ps.baseSalary && (
+                    <PayslipRow
+                      label={`Ngày công thực: ${ps.daysPresent ?? 0}/${ps.standardWorkDays ?? 26} ngày`}
+                      value={fmt(ps.earnedBase)}
+                    />
+                  )}
                   {(ps.totalReward ?? 0) > 0 && <PayslipRow label="Thưởng chuyên cần" value={`+${fmt(ps.totalReward ?? 0)}`} positive />}
                   {(ps.allowances ?? []).map((a) => (
                     <PayslipRow key={a.label} label={a.label} value={`+${fmt(a.amount)}`} positive />

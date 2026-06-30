@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendTelegram } from "@/lib/telegram";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -61,6 +62,39 @@ export async function POST(req: NextRequest) {
         note: note || null,
       },
     });
+
+    // Fire-and-forget Telegram notification to branch chat
+    try {
+      const empWithBranch = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: {
+          name: true,
+          branch: {
+            select: {
+              telegramChatId: true,
+              company: { select: { telegramBotToken: true } },
+            },
+          },
+        },
+      });
+
+      const token = empWithBranch?.branch.company.telegramBotToken;
+      const chatId = empWithBranch?.branch.telegramChatId;
+
+      if (token && chatId && empWithBranch) {
+        const [y, m] = date.split("-");
+        const monthYear = `${m}/${y}`;
+        const msg =
+          `📅 <b>Lịch ca tháng ${monthYear}</b>\n` +
+          `👤 ${empWithBranch.name}\n\n` +
+          `${date}: <b>${shiftLabel}</b> (${checkIn} - ${checkOut})\n\n` +
+          `🔗 Xem lịch ca: ${process.env.NEXTAUTH_URL ?? "https://timio.vn"}/dashboard/shifts`;
+        void sendTelegram(token, chatId, msg);
+      }
+    } catch {
+      // Non-critical — don't block response
+    }
+
     return NextResponse.json(shift, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Lỗi server — vui lòng chạy SQL migration" }, { status: 500 });

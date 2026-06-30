@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       id: true, name: true, code: true, department: true, position: true,
       baseSalary: true, dependents: true, phone: true, joinDate: true,
       bankName: true, bankAccount: true, bankBranch: true, allowancesJson: true,
-      branch: { select: { name: true } },
+      branch: { select: { name: true, standardWorkDays: true } },
       company: { select: { name: true } },
       summaries: {
         where: { year, month: mon },
@@ -36,6 +36,11 @@ export async function GET(req: NextRequest) {
 
   const s = employee.summaries[0];
   const base = employee.baseSalary ?? 0;
+  const daysPresent = s?.daysPresent ?? 0;
+  const standardWorkDays = employee.branch.standardWorkDays ?? 26;
+  const earnedBase = standardWorkDays > 0
+    ? Math.round((base / standardWorkDays) * daysPresent)
+    : base;
   const penalty = s?.totalPenalty ?? 0;
   const reward = s?.totalReward ?? 0;
   const overtime = s?.totalOvertimeAmount ?? 0;
@@ -43,7 +48,7 @@ export async function GET(req: NextRequest) {
     ? (() => { try { return JSON.parse(employee.allowancesJson) as { label: string; amount: number }[]; } catch { return []; } })()
     : [];
   const totalAllowances = allowances.reduce((s, a) => s + (a.amount ?? 0), 0);
-  const grossIncome = base + totalAllowances - penalty + reward + overtime;
+  const grossIncome = earnedBase + totalAllowances - penalty + reward + overtime;
   const tax = calculateTax({ baseSalary: base, grossIncome, dependents: employee.dependents ?? 0 });
 
   return NextResponse.json({
@@ -60,7 +65,9 @@ export async function GET(req: NextRequest) {
     joinDate: employee.joinDate ? employee.joinDate.toISOString().split("T")[0] : "",
     year, month: mon,
     baseSalary: base,
-    daysPresent: s?.daysPresent ?? 0,
+    earnedBase,
+    standardWorkDays,
+    daysPresent,
     daysLate: s?.daysLate ?? 0,
     daysAbsent: s?.daysAbsent ?? 0,
     totalMinutesLate: s?.totalMinutesLate ?? 0,

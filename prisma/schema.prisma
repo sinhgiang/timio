@@ -39,6 +39,8 @@ model Company {
   salaryPayments   SalaryPayment[]
   salaryAdvances   SalaryAdvance[]
   shiftAssignments ShiftAssignment[]
+  overtimeRequests OvertimeRequest[]
+  auditLogs        AuditLog[]
 }
 
 model Admin {
@@ -102,6 +104,7 @@ model Employee {
   joinDate            DateTime?
   dateOfBirth         String?   // YYYY-MM-DD
   annualLeaveBalance  Float     @default(12) // ngày phép năm còn lại
+  leaveCarryForward   Float     @default(0)  // ngày phép chuyển từ năm trước
   dependents          Int       @default(0)  // số người phụ thuộc (giảm trừ thuế TNCN)
   bankName            String?   // Tên ngân hàng (VCB, TCB, MB, ...)
   bankAccount         String?   // Số tài khoản
@@ -120,6 +123,7 @@ model Employee {
   salaryPayments      SalaryPayment[]
   salaryAdvances      SalaryAdvance[]
   shiftAssignments    ShiftAssignment[]
+  overtimeRequests    OvertimeRequest[]
 
   @@unique([companyId, code])
 }
@@ -381,6 +385,43 @@ model ShiftAssignment {
 
   @@unique([employeeId, date])
   @@index([companyId, date])
+}
+
+model OvertimeRequest {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       String   // YYYY-MM-DD — ngày muốn tăng ca
+  startTime  String   // HH:MM
+  endTime    String   // HH:MM
+  hours      Float    // số giờ dự kiến
+  reason     String?
+  status     String   @default("pending") // pending | approved | rejected
+  note       String?  // ghi chú của admin khi duyệt
+  createdAt  DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([employeeId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  adminId    String?
+  adminEmail String?
+  action     String   // "create_employee" | "approve_leave" | "reject_leave" | "update_salary" | ...
+  entityType String?  // "Employee" | "LeaveRequest" | "AttendanceLog" | ...
+  entityId   String?
+  detail     String?  // JSON chi tiết
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([companyId, action])
 }
 
 // Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được

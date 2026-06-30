@@ -12,6 +12,8 @@ interface PayslipRow {
   department: string;
   position: string;
   baseSalary: number;
+  earnedBase: number;
+  standardWorkDays: number;
   daysPresent: number;
   daysLate: number;
   daysAbsent: number;
@@ -228,9 +230,15 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
                   </td>
                   <td className="text-center px-3 py-3 text-gray-700">
                     <span className="font-medium">{r.daysPresent}</span>
+                    <span className="text-xs text-gray-400">/{r.standardWorkDays}</span>
                     {r.daysAbsent > 0 && <span className="text-xs text-red-400 ml-1">(-{r.daysAbsent})</span>}
                   </td>
-                  <td className="text-right px-3 py-3 text-gray-600">{fmt(r.baseSalary)}</td>
+                  <td className="text-right px-3 py-3 text-gray-600">
+                    <span>{fmt(r.earnedBase)}</span>
+                    {r.earnedBase !== r.baseSalary && (
+                      <span className="block text-xs text-gray-400">{fmt(r.baseSalary)}</span>
+                    )}
+                  </td>
                   <td className="text-right px-3 py-3 text-red-500 font-medium">
                     {r.totalPenalty > 0 ? `-${fmt(r.totalPenalty)}` : "—"}
                   </td>
@@ -321,7 +329,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
               <tr className="bg-blue-50/60 border-t-2 border-blue-100">
                 <td className="px-4 py-3 font-bold text-gray-700" colSpan={2}>Tổng cộng ({rows.length} NV)</td>
                 <td className="text-right px-3 py-3 font-bold text-gray-700">
-                  {fmt(rows.reduce((s, r) => s + r.baseSalary, 0))}
+                  {fmt(rows.reduce((s, r) => s + r.earnedBase, 0))}
                 </td>
                 <td className="text-right px-3 py-3 font-bold text-red-500">
                   {totalPenalty > 0 ? `-${fmt(totalPenalty)}` : "—"}

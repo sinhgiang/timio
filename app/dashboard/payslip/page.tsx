@@ -70,6 +70,7 @@ export default async function PayslipPage({ searchParams }: Props) {
       select: {
         id: true, name: true, code: true, department: true, position: true,
         baseSalary: true, joinDate: true, dependents: true, email: true, allowancesJson: true,
+        branch: { select: { standardWorkDays: true } },
         summaries: {
           where: { year, month },
           select: {
@@ -90,6 +91,11 @@ export default async function PayslipPage({ searchParams }: Props) {
   const rows = employees.map((e) => {
     const s = e.summaries[0];
     const base = e.baseSalary ?? 0;
+    const daysPresent = s?.daysPresent ?? 0;
+    const standardWorkDays = e.branch?.standardWorkDays ?? 26;
+    const earnedBase = standardWorkDays > 0
+      ? Math.round((base / standardWorkDays) * daysPresent)
+      : base;
     const penalty = s?.totalPenalty ?? 0;
     const reward = s?.totalReward ?? 0;
     const overtime = s?.totalOvertimeAmount ?? 0;
@@ -97,7 +103,7 @@ export default async function PayslipPage({ searchParams }: Props) {
       ? (() => { try { return JSON.parse((e as { allowancesJson: string }).allowancesJson) as { label: string; amount: number }[]; } catch { return []; } })()
       : [];
     const totalAllowances = allowances.reduce((sum, a) => sum + (a.amount ?? 0), 0);
-    const grossIncome = base + totalAllowances - penalty + reward + overtime;
+    const grossIncome = earnedBase + totalAllowances - penalty + reward + overtime;
     const tax = calculateTax({ baseSalary: base, grossIncome, dependents: e.dependents ?? 0 });
     return {
       id: e.id,
@@ -106,7 +112,9 @@ export default async function PayslipPage({ searchParams }: Props) {
       department: e.department ?? "",
       position: e.position ?? "",
       baseSalary: base,
-      daysPresent: s?.daysPresent ?? 0,
+      earnedBase,
+      standardWorkDays,
+      daysPresent,
       daysLate: s?.daysLate ?? 0,
       daysAbsent: s?.daysAbsent ?? 0,
       totalMinutesLate: s?.totalMinutesLate ?? 0,

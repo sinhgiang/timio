@@ -40,6 +40,9 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   unpaid: "Nghỉ không lương",
   maternity: "Nghỉ thai sản / chăm con",
   other: "Lý do khác",
+  wedding: "Nghỉ cưới",
+  funeral: "Nghỉ tang",
+  paternity: "Nghỉ con sinh",
 };
 
 function fmtDate(s: string) {

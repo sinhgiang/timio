@@ -27,6 +27,10 @@ import {
   Wallet,
   CalendarClock,
   CalendarDays,
+  BarChart2,
+  Network,
+  Download,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,12 +44,13 @@ interface Props {
   planExpires?: string | null;
 }
 
-const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings"]);
+const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings", "/dashboard/audit-log"]);
 const HIDDEN_FOR_ACCOUNTANT = new Set([
   "/dashboard/billing",
   "/dashboard/settings",
   "/dashboard/leave",
   "/dashboard/branches",
+  "/dashboard/audit-log",
 ]);
 
 const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: string }[] = [
@@ -54,16 +59,21 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/branches", label: "Chi nhánh", Icon: Building2 },
   { href: "/dashboard/reports", label: "Báo cáo tháng", Icon: BarChart3 },
   { href: "/dashboard/reports/13th-month", label: "Lương tháng 13", Icon: Gift },
+  { href: "/dashboard/reports/department", label: "Báo cáo phòng ban", Icon: BarChart2 },
   { href: "/dashboard/payslip", label: "Phiếu lương", Icon: FileText },
   { href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
   { href: "/dashboard/leave-calendar", label: "Lịch nghỉ nhóm", Icon: CalendarDays },
   { href: "/dashboard/overtime", label: "Tăng ca", Icon: Timer },
+  { href: "/dashboard/overtime-requests", label: "Duyệt tăng ca", Icon: Clock },
   { href: "/dashboard/corrections", label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
   { href: "/dashboard/salary-payments", label: "Thanh toán lương", Icon: Banknote },
   { href: "/dashboard/salary-advances", label: "Tạm ứng lương", Icon: Wallet },
   { href: "/dashboard/shifts", label: "Lịch phân ca", Icon: CalendarClock },
   { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
+  { href: "/dashboard/org-chart", label: "Sơ đồ tổ chức", Icon: Network },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
+  { href: "/dashboard/export", label: "Xuất dữ liệu", Icon: Download },
+  { href: "/dashboard/audit-log", label: "Nhật ký hoạt động", Icon: ShieldCheck },
   { href: "/dashboard/billing", label: "Gói dịch vụ", Icon: CreditCard },
   { href: "/dashboard/settings", label: "Cài đặt", Icon: Settings },
 ];

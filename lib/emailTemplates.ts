@@ -372,6 +372,9 @@ const TYPE_LABELS: Record<string, string> = {
   unpaid: "Nghỉ không lương",
   maternity: "Thai sản",
   other: "Khác",
+  wedding: "Nghỉ cưới",
+  funeral: "Nghỉ tang",
+  paternity: "Nghỉ con sinh",
 };
 
 export function leaveRequestEmail(opts: {

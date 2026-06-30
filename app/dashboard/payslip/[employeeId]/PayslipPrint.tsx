@@ -14,6 +14,8 @@ interface PayslipData {
   year: number;
   month: number;
   baseSalary: number;
+  earnedBase?: number;
+  standardWorkDays?: number;
   daysPresent: number;
   daysLate: number;
   daysAbsent: number;
@@ -131,7 +133,14 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
                 A. THU NHẬP
               </td>
             </tr>
-            <TRow label="(+) Lương cơ bản" value={`${fmt(data.baseSalary)} đ`} />
+            <TRow label="(+) Lương cơ bản (full tháng)" value={`${fmt(data.baseSalary)} đ`} />
+            {data.earnedBase !== undefined && data.earnedBase !== data.baseSalary && (
+              <TRow
+                label={`(+) Lương theo ngày công thực tế (${data.daysPresent}/${data.standardWorkDays ?? 26} ngày)`}
+                value={`${fmt(data.earnedBase)} đ`}
+                highlight="green"
+              />
+            )}
             {data.totalReward > 0 && (
               <TRow label="(+) Thưởng chuyên cần" value={`${fmt(data.totalReward)} đ`} highlight="green" />
             )}

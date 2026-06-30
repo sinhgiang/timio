@@ -617,6 +617,27 @@ export default function EmployeesClient({
           </PlanGate>
           <button
             onClick={async () => {
+              const currentYear = new Date().getFullYear();
+              const prevYear = currentYear - 1;
+              if (!confirm(`Chuyển phép năm ${prevYear} → ${currentYear}?\n\nThao tác này sẽ:\n• Lưu phép còn lại (tối đa 12 ngày) vào "Phép chuyển năm"\n• Cấp lại 12 ngày phép mới cho năm ${currentYear}\n• Áp dụng cho TẤT CẢ nhân viên đang hoạt động`)) return;
+              const res = await fetch("/api/admin/carry-forward", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ year: prevYear }),
+              });
+              const data = (await res.json()) as { processed?: number; totalCarriedForward?: number; error?: string };
+              if (res.ok) {
+                alert(`Hoàn tất! Đã xử lý ${data.processed} nhân viên, tổng phép chuyển: ${data.totalCarriedForward} ngày.`);
+                router.refresh();
+              } else {
+                alert(data.error ?? "Lỗi khi chuyển phép năm");
+              }
+            }}
+            className="px-3 py-2 border border-purple-200 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors"
+            title="Chuyển phép còn lại sang năm mới (tối đa 12 ngày theo luật VN)"
+          >Chuyển phép năm</button>
+          <button
+            onClick={async () => {
               const year = new Date().getFullYear();
               if (!confirm(`Cấp lại 12 ngày phép năm ${year} cho TẤT CẢ nhân viên đang hoạt động?`)) return;
               await fetch("/api/employees/reset-leave", {
