@@ -50,6 +50,8 @@ export default async function SettingsPage() {
       holidays={holidays}
       branches={branches}
       referralStats={{ registered: referralRegistered, converted: referralConverted, companies: referredCompanies.map((c) => ({ name: c.name, slug: c.slug, plan: c.plan, joinedAt: c.createdAt.toISOString() })) }}
+      plan={company?.plan ?? "starter"}
+      trialEndsAt={(company as { trialEndsAt?: Date | null })?.trialEndsAt?.toISOString() ?? null}
     />
   );
 }

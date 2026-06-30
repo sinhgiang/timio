@@ -8,6 +8,7 @@ import UpsellChecker from "@/components/dashboard/UpsellChecker";
 import CompanySetupModal from "@/components/dashboard/CompanySetupModal";
 import ImpersonationBanner from "@/components/dashboard/ImpersonationBanner";
 import PlanExpiryBanner from "@/components/dashboard/PlanExpiryBanner";
+import TrialBanner from "@/components/dashboard/TrialBanner";
 import { PlanProvider } from "@/context/PlanContext";
 import type { Metadata } from "next";
 
@@ -40,7 +41,7 @@ export default async function DashboardLayout({
       ? prisma.correctionRequest.count({ where: { employee: { companyId }, status: "pending" } }).catch(() => 0)
       : Promise.resolve(0),
     companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { name: true, slug: true } }) : Promise.resolve(null),
-    companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, planExpires: true } }) : Promise.resolve(null),
+    companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, planExpires: true, trialEndsAt: true } }) : Promise.resolve(null),
   ]);
 
   // Tính số ngày còn lại của gói trả tiền
@@ -56,6 +57,14 @@ export default async function DashboardLayout({
 
   const currentPlan = companyPlan?.plan ?? "starter";
   const planExpires = companyPlan?.planExpires?.toISOString() ?? null;
+  const trialEndsAt = companyPlan?.trialEndsAt?.toISOString() ?? null;
+
+  // Tính xem có hiện trial banner không (để thêm padding cho main)
+  const showTrialBanner = (() => {
+    if (!trialEndsAt || currentPlan !== "starter") return false;
+    const daysLeftTrial = Math.ceil((new Date(trialEndsAt).getTime() - now.getTime()) / 86400000);
+    return daysLeftTrial >= -3;
+  })();
 
   return (
     <PlanProvider plan={currentPlan} planExpires={planExpires}>
@@ -63,8 +72,9 @@ export default async function DashboardLayout({
         <UpsellChecker />
         {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
         {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
+        <TrialBanner trialEndsAt={trialEndsAt} plan={currentPlan} />
         <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} plan={currentPlan} planExpires={planExpires} />
-        <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner ? "md:pt-10" : ""}`}>{children}</main>
+        <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner || showTrialBanner ? "md:pt-10" : ""}`}>{children}</main>
         <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
         <CompanySetupModal
           needsSetup={needsSetup}

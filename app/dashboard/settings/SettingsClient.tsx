@@ -55,6 +55,8 @@ interface Props {
   rewardRules: RewardRule[];
   branches?: Branch[];
   referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] };
+  plan?: string;
+  trialEndsAt?: string | null;
 }
 
 const REWARD_CONDITIONS = [
@@ -75,7 +77,7 @@ interface HolidayProps extends Props {
   holidays: Holiday[];
 }
 
-export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] } }) {
+export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats, plan = "starter", trialEndsAt = null }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] }; plan?: string; trialEndsAt?: string | null }) {
   const router = useRouter();
   const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
   const [loading, setLoading] = useState(false);
@@ -1391,8 +1393,76 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
 
+      {/* ── Thông tin gói dịch vụ ── */}
+      <PlanInfoSection plan={plan} trialEndsAt={trialEndsAt} />
+
       {/* Referral Section */}
       <ReferralSection slug={company.slug} stats={referralStats} />
+    </div>
+  );
+}
+
+function PlanInfoSection({ plan, trialEndsAt }: { plan: string; trialEndsAt: string | null }) {
+  const planLabel = plan === "business" ? "Business" : plan === "pro" ? "Pro" : "Starter (Miễn phí)";
+
+  let trialInfo: { daysLeft: number; isExpired: boolean } | null = null;
+  if (trialEndsAt && plan === "starter") {
+    const now = new Date();
+    const endsAt = new Date(trialEndsAt);
+    const daysLeft = Math.ceil((endsAt.getTime() - now.getTime()) / 86400000);
+    trialInfo = { daysLeft, isExpired: daysLeft <= 0 };
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-5 mt-4">
+      <div className="flex items-center gap-2 mb-4">
+        <CalendarDays size={18} className="text-blue-600" />
+        <h2 className="text-base font-bold text-gray-800">Thông tin gói dịch vụ</h2>
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        {/* Gói hiện tại */}
+        <div className="flex-1 min-w-[140px] bg-gray-50 rounded-xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-400 font-medium mb-1 uppercase tracking-wide">Gói hiện tại</p>
+          <p className="text-lg font-bold text-gray-800">{planLabel}</p>
+        </div>
+
+        {/* Thông tin dùng thử */}
+        {trialInfo !== null && (
+          <div className={`flex-1 min-w-[160px] rounded-xl border p-4 ${
+            trialInfo.isExpired
+              ? "bg-red-50 border-red-100"
+              : trialInfo.daysLeft <= 3
+              ? "bg-orange-50 border-orange-100"
+              : "bg-blue-50 border-blue-100"
+          }`}>
+            <p className="text-xs font-medium mb-1 uppercase tracking-wide text-gray-400">Thời gian dùng thử</p>
+            {trialInfo.isExpired ? (
+              <p className="text-base font-bold text-red-600">Đã hết hạn</p>
+            ) : (
+              <p className={`text-lg font-bold ${trialInfo.daysLeft <= 3 ? "text-orange-600" : "text-blue-600"}`}>
+                Còn {trialInfo.daysLeft} ngày
+              </p>
+            )}
+            <p className="text-xs text-gray-400 mt-0.5">
+              Hết hạn: {new Date(trialEndsAt!).toLocaleDateString("vi-VN")}
+            </p>
+          </div>
+        )}
+
+        {/* Nút nâng cấp */}
+        {plan === "starter" && (
+          <div className="flex-1 min-w-[160px] bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 flex flex-col justify-between">
+            <p className="text-xs text-blue-100 font-medium mb-2">Mở khóa toàn bộ tính năng</p>
+            <a
+              href="/dashboard/billing"
+              className="inline-block text-center px-4 py-2 bg-white text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors"
+            >
+              Nâng cấp lên Pro
+            </a>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

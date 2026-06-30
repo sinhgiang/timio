@@ -25,6 +25,7 @@ model Company {
   referredBy      String? // slug của công ty đã giới thiệu mình
   affiliateCode   String? // code của affiliate partner đã giới thiệu
   paydayOfMonth   Int     @default(5) // ngày phát lương hàng tháng (1-31)
+  trialEndsAt     DateTime? // null = không dùng thử / đã trả tiền
   createdAt   DateTime  @default(now())
 
   branches      Branch[]
@@ -41,6 +42,12 @@ model Company {
   shiftAssignments ShiftAssignment[]
   overtimeRequests OvertimeRequest[]
   auditLogs        AuditLog[]
+  disciplineRecords   DisciplineRecord[]
+  assets              Asset[]
+  workHistories       WorkHistory[]
+  certificates        Certificate[]
+  salaryHistories     SalaryHistory[]
+  earlyLeaveRequests  EarlyLeaveRequest[]
 }
 
 model Admin {
@@ -124,6 +131,12 @@ model Employee {
   salaryAdvances      SalaryAdvance[]
   shiftAssignments    ShiftAssignment[]
   overtimeRequests    OvertimeRequest[]
+  disciplineRecords   DisciplineRecord[]
+  assets              Asset[]
+  workHistories       WorkHistory[]
+  certificates        Certificate[]
+  salaryHistories     SalaryHistory[]
+  earlyLeaveRequests  EarlyLeaveRequest[]
 
   @@unique([companyId, code])
 }
@@ -422,6 +435,104 @@ model AuditLog {
 
   @@index([companyId, createdAt(sort: Desc)])
   @@index([companyId, action])
+}
+
+model DisciplineRecord {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  type       String   // "warning" | "serious_warning" | "suspension" | "dismissal"
+  date       String   // YYYY-MM-DD
+  reason     String
+  note       String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model Asset {
+  id          String    @id @default(cuid())
+  companyId   String
+  code        String
+  name        String
+  category    String?   // "laptop" | "phone" | "vehicle" | "key" | "card" | "other"
+  employeeId  String?
+  assignedAt  DateTime?
+  returnedAt  DateTime?
+  status      String    @default("available") // "available" | "assigned" | "damaged" | "lost"
+  note        String?
+  createdAt   DateTime  @default(now())
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  @@index([companyId, status])
+  @@index([employeeId])
+}
+
+model WorkHistory {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  date        String   // YYYY-MM-DD
+  type        String   // "promotion" | "transfer" | "salary_change" | "title_change" | "department_change" | "other"
+  description String
+  oldValue    String?
+  newValue    String?
+  note        String?
+  createdAt   DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model Certificate {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  name        String
+  issuer      String?
+  issueDate   String?  // YYYY-MM-DD
+  expiryDate  String?  // YYYY-MM-DD
+  note        String?
+  createdAt   DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model SalaryHistory {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  date        String   // YYYY-MM-DD — ngày áp dụng
+  oldSalary   Int
+  newSalary   Int
+  reason      String?
+  adminEmail  String?
+  createdAt   DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model EarlyLeaveRequest {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       String   // YYYY-MM-DD
+  leaveTime  String   // HH:MM — giờ muốn về sớm
+  reason     String?
+  status     String   @default("pending") // "pending" | "approved" | "rejected"
+  note       String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  @@index([companyId, status])
+  @@index([employeeId])
 }
 
 // Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được

@@ -70,7 +70,14 @@ export async function POST(req: NextRequest) {
 
   await prisma.$transaction(async (tx) => {
     const company = await tx.company.create({
-      data: { name: companyName, slug, plan: "starter", referredBy: validReferredBy, affiliateCode: validAffiliateCode },
+      data: {
+        name: companyName,
+        slug,
+        plan: "starter",
+        referredBy: validReferredBy,
+        affiliateCode: validAffiliateCode,
+        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 ngày dùng thử
+      },
     });
     companyId = company.id;
     await tx.admin.create({

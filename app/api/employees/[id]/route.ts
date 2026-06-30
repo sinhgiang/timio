@@ -8,11 +8,19 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    const companyId = (session?.user as { companyId?: string })?.companyId;
+    const user = session?.user as { companyId?: string; email?: string } | undefined;
+    const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson } =
+    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson } =
       await req.json();
+
+    // Fetch current employee to detect salary change
+    const currentEmployee = await prisma.employee.findUnique({
+      where: { id: params.id, companyId },
+      select: { baseSalary: true, companyId: true },
+    });
+    if (!currentEmployee) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });
 
     // Only include fields that were actually sent — undefined = skip (Prisma ignores undefined in updates)
     const data: Record<string, unknown> = {
@@ -45,6 +53,21 @@ export async function PATCH(
       where: { id: params.id, companyId },
       data,
     });
+
+    // Log salary history if baseSalary changed
+    if (baseSalary !== undefined && Number(baseSalary) !== (currentEmployee.baseSalary ?? 0)) {
+      await prisma.salaryHistory.create({
+        data: {
+          companyId,
+          employeeId: params.id,
+          date: new Date().toISOString().slice(0, 10),
+          oldSalary: currentEmployee.baseSalary ?? 0,
+          newSalary: Number(baseSalary),
+          reason: salaryReason ?? null,
+          adminEmail: user.email ?? null,
+        },
+      });
+    }
 
     return NextResponse.json(employee);
   } catch {
