@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       where: { companyId: company.id, code: code.toUpperCase(), status: "active" },
       select: {
         id: true, name: true, code: true, pin: true,
-        department: true, position: true, phone: true,
+        department: true, position: true, phone: true, email: true,
         baseSalary: true, annualLeaveBalance: true, joinDate: true,
         branch: { select: { name: true } },
       },
@@ -41,6 +41,7 @@ export async function POST(req: Request) {
       position: employee.position ?? "",
       branch: employee.branch.name,
       phone: employee.phone ?? "",
+      email: employee.email ?? "",
       baseSalary: employee.baseSalary ?? 0,
       annualLeaveBalance: employee.annualLeaveBalance,
       joinDate: employee.joinDate?.toISOString().split("T")[0] ?? "",
