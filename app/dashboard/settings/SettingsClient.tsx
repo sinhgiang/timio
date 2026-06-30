@@ -50,7 +50,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; kioskMessages?: string | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -114,6 +114,23 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     setKioskSaveMsg(res.ok ? "✅ Đã lưu!" : "❌ Lỗi lưu");
     setKioskSaving(false);
     if (res.ok) setTimeout(() => setKioskSaveMsg(""), 3000);
+  };
+
+  // Payday setting
+  const [payday, setPayday] = useState(String(company.paydayOfMonth ?? 5));
+  const [paydaySaving, setPaydaySaving] = useState(false);
+  const [paydayMsg, setPaydayMsg] = useState("");
+
+  const savePayday = async () => {
+    setPaydaySaving(true); setPaydayMsg("");
+    const res = await fetch("/api/company/payday", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paydayOfMonth: payday }),
+    });
+    const data = await res.json();
+    setPaydayMsg(res.ok ? "✅ Đã lưu ngày phát lương" : `❌ ${data.error}`);
+    setPaydaySaving(false);
   };
 
   // Test email
@@ -1179,6 +1196,50 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
         <p className="text-xs text-gray-400 mt-2">
           Email kiểm tra sẽ được gửi đến địa chỉ email đăng nhập của bạn.
+        </p>
+      </div>
+
+      {/* ── Auto Payslip ── */}
+      <div className="border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Mail size={20} className="text-green-500" />
+          <h2 className="text-base font-bold text-gray-800">Tự động gửi phiếu lương</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Hệ thống sẽ tự động gửi phiếu lương qua email cho toàn bộ nhân viên vào ngày đã chọn mỗi tháng.
+          Phiếu lương tháng trước sẽ được gửi (VD: ngày 5/7 → phiếu lương tháng 6).
+        </p>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày phát lương hàng tháng</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Ngày</span>
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={payday}
+                onChange={e => setPayday(e.target.value)}
+                className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:border-green-400"
+              />
+              <span className="text-sm text-gray-500">hàng tháng</span>
+            </div>
+          </div>
+          <button
+            onClick={savePayday}
+            disabled={paydaySaving}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+          >
+            {paydaySaving ? "Đang lưu..." : "Lưu"}
+          </button>
+          {paydayMsg && (
+            <span className={`text-sm font-medium ${paydayMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+              {paydayMsg}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Chỉ gửi đến nhân viên đã có địa chỉ email trong hồ sơ. Kiểm tra email ở trang Nhân viên.
         </p>
       </div>
 

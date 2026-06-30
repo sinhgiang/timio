@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, User, Calendar, CheckCircle2, AlertTriangle, XCircle, Send, LogOut, ChevronLeft, FileText } from "lucide-react";
+import { Clock, User, Calendar, CheckCircle2, AlertTriangle, XCircle, Send, LogOut, ChevronLeft, FileText, Umbrella } from "lucide-react";
 
 interface EmployeeInfo {
   employeeId: string;
@@ -29,7 +29,7 @@ interface DayLog {
   correction: { id: string; status: string; type: string } | null;
 }
 
-type Phase = "login" | "dashboard" | "correction" | "payslip";
+type Phase = "login" | "dashboard" | "correction" | "payslip" | "leave";
 
 function fmtTime(iso: string | null) {
   if (!iso) return "—";
@@ -84,6 +84,54 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
     if (res.ok) { setPayslipData(await res.json()); }
     else { setPayslipError("Không tìm thấy dữ liệu phiếu lương"); }
     setPayslipLoading(false);
+  };
+
+  // Leave request form
+  const [leaveFromDate, setLeaveFromDate] = useState("");
+  const [leaveToDate, setLeaveToDate] = useState("");
+  const [leaveType, setLeaveType] = useState("annual");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveSuccess, setLeaveSuccess] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
+
+  const calcLeaveDays = () => {
+    if (!leaveFromDate || !leaveToDate) return 0;
+    const from = new Date(leaveFromDate);
+    const to   = new Date(leaveToDate);
+    if (to < from) return 0;
+    return Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
+  };
+
+  const submitLeave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    const days = calcLeaveDays();
+    if (days <= 0) { setLeaveError("Ngày kết thúc phải sau ngày bắt đầu"); return; }
+    if (!leaveReason.trim() || leaveReason.trim().length < 10) { setLeaveError("Vui lòng nhập lý do ít nhất 10 ký tự"); return; }
+    setLeaveLoading(true); setLeaveError("");
+    try {
+      const res = await fetch("/api/leave-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: employee.employeeId,
+          companyId: employee.companyId,
+          type: leaveType,
+          fromDate: leaveFromDate,
+          toDate: leaveToDate,
+          days,
+          reason: leaveReason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setLeaveError(data.error ?? "Gửi thất bại"); return; }
+      setLeaveSuccess(true);
+    } catch {
+      setLeaveError("Lỗi kết nối, thử lại sau");
+    } finally {
+      setLeaveLoading(false);
+    }
   };
 
   // Correction form
@@ -249,6 +297,107 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
           </div>
           <p className="text-center text-xs text-gray-400 mt-4">Timio · Cổng thông tin nhân viên</p>
         </div>
+      </div>
+    );
+  }
+
+  // ── Leave request form ──
+  if (phase === "leave") {
+    const days = calcLeaveDays();
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 max-w-lg mx-auto">
+        <div className="flex items-center gap-3 mb-6 pt-4">
+          <button onClick={() => { setPhase("dashboard"); setLeaveSuccess(false); setLeaveError(""); }} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+            <ChevronLeft size={20} className="text-gray-600" />
+          </button>
+          <h1 className="font-bold text-gray-900">Xin nghỉ phép</h1>
+        </div>
+
+        {leaveSuccess ? (
+          <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="font-bold text-gray-900 text-lg mb-2">Đã gửi đơn nghỉ phép!</h2>
+            <p className="text-sm text-gray-500 mb-6">Quản lý sẽ xem xét và phản hồi sớm nhất có thể.</p>
+            <button
+              onClick={() => { setPhase("dashboard"); setLeaveSuccess(false); setLeaveFromDate(""); setLeaveToDate(""); setLeaveReason(""); setLeaveType("annual"); }}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Quay lại
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submitLeave} className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Loại nghỉ</label>
+              <select
+                value={leaveType}
+                onChange={e => setLeaveType(e.target.value)}
+                className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="annual">Nghỉ phép năm</option>
+                <option value="sick">Nghỉ ốm</option>
+                <option value="unpaid">Nghỉ không lương</option>
+                <option value="maternity">Nghỉ thai sản</option>
+                <option value="other">Khác</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Từ ngày</label>
+                <input
+                  type="date"
+                  value={leaveFromDate}
+                  onChange={e => setLeaveFromDate(e.target.value)}
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Đến ngày</label>
+                <input
+                  type="date"
+                  value={leaveToDate}
+                  onChange={e => setLeaveToDate(e.target.value)}
+                  min={leaveFromDate}
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+            </div>
+            {days > 0 && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 text-sm text-blue-700 font-medium">
+                Tổng: {days} ngày · Phép còn: {employee?.annualLeaveBalance ?? 0} ngày
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Lý do xin nghỉ</label>
+              <textarea
+                value={leaveReason}
+                onChange={e => setLeaveReason(e.target.value)}
+                placeholder="Mô tả lý do xin nghỉ (ít nhất 10 ký tự)..."
+                rows={4}
+                className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                required
+                minLength={10}
+              />
+            </div>
+            {leaveError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle size={14} /> {leaveError}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={leaveLoading}
+              className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <Send size={15} />
+              {leaveLoading ? "Đang gửi..." : "Gửi đơn nghỉ phép"}
+            </button>
+          </form>
+        )}
       </div>
     );
   }
@@ -505,6 +654,23 @@ export default function EmployeePortal({ params }: { params: { slug: string } })
             <div className="text-left">
               <p className="text-sm font-semibold text-gray-900">Phiếu lương</p>
               <p className="text-xs text-gray-400">Xem lương, BHXH, thuế tháng này</p>
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-gray-400 rotate-180" />
+        </button>
+
+        {/* Xin nghỉ phép shortcut */}
+        <button
+          onClick={() => { setLeaveFromDate(todayStr); setLeaveToDate(todayStr); setLeaveSuccess(false); setLeaveError(""); setPhase("leave"); }}
+          className="w-full bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center">
+              <Umbrella size={16} className="text-green-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">Xin nghỉ phép</p>
+              <p className="text-xs text-gray-400">Gửi đơn xin nghỉ — quản lý duyệt online</p>
             </div>
           </div>
           <ChevronLeft size={16} className="text-gray-400 rotate-180" />

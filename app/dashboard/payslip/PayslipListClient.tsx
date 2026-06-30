@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck, CheckCircle2, Circle, Banknote, Mail } from "lucide-react";
+import { FileText, Printer, TrendingDown, TrendingUp, ShieldCheck, CheckCircle2, Circle, Banknote, Mail, Download } from "lucide-react";
 
 interface PayslipRow {
   id: string;
@@ -111,12 +111,22 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
           <h1 className="text-2xl font-bold text-gray-900">Phiếu lương</h1>
           <p className="text-sm text-gray-500 mt-0.5">{companyName}</p>
         </div>
-        <input
-          type="month"
-          value={currentMonth}
-          onChange={(e) => router.push(`/dashboard/payslip?month=${e.target.value}`)}
-          className="border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.open(`/api/payslip/export?year=${yearN}&month=${monN}`, "_blank")}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+            title="Xuất bảng lương Excel đầy đủ"
+          >
+            <Download size={15} />
+            Xuất Excel
+          </button>
+          <input
+            type="month"
+            value={currentMonth}
+            onChange={(e) => router.push(`/dashboard/payslip?month=${e.target.value}`)}
+            className="border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
       {/* Payment status bar */}

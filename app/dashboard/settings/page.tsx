@@ -43,6 +43,7 @@ export default async function SettingsPage() {
         stampUrl: company?.stampUrl ?? null,
         zaloOaToken: company?.zaloOaToken ?? null,
         kioskMessages: company?.kioskMessages ?? null,
+        paydayOfMonth: (company as { paydayOfMonth?: number })?.paydayOfMonth ?? 5,
       }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}

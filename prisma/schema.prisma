@@ -24,6 +24,7 @@ model Company {
   stampUrl        String? // base64 ảnh dấu công ty
   referredBy      String? // slug của công ty đã giới thiệu mình
   affiliateCode   String? // code của affiliate partner đã giới thiệu
+  paydayOfMonth   Int     @default(5) // ngày phát lương hàng tháng (1-31)
   createdAt   DateTime  @default(now())
 
   branches      Branch[]
@@ -37,6 +38,7 @@ model Company {
   impersonationLogs ImpersonationLog[]
   salaryPayments   SalaryPayment[]
   salaryAdvances   SalaryAdvance[]
+  shiftAssignments ShiftAssignment[]
 }
 
 model Admin {
@@ -114,6 +116,7 @@ model Employee {
   contracts           Contract[]
   salaryPayments      SalaryPayment[]
   salaryAdvances      SalaryAdvance[]
+  shiftAssignments    ShiftAssignment[]
 
   @@unique([companyId, code])
 }
@@ -357,6 +360,24 @@ model SalaryAdvance {
 
   @@index([companyId, year, month])
   @@index([employeeId])
+}
+
+model ShiftAssignment {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       String   // YYYY-MM-DD
+  shiftLabel String   // "Ca sáng" | "Ca chiều" | "Ca tối" | "Ca cả ngày" | "Nghỉ" | custom
+  checkIn    String   // HH:MM
+  checkOut   String   // HH:MM
+  note       String?
+  createdAt  DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([companyId, date])
 }
 
 // Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được
