@@ -24,6 +24,7 @@ import {
   ClipboardEdit,
   Timer,
   Banknote,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,7 @@ const navItems: { href: string; label: string; Icon: LucideIcon; badgeKey?: stri
   { href: "/dashboard/overtime", label: "Tăng ca", Icon: Timer },
   { href: "/dashboard/corrections", label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
   { href: "/dashboard/salary-payments", label: "Thanh toán lương", Icon: Banknote },
+  { href: "/dashboard/salary-advances", label: "Tạm ứng lương", Icon: Wallet },
   { href: "/dashboard/team", label: "Nhóm & Quyền", Icon: UsersRound },
   { href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
   { href: "/dashboard/billing", label: "Gói dịch vụ", Icon: CreditCard },

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Circle, Banknote, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2, Circle, Banknote, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 interface Row {
   id: string;
@@ -12,6 +12,8 @@ interface Row {
   branchName: string;
   baseSalary: number;
   netSalary: number;
+  advanceAmount: number;
+  netAfterAdvance: number;
 }
 
 interface PaymentInfo {
@@ -56,9 +58,13 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
 
   const paidCount   = rows.filter((r) => payments[r.id]?.status === "paid").length;
   const unpaidCount = rows.length - paidCount;
-  const totalNet    = rows.reduce((s, r) => s + r.netSalary, 0);
-  const totalPaid   = rows.filter((r) => payments[r.id]?.status === "paid").reduce((s, r) => s + r.netSalary, 0);
+  const totalNet    = rows.reduce((s, r) => s + r.netAfterAdvance, 0);
+  const totalPaid   = rows.filter((r) => payments[r.id]?.status === "paid").reduce((s, r) => s + r.netAfterAdvance, 0);
   const totalUnpaid = totalNet - totalPaid;
+
+  const downloadExport = (filter: "all" | "unpaid") => {
+    window.open(`/api/salary-payments/export?year=${year}&month=${month}&filter=${filter}`, "_blank");
+  };
 
   const togglePayment = async (employeeId: string, currentStatus: string) => {
     const row = rows.find((r) => r.id === employeeId);
@@ -69,7 +75,7 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
       const res = await fetch("/api/salary-payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, year, month, amount: row.netSalary, status: newStatus }),
+        body: JSON.stringify({ employeeId, year, month, amount: row.netAfterAdvance, status: newStatus }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -98,7 +104,7 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
         fetch("/api/salary-payments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ employeeId: r.id, year, month, amount: r.netSalary, status: "paid" }),
+          body: JSON.stringify({ employeeId: r.id, year, month, amount: r.netAfterAdvance, status: "paid" }),
         })
           .then((res) => res.json())
           .then((data) =>
@@ -157,9 +163,27 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
         </div>
       </div>
 
-      {/* Bulk action */}
-      {unpaidCount > 0 && (
-        <div className="flex justify-end mb-3">
+      {/* Actions row */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadExport("unpaid")}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+            title="Xuất file chuyển khoản cho nhân viên chưa trả"
+          >
+            <Download size={14} strokeWidth={1.5} />
+            Xuất CK chưa trả
+          </button>
+          <button
+            onClick={() => downloadExport("all")}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+            title="Xuất file chuyển khoản tất cả nhân viên"
+          >
+            <Download size={14} strokeWidth={1.5} />
+            Xuất CK tất cả
+          </button>
+        </div>
+        {unpaidCount > 0 && (
           <button
             onClick={markAllPaid}
             disabled={bulkLoading}
@@ -168,8 +192,8 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
             <CheckCircle2 size={14} strokeWidth={2} />
             {bulkLoading ? "Đang cập nhật..." : `Đánh dấu tất cả đã trả (${unpaidCount} NV)`}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -177,8 +201,9 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Nhân viên</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Lương cơ bản</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Thực nhận</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Tạm ứng</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Còn lại CK</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Trạng thái</th>
             </tr>
           </thead>
@@ -196,8 +221,9 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
                       {` · ${row.branchName}`}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-600">{fmt(row.baseSalary)}</td>
-                  <td className="px-4 py-3 text-right font-bold text-gray-800">{fmt(row.netSalary)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{fmt(row.netSalary)}</td>
+                  <td className="px-4 py-3 text-right text-orange-600 text-xs">{row.advanceAmount > 0 ? `-${fmt(row.advanceAmount)}` : "—"}</td>
+                  <td className="px-4 py-3 text-right font-bold text-gray-800">{fmt(row.netAfterAdvance)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <button
@@ -226,7 +252,10 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
             <tr className="border-t-2 border-gray-200 bg-gray-50">
               <td className="px-4 py-3 font-semibold text-gray-700">Tổng cộng ({rows.length} NV)</td>
               <td className="px-4 py-3 text-right font-semibold text-gray-700">
-                {fmt(rows.reduce((s, r) => s + r.baseSalary, 0))}
+                {fmt(rows.reduce((s, r) => s + r.netSalary, 0))}
+              </td>
+              <td className="px-4 py-3 text-right text-orange-600 text-xs font-medium">
+                {rows.some((r) => r.advanceAmount > 0) ? `-${fmt(rows.reduce((s, r) => s + r.advanceAmount, 0))}` : "—"}
               </td>
               <td className="px-4 py-3 text-right font-bold text-blue-700">{fmt(totalNet)}</td>
               <td className="px-4 py-3 text-center text-xs text-gray-500">

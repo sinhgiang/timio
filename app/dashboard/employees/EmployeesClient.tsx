@@ -90,6 +90,7 @@ interface Employee {
   bankName: string | null;
   bankAccount: string | null;
   bankBranch: string | null;
+  annualLeaveBalance: number;
 }
 
 interface Branch {
@@ -280,6 +281,7 @@ export default function EmployeesClient({
       bankName: "",
       bankAccount: "",
       bankBranch: "",
+      annualLeaveBalance: "12",
     };
   }
 
@@ -380,6 +382,7 @@ export default function EmployeesClient({
       bankName: emp.bankName ?? "",
       bankAccount: emp.bankAccount ?? "",
       bankBranch: emp.bankBranch ?? "",
+      annualLeaveBalance: String(emp.annualLeaveBalance ?? 12),
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -453,6 +456,7 @@ export default function EmployeesClient({
         bankName: form.bankName || null,
         bankAccount: form.bankAccount || null,
         bankBranch: form.bankBranch || null,
+        annualLeaveBalance: form.annualLeaveBalance ? Number(form.annualLeaveBalance) : 12,
       }),
     });
 
@@ -529,6 +533,20 @@ export default function EmployeesClient({
               <Upload size={14} /> Import Excel
             </button>
           </PlanGate>
+          <button
+            onClick={async () => {
+              const year = new Date().getFullYear();
+              if (!confirm(`Cấp lại 12 ngày phép năm ${year} cho TẤT CẢ nhân viên đang hoạt động?`)) return;
+              await fetch("/api/employees/reset-leave", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ days: 12 }),
+              });
+              router.refresh();
+            }}
+            className="px-3 py-2 border border-green-200 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors"
+            title="Cấp lại 12 ngày phép năm cho toàn bộ nhân viên"
+          >Cấp phép năm mới</button>
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -799,6 +817,21 @@ export default function EmployeesClient({
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Số ngày phép năm còn lại</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={365}
+                      step={0.5}
+                      value={form.annualLeaveBalance}
+                      onChange={(e) => setForm({ ...form, annualLeaveBalance: e.target.value })}
+                      placeholder="VD: 12"
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Mặc định 12 ngày/năm — tự động giảm khi duyệt nghỉ phép năm</p>
                   </div>
 
                   <ComboField

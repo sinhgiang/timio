@@ -27,7 +27,7 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
 
   const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
 
-  const [employees, company, payments] = await Promise.all([
+  const [employees, company, payments, advances] = await Promise.all([
     prisma.employee.findMany({
       where: {
         companyId: user.companyId,
@@ -52,6 +52,10 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
       where: { companyId: user.companyId, year, month },
       select: { employeeId: true, status: true, paidAt: true, note: true, amount: true },
     }),
+    prisma.salaryAdvance.findMany({
+      where: { companyId: user.companyId, year, month, status: "approved" },
+      select: { employeeId: true, amount: true },
+    }),
   ]);
 
   const paymentMap = Object.fromEntries(
@@ -63,6 +67,11 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
     }])
   );
 
+  const advanceMap = new Map<string, number>();
+  for (const a of advances) {
+    advanceMap.set(a.employeeId, (advanceMap.get(a.employeeId) ?? 0) + a.amount);
+  }
+
   const rows = employees.map((e) => {
     const s = e.summaries[0];
     const base = e.baseSalary ?? 0;
@@ -71,14 +80,17 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
     const overtime  = s?.totalOvertimeAmount ?? 0;
     const gross     = base - penalty + reward + overtime;
     const tax       = calculateTax({ baseSalary: base, grossIncome: gross, dependents: e.dependents ?? 0 });
+    const advanceAmount = advanceMap.get(e.id) ?? 0;
     return {
-      id:         e.id,
-      name:       e.name,
-      code:       e.code,
-      department: e.department ?? "",
-      branchName: e.branch.name,
-      baseSalary: base,
-      netSalary:  tax.netTakeHome,
+      id:              e.id,
+      name:            e.name,
+      code:            e.code,
+      department:      e.department ?? "",
+      branchName:      e.branch.name,
+      baseSalary:      base,
+      netSalary:       tax.netTakeHome,
+      advanceAmount,
+      netAfterAdvance: Math.max(0, tax.netTakeHome - advanceAmount),
     };
   });
 
