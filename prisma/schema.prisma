@@ -52,6 +52,12 @@ model Company {
   salesRecords        SalesRecord[]
   jobPostings         JobPosting[]
   candidates          Candidate[]
+  announcements       Announcement[]
+  expenseClaims       ExpenseClaim[]
+  performanceReviews  PerformanceReview[]
+  checklistTemplates  ChecklistTemplate[]
+  employeeChecklists  EmployeeChecklist[]
+  shiftTemplates      ShiftTemplate[]
 }
 
 model Admin {
@@ -149,6 +155,9 @@ model Employee {
   earlyLeaveRequests  EarlyLeaveRequest[]
   salesRecords        SalesRecord[]
   candidatesApplied   Candidate[]
+  expenseClaims       ExpenseClaim[]
+  performanceReviews  PerformanceReview[]
+  employeeChecklists  EmployeeChecklist[]
 
   @@unique([companyId, code])
 }
@@ -627,6 +636,121 @@ model Candidate {
 
   @@index([companyId, status])
   @@index([jobId])
+}
+
+// Bảng tin nội bộ công ty
+model Announcement {
+  id          String    @id @default(cuid())
+  companyId   String
+  title       String
+  content     String
+  type        String    @default("info") // "info" | "warning" | "urgent"
+  pinned      Boolean   @default(false)
+  publishedAt DateTime  @default(now())
+  expiresAt   DateTime?
+  createdBy   String?   // email admin
+  createdAt   DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, publishedAt])
+}
+
+// Chi phí công tác / Expense claims
+model ExpenseClaim {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  title       String
+  category    String   @default("other") // "transport" | "meal" | "accommodation" | "entertainment" | "other"
+  amount      Int      // VND
+  date        String   // YYYY-MM-DD
+  description String?
+  receiptUrl  String?
+  status      String   @default("pending") // "pending" | "approved" | "rejected" | "paid"
+  note        String?
+  approvedBy  String?  // email admin
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([employeeId])
+}
+
+// Đánh giá hiệu suất nhân viên
+model PerformanceReview {
+  id           String   @id @default(cuid())
+  companyId    String
+  employeeId   String
+  period       String   // e.g. "2026-Q2", "2026-H1", "2026"
+  type         String   @default("quarterly") // "monthly" | "quarterly" | "semi-annual" | "annual"
+  overallScore Float?   // 1–5 do manager chấm
+  selfScore    Float?   // 1–5 do nhân viên tự chấm
+  strengths    String?
+  improvements String?
+  goals        String?
+  status       String   @default("pending") // "pending" | "self-review" | "manager-review" | "done"
+  reviewedBy   String?  // email admin
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, period])
+  @@index([companyId, period])
+}
+
+// Mẫu checklist onboarding/offboarding
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  companyId String
+  type      String   // "onboarding" | "offboarding"
+  name      String
+  tasks     String   // JSON: string[]
+  createdAt DateTime @default(now())
+
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  checklists EmployeeChecklist[]
+
+  @@index([companyId, type])
+}
+
+// Checklist gắn với nhân viên cụ thể
+model EmployeeChecklist {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  templateId String
+  type       String   // "onboarding" | "offboarding"
+  tasks      String   // JSON: [{title: string, done: boolean, doneAt: string | null}]
+  status     String   @default("in_progress") // "in_progress" | "done"
+  dueDate    String?  // YYYY-MM-DD
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, type])
+  @@index([employeeId])
+}
+
+// Mẫu lịch ca tuần (để áp dụng nhanh)
+model ShiftTemplate {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String   // e.g. "Ca sáng T2-T6"
+  pattern   String   // JSON: [{dayOfWeek: 1, shiftId: "..."}] (0=CN, 1=T2...)
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // Lưu các code cũ khi affiliate đổi slug — old links vẫn tracking được
