@@ -453,6 +453,30 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 desc: "Thiết lập ngày lễ quốc gia và ngày lễ riêng công ty. Hệ thống tự áp dụng vào tính lương, báo cáo — không cần nhập tay.",
                 tag: "Pro · Business",
               },
+              {
+                icon: ArrowRightLeft,
+                title: "Đổi ca cho nhau",
+                desc: "Nhân viên đề xuất đổi ngày công với nhau; admin duyệt 1 click. Lịch ca tự cập nhật, log minh bạch toàn bộ.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: Layers,
+                title: "Nhiều ca trong ngày",
+                desc: "Phân công 2–3 ca khác nhau trong cùng 1 ngày cho 1 nhân viên. Hỗ trợ ca sáng, chiều, tối — xoá từng ca độc lập.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: AlertTriangle,
+                title: "Kỷ luật lao động",
+                desc: "Ghi nhận vi phạm, hình thức xử lý, quyết định kỷ luật theo đúng quy trình pháp lý. Hồ sơ nhân viên đầy đủ.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: TrendingUp,
+                title: "Phân tích xu hướng",
+                desc: "Biểu đồ đi trễ theo tuần/tháng, top nhân viên trễ nhiều nhất, tỷ lệ đi làm — từ dữ liệu chấm công thực tế.",
+                tag: "Pro · Business",
+              },
             ].map((f) => (
               <div key={f.title} className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow group">
                 <div className="flex items-start justify-between mb-3">
@@ -1100,6 +1124,31 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
               </div>
             ))}
 
+            {/* Category: Quản lý nâng cao */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Quản lý nâng cao & Phân tích</div>
+            </div>
+            {[
+              { label: "Đổi ca cho nhau (shift swap)", starter: false, pro: true, biz: true },
+              { label: "Nhiều ca trong ngày cho 1 nhân viên", starter: false, pro: true, biz: true },
+              { label: "Duyệt về sớm riêng biệt", starter: false, pro: true, biz: true },
+              { label: "Kỷ luật lao động & hồ sơ vi phạm", starter: false, pro: true, biz: true },
+              { label: "Tài sản bàn giao nhân viên", starter: false, pro: false, biz: true },
+              { label: "Lịch sử công tác & thăng chức", starter: false, pro: false, biz: true },
+              { label: "Quản lý chứng chỉ & đào tạo", starter: false, pro: false, biz: true },
+              { label: "Phân tích xu hướng trễ/vắng", starter: false, pro: true, biz: true },
+              { label: "Báo cáo tùy chỉnh (chọn cột)", starter: false, pro: true, biz: true },
+              { label: "Tổng kết năm có biểu đồ", starter: false, pro: true, biz: true },
+              { label: "Giới hạn IP đăng nhập admin", starter: false, pro: false, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+
             {/* Category: Thông báo & Tích hợp */}
             <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
               <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Thông báo & Tích hợp</div>
@@ -1191,13 +1240,17 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     "Phản hồi giọng nói tiếng Việt",
                     "Cổng nhân viên đầy đủ (lịch sử + phiếu lương)",
                     "Quản lý nghỉ phép (kiosk + phê duyệt)",
-                    "5 loại phép · bàn giao công việc",
+                    "5 loại phép · bàn giao · duyệt về sớm",
+                    "Đổi ca cho nhau + nhiều ca trong ngày",
                     "Điều chỉnh chấm công có phê duyệt",
+                    "Kỷ luật lao động",
+                    "Phân tích xu hướng trễ/vắng",
+                    "Báo cáo tùy chỉnh + tổng kết năm",
                     "Phân quyền nhóm (Manager / Kế toán)",
                     "Tính lương tháng 13 tự động",
                     "Quản lý ngày lễ",
                     "Import từ Tanca / Amis / Base HRM",
-                    "Báo cáo đầy đủ + xuất Excel",
+                    "Xuất Excel mọi báo cáo",
                     "Lưu dữ liệu 1 năm",
                     "Thông báo Email + Telegram + Zalo ✓",
                   ].map((f) => (
@@ -1227,8 +1280,12 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     "100 nhân viên · 20 chi nhánh · không giới hạn quản lý",
                     "Tất cả tính năng Pro",
                     "Phiếu nghỉ phép A4 + chữ ký số + dấu công ty",
+                    "Tài sản bàn giao nhân viên",
+                    "Lịch sử công tác & thăng chức",
+                    "Quản lý chứng chỉ & đào tạo",
                     "Quản lý hợp đồng lao động",
                     "Tính BHXH & TNCN tự động",
+                    "Giới hạn IP đăng nhập admin",
                     "Báo cáo nâng cao + so sánh đa chi nhánh",
                     "Phân quyền chi nhánh (manager chỉ thấy chi nhánh mình)",
                     "Lưu dữ liệu 3 năm",
