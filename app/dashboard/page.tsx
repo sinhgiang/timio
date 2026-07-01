@@ -406,38 +406,27 @@ export default async function DashboardPage() {
         {/* ── RIGHT SIDEBAR ── */}
         <div className="space-y-4">
 
-          {/* 7-day chart */}
+          {/* 7-day line charts */}
           {!isNewCompany && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-4">Xu hướng 7 ngày</h2>
-              <div className="flex items-end gap-1.5" style={{ height: 72 }}>
-                {chartDays.map((day, i) => {
-                  const total = day.onTime + day.late;
-                  const maxVal = Math.max(...chartDays.map((d) => d.onTime + d.late), 1);
-                  const barH = total === 0 ? 0 : Math.max(Math.round((total / maxVal) * 60), 4);
-                  const onTimeH = total === 0 ? 0 : Math.round((day.onTime / total) * barH);
-                  const lateH = barH - onTimeH;
-                  const isToday = i === 6;
-                  return (
-                    <div key={day.label} className="flex-1 flex flex-col items-center gap-1">
-                      <div className="w-full flex flex-col justify-end" style={{ height: 60 }}>
-                        <div
-                          className={`w-full flex flex-col rounded-lg overflow-hidden ${isToday ? "ring-1 ring-blue-300 ring-offset-1" : ""}`}
-                          style={{ height: barH || 2 }}
-                        >
-                          {lateH > 0 && <div className="w-full bg-amber-400" style={{ height: lateH }} />}
-                          {onTimeH > 0 && <div className="w-full bg-emerald-400" style={{ height: onTimeH }} />}
-                          {total === 0 && <div className="w-full bg-gray-100 rounded-lg" />}
-                        </div>
-                      </div>
-                      <span className={`text-[10px] ${isToday ? "font-bold text-blue-600" : "text-gray-400"}`}>{day.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-4 mt-3 text-[10px] text-gray-400">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block" />Đúng giờ</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />Đi trễ</span>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Lượt chấm công / ngày */}
+                <LineChart
+                  label="Lượt chấm công / ngày"
+                  data={chartDays.map(d => d.onTime + d.late)}
+                  days={chartDays.map(d => d.label)}
+                  color="#3b82f6"
+                  dotColor="#2563eb"
+                />
+                {/* Đi trễ / ngày */}
+                <LineChart
+                  label="Đi trễ / ngày"
+                  data={chartDays.map(d => d.late)}
+                  days={chartDays.map(d => d.label)}
+                  color="#f59e0b"
+                  dotColor="#d97706"
+                />
               </div>
             </div>
           )}
@@ -535,6 +524,47 @@ function StatCard({ label, value, sub, Icon, color }: {
       <div className={`text-2xl font-extrabold leading-none ${c.val}`}>{value}</div>
       <div className="text-xs font-semibold text-gray-700 mt-1">{label}</div>
       <div className="text-[10px] text-gray-400 mt-0.5 leading-snug">{sub}</div>
+    </div>
+  );
+}
+
+function LineChart({ label, data, days, color, dotColor }: {
+  label: string;
+  data: number[];
+  days: string[];
+  color: string;
+  dotColor: string;
+}) {
+  const W = 200, H = 60, PAD = 8;
+  const max = Math.max(...data, 1);
+  const points = data.map((v, i) => {
+    const x = PAD + (i / (data.length - 1)) * (W - PAD * 2);
+    const y = PAD + (1 - v / max) * (H - PAD * 2);
+    return { x, y, v };
+  });
+  const polyline = points.map(p => `${p.x},${p.y}`).join(" ");
+
+  return (
+    <div>
+      <p className="text-[10px] text-gray-500 mb-1.5">{label}</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 60 }}>
+        <polyline
+          points={polyline}
+          fill="none"
+          stroke={color}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === points.length - 1 ? 3 : 2} fill={i === points.length - 1 ? dotColor : color} />
+        ))}
+      </svg>
+      <div className="flex justify-between mt-1">
+        {days.map((d, i) => (
+          <span key={i} className={`text-[9px] ${i === days.length - 1 ? "font-bold text-blue-600" : "text-gray-400"}`}>{d}</span>
+        ))}
+      </div>
     </div>
   );
 }
