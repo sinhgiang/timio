@@ -30,6 +30,7 @@ import {
   VolumeX,
   ArrowRightLeft,
   CalendarOff,
+  CalendarClock,
   QrCode,
   Volume2,
   ClipboardList,
@@ -37,6 +38,12 @@ import {
   UserCog,
   Fingerprint,
   BadgeCheck,
+  Target,
+  Receipt,
+  Star,
+  Briefcase,
+  Megaphone,
+  ClipboardCheck,
 } from "lucide-react";
 
 /* ── Custom SVG icon backgrounds — replaces emoji ─────────────────── */
@@ -476,6 +483,48 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 title: "Phân tích xu hướng",
                 desc: "Biểu đồ đi trễ theo tuần/tháng, top nhân viên trễ nhiều nhất, tỷ lệ đi làm — từ dữ liệu chấm công thực tế.",
                 tag: "Pro · Business",
+              },
+              {
+                icon: Target,
+                title: "Lương Doanh Số / KPI",
+                desc: "Tính lương tự động theo doanh số và KPI. Hỗ trợ 3 mô hình: hoa hồng thuần, cơ bản + hoa hồng, thưởng KPI. Nhập kết quả tháng — hệ thống tính bonus tự động.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: CalendarClock,
+                title: "Mẫu lịch ca 1-click",
+                desc: "Lưu mẫu ca tuần chuẩn. Chọn nhân viên + tuần áp dụng — 1 click tạo toàn bộ ca. Không nhập lại từ đầu mỗi tuần.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: Receipt,
+                title: "Chi phí công tác",
+                desc: "Nhân viên gửi yêu cầu hoàn chi phí (đi lại, ăn uống, lưu trú). Admin duyệt hoặc từ chối. Tổng kết chi phí theo tháng tự động.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: Megaphone,
+                title: "Bảng tin nội bộ",
+                desc: "Đăng thông báo với 3 mức: thông thường / cảnh báo / khẩn cấp. Ghim tin quan trọng, đặt ngày hết hạn. Nhân viên xem trên portal.",
+                tag: "Pro · Business",
+              },
+              {
+                icon: Star,
+                title: "Đánh giá nhân viên định kỳ",
+                desc: "Phiếu đánh giá theo quý hoặc năm. Điểm sao manager + điểm tự đánh giá. Ghi điểm mạnh, cần cải thiện, mục tiêu kỳ tới.",
+                tag: "Business",
+              },
+              {
+                icon: ClipboardCheck,
+                title: "Onboarding / Offboarding",
+                desc: "Checklist tự động cho nhân viên mới và nghỉ việc. Theo dõi: ký hợp đồng, nhận thiết bị, BHXH, bàn giao công việc, thu hồi quyền truy cập.",
+                tag: "Business",
+              },
+              {
+                icon: Briefcase,
+                title: "Tuyển dụng",
+                desc: "Đăng tin tuyển dụng, theo dõi ứng viên qua pipeline: tiếp nhận → phỏng vấn → offer → nhận việc. Quản lý có hệ thống từng ứng viên.",
+                tag: "Business",
               },
             ].map((f) => (
               <div key={f.title} className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow group">
@@ -1149,6 +1198,27 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
               </div>
             ))}
 
+            {/* Category: Nhân sự & Tuyển dụng */}
+            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
+              <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Nhân sự nâng cao & Tuyển dụng</div>
+            </div>
+            {[
+              { label: "Lương Doanh Số / KPI (hoa hồng, thưởng KPI)", starter: false, pro: true, biz: true },
+              { label: "Mẫu lịch ca 1-click áp dụng cho nhóm", starter: false, pro: true, biz: true },
+              { label: "Chi phí công tác (claim & duyệt hoàn tiền)", starter: false, pro: true, biz: true },
+              { label: "Bảng tin nội bộ (thông báo công ty)", starter: false, pro: true, biz: true },
+              { label: "Đánh giá nhân viên định kỳ (quý / năm)", starter: false, pro: false, biz: true },
+              { label: "Onboarding / Offboarding checklist", starter: false, pro: false, biz: true },
+              { label: "Tuyển dụng & quản lý ứng viên pipeline", starter: false, pro: false, biz: true },
+            ].map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-4 border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-700">{r.label}</div>
+                <div className="px-4 py-2.5 text-center border-l border-gray-100 bg-white/50">{r.starter ? <CheckCircle2 size={14} className="text-green-500 mx-auto" /> : <XCircle size={14} className="text-gray-200 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-blue-50 bg-blue-50/40">{r.pro ? <CheckCircle2 size={14} className="text-blue-500 mx-auto" /> : <XCircle size={14} className="text-gray-300 mx-auto" />}</div>
+                <div className="px-4 py-2.5 text-center border-l border-purple-100 bg-purple-900/90">{r.biz ? <CheckCircle2 size={14} className="text-emerald-400 mx-auto" /> : <XCircle size={14} className="text-purple-600 mx-auto" />}</div>
+              </div>
+            ))}
+
             {/* Category: Thông báo & Tích hợp */}
             <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-200">
               <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider col-span-4">Thông báo & Tích hợp</div>
@@ -1251,6 +1321,10 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     "Quản lý ngày lễ",
                     "Import từ Tanca / Amis / Base HRM",
                     "Xuất Excel mọi báo cáo",
+                    "Lương Doanh Số / KPI (hoa hồng + thưởng)",
+                    "Mẫu lịch ca 1-click áp dụng",
+                    "Chi phí công tác & hoàn tiền",
+                    "Bảng tin nội bộ công ty",
                     "Lưu dữ liệu 1 năm",
                     "Thông báo Email + Telegram + Zalo ✓",
                   ].map((f) => (
@@ -1285,6 +1359,9 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     "Quản lý chứng chỉ & đào tạo",
                     "Quản lý hợp đồng lao động",
                     "Tính BHXH & TNCN tự động",
+                    "Đánh giá nhân viên định kỳ (quý/năm)",
+                    "Onboarding / Offboarding checklist",
+                    "Tuyển dụng & quản lý ứng viên",
                     "Giới hạn IP đăng nhập admin",
                     "Báo cáo nâng cao + so sánh đa chi nhánh",
                     "Phân quyền chi nhánh (manager chỉ thấy chi nhánh mình)",
