@@ -98,15 +98,15 @@ const navStructure: NavEntry[] = [
     ],
   },
   {
-    type: "group", key: "hethong", label: "Hệ thống", Icon: Settings,
+    type: "group", key: "hethong", label: "Hệ thống", Icon: ShieldCheck,
     children: [
       { href: "/dashboard/export",    label: "Xuất dữ liệu",      Icon: Download },
       { href: "/dashboard/audit-log", label: "Nhật ký hoạt động", Icon: ShieldCheck },
       { href: "/dashboard/billing",   label: "Gói dịch vụ",       Icon: CreditCard },
-      { href: "/dashboard/settings",  label: "Cài đặt",           Icon: Settings },
     ],
   },
-  { type: "item", href: "/dashboard/docs", label: "Hướng dẫn", Icon: BookOpen },
+  { type: "item", href: "/dashboard/settings", label: "Cài đặt",   Icon: Settings },
+  { type: "item", href: "/dashboard/docs",     label: "Hướng dẫn", Icon: BookOpen },
 ];
 
 // All leaf hrefs (for isItemActive resolution)
