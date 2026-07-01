@@ -138,6 +138,19 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
     return true;
   });
 
+  function isItemActive(itemHref: string): boolean {
+    if (itemHref === "/dashboard") return pathname === "/dashboard";
+    if (pathname === itemHref) return true;
+    if (!pathname.startsWith(itemHref + "/")) return false;
+    // Nếu có nav item cụ thể hơn đang match → item này không active
+    return !navItems.some(
+      (other) =>
+        other.href !== itemHref &&
+        other.href.startsWith(itemHref) &&
+        (pathname === other.href || pathname.startsWith(other.href + "/"))
+    );
+  }
+
   return (
     <>
       {/* Mobile hamburger button — fixed top-left, only on mobile */}
@@ -193,10 +206,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {visibleItems.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
+            const isActive = isItemActive(item.href);
 
             return (
               <Link
