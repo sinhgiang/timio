@@ -139,60 +139,150 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
               <p className="text-slate-500 text-sm mt-4">Không cần thẻ tín dụng · Cài đặt xong trong 10 phút · Miễn phí mãi mãi cho ≤ 15 nhân viên</p>
             </div>
 
-            {/* Dashboard Mockup — updated to match real dashboard */}
-            <div className="hidden md:block">
-              <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 shadow-2xl">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                  <span className="ml-2 text-slate-500 text-xs">timio.vn/dashboard — Hôm nay</span>
+            {/* Dashboard Mockup — mirrors real dashboard */}
+            <div className="hidden md:block relative">
+              <div className="absolute -inset-4 bg-blue-500/10 rounded-3xl blur-2xl" />
+              <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+                {/* Browser chrome */}
+                <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                  <div className="flex-1 mx-2 bg-white border border-gray-200 rounded px-2 py-0.5 text-[9px] text-gray-400">timio.vn/dashboard</div>
                 </div>
-                {/* Stats row */}
-                <div className="grid grid-cols-4 gap-1.5 mb-3">
-                  {[
-                    { label: "Đúng giờ", value: "14", color: "text-green-400" },
-                    { label: "Đi trễ", value: "3", color: "text-red-400" },
-                    { label: "Chưa vào", value: "2", color: "text-slate-400" },
-                    { label: "Nghỉ phép", value: "1", color: "text-purple-400" },
-                  ].map((s) => (
-                    <div key={s.label} className="bg-slate-700/50 rounded-lg p-2">
-                      <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
-                      <div className="text-slate-500 text-[10px] mt-0.5">{s.label}</div>
+
+                <div className="flex h-[340px]">
+                  {/* Sidebar */}
+                  <div className="w-24 bg-white border-r border-gray-100 p-2 shrink-0 flex flex-col">
+                    <div className="flex items-center gap-1.5 mb-3 px-1">
+                      <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center shrink-0">
+                        <Clock size={9} className="text-white" />
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-800">AZLAB</span>
                     </div>
-                  ))}
-                </div>
-                {/* Table header */}
-                <div className="bg-slate-700/30 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-6 px-2 py-1.5 border-b border-slate-700/50">
-                    {["Nhân viên", "Vào", "Trạng thái", "Trễ vào", "Ra sớm", "Phạt"].map(h => (
-                      <span key={h} className="text-slate-500 text-[9px] font-semibold uppercase tracking-wide">{h}</span>
+                    <div className="mb-1.5 px-1">
+                      <span className="text-[7px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">BUSINESS</span>
+                    </div>
+                    {[
+                      { label: "Tổng quan", active: true },
+                      { label: "Nhân viên", active: false },
+                      { label: "Chi nhánh", active: false },
+                      { label: "Báo cáo tháng", active: false },
+                      { label: "Nghỉ phép", active: false, badge: true },
+                      { label: "Tăng ca", active: false },
+                    ].map((item) => (
+                      <div key={item.label} className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-medium mb-0.5 ${item.active ? "bg-blue-50 text-blue-700" : "text-gray-400"}`}>
+                        <span className="flex-1">{item.label}</span>
+                        {item.badge && <span className="w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-bold rounded-full flex items-center justify-center">1</span>}
+                      </div>
                     ))}
                   </div>
-                  {[
-                    { name: "N. Minh Tuấn", time: "08:02", status: "Đúng giờ", statusColor: "text-green-400", late: "—", early: "—", fine: "—" },
-                    { name: "Trần Thị Lan",  time: "08:47", status: "Trễ nhiều",  statusColor: "text-red-400",   late: "47p", early: "—", fine: "-50k" },
-                    { name: "Lê Văn Hùng",   time: "07:58", status: "Đúng giờ", statusColor: "text-green-400", late: "—", early: "15p", fine: "-20k" },
-                    { name: "Phạm Thu Hà",   time: "09:12", status: "Trễ nhiều",  statusColor: "text-red-400",   late: "72p", early: "—", fine: "-100k" },
-                  ].map((r) => (
-                    <div key={r.name} className="grid grid-cols-6 items-center px-2 py-1.5 border-b border-slate-700/20 hover:bg-slate-700/10">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-5 h-5 rounded-full bg-blue-600/30 border border-blue-500/30 flex items-center justify-center text-[9px] text-blue-300 font-bold shrink-0">
-                          {r.name[0]}
-                        </div>
-                        <span className="text-slate-300 text-[10px] truncate">{r.name}</span>
+
+                  {/* Main */}
+                  <div className="flex-1 p-3 bg-gray-50/50 overflow-hidden">
+                    {/* Page header */}
+                    <div className="flex items-start justify-between mb-2.5">
+                      <div>
+                        <div className="text-[11px] font-bold text-gray-800">Tổng quan hôm nay</div>
+                        <div className="text-[8px] text-gray-400">Thứ Tư, 01/07/2026</div>
                       </div>
-                      <span className="text-slate-400 text-[10px]">{r.time}</span>
-                      <span className={`text-[10px] font-semibold ${r.statusColor}`}>{r.status}</span>
-                      <span className={`text-[10px] font-semibold ${r.late !== "—" ? "text-yellow-400" : "text-slate-600"}`}>{r.late}</span>
-                      <span className={`text-[10px] font-semibold ${r.early !== "—" ? "text-orange-400" : "text-slate-600"}`}>{r.early}</span>
-                      <span className={`text-[10px] font-semibold ${r.fine !== "—" ? "text-red-400" : "text-slate-600"}`}>{r.fine}</span>
+                      <div className="bg-blue-600 text-white text-[7px] font-semibold px-2 py-1 rounded-lg">Mở màn hình chấm công</div>
                     </div>
-                  ))}
+
+                    {/* 5 stat cards */}
+                    <div className="grid grid-cols-5 gap-1 mb-2">
+                      {[
+                        { label: "Tổng NV",   value: "20", sub: "100% hoạt động", bg: "from-blue-50 to-blue-100",     border: "border-blue-200",   val: "text-blue-800" },
+                        { label: "Đúng giờ",  value: "14", sub: "70% tổng NV",    bg: "from-emerald-50 to-green-100", border: "border-green-200",  val: "text-green-800" },
+                        { label: "Đi trễ",    value: "3",  sub: "hôm nay",        bg: "from-amber-50 to-yellow-100",  border: "border-amber-200",  val: "text-amber-800" },
+                        { label: "Chưa vào",  value: "2",  sub: "chưa chấm công", bg: "from-gray-50 to-slate-100",    border: "border-gray-200",   val: "text-gray-700" },
+                        { label: "Nghỉ phép", value: "1",  sub: "đã duyệt hôm nay",bg:"from-purple-50 to-violet-100", border: "border-purple-200", val: "text-purple-800" },
+                      ].map((s) => (
+                        <div key={s.label} className={`bg-gradient-to-br ${s.bg} border ${s.border} rounded-lg p-1.5`}>
+                          <div className={`text-sm font-extrabold ${s.val}`}>{s.value}</div>
+                          <div className="text-[7px] font-semibold text-gray-600 leading-tight">{s.label}</div>
+                          <div className="text-[6px] text-gray-400 mt-0.5 leading-tight">{s.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Quick actions */}
+                    <div className="grid grid-cols-4 gap-1 mb-2">
+                      {[
+                        { label: "Nghỉ phép chờ duyệt", sub: "1 đơn đang chờ", color: "text-orange-600 bg-orange-50 border-orange-100" },
+                        { label: "Điều chỉnh chấm công", sub: "Không có yêu cầu mới", color: "text-blue-600 bg-blue-50 border-blue-100" },
+                        { label: "Báo cáo tháng", sub: "Xem & xuất Excel", color: "text-green-600 bg-green-50 border-green-100" },
+                        { label: "Nhân viên", sub: "5 đang hoạt động", color: "text-purple-600 bg-purple-50 border-purple-100" },
+                      ].map((a) => (
+                        <div key={a.label} className={`border rounded-lg p-1.5 ${a.color}`}>
+                          <div className="text-[7px] font-semibold leading-tight">{a.label}</div>
+                          <div className="text-[6px] opacity-70 mt-0.5">{a.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Bottom: attendance + chart */}
+                    <div className="grid grid-cols-5 gap-2">
+                      {/* Attendance */}
+                      <div className="col-span-3 bg-white rounded-lg border border-gray-100 p-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[8px] font-semibold text-gray-700">Chấm công hôm nay</span>
+                          <span className="text-[7px] text-gray-400">14/20 đã vào</span>
+                        </div>
+                        <div className="text-[7px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Chưa có mặt hôm nay</div>
+                        <div className="grid grid-cols-2 gap-1">
+                          {["Giang A Van", "Giang A Sinh", "Giàng A Kỳ", "Hầu Thị Chinh"].map((name) => (
+                            <div key={name} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-1.5 py-1">
+                              <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[7px] font-bold text-blue-600 shrink-0">{name[0]}</div>
+                              <div>
+                                <div className="text-[7px] font-medium text-gray-700 leading-tight">{name}</div>
+                                <div className="text-[6px] text-gray-400">Giám đốc</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Bar chart */}
+                      <div className="col-span-2 bg-white rounded-lg border border-gray-100 p-2">
+                        <div className="text-[8px] font-semibold text-gray-700 mb-2">Xu hướng 7 ngày</div>
+                        <div className="flex items-end gap-1 h-16">
+                          {[
+                            { day: "T5", h1: 75, h2: 10 },
+                            { day: "T6", h1: 80, h2: 5 },
+                            { day: "T7", h1: 60, h2: 15 },
+                            { day: "CN", h1: 0,  h2: 0 },
+                            { day: "T2", h1: 85, h2: 5 },
+                            { day: "T3", h1: 70, h2: 20 },
+                            { day: "T4", h1: 65, h2: 0, active: true },
+                          ].map((b) => (
+                            <div key={b.day} className="flex-1 flex flex-col items-center gap-0.5">
+                              <div className="w-full flex flex-col gap-0.5 items-center">
+                                {b.h2 > 0 && <div className="w-full rounded-sm bg-amber-400" style={{ height: `${b.h2 * 0.4}px` }} />}
+                                {b.h1 > 0 && <div className={`w-full rounded-sm ${b.active ? "bg-blue-600" : "bg-emerald-400"}`} style={{ height: `${b.h1 * 0.4}px` }} />}
+                              </div>
+                              <span className={`text-[6px] ${b.active ? "font-bold text-blue-600" : "text-gray-400"}`}>{b.day}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-0.5"><div className="w-2 h-1.5 rounded-sm bg-emerald-400" /><span className="text-[6px] text-gray-400">Đúng giờ</span></div>
+                          <div className="flex items-center gap-0.5"><div className="w-2 h-1.5 rounded-sm bg-amber-400" /><span className="text-[6px] text-gray-400">Đi trễ</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-2.5 bg-red-900/30 border border-red-800/40 rounded-lg p-2 flex items-center gap-2">
-                  <Bell size={12} className="text-red-400 shrink-0" />
-                  <span className="text-red-300 text-[10px]">Phạm Thu Hà trễ 72 phút · -100.000đ — Telegram đã gửi</span>
+              </div>
+
+              {/* Floating badge */}
+              <div className="absolute -bottom-3 -right-3 bg-white rounded-xl shadow-lg border border-gray-100 px-3 py-2 flex items-center gap-2">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={13} className="text-green-600" />
+                </div>
+                <div>
+                  <div className="text-[9px] font-bold text-gray-800">Tự động chấm công</div>
+                  <div className="text-[8px] text-gray-400">Nhận diện khuôn mặt AI</div>
                 </div>
               </div>
             </div>
