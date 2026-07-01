@@ -80,7 +80,8 @@ interface HolidayProps extends Props {
 
 export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats, plan = "starter", trialEndsAt = null, role = "owner" }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] }; plan?: string; trialEndsAt?: string | null; role?: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"penalty" | "reward" | "holiday">("penalty");
+  const [tab, setTab] = useState<"penalty" | "reward">("penalty");
+  const [activeSection, setActiveSection] = useState("qr");
   const [loading, setLoading] = useState(false);
   const [telegramToken, setTelegramToken] = useState(company.telegramBotToken ?? "");
   const [accountingChatId, setAccountingChatId] = useState(company.accountingChatId ?? "");
@@ -570,10 +571,45 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     setTelegramMsg(res.ok ? "✅ Gửi thành công! Kiểm tra Telegram." : "❌ Gửi thất bại — kiểm tra lại Bot Token và Chat ID.");
   };
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">Cài đặt</h1>
+  const SETTINGS_NAV = [
+    { key: "qr",        label: "QR & Link",     Icon: QrCode },
+    { key: "penalty",   label: "Phạt & Thưởng", Icon: Clock },
+    { key: "holiday",   label: "Ngày lễ",        Icon: CalendarDays },
+    { key: "notify",    label: "Thông báo",      Icon: MessageSquare },
+    { key: "kiosk",     label: "Kiosk",          Icon: Monitor },
+    { key: "signature", label: "Chữ ký & Dấu",  Icon: PenLine },
+    { key: "account",   label: "Tài khoản",      Icon: Users },
+    { key: "referral",  label: "Giới thiệu",     Icon: Gift },
+  ];
 
+  return (
+    <div className="flex min-h-full">
+      {/* ── Left nav ── */}
+      <nav className="w-52 shrink-0 border-r border-gray-100 py-6 bg-white self-start sticky top-0 min-h-screen">
+        <p className="text-[10px] font-bold text-gray-400 px-4 mb-3 uppercase tracking-wider">Cài đặt</p>
+        {SETTINGS_NAV.map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveSection(key)}
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+              activeSection === key
+                ? "bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Icon size={15} className={activeSection === key ? "text-blue-600" : "text-gray-400"} />
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {/* ── Content ── */}
+      <div className="flex-1 p-6 max-w-3xl">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">
+          {SETTINGS_NAV.find(s => s.key === activeSection)?.label ?? "Cài đặt"}
+        </h1>
+
+      {activeSection === "qr" && <>
       {/* Check-in URL */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
         <div className="flex items-center gap-1.5 text-sm font-medium text-blue-700 mb-1">
@@ -741,10 +777,12 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
         <span className="text-gray-400 group-hover:text-blue-600">→</span>
       </Link>
+      </>}
 
+      {activeSection === "penalty" && <>
       {/* Tabs */}
       <div className="flex rounded-lg overflow-hidden border border-gray-200 mb-6 w-fit">
-        {(["penalty", "reward", "holiday"] as const).map((t) => (
+        {(["penalty", "reward"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -752,7 +790,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               tab === t ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
             }`}
           >
-            {t === "penalty" ? "Bảng phạt" : t === "reward" ? "Bảng thưởng" : "Ngày lễ"}
+            {t === "penalty" ? "Bảng phạt" : "Bảng thưởng"}
           </button>
         ))}
       </div>
@@ -983,8 +1021,10 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       )}
 
+      </>}
+
       {/* ── Ngày Lễ ── */}
-      {tab === "holiday" && (
+      {activeSection === "holiday" && (
         <PlanGate requiredPlan="pro" feature="Quản lý ngày lễ" mode="section">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -1069,6 +1109,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </PlanGate>
       )}
 
+      {activeSection === "notify" && <>
       {/* ── Telegram Notifications ── */}
       <PlanGate requiredPlan="pro" feature="Thông báo Telegram" className="mt-8">
       <div className="border-t border-gray-100 pt-6">
@@ -1273,7 +1314,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           Chỉ gửi đến nhân viên đã có địa chỉ email trong hồ sơ. Kiểm tra email ở trang Nhân viên.
         </p>
       </div>
+      </>}
 
+      {activeSection === "kiosk" && <>
       {/* ── Kiosk Messages ── */}
       <PlanGate requiredPlan="pro" feature="Tùy chỉnh lời chào kiosk" className="mt-8">
       <div className="border-t border-gray-100 pt-6">
@@ -1319,7 +1362,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
       </PlanGate>
+      </>}
 
+      {activeSection === "signature" && <>
       {/* ── Chữ ký & Dấu công ty ── */}
       <PlanGate requiredPlan="business" feature="Chữ ký số & Dấu công ty" className="mt-8">
       <div className="border-t border-gray-100 pt-6 mb-6">
@@ -1388,7 +1433,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
       </PlanGate>
+      </>}
 
+      {activeSection === "account" && <>
       {/* ── ĐỔI MẬT KHẨU ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 mb-5">
@@ -1425,9 +1472,6 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       {/* ── Thông tin gói dịch vụ ── */}
       <PlanInfoSection plan={plan} trialEndsAt={trialEndsAt} />
 
-      {/* Referral Section */}
-      <ReferralSection slug={company.slug} stats={referralStats} />
-
       {/* ── Vùng nguy hiểm ── */}
       {role === "owner" && (
         <div className="mt-8 border border-red-200 rounded-2xl p-6">
@@ -1446,6 +1490,13 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       )}
 
+      </>}
+
+      {activeSection === "referral" && (
+        <ReferralSection slug={company.slug} stats={referralStats} />
+      )}
+
+      </div>
       {/* Delete confirmation modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
