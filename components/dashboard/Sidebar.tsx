@@ -211,7 +211,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
         )}
       >
         <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-        <span className="flex-1 truncate">{leaf.label}</span>
+        <span className="flex-1 leading-snug">{leaf.label}</span>
         <Badge count={count} color={leaf.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500"} />
       </Link>
     );
