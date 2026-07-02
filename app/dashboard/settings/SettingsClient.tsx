@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
@@ -290,13 +290,15 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   };
 
   // QR code canvas — check-in
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [qrReady, setQrReady] = useState(false);
 
-  useEffect(() => {
-    if (!checkinUrl || !qrCanvasRef.current) return;
+  const setQrCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    qrCanvasRef.current = canvas;
+    if (!canvas || !checkinUrl) return;
+    setQrReady(false);
     import("qrcode").then(({ toCanvas }) => {
-      toCanvas(qrCanvasRef.current!, checkinUrl, {
+      toCanvas(canvas, checkinUrl, {
         width: 260,
         margin: 2,
         color: { dark: "#1e3a8a", light: "#ffffff" },
@@ -305,17 +307,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   }, [checkinUrl]);
 
   // QR code canvas — leave kiosk
-  const qrLeaveCanvasRef = useRef<HTMLCanvasElement>(null);
+  const qrLeaveCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [qrLeaveReady, setQrLeaveReady] = useState(false);
   const leaveUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/leave/${company.slug}`
       : `/leave/${company.slug}`;
 
-  useEffect(() => {
-    if (!leaveUrl || !qrLeaveCanvasRef.current) return;
+  const setQrLeaveCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    qrLeaveCanvasRef.current = canvas;
+    if (!canvas || !leaveUrl) return;
+    setQrLeaveReady(false);
     import("qrcode").then(({ toCanvas }) => {
-      toCanvas(qrLeaveCanvasRef.current!, leaveUrl, {
+      toCanvas(canvas, leaveUrl, {
         width: 260,
         margin: 2,
         color: { dark: "#166534", light: "#ffffff" },
@@ -358,17 +362,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   };
 
   // QR code canvas — employee portal
-  const qrEmployeeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const qrEmployeeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [qrEmployeeReady, setQrEmployeeReady] = useState(false);
   const employeeUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/employee/${company.slug}`
       : `/employee/${company.slug}`;
 
-  useEffect(() => {
-    if (!qrEmployeeCanvasRef.current) return;
+  const setQrEmployeeCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    qrEmployeeCanvasRef.current = canvas;
+    if (!canvas) return;
+    setQrEmployeeReady(false);
     import("qrcode").then(({ toCanvas }) => {
-      toCanvas(qrEmployeeCanvasRef.current!, employeeUrl, {
+      toCanvas(canvas, employeeUrl, {
         width: 260,
         margin: 2,
         color: { dark: "#7c3aed", light: "#ffffff" },
@@ -638,7 +644,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét mặt → check-in tự động.</p>
           <div className="bg-blue-50 p-2 rounded-xl border border-blue-100 mb-2">
-            <canvas ref={qrCanvasRef} className={qrReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            <canvas ref={setQrCanvas} className={qrReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
             {!qrReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
@@ -669,7 +675,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét mặt → gửi đơn nghỉ.</p>
           <div className="bg-green-50 p-2 rounded-xl border border-green-100 mb-2">
-            <canvas ref={qrLeaveCanvasRef} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            <canvas ref={setQrLeaveCanvas} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
             {!qrLeaveReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
@@ -700,7 +706,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét → nhập mã + PIN → xem lịch.</p>
           <div className="bg-violet-50 p-2 rounded-xl border border-violet-100 mb-2">
-            <canvas ref={qrEmployeeCanvasRef} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            <canvas ref={setQrEmployeeCanvas} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
             {!qrEmployeeReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
