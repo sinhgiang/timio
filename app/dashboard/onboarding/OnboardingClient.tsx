@@ -97,7 +97,8 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
   }
 
   async function toggleTask(cl: Checklist, idx: number) {
-    const tasks: ChecklistTask[] = JSON.parse(cl.tasks);
+    let tasks: ChecklistTask[];
+    try { tasks = JSON.parse(cl.tasks); } catch { return; }
     tasks[idx] = { ...tasks[idx], done: !tasks[idx].done, doneAt: !tasks[idx].done ? new Date().toISOString() : null };
     await fetch(`/api/checklists/${cl.id}`, {
       method: "PATCH",
@@ -165,7 +166,8 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
         ) : (
           <div className="divide-y divide-gray-50">
             {tabTemplates.map(tpl => {
-              const tasks: string[] = JSON.parse(tpl.tasks);
+              let tasks: string[] = [];
+              try { tasks = JSON.parse(tpl.tasks); } catch { tasks = []; }
               return (
                 <div key={tpl.id} className="px-5 py-3 flex items-center justify-between gap-3">
                   <div>
@@ -205,7 +207,8 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
         ) : (
           <div className="divide-y divide-gray-50">
             {tabChecklists.map(cl => {
-              const tasks: ChecklistTask[] = JSON.parse(cl.tasks);
+              let tasks: ChecklistTask[] = [];
+              try { tasks = JSON.parse(cl.tasks); } catch { tasks = []; }
               const doneCount = tasks.filter(t => t.done).length;
               const isExpanded = expanded.has(cl.id);
               const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;

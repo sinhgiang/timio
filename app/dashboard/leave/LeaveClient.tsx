@@ -133,11 +133,12 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
   const handleReject = async (note: string) => {
     if (!viewRequest) return;
     const { req } = viewRequest;
-    await fetch(`/api/leave-requests/${req.id}`, {
+    const res = await fetch(`/api/leave-requests/${req.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "rejected", note: note || null }),
     });
+    if (!res.ok) return;
     setRequests((prev) =>
       prev.map((r) => (r.id === req.id ? { ...r, status: "rejected" as LeaveStatus, note: note || null } : r))
     );
