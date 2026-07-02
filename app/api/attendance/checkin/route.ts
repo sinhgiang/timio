@@ -23,7 +23,7 @@ function getClientIP(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { employeeId, pin, lat, lng } = await req.json();
+    const { employeeId, pin, lat, lng, offlineTimestamp } = await req.json();
 
     if (!employeeId || !pin) {
       return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
@@ -78,8 +78,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const today = getTodayString();
-    const now = new Date();
+    // Hỗ trợ offline: nếu có offlineTimestamp hợp lệ (trong vòng 24h), dùng nó
+    let now = new Date();
+    if (offlineTimestamp) {
+      const ts = new Date(offlineTimestamp);
+      const diffMs = Date.now() - ts.getTime();
+      if (diffMs >= 0 && diffMs <= 24 * 60 * 60 * 1000) now = ts;
+    }
+    const today = now.toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 
     const existingLog = await prisma.attendanceLog.findUnique({
       where: { employeeId_date: { employeeId, date: today } },
