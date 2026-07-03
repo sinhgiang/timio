@@ -115,9 +115,11 @@ model Employee {
   status          String  @default("active")
   faceDescriptors String? // JSON: number[][]  — stored face embeddings
   shiftOverride   String? // JSON: {checkInTime, checkOutTime, workDays, gracePeriod} — overrides branch defaults
-  email               String?   // Email cá nhân (nhận phiếu lương)
+  email               String?   // Email cá nhân (nhận phiếu lương, thông báo)
   avatarUrl           String?   // base64 ảnh đại diện
   phone               String?   // Số điện thoại
+  zalo                String?   // Số Zalo hoặc link Zalo (gửi thông báo tay)
+  facebook            String?   // Link/username Facebook (gửi thông báo tay)
   cccd                String?   // Căn cước công dân
   baseSalary          Int?      @default(0)
   joinDate            DateTime?

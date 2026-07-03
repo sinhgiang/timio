@@ -59,6 +59,8 @@ export default async function EmployeesPage() {
         email: e.email ?? null,
         avatarUrl: e.avatarUrl ?? null,
         phone: e.phone ?? null,
+        zalo: (e as { zalo?: string | null }).zalo ?? null,
+        facebook: (e as { facebook?: string | null }).facebook ?? null,
         cccd: e.cccd ?? null,
         bankName: (e as { bankName?: string | null }).bankName ?? null,
         bankAccount: (e as { bankAccount?: string | null }).bankAccount ?? null,

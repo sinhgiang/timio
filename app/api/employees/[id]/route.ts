@@ -12,7 +12,7 @@ export async function PATCH(
     const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson, salaryType, commissionRate, kpiTarget, kpiBonus } =
+    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, zalo, facebook, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson, salaryType, commissionRate, kpiTarget, kpiBonus } =
       await req.json();
 
     // Fetch current employee to detect salary change
@@ -37,6 +37,8 @@ export async function PATCH(
       ...(email !== undefined && { email: email || null }),
       ...(avatarUrl !== undefined && { avatarUrl: avatarUrl || null }),
       ...(phone !== undefined && { phone: phone || null }),
+      ...(zalo !== undefined && { zalo: zalo || null }),
+      ...(facebook !== undefined && { facebook: facebook || null }),
       ...(cccd !== undefined && { cccd: cccd || null }),
       ...(bankName !== undefined && { bankName: bankName || null }),
       ...(bankAccount !== undefined && { bankAccount: bankAccount || null }),

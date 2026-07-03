@@ -86,6 +86,8 @@ interface Employee {
   email: string | null;
   avatarUrl: string | null;
   phone: string | null;
+  zalo: string | null;
+  facebook: string | null;
   cccd: string | null;
   bankName: string | null;
   bankAccount: string | null;
@@ -280,6 +282,8 @@ export default function EmployeesClient({
       email: "",
       avatarUrl: "",
       phone: "",
+      zalo: "",
+      facebook: "",
       cccd: "",
       pin: "",
       bankName: "",
@@ -382,6 +386,8 @@ export default function EmployeesClient({
       email: emp.email ?? "",
       avatarUrl: emp.avatarUrl ?? "",
       phone: emp.phone ?? "",
+      zalo: emp.zalo ?? "",
+      facebook: emp.facebook ?? "",
       cccd: emp.cccd ?? "",
       pin: (emp.pin && !/^\$2[ab]\$/.test(emp.pin)) ? emp.pin : "",
       bankName: emp.bankName ?? "",
@@ -459,6 +465,8 @@ export default function EmployeesClient({
         email: form.email || null,
         avatarUrl: form.avatarUrl || null,
         phone: form.phone || null,
+        zalo: form.zalo || null,
+        facebook: form.facebook || null,
         cccd: form.cccd || null,
         pin: form.pin || undefined,
         bankName: form.bankName || null,
@@ -826,7 +834,7 @@ export default function EmployeesClient({
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>
-                    <Field label="Email cá nhân" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="VD: nguyenvan@gmail.com" />
+                    <Field label="Email / Gmail" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="VD: nguyenvan@gmail.com — dùng để nhận thông báo, phiếu lương" />
                     {/* Avatar upload */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Ảnh đại diện</label>
@@ -869,6 +877,8 @@ export default function EmployeesClient({
                       <p className="text-xs text-gray-400 mt-1">JPEG/PNG, tự động crop vuông 200×200px</p>
                     </div>
                     <Field label="Số điện thoại" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="VD: 0901234567" />
+                    <Field label="Zalo" value={form.zalo} onChange={(v) => setForm({ ...form, zalo: v })} placeholder="Số Zalo hoặc link zalo.me/... — để gửi thông báo" />
+                    <Field label="Facebook" value={form.facebook} onChange={(v) => setForm({ ...form, facebook: v })} placeholder="Link facebook.com/... hoặc tên tài khoản" />
                     <Field label="Căn cước công dân" value={form.cccd} onChange={(v) => setForm({ ...form, cccd: v })} placeholder="12 số" />
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
