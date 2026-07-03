@@ -10,6 +10,7 @@ import ImpersonationBanner from "@/components/dashboard/ImpersonationBanner";
 import PlanExpiryBanner from "@/components/dashboard/PlanExpiryBanner";
 import TrialBanner from "@/components/dashboard/TrialBanner";
 import { PlanProvider } from "@/context/PlanContext";
+import ChatWidget from "@/components/chat/ChatWidget";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -76,6 +77,7 @@ export default async function DashboardLayout({
         <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} plan={currentPlan} planExpires={planExpires} />
         <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner || showTrialBanner ? "md:pt-10" : ""}`}>{children}</main>
         <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
+        {!needsSetup && <ChatWidget role={userRole} plan={currentPlan} />}
         <CompanySetupModal
           needsSetup={needsSetup}
           userEmail={session.user?.email ?? ""}

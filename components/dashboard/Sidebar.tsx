@@ -12,7 +12,7 @@ import {
   CalendarDays, BarChart2, Network, Download, ShieldCheck, ShieldAlert,
   Package, History, GraduationCap, TrendingUp, Filter, CalendarRange,
   ArrowLeftRight, Briefcase, Target, Megaphone, Receipt, Star,
-  ClipboardCheck, ChevronDown,
+  ClipboardCheck, ChevronDown, MessagesSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,10 +26,10 @@ interface Props {
   planExpires?: string | null;
 }
 
-const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings", "/dashboard/audit-log"]);
+const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings", "/dashboard/audit-log", "/dashboard/chat-logs"]);
 const HIDDEN_FOR_ACCOUNTANT = new Set([
   "/dashboard/billing", "/dashboard/settings", "/dashboard/leave",
-  "/dashboard/branches", "/dashboard/audit-log",
+  "/dashboard/branches", "/dashboard/audit-log", "/dashboard/chat-logs",
 ]);
 
 type NavLeaf = { href: string; label: string; Icon: LucideIcon; badgeKey?: string };
@@ -102,6 +102,7 @@ const navStructure: NavEntry[] = [
     children: [
       { href: "/dashboard/export",    label: "Xuất dữ liệu",      Icon: Download },
       { href: "/dashboard/audit-log", label: "Nhật ký hoạt động", Icon: ShieldCheck },
+      { href: "/dashboard/chat-logs", label: "Lịch sử chat AI",   Icon: MessagesSquare },
       { href: "/dashboard/billing",   label: "Gói dịch vụ",       Icon: CreditCard },
     ],
   },

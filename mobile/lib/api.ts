@@ -214,3 +214,98 @@ export async function getMonthlyReport(token: string, year: number, month: numbe
   if (!res.ok) throw new Error(data.error ?? "Không lấy được báo cáo");
   return data as MonthlyReport;
 }
+
+// ─── AI Chat API ───────────────────────────────────────────────────
+export interface ChatHistoryMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatAccess {
+  allowed: boolean;
+  reason?: "plan" | "limit";
+  message?: string;
+  remaining?: number | null;
+}
+
+export interface ChatHistory {
+  sessionId: string | null;
+  messages: ChatHistoryMessage[];
+  access: ChatAccess;
+  role: string;
+}
+
+export async function getChatHistory(token: string): Promise<ChatHistory> {
+  const res = await fetch(`${BASE}/api/chat/history`, { headers: mgrHeaders(token) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không tải được lịch sử chat");
+  return data as ChatHistory;
+}
+
+export interface ChatReply {
+  sessionId: string;
+  text: string;
+  remaining: number | null;
+}
+
+/**
+ * Gửi tin nhắn chat. Server trả SSE — React Native fetch không stream được
+ * nên đọc toàn bộ text rồi ghép các event lại.
+ */
+export async function sendChatMessage(
+  token: string,
+  message: string,
+  sessionId?: string | null
+): Promise<ChatReply> {
+  const res = await fetch(`${BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ message, sessionId: sessionId ?? undefined }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({} as { error?: string }));
+    throw new Error((data as { error?: string }).error ?? "Lỗi kết nối AI");
+  }
+
+  const raw = await res.text();
+  let text = "";
+  let sid = sessionId ?? "";
+  let remaining: number | null = null;
+  let errorMsg = "";
+
+  for (const part of raw.split("\n\n")) {
+    const line = part.trim();
+    if (!line.startsWith("data: ")) continue;
+    try {
+      const ev = JSON.parse(line.slice(6));
+      if (ev.type === "text") text += ev.text;
+      else if (ev.type === "session") {
+        sid = ev.sessionId;
+        if (typeof ev.remaining === "number") remaining = Math.max(0, ev.remaining - 1);
+      } else if (ev.type === "done") sid = ev.sessionId;
+      else if (ev.type === "error") errorMsg = ev.error;
+    } catch { /* skip */ }
+  }
+
+  if (!text && errorMsg) throw new Error(errorMsg);
+  return { sessionId: sid, text: text || "(Không có phản hồi)", remaining };
+}
+
+export async function submitSupportTicket(
+  token: string,
+  title: string,
+  description: string,
+  priority: string
+): Promise<string> {
+  const res = await fetch(`${BASE}/api/support/ticket`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ title, description, priority }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không gửi được ticket");
+  return data.message as string;
+}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, Building2, Gift, DollarSign, Clock, ShieldCheck, LogOut } from "lucide-react";
+import { LayoutDashboard, Building2, Gift, DollarSign, Clock, ShieldCheck, LogOut, LifeBuoy } from "lucide-react";
 
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/companies", label: "Công ty", icon: Building2, exact: false },
   { href: "/admin/referrals", label: "Affiliate & Referral", icon: Gift, exact: false },
   { href: "/admin/revenue", label: "Doanh thu", icon: DollarSign, exact: false },
+  { href: "/admin/support-tickets", label: "Support Tickets", icon: LifeBuoy, exact: false },
   { href: "/admin/audit", label: "Audit Log", icon: ShieldCheck, exact: false },
 ];
 
