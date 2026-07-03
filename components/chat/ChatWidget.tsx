@@ -225,7 +225,9 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 return copy;
               });
             } else if (ev.type === "tool") {
-              setToolStatus("Đang tra cứu dữ liệu...");
+              if (ev.name === "send_email_reminder") setToolStatus("Đang gửi email...");
+              else if (ev.name === "preview_email_recipients") setToolStatus("Đang kiểm tra danh sách...");
+              else setToolStatus("Đang tra cứu dữ liệu...");
             } else if (ev.type === "error") {
               setMessages((prev) => {
                 const copy = [...prev];

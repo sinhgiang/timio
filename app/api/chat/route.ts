@@ -92,6 +92,8 @@ export async function POST(req: NextRequest) {
       companyId: user.companyId,
       role: user.role,
       branchId: user.role === "manager" ? user.branchId : null,
+      companyName: user.companyName,
+      userName: user.name,
     };
     const tools = getToolsForRole(user.role);
     const system = buildSystemPrompt({

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
 import type Anthropic from "@anthropic-ai/sdk";
 
 // ============================================================
@@ -11,11 +12,17 @@ export interface ChatContext {
   companyId: string;
   role: string; // owner | accountant | manager
   branchId: string | null; // chỉ manager có
+  companyName: string;
+  userName: string;
 }
 
 const ALL_ROLES = ["owner", "accountant", "manager"];
 const FINANCE_ROLES = ["owner", "accountant"];
+const MANAGE_ROLES = ["owner", "manager"]; // được gửi thông báo cho nhân viên
 const OWNER_ONLY = ["owner"];
+
+// Số email tối đa gửi trong 1 lần (tránh timeout + spam)
+const MAX_EMAIL_RECIPIENTS = 60;
 
 interface ToolDef {
   roles: string[];
@@ -166,6 +173,41 @@ const TOOL_DEFS: ToolDef[] = [
       description:
         "Thông tin cài đặt công ty: gói dịch vụ (plan), ngày hết hạn, chi nhánh, ca làm việc, quy tắc phạt/thưởng, số tài khoản admin. CHỈ dành cho admin/chủ công ty.",
       input_schema: { type: "object" as const, properties: {} },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "preview_email_recipients",
+      description:
+        "XEM TRƯỚC danh sách nhân viên sẽ nhận email nhắc nhở (chưa gửi gì cả). BẮT BUỘC gọi tool này TRƯỚC khi gửi email, để biết ai có email, ai không. target: 'absent_today' = những người hôm nay chưa chấm công, 'all' = toàn bộ nhân viên, hoặc nhập tên để lọc 1 người. Dùng khi user muốn gửi thông báo/nhắc nhở cho nhân viên.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          target: {
+            type: "string",
+            description: "'absent_today' | 'all' | tên nhân viên cần lọc",
+          },
+        },
+        required: ["target"],
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "send_email_reminder",
+      description:
+        "GỬI THẬT email nhắc nhở đến nhân viên. CHỈ gọi tool này SAU KHI đã dùng preview_email_recipients và user đã XÁC NHẬN đồng ý gửi. KHÔNG bao giờ tự gửi khi user chưa đồng ý rõ ràng. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          target: { type: "string", description: "'absent_today' | 'all' | tên nhân viên" },
+          subject: { type: "string", description: "Tiêu đề email, vd: Nhắc chấm công hôm nay" },
+          message: { type: "string", description: "Nội dung email (tiếng Việt, thân thiện)" },
+        },
+        required: ["target", "subject", "message"],
+      },
     },
   },
 ];
@@ -468,12 +510,126 @@ export async function executeChatTool(
         return company ?? { error: "Không tìm thấy công ty" };
       }
 
+      case "preview_email_recipients": {
+        const target = String(input.target ?? "all");
+        const recipients = await resolveReminderRecipients(ctx, target, branchFilter);
+        const withEmail = recipients.filter((r) => r.email);
+        const withoutEmail = recipients.filter((r) => !r.email);
+        return {
+          target,
+          totalMatched: recipients.length,
+          willReceive: Math.min(withEmail.length, MAX_EMAIL_RECIPIENTS),
+          maxPerSend: MAX_EMAIL_RECIPIENTS,
+          recipients: withEmail.slice(0, 30).map((r) => ({ name: r.name, email: r.email })),
+          noEmail: withoutEmail.map((r) => r.name),
+          note:
+            withoutEmail.length > 0
+              ? `${withoutEmail.length} nhân viên chưa có email nên sẽ không nhận được — cần bổ sung email trong Dashboard.`
+              : undefined,
+        };
+      }
+
+      case "send_email_reminder": {
+        const target = String(input.target ?? "all");
+        const subject = String(input.subject ?? "").trim() || "Nhắc nhở từ công ty";
+        const messageText = String(input.message ?? "").trim();
+        if (messageText.length < 5) {
+          return { error: "Nội dung email quá ngắn, hãy soạn nội dung rõ ràng hơn." };
+        }
+        const all = await resolveReminderRecipients(ctx, target, branchFilter);
+        const recipients = all.filter((r) => r.email).slice(0, MAX_EMAIL_RECIPIENTS);
+        if (recipients.length === 0) {
+          return { error: "Không có nhân viên nào có email để gửi. Hãy bổ sung email trong Dashboard trước." };
+        }
+        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName);
+        const results = await Promise.allSettled(
+          recipients.map((r) =>
+            sendEmail({ to: r.email as string, subject, html })
+          )
+        );
+        const sent = results.filter((x) => x.status === "fulfilled").length;
+        const failed = results.length - sent;
+        return {
+          sent,
+          failed,
+          skippedNoEmail: all.length - all.filter((r) => r.email).length,
+          truncated: all.filter((r) => r.email).length > MAX_EMAIL_RECIPIENTS,
+          message:
+            failed > 0
+              ? `Đã gửi ${sent} email thành công, ${failed} email lỗi.`
+              : `Đã gửi email thành công cho ${sent} nhân viên.`,
+        };
+      }
+
       default:
         return { error: `Tool chưa được cài đặt: ${name}` };
     }
   } catch (err) {
     return { error: `Lỗi truy vấn dữ liệu: ${err instanceof Error ? err.message : "unknown"}` };
   }
+}
+
+// Lấy danh sách nhân viên nhận email theo target
+async function resolveReminderRecipients(
+  ctx: ChatContext,
+  target: string,
+  branchFilter: Record<string, unknown>
+): Promise<{ id: string; name: string; email: string | null }[]> {
+  const t = target.trim().toLowerCase();
+
+  if (t === "absent_today") {
+    const today = todayVN();
+    const employees = await prisma.employee.findMany({
+      where: { companyId: ctx.companyId, status: "active", ...branchFilter },
+      select: { id: true, name: true, email: true },
+    });
+    const logs = await prisma.attendanceLog.findMany({
+      where: {
+        date: today,
+        checkInAt: { not: null },
+        employee: { companyId: ctx.companyId, ...branchFilter },
+      },
+      select: { employeeId: true },
+    });
+    const checkedIn = new Set(logs.map((l) => l.employeeId));
+    return employees.filter((e) => !checkedIn.has(e.id));
+  }
+
+  if (t === "all" || t === "") {
+    return prisma.employee.findMany({
+      where: { companyId: ctx.companyId, status: "active", ...branchFilter },
+      select: { id: true, name: true, email: true },
+    });
+  }
+
+  // Lọc theo tên
+  return prisma.employee.findMany({
+    where: {
+      companyId: ctx.companyId,
+      status: "active",
+      ...branchFilter,
+      name: { contains: target, mode: "insensitive" as const },
+    },
+    select: { id: true, name: true, email: true },
+  });
+}
+
+// Tạo HTML email nhắc nhở đơn giản, an toàn
+function buildReminderHtml(message: string, companyName: string, senderName: string): string {
+  const safe = message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937;">
+  <div style="font-size:15px;line-height:1.6;">${safe}</div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+  <p style="font-size:12px;color:#9ca3af;margin:0;">Email gửi từ ${escapeHtml(companyName)} (người gửi: ${escapeHtml(senderName)}) qua hệ thống chấm công Timio.</p>
+</div>`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function fmtTime(d: Date): string {
@@ -518,6 +674,16 @@ Trả lời câu hỏi về dữ liệu công ty bằng cách dùng các tool đ
 - Được phép dùng **in đậm** cho con số hoặc thông tin quan trọng (vd: **5 nhân viên**), và gạch đầu dòng "- " cho danh sách. Đừng lạm dụng, mỗi câu trả lời chỉ in đậm vài chỗ.
 - KHÔNG dùng bảng markdown (| cột |) vì khung chat hẹp, hiển thị xấu. Dùng gạch đầu dòng thay thế.
 - Viết gọn, tự nhiên như một trợ lý đang nhắn tin. Mỗi ý một dòng ngắn, tránh đoạn văn dài.
+
+## Gửi email nhắc nhở nhân viên (tính năng hành động — dành cho admin và quản lý)
+Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi người chấm công", "gửi tin cho những người chưa check-in"), làm theo ĐÚNG các bước sau, KHÔNG được bỏ bước:
+1. Gọi tool preview_email_recipients để xem ai sẽ nhận (target: 'absent_today' cho người chưa chấm công hôm nay, 'all' cho tất cả, hoặc tên người cụ thể).
+2. Soạn sẵn nội dung email (tiếng Việt, thân thiện, ngắn gọn) rồi HIỂN THỊ cho user xem: gửi cho bao nhiêu người + nội dung dự kiến.
+3. HỎI user xác nhận rõ ràng: "Bạn xác nhận gửi email cho N người này không?"
+4. CHỈ khi user đồng ý rõ ràng (vd: "gửi đi", "đồng ý", "ok gửi") thì mới gọi tool send_email_reminder. Nếu user chưa đồng ý hoặc muốn sửa, KHÔNG được gửi.
+5. Nếu có nhân viên chưa có email, nói rõ những người đó sẽ không nhận được.
+- Về ZALO: hiện tại hệ thống CHƯA gửi Zalo tự động được (cần Zalo OA — chủ công ty chưa đăng ký). Nên với Zalo, bạn hãy SOẠN SẴN nội dung tin nhắn để user tự copy dán vào Zalo gửi tay. Chỉ có EMAIL là gửi tự động được.
+- Nếu vai trò user là kế toán (accountant), user KHÔNG có quyền gửi email nhắc nhở — trả lời lịch sự rằng tính năng này dành cho admin và quản lý.
 
 ## Hướng dẫn sử dụng Timio (trả lời được không cần tool)
 - Chấm công: nhân viên quét mặt tại kiosk /checkin/[mã công ty] trên điện thoại/tablet văn phòng
