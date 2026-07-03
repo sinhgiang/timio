@@ -17,6 +17,56 @@ interface Msg {
 
 const SUPPORT_EMAIL = "admin@sinhgiang.com";
 
+// Parse **đậm** trong 1 dòng thành các đoạn Text
+function renderInlineRN(text: string, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const regex = /\*\*(.+?)\*\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(
+      <Text key={`${keyPrefix}-b${idx++}`} style={{ fontWeight: "700" }}>
+        {m[1]}
+      </Text>
+    );
+    last = regex.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+// Hiển thị câu trả lời AI: đậm, tiêu đề, gạch đầu dòng (không in ký hiệu thô)
+function AIText({ text, style }: { text: string; style: object }) {
+  const lines = text.split("\n");
+  return (
+    <View>
+      {lines.map((raw, i) => {
+        const line = raw.trimEnd();
+        if (line.trim() === "") return <View key={i} style={{ height: 6 }} />;
+        const bullet = line.match(/^\s*[-*•]\s+(.*)/);
+        const heading = line.match(/^#{1,6}\s+(.*)/);
+        const body = bullet ? bullet[1] : heading ? heading[1] : line;
+        const inline = renderInlineRN(body, `l${i}`);
+        if (bullet) {
+          return (
+            <View key={i} style={{ flexDirection: "row", marginBottom: 2 }}>
+              <Text style={[style, { color: "#2563eb" }]}>{"•  "}</Text>
+              <Text style={[style, { flex: 1 }]}>{inline}</Text>
+            </View>
+          );
+        }
+        return (
+          <Text key={i} style={[style, heading ? { fontWeight: "700" } : null, { marginBottom: 2 }]}>
+            {inline}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 function suggestionsForRole(role: string): string[] {
   if (role === "manager") {
     return [
@@ -184,8 +234,10 @@ export default function ManagerChat() {
             <View style={[s.bubble, item.role === "user" ? s.bubbleUser : s.bubbleAI]}>
               {item.content === "…" ? (
                 <ActivityIndicator size="small" color="#6b7280" />
+              ) : item.role === "user" ? (
+                <Text style={s.textUser}>{item.content}</Text>
               ) : (
-                <Text style={item.role === "user" ? s.textUser : s.textAI}>{item.content}</Text>
+                <AIText text={item.content} style={s.textAI} />
               )}
             </View>
           </View>

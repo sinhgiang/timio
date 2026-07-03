@@ -15,6 +15,83 @@ interface ChatMsg {
 
 const TUTORIAL_KEY = "timio_chat_tutorial_seen";
 
+// Render inline **đậm** trong 1 dòng
+function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const regex = /\*\*(.+?)\*\*/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > lastIndex) nodes.push(text.slice(lastIndex, m.index));
+    nodes.push(
+      <strong key={`${keyPrefix}-b-${idx++}`} className="font-semibold text-gray-900">
+        {m[1]}
+      </strong>
+    );
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
+}
+
+// Chuyển markdown thô của AI thành giao diện đẹp: đậm, tiêu đề, gạch đầu dòng
+function AssistantContent({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let bullets: string[] = [];
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+    const items = [...bullets];
+    blocks.push(
+      <ul key={`ul-${blocks.length}`} className="space-y-1 my-1">
+        {items.map((b, j) => (
+          <li key={j} className="flex gap-2">
+            <span className="text-blue-500 shrink-0 leading-relaxed">•</span>
+            <span className="flex-1">{renderInline(b, `li-${blocks.length}-${j}`)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    bullets = [];
+  };
+
+  lines.forEach((raw, i) => {
+    const line = raw.trimEnd();
+    const bulletMatch = line.match(/^\s*[-*•]\s+(.*)/);
+    if (bulletMatch) {
+      bullets.push(bulletMatch[1]);
+      return;
+    }
+    flushBullets();
+
+    const headingMatch = line.match(/^#{1,6}\s+(.*)/);
+    if (headingMatch) {
+      blocks.push(
+        <p key={`h-${i}`} className="font-bold text-gray-900 mt-1.5 mb-0.5">
+          {renderInline(headingMatch[1], `h-${i}`)}
+        </p>
+      );
+      return;
+    }
+
+    if (line.trim() === "") {
+      blocks.push(<div key={`sp-${i}`} className="h-1.5" />);
+      return;
+    }
+
+    blocks.push(
+      <p key={`p-${i}`} className="leading-relaxed">
+        {renderInline(line, `p-${i}`)}
+      </p>
+    );
+  });
+  flushBullets();
+
+  return <div>{blocks}</div>;
+}
+
 function getSuggestions(role: string): string[] {
   if (role === "manager") {
     return [
@@ -292,20 +369,24 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 {messages.map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
+                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words ${
                         m.role === "user"
-                          ? "bg-blue-600 text-white rounded-br-md"
+                          ? "bg-blue-600 text-white rounded-br-md whitespace-pre-wrap"
                           : "bg-white border border-gray-100 text-gray-800 rounded-bl-md shadow-sm"
                       }`}
                     >
-                      {m.content || (
-                        sending && i === messages.length - 1 ? (
-                          <span className="flex items-center gap-2 text-gray-400">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            {toolStatus || "Đang suy nghĩ..."}
-                          </span>
-                        ) : null
-                      )}
+                      {m.content ? (
+                        m.role === "assistant" ? (
+                          <AssistantContent text={m.content} />
+                        ) : (
+                          m.content
+                        )
+                      ) : sending && i === messages.length - 1 ? (
+                        <span className="flex items-center gap-2 text-gray-400">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          {toolStatus || "Đang suy nghĩ..."}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 ))}
