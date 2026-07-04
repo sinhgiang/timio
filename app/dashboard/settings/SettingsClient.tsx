@@ -1323,8 +1323,16 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </p>
 
         {zaloConnected && (
-          <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-sm text-green-700 font-medium max-w-xl">
-            <span className="w-2 h-2 rounded-full bg-green-500" /> Đã kết nối Zalo OA — sẵn sàng gửi tin.
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2.5 text-sm text-green-700 font-medium max-w-xl">
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500" /> Đã kết nối Zalo OA — sẵn sàng gửi tin.
+            </span>
+            <a
+              href="/dashboard/zalo-connect"
+              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-200 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-100"
+            >
+              <MessageSquare size={14} /> Gán nhân viên đã follow →
+            </a>
           </div>
         )}
         {zaloMsg && <p className={`text-sm mb-3 font-medium ${zaloMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{zaloMsg}</p>}
