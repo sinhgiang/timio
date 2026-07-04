@@ -215,6 +215,24 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     setEmailTesting(false);
   };
 
+  // Test daily attendance report
+  const [reportTesting, setReportTesting] = useState(false);
+  const [reportMsg, setReportMsg] = useState("");
+
+  const testDailyReport = async () => {
+    setReportTesting(true);
+    setReportMsg("");
+    const res = await fetch("/api/cron/daily-report/test", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      const t = data.totals ?? {};
+      setReportMsg(`✅ Đã gửi báo cáo thử về ${data.sentTo} (đúng giờ ${t.onTime ?? 0}, trễ ${t.late ?? 0}, chưa vào ${t.notYet ?? 0})${data.zaloSent ? " + Zalo" : ""}.`);
+    } else {
+      setReportMsg(`❌ ${data.error}`);
+    }
+    setReportTesting(false);
+  };
+
   // Password change
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwLoading, setPwLoading] = useState(false);
@@ -1428,6 +1446,37 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
         <p className="text-xs text-gray-400 mt-2">
           Email kiểm tra sẽ được gửi đến địa chỉ email đăng nhập của bạn.
+        </p>
+      </div>
+
+      {/* ── Daily Attendance Report ── */}
+      <div className="mt-8 border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Mail size={20} className="text-indigo-500" />
+          <h2 className="text-base font-bold text-gray-800">Báo cáo chấm công hàng ngày</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Mỗi ngày lúc 8:00 sáng, hệ thống gửi báo cáo (đúng giờ / đến trễ / chưa vào) cho các quản lý đã bật.
+          Bật/tắt cho từng người tại <a href="/dashboard/team" className="text-indigo-600 hover:underline">Nhân sự → Nhận báo cáo hàng ngày</a>.
+          Gửi qua Email (miễn phí) và Zalo (nếu công ty đã kết nối OA + quản lý đã follow).
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={testDailyReport}
+            disabled={reportTesting}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Send size={14} />
+            {reportTesting ? "Đang gửi..." : "Gửi thử báo cáo ngay"}
+          </button>
+          {reportMsg && (
+            <span className={`text-sm font-medium ${reportMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+              {reportMsg}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Báo cáo thử được gửi ngay đến email đăng nhập của bạn (dùng để kiểm tra).
         </p>
       </div>
 
