@@ -36,7 +36,10 @@ export const metadata: Metadata = {
     title: "Timio — Phần mềm chấm công thông minh",
     description: "Hệ thống chấm công thông minh cho doanh nghiệp Việt Nam.",
   },
-  verification: { google: "hUTYywnN-yyQuobwR19O6o5LzCFlTDgxgxw9u3llJkY" },
+  verification: {
+    google: "hUTYywnN-yyQuobwR19O6o5LzCFlTDgxgxw9u3llJkY",
+    other: { "zalo-platform-site-verification": "G_Qb9x_xT2euXVXyoOT2Ln_naa_pXqWGDpOp" },
+  },
   robots: { index: true, follow: true },
   manifest: "/manifest.json",
   appleWebApp: {
