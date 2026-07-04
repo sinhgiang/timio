@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getValidOaToken, sendZaloMessage } from "@/lib/zalo";
+import { sendTelegram } from "@/lib/telegram";
 import type Anthropic from "@anthropic-ai/sdk";
 
 // ============================================================
@@ -199,7 +200,7 @@ const TOOL_DEFS: ToolDef[] = [
     tool: {
       name: "send_email_reminder",
       description:
-        "GỬI thông báo đa kênh: gửi EMAIL tự động cho nhân viên, ĐỒNG THỜI trả về link Zalo + Facebook kèm nội dung để gửi tay. Gọi sau preview_email_recipients. Nếu ÍT người nhận (1-3) và user đã yêu cầu rõ thì gọi LUÔN không cần hỏi xác nhận. Nếu NHIỀU người (4+) thì chỉ gọi sau khi user đã xác nhận. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
+        "GỬI thông báo đa kênh: gửi EMAIL tự động + đăng NHÓM TELEGRAM chi nhánh tự động (khi nhắc chung) + gửi ZALO tự động cho ai đã follow OA, ĐỒNG THỜI trả về link Zalo/Facebook kèm nội dung để gửi tay. Gọi sau preview_email_recipients. Nếu ÍT người nhận (1-3) và user đã yêu cầu rõ thì gọi LUÔN không cần hỏi xác nhận. Nếu NHIỀU người (4+) thì chỉ gọi sau khi user đã xác nhận. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
       input_schema: {
         type: "object" as const,
         properties: {
@@ -520,14 +521,30 @@ export async function executeChatTool(
         const zaloAuto = recipients.filter((r) => r.zaloUserId).length;
         const zaloManual = recipients.filter((r) => r.zalo && !r.zaloUserId).length;
         const withFacebook = recipients.filter((r) => r.facebook).length;
+
+        // Nhóm Telegram (đăng tin chung, miễn phí) — chỉ khi target là nhóm
+        const isBroadcast = ["absent_today", "all", ""].includes(target.trim().toLowerCase());
+        let telegramGroups = 0;
+        if (isBroadcast) {
+          const comp = await prisma.company.findUnique({
+            where: { id: ctx.companyId },
+            select: { telegramBotToken: true, branches: { select: { id: true, telegramChatId: true } } },
+          });
+          if (comp?.telegramBotToken) {
+            telegramGroups = comp.branches.filter(
+              (b) => b.telegramChatId && (!(ctx.role === "manager" && ctx.branchId) || b.id === ctx.branchId)
+            ).length;
+          }
+        }
         return {
           target,
           totalMatched: recipients.length,
-          // Email + Zalo(đã follow) = gửi tự động; Zalo(chưa follow)/Facebook = gửi tay bằng link
+          // Email + Zalo(đã follow) + Telegram nhóm = gửi tự động; Zalo(chưa follow)/Facebook = gửi tay bằng link
           emailAuto: Math.min(withEmail.length, MAX_EMAIL_RECIPIENTS),
           zaloAuto,
           zaloManual,
           facebookManual: withFacebook,
+          telegramGroups,
           maxPerSend: MAX_EMAIL_RECIPIENTS,
           recipients: withEmail.slice(0, 30).map((r) => ({ name: r.name, email: r.email })),
           noContact: recipients.filter((r) => !r.email && !r.zalo && !r.facebook).map((r) => r.name),
@@ -550,12 +567,14 @@ export async function executeChatTool(
           return { error: "Không tìm thấy nhân viên phù hợp." };
         }
 
-        // Lấy thông tin công ty (logo + Zalo) 1 lần
+        // Lấy thông tin công ty (logo + Zalo + Telegram) 1 lần
         const company = await prisma.company.findUnique({
           where: { id: ctx.companyId },
           select: {
             id: true, logoUrl: true, zaloOaToken: true, zaloAppId: true, zaloSecretKey: true,
             zaloRefreshToken: true, zaloTokenExpiresAt: true,
+            telegramBotToken: true,
+            branches: { select: { id: true, name: true, telegramChatId: true } },
           },
         });
         const base = (process.env.NEXTAUTH_URL ?? "https://timio.vn").replace(/\/$/, "");
@@ -590,6 +609,25 @@ export async function executeChatTool(
           }
         }
 
+        // ── TELEGRAM: đăng tin vào nhóm chi nhánh (miễn phí) ──
+        // Telegram gửi vào NHÓM chi nhánh (không phải từng người) → phù hợp thông báo chung.
+        // Chỉ đăng khi target là nhóm (all / absent_today), không đăng khi nhắc đúng 1 người theo tên.
+        let telegramSent = 0;
+        const telegramGroups: string[] = [];
+        const isBroadcast = ["absent_today", "all", ""].includes(target.trim().toLowerCase());
+        if (isBroadcast && company?.telegramBotToken) {
+          const scopedBranches = company.branches.filter(
+            (b) => b.telegramChatId && (!(ctx.role === "manager" && ctx.branchId) || b.id === ctx.branchId)
+          );
+          for (const b of scopedBranches) {
+            try {
+              await sendTelegram(company.telegramBotToken, b.telegramChatId as string, messageText);
+              telegramSent++;
+              telegramGroups.push(b.name);
+            } catch { /* non-fatal */ }
+          }
+        }
+
         // ── Còn lại: trả link để gửi tay (những ai KHÔNG gửi Zalo tự động được) ──
         const zaloManualContacts = all
           .filter((r) => r.zalo && !zaloAutoIds.has(r.id))
@@ -598,8 +636,8 @@ export async function executeChatTool(
           .filter((r) => r.facebook)
           .map((r) => ({ name: r.name, link: facebookLink(r.facebook as string) }));
 
-        if (emailRecipients.length === 0 && zaloSent === 0 && zaloManualContacts.length === 0 && facebookContacts.length === 0) {
-          return { error: "Nhân viên chưa có email/Zalo/Facebook nào. Hãy bổ sung liên hệ trong Dashboard → Nhân viên trước." };
+        if (emailRecipients.length === 0 && zaloSent === 0 && telegramSent === 0 && zaloManualContacts.length === 0 && facebookContacts.length === 0) {
+          return { error: "Nhân viên chưa có email/Zalo/Facebook nào và chưa cấu hình nhóm Telegram. Hãy bổ sung liên hệ trong Dashboard → Nhân viên, hoặc kết nối Telegram trong Cài đặt." };
         }
 
         return {
@@ -607,15 +645,19 @@ export async function executeChatTool(
           emailFailed,
           zaloSentAuto: zaloSent,
           zaloFailedAuto: zaloFailed,
+          telegramSent,
+          telegramGroups,
           skippedNoEmail: all.length - all.filter((r) => r.email).length,
           // Nội dung để user copy dán vào Zalo/Facebook thủ công
           messageToCopy: messageText,
           zaloManualContacts,
           facebookContacts,
           note:
-            "Đã gửi tự động qua email và Zalo (cho ai đã follow OA). Với người còn lại: đưa link + nội dung ở trên để user bấm mở chat và dán tin gửi tay.",
+            "Đã gửi tự động qua email, Telegram (nhóm chi nhánh) và Zalo (cho ai đã follow OA). Với người còn lại: đưa link + nội dung ở trên để user bấm mở chat và dán tin gửi tay.",
           message:
-            `Đã gửi tự động: ${emailSent} email, ${zaloSent} tin Zalo.` +
+            `Đã gửi tự động: ${emailSent} email, ${zaloSent} tin Zalo` +
+            (telegramSent > 0 ? `, đăng vào ${telegramSent} nhóm Telegram (${telegramGroups.join(", ")})` : "") +
+            `.` +
             (zaloManualContacts.length + facebookContacts.length > 0
               ? ` Còn lại gửi tay qua link bên dưới.`
               : ""),
@@ -768,19 +810,20 @@ Trả lời câu hỏi về dữ liệu công ty bằng cách dùng các tool đ
 - KHÔNG dùng bảng markdown (| cột |) vì khung chat hẹp, hiển thị xấu. Dùng gạch đầu dòng thay thế.
 - Viết gọn, tự nhiên như một trợ lý đang nhắn tin. Mỗi ý một dòng ngắn, tránh đoạn văn dài.
 
-## Gửi thông báo đa kênh cho nhân viên (Email + Zalo + Facebook — dành cho ADMIN và QUẢN LÝ)
+## Gửi thông báo đa kênh cho nhân viên (Email + Telegram + Zalo + Facebook — dành cho ADMIN và QUẢN LÝ)
 Cả admin (owner) VÀ quản lý (manager) đều dùng được tính năng này. Quản lý chỉ gửi được cho nhân viên chi nhánh mình.
 Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi người chấm công", "gửi tin cho những người chưa check-in qua email zalo facebook"), làm theo các bước:
-1. Gọi preview_email_recipients (target: 'absent_today' | 'all' | tên người). Nó cho biết TỔNG số người nhận và bao nhiêu người có email/Zalo/Facebook.
+1. Gọi preview_email_recipients (target: 'absent_today' | 'all' | tên người). Nó cho biết TỔNG số người nhận, bao nhiêu người có email/Zalo/Facebook, và có bao nhiêu nhóm Telegram (telegramGroups).
 2. QUYẾT ĐỊNH hỏi hay không dựa trên SỐ NGƯỜI NHẬN:
    - ÍT NGƯỜI (từ 1 đến 3 người): GỬI LUÔN — gọi thẳng send_email_reminder, KHÔNG hỏi xác nhận. User đã yêu cầu rõ ("gửi email cho A", "nhắc B và C") thì cứ gửi, đừng hỏi lại vì gây phiền.
    - NHIỀU NGƯỜI (từ 4 người trở lên): PHẢI hỏi xác nhận trước. Soạn sẵn nội dung, cho user xem sẽ gửi cho bao nhiêu người, và NHẮC user soát danh sách xem có ai bị nhầm không (vd: "Danh sách có 12 người, anh xem có ai không đúng không? Xác nhận thì tôi gửi."). Chỉ gọi send_email_reminder khi user đồng ý rõ ràng.
 3. Sau khi gửi, trình bày kết quả: đã gửi bao nhiêu email tự động; rồi liệt kê phần "Gửi qua Zalo" và "Gửi qua Facebook" — mỗi người kèm LINK (từ zaloContacts/facebookContacts) để user bấm mở chat, và nhắc user copy nội dung (messageToCopy) dán vào gửi.
 CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa quá):
-- EMAIL/GMAIL: gửi HOÀN TOÀN TỰ ĐỘNG. Nhân viên cần có email trong hệ thống.
-- ZALO: gửi TỰ ĐỘNG cho nhân viên ĐÃ FOLLOW Zalo OA của công ty (preview trả về 'zaloAuto'). Nhân viên có số Zalo nhưng CHƯA follow (zaloManual) thì hệ thống trả LINK để gửi tay. Muốn tự động cho nhiều người hơn → cho nhân viên quét QR follow OA (Dashboard → Nhân viên → Kết nối Zalo).
+- EMAIL/GMAIL: gửi HOÀN TOÀN TỰ ĐỘNG, MIỄN PHÍ. Nhân viên cần có email trong hệ thống.
+- TELEGRAM: gửi TỰ ĐỘNG, MIỄN PHÍ vào NHÓM Telegram của chi nhánh (không phải từng người). Chỉ áp dụng khi nhắc chung (target 'all' hoặc 'absent_today'), KHÔNG đăng nhóm khi chỉ nhắc đúng 1 người theo tên. Kết quả trả về telegramSent + telegramGroups. Cần công ty đã kết nối bot Telegram + gán nhóm cho chi nhánh.
+- ZALO: gửi TỰ ĐỘNG cho nhân viên ĐÃ FOLLOW Zalo OA của công ty (preview trả về 'zaloAuto'). Nhân viên có số Zalo nhưng CHƯA follow (zaloManual) thì hệ thống trả LINK để gửi tay. Zalo tự động cần công ty MUA gói OA trả phí + nhân viên follow OA. Công ty chưa trả phí thì dùng Email/Telegram (miễn phí) là chính, Zalo chỉ có link gửi tay.
 - FACEBOOK: KHÔNG gửi tự động được (Facebook chặn gửi chủ động). Hệ thống trả LINK để user bấm mở chat dán tin.
-- Sau khi gửi: báo rõ đã gửi tự động bao nhiêu email + bao nhiêu Zalo; rồi liệt kê phần gửi tay (zaloManualContacts, facebookContacts) kèm link + nội dung (messageToCopy).
+- Sau khi gửi: báo rõ đã gửi tự động bao nhiêu email + Telegram (nhóm nào) + bao nhiêu Zalo; rồi liệt kê phần gửi tay (zaloManualContacts, facebookContacts) kèm link + nội dung (messageToCopy).
 - Nếu ai chưa có kênh liên hệ nào thì nói rõ để user bổ sung trong Dashboard → Nhân viên.
 - Kế toán (accountant) KHÔNG có quyền gửi — trả lời lịch sự rằng tính năng dành cho admin và quản lý.
 
