@@ -20,6 +20,7 @@ import {
   Printer,
   PenLine,
   Upload,
+  Image as ImageIcon,
   X,
   Copy,
   Check,
@@ -50,7 +51,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -88,6 +89,47 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [telegramSaving, setTelegramSaving] = useState(false);
   const [telegramMsg, setTelegramMsg] = useState("");
   const [testChatId, setTestChatId] = useState("");
+
+  // Logo công ty
+  const [logoUrl, setLogoUrl] = useState(company.logoUrl ?? "");
+  const [logoMsg, setLogoMsg] = useState("");
+
+  const saveLogo = async (value: string | null) => {
+    setLogoMsg("");
+    const res = await fetch("/api/company/logo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ logoUrl: value }),
+    });
+    if (res.ok) {
+      setLogoUrl(value ?? "");
+      setLogoMsg(value ? "✅ Đã lưu logo!" : "✅ Đã xóa logo.");
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setLogoMsg(`❌ ${d.error ?? "Lưu thất bại"}`);
+    }
+  };
+
+  const onLogoFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize giữ tỉ lệ, rộng tối đa 400px
+        const maxW = 400;
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // PNG để giữ nền trong suốt nếu có
+        const dataUrl = canvas.toDataURL("image/png");
+        saveLogo(dataUrl);
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Zalo OA
   const [zaloOaId, setZaloOaId] = useState(company.zaloOaId ?? "");
@@ -1225,6 +1267,49 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
       </PlanGate>
+
+      {/* ── Logo công ty ── */}
+      <div className="mt-8 border-t border-gray-100 pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <ImageIcon size={20} className="text-blue-500" />
+          <h2 className="text-base font-bold text-gray-800">Logo công ty</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Logo sẽ hiển thị ở đầu các email thông báo gửi cho nhân viên (nhắc chấm công, thông báo...). Nên dùng ảnh PNG nền trong suốt.
+        </p>
+        <div className="flex items-center gap-4">
+          <div className="w-40 h-20 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="logo" className="max-h-16 max-w-[150px] object-contain" />
+            ) : (
+              <ImageIcon size={24} className="text-gray-300" />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium border border-blue-100 w-fit">
+              <Upload size={14} /> {logoUrl ? "Đổi logo" : "Tải logo lên"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onLogoFile(f); }}
+              />
+            </label>
+            {logoUrl && (
+              <button
+                type="button"
+                onClick={() => saveLogo(null)}
+                className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600 w-fit"
+              >
+                <X size={12} /> Xóa logo
+              </button>
+            )}
+            {logoMsg && <p className={`text-xs font-medium ${logoMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{logoMsg}</p>}
+            <p className="text-xs text-gray-400">PNG/JPG, tự động thu nhỏ. Tối đa ~400KB.</p>
+          </div>
+        </div>
+      </div>
 
       {/* ── Zalo OA ── */}
       <PlanGate requiredPlan="pro" feature="Thông báo Zalo OA" className="mt-8">

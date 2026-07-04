@@ -25,6 +25,7 @@ model Company {
   zaloRefreshToken String? // Refresh token (sống 3 tháng, xoay vòng mỗi lần refresh)
   zaloTokenExpiresAt DateTime? // access token hết hạn lúc nào
   overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
+  logoUrl         String? // base64 logo công ty (chèn vào email thông báo)
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
   referredBy      String? // slug của công ty đã giới thiệu mình
