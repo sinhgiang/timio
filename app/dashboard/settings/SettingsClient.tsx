@@ -50,7 +50,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -91,6 +91,10 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
   // Zalo OA
   const [zaloToken, setZaloToken] = useState(company.zaloOaToken ?? "");
+  const [zaloOaId, setZaloOaId] = useState(company.zaloOaId ?? "");
+  const [zaloAppId, setZaloAppId] = useState(company.zaloAppId ?? "");
+  const [zaloSecretKey, setZaloSecretKey] = useState(company.zaloSecretKey ?? "");
+  const [zaloRefreshToken, setZaloRefreshToken] = useState(company.zaloRefreshToken ?? "");
   const [zaloSaving, setZaloSaving] = useState(false);
   const [zaloMsg, setZaloMsg] = useState("");
 
@@ -557,10 +561,16 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     const res = await fetch("/api/company/zalo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ zaloOaToken: zaloToken }),
+      body: JSON.stringify({
+        zaloOaToken: zaloToken,
+        zaloOaId,
+        zaloAppId,
+        zaloSecretKey,
+        zaloRefreshToken,
+      }),
     });
     setZaloSaving(false);
-    setZaloMsg(res.ok ? "✅ Đã lưu Zalo OA Token!" : "❌ Lưu thất bại");
+    setZaloMsg(res.ok ? "✅ Đã lưu cấu hình Zalo OA!" : "❌ Lưu thất bại");
     router.refresh();
   };
 
@@ -1211,37 +1221,74 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           <h2 className="text-base font-bold text-gray-800">Thông báo Zalo</h2>
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          Nhận thông báo khi nhân viên xin nghỉ qua Zalo Official Account. Sau khi lưu token, vào{" "}
-          <strong>Nhóm &amp; Quyền</strong> để bật Zalo cho từng thành viên.
+          Kết nối Zalo OA để gửi thông báo (duyệt nghỉ phép, nhắc chấm công, trợ lý AI gửi tin) tự động cho nhân viên và thành viên đã follow OA. Token tự gia hạn nếu điền App ID + Secret + Refresh Token.
         </p>
         <div className="space-y-3 max-w-xl">
           <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1.5">Zalo OA Access Token</label>
-            <div className="flex gap-2">
+            <label className="text-xs font-semibold text-gray-600 block mb-1.5">Access Token <span className="text-gray-400 font-normal">(bắt buộc)</span></label>
+            <input
+              type="password"
+              value={zaloToken}
+              onChange={(e) => setZaloToken(e.target.value)}
+              placeholder="Dán Access Token từ Zalo App"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1.5">OA ID</label>
               <input
-                type="password"
-                value={zaloToken}
-                onChange={(e) => setZaloToken(e.target.value)}
-                placeholder="Dán token từ Zalo Developer Console"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={zaloOaId}
+                onChange={(e) => setZaloOaId(e.target.value)}
+                placeholder="VD: 994206080815296531"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
-              <button
-                onClick={saveZaloToken}
-                disabled={zaloSaving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >Lưu</button>
             </div>
-            {zaloMsg && <p className={`text-xs mt-1.5 font-medium ${zaloMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{zaloMsg}</p>}
-            <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1.5">
-              <p className="font-semibold">Cách lấy Zalo OA Token:</p>
-              <ol className="list-decimal list-inside space-y-1 text-blue-600">
-                <li>Vào <strong>developers.zalo.me</strong> → Đăng nhập → Tạo ứng dụng</li>
-                <li>Liên kết với Zalo Official Account của bạn</li>
-                <li>Vào tab <strong>Official Account API</strong> → Tạo Access Token</li>
-                <li>Dán token vào ô trên và bấm Lưu</li>
-              </ol>
-              <p className="text-blue-500 mt-1">Người dùng phải <strong>follow OA</strong> của bạn mới nhận được tin nhắn.</p>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1.5">App ID</label>
+              <input
+                value={zaloAppId}
+                onChange={(e) => setZaloAppId(e.target.value)}
+                placeholder="App ID (developers.zalo.me)"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1.5">Secret Key <span className="text-gray-400 font-normal">(để tự gia hạn token)</span></label>
+            <input
+              type="password"
+              value={zaloSecretKey}
+              onChange={(e) => setZaloSecretKey(e.target.value)}
+              placeholder="App Secret Key"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1.5">Refresh Token <span className="text-gray-400 font-normal">(để tự gia hạn token)</span></label>
+            <input
+              type="password"
+              value={zaloRefreshToken}
+              onChange={(e) => setZaloRefreshToken(e.target.value)}
+              placeholder="Refresh Token (sống 3 tháng)"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <button
+            onClick={saveZaloToken}
+            disabled={zaloSaving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >{zaloSaving ? "Đang lưu..." : "Lưu cấu hình Zalo"}</button>
+          {zaloMsg && <p className={`text-xs mt-1 font-medium ${zaloMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{zaloMsg}</p>}
+          <div className="mt-1 bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1.5">
+            <p className="font-semibold">Cách lấy (làm 1 lần):</p>
+            <ol className="list-decimal list-inside space-y-1 text-blue-600">
+              <li>Vào <strong>developers.zalo.me</strong> → Tạo ứng dụng → lấy <strong>App ID</strong> + <strong>Secret Key</strong></li>
+              <li>Liên kết ứng dụng với Zalo OA của bạn</li>
+              <li>Vào <strong>Official Account API → Explorer / uỷ quyền OA</strong> → lấy <strong>Access Token</strong> + <strong>Refresh Token</strong></li>
+              <li>Dán tất cả vào đây, bấm Lưu. Timio sẽ tự gia hạn token, không cần làm lại.</li>
+            </ol>
+            <p className="text-blue-500 mt-1">Sau đó vào <strong>Nhân viên → Kết nối Zalo</strong> để gán nhân viên đã follow OA.</p>
           </div>
         </div>
       </div>

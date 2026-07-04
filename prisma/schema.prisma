@@ -18,7 +18,12 @@ model Company {
   customOptions   String? // JSON: { departments: string[], positions: string[] }
   telegramBotToken String? // Telegram bot token for notifications
   accountingChatId String? // Telegram chat ID cho kế toán (nhận thông báo duyệt nghỉ phép)
-  zaloOaToken      String? // Zalo Official Account access token
+  zaloOaToken      String? // Zalo OA access token hiện tại (tự gia hạn)
+  zaloOaId         String? // Zalo OA ID (khớp webhook + link follow)
+  zaloAppId        String? // Zalo App ID (developers.zalo.me)
+  zaloSecretKey    String? // Zalo App secret key (để gia hạn token)
+  zaloRefreshToken String? // Refresh token (sống 3 tháng, xoay vòng mỗi lần refresh)
+  zaloTokenExpiresAt DateTime? // access token hết hạn lúc nào
   overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
@@ -119,6 +124,7 @@ model Employee {
   avatarUrl           String?   // base64 ảnh đại diện
   phone               String?   // Số điện thoại
   zalo                String?   // Số Zalo hoặc link Zalo (gửi thông báo tay)
+  zaloUserId          String?   // Zalo user_id (có được khi NV follow OA) → gửi tự động
   facebook            String?   // Link/username Facebook (gửi thông báo tay)
   cccd                String?   // Căn cước công dân
   baseSalary          Int?      @default(0)

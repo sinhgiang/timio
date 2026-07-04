@@ -44,6 +44,10 @@ export default async function SettingsPage() {
         signatureUrl: company?.signatureUrl ?? null,
         stampUrl: company?.stampUrl ?? null,
         zaloOaToken: company?.zaloOaToken ?? null,
+        zaloOaId: (company as { zaloOaId?: string | null })?.zaloOaId ?? null,
+        zaloAppId: (company as { zaloAppId?: string | null })?.zaloAppId ?? null,
+        zaloSecretKey: (company as { zaloSecretKey?: string | null })?.zaloSecretKey ?? null,
+        zaloRefreshToken: (company as { zaloRefreshToken?: string | null })?.zaloRefreshToken ?? null,
         kioskMessages: company?.kioskMessages ?? null,
         paydayOfMonth: (company as { paydayOfMonth?: number })?.paydayOfMonth ?? 5,
       }}

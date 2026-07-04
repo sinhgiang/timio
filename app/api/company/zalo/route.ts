@@ -15,11 +15,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Thông báo Zalo OA chỉ có trong gói Pro trở lên" }, { status: 403 });
   }
 
-  const { zaloOaToken } = await req.json();
+  const { zaloOaToken, zaloOaId, zaloAppId, zaloSecretKey, zaloRefreshToken } = await req.json();
+
+  // Khi dán token mới → đặt hạn 24h (Zalo OA token sống ~25h), sau đó tự gia hạn
+  const expiresAt = zaloOaToken ? new Date(Date.now() + 24 * 3600 * 1000) : null;
 
   await prisma.company.update({
     where: { id: user.companyId },
-    data: { zaloOaToken: zaloOaToken || null },
+    data: {
+      zaloOaToken: zaloOaToken || null,
+      zaloOaId: zaloOaId || null,
+      zaloAppId: zaloAppId || null,
+      zaloSecretKey: zaloSecretKey || null,
+      zaloRefreshToken: zaloRefreshToken || null,
+      zaloTokenExpiresAt: expiresAt,
+    },
   });
 
   return NextResponse.json({ ok: true });
