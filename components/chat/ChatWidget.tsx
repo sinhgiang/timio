@@ -15,7 +15,33 @@ interface ChatMsg {
 
 const TUTORIAL_KEY = "timio_chat_tutorial_seen";
 
-// Render inline **đậm** trong 1 dòng
+// Biến URL trong text thành link bấm được
+function linkify(text: string, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const urlRe = /(https?:\/\/[^\s)]+)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = urlRe.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(
+      <a
+        key={`${keyPrefix}-a-${idx++}`}
+        href={m[1]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline break-all"
+      >
+        {m[1]}
+      </a>
+    );
+    last = urlRe.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+// Render inline **đậm** + link trong 1 dòng
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   const regex = /\*\*(.+?)\*\*/g;
@@ -23,7 +49,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   let m: RegExpExecArray | null;
   let idx = 0;
   while ((m = regex.exec(text)) !== null) {
-    if (m.index > lastIndex) nodes.push(text.slice(lastIndex, m.index));
+    if (m.index > lastIndex) nodes.push(...linkify(text.slice(lastIndex, m.index), `${keyPrefix}-t${idx}`));
     nodes.push(
       <strong key={`${keyPrefix}-b-${idx++}`} className="font-semibold text-gray-900">
         {m[1]}
@@ -31,7 +57,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     );
     lastIndex = regex.lastIndex;
   }
-  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  if (lastIndex < text.length) nodes.push(...linkify(text.slice(lastIndex), `${keyPrefix}-t-end`));
   return nodes;
 }
 
@@ -225,7 +251,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 return copy;
               });
             } else if (ev.type === "tool") {
-              if (ev.name === "send_email_reminder") setToolStatus("Đang gửi email...");
+              if (ev.name === "send_email_reminder") setToolStatus("Đang gửi thông báo...");
               else if (ev.name === "preview_email_recipients") setToolStatus("Đang kiểm tra danh sách...");
               else setToolStatus("Đang tra cứu dữ liệu...");
             } else if (ev.type === "error") {

@@ -17,7 +17,32 @@ interface Msg {
 
 const SUPPORT_EMAIL = "admin@sinhgiang.com";
 
-// Parse **đậm** trong 1 dòng thành các đoạn Text
+// Biến URL thành Text bấm mở được
+function linkifyRN(text: string, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const urlRe = /(https?:\/\/[^\s)]+)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = urlRe.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    const url = m[1];
+    nodes.push(
+      <Text
+        key={`${keyPrefix}-a${idx++}`}
+        style={{ color: "#2563eb", textDecorationLine: "underline" }}
+        onPress={() => Linking.openURL(url)}
+      >
+        {url}
+      </Text>
+    );
+    last = urlRe.lastIndex;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+// Parse **đậm** + link trong 1 dòng thành các đoạn Text
 function renderInlineRN(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   const regex = /\*\*(.+?)\*\*/g;
@@ -25,7 +50,7 @@ function renderInlineRN(text: string, keyPrefix: string): React.ReactNode[] {
   let m: RegExpExecArray | null;
   let idx = 0;
   while ((m = regex.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m.index > last) nodes.push(...linkifyRN(text.slice(last, m.index), `${keyPrefix}-t${idx}`));
     nodes.push(
       <Text key={`${keyPrefix}-b${idx++}`} style={{ fontWeight: "700" }}>
         {m[1]}
@@ -33,7 +58,7 @@ function renderInlineRN(text: string, keyPrefix: string): React.ReactNode[] {
     );
     last = regex.lastIndex;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) nodes.push(...linkifyRN(text.slice(last), `${keyPrefix}-tend`));
   return nodes;
 }
 

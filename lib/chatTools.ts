@@ -198,7 +198,7 @@ const TOOL_DEFS: ToolDef[] = [
     tool: {
       name: "send_email_reminder",
       description:
-        "GỬI THẬT email nhắc nhở đến nhân viên. CHỈ gọi tool này SAU KHI đã dùng preview_email_recipients và user đã XÁC NHẬN đồng ý gửi. KHÔNG bao giờ tự gửi khi user chưa đồng ý rõ ràng. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
+        "GỬI thông báo đa kênh: gửi EMAIL tự động cho nhân viên, ĐỒNG THỜI trả về link Zalo + Facebook kèm nội dung để gửi tay. CHỈ gọi tool này SAU KHI đã dùng preview_email_recipients và user đã XÁC NHẬN đồng ý gửi. KHÔNG bao giờ tự gửi khi user chưa đồng ý rõ ràng. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
       input_schema: {
         type: "object" as const,
         properties: {
@@ -516,16 +516,21 @@ export async function executeChatTool(
         const recipients = await resolveReminderRecipients(ctx, target, branchFilter);
         const withEmail = recipients.filter((r) => r.email);
         const withoutEmail = recipients.filter((r) => !r.email);
+        const withZalo = recipients.filter((r) => r.zalo).length;
+        const withFacebook = recipients.filter((r) => r.facebook).length;
         return {
           target,
           totalMatched: recipients.length,
-          willReceive: Math.min(withEmail.length, MAX_EMAIL_RECIPIENTS),
+          // Email = gửi tự động; Zalo/Facebook = gửi tay bằng link
+          emailAuto: Math.min(withEmail.length, MAX_EMAIL_RECIPIENTS),
+          zaloManual: withZalo,
+          facebookManual: withFacebook,
           maxPerSend: MAX_EMAIL_RECIPIENTS,
           recipients: withEmail.slice(0, 30).map((r) => ({ name: r.name, email: r.email })),
-          noEmail: withoutEmail.map((r) => r.name),
+          noContact: recipients.filter((r) => !r.email && !r.zalo && !r.facebook).map((r) => r.name),
           note:
             withoutEmail.length > 0
-              ? `${withoutEmail.length} nhân viên chưa có email nên sẽ không nhận được — cần bổ sung email trong Dashboard.`
+              ? `${withoutEmail.length} nhân viên chưa có email (sẽ không nhận email tự động). Có thể bổ sung email/Zalo/Facebook trong Dashboard → Nhân viên.`
               : undefined,
         };
       }
@@ -550,15 +555,30 @@ export async function executeChatTool(
         );
         const sent = results.filter((x) => x.status === "fulfilled").length;
         const failed = results.length - sent;
+
+        // Zalo & Facebook: chưa gửi tự động được → trả link để gửi tay
+        const zaloContacts = all
+          .filter((r) => r.zalo)
+          .map((r) => ({ name: r.name, link: zaloLink(r.zalo as string) }));
+        const facebookContacts = all
+          .filter((r) => r.facebook)
+          .map((r) => ({ name: r.name, link: facebookLink(r.facebook as string) }));
+
         return {
-          sent,
-          failed,
+          emailSent: sent,
+          emailFailed: failed,
           skippedNoEmail: all.length - all.filter((r) => r.email).length,
           truncated: all.filter((r) => r.email).length > MAX_EMAIL_RECIPIENTS,
+          // Nội dung để user copy dán vào Zalo/Facebook
+          messageToCopy: messageText,
+          zaloContacts,
+          facebookContacts,
+          note:
+            "Email đã gửi tự động. Zalo/Facebook chưa gửi tự động được — hãy đưa link + nội dung ở trên để user bấm mở chat và dán tin gửi tay.",
           message:
             failed > 0
-              ? `Đã gửi ${sent} email thành công, ${failed} email lỗi.`
-              : `Đã gửi email thành công cho ${sent} nhân viên.`,
+              ? `Đã gửi ${sent} email thành công, ${failed} lỗi.`
+              : `Đã gửi email tự động cho ${sent} nhân viên.`,
         };
       }
 
@@ -575,14 +595,15 @@ async function resolveReminderRecipients(
   ctx: ChatContext,
   target: string,
   branchFilter: Record<string, unknown>
-): Promise<{ id: string; name: string; email: string | null }[]> {
+): Promise<Recipient[]> {
   const t = target.trim().toLowerCase();
+  const select = { id: true, name: true, email: true, zalo: true, facebook: true } as const;
 
   if (t === "absent_today") {
     const today = todayVN();
     const employees = await prisma.employee.findMany({
       where: { companyId: ctx.companyId, status: "active", ...branchFilter },
-      select: { id: true, name: true, email: true },
+      select,
     });
     const logs = await prisma.attendanceLog.findMany({
       where: {
@@ -599,7 +620,7 @@ async function resolveReminderRecipients(
   if (t === "all" || t === "") {
     return prisma.employee.findMany({
       where: { companyId: ctx.companyId, status: "active", ...branchFilter },
-      select: { id: true, name: true, email: true },
+      select,
     });
   }
 
@@ -611,8 +632,29 @@ async function resolveReminderRecipients(
       ...branchFilter,
       name: { contains: target, mode: "insensitive" as const },
     },
-    select: { id: true, name: true, email: true },
+    select,
   });
+}
+
+interface Recipient {
+  id: string;
+  name: string;
+  email: string | null;
+  zalo: string | null;
+  facebook: string | null;
+}
+
+// Tạo link Zalo/Facebook để bấm mở chat rồi dán nội dung (gửi tay)
+function zaloLink(zalo: string): string {
+  const v = zalo.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  const digits = v.replace(/[^\d]/g, "");
+  return digits ? `https://zalo.me/${digits}` : v;
+}
+function facebookLink(fb: string): string {
+  const v = fb.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  return `https://facebook.com/${v.replace(/^@/, "")}`;
 }
 
 // Tạo HTML email nhắc nhở đơn giản, an toàn
@@ -676,15 +718,19 @@ Trả lời câu hỏi về dữ liệu công ty bằng cách dùng các tool đ
 - KHÔNG dùng bảng markdown (| cột |) vì khung chat hẹp, hiển thị xấu. Dùng gạch đầu dòng thay thế.
 - Viết gọn, tự nhiên như một trợ lý đang nhắn tin. Mỗi ý một dòng ngắn, tránh đoạn văn dài.
 
-## Gửi email nhắc nhở nhân viên (tính năng hành động — dành cho admin và quản lý)
-Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi người chấm công", "gửi tin cho những người chưa check-in"), làm theo ĐÚNG các bước sau, KHÔNG được bỏ bước:
-1. Gọi tool preview_email_recipients để xem ai sẽ nhận (target: 'absent_today' cho người chưa chấm công hôm nay, 'all' cho tất cả, hoặc tên người cụ thể).
-2. Soạn sẵn nội dung email (tiếng Việt, thân thiện, ngắn gọn) rồi HIỂN THỊ cho user xem: gửi cho bao nhiêu người + nội dung dự kiến.
-3. HỎI user xác nhận rõ ràng: "Bạn xác nhận gửi email cho N người này không?"
-4. CHỈ khi user đồng ý rõ ràng (vd: "gửi đi", "đồng ý", "ok gửi") thì mới gọi tool send_email_reminder. Nếu user chưa đồng ý hoặc muốn sửa, KHÔNG được gửi.
-5. Nếu có nhân viên chưa có email, nói rõ những người đó sẽ không nhận được.
-- Về ZALO / FACEBOOK: hiện tại hệ thống CHƯA gửi Zalo/Facebook tự động được (cần Zalo OA — chủ công ty chưa đăng ký). Nên với Zalo/Facebook, bạn hãy SOẠN SẴN nội dung tin nhắn để user tự copy dán gửi tay. Có thể dùng get_employees để lấy Zalo/Facebook của từng người kèm theo, giúp user biết gửi cho ai. Chỉ có EMAIL là gửi tự động được.
-- Nếu vai trò user là kế toán (accountant), user KHÔNG có quyền gửi email nhắc nhở — trả lời lịch sự rằng tính năng này dành cho admin và quản lý.
+## Gửi thông báo đa kênh cho nhân viên (Email + Zalo + Facebook — dành cho ADMIN và QUẢN LÝ)
+Cả admin (owner) VÀ quản lý (manager) đều dùng được tính năng này. Quản lý chỉ gửi được cho nhân viên chi nhánh mình.
+Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi người chấm công", "gửi tin cho những người chưa check-in qua email zalo facebook"), làm theo ĐÚNG các bước, KHÔNG bỏ bước:
+1. Gọi preview_email_recipients (target: 'absent_today' | 'all' | tên người). Nó cho biết bao nhiêu người có email (gửi tự động), bao nhiêu người có Zalo/Facebook (gửi tay).
+2. Soạn sẵn nội dung (tiếng Việt, thân thiện, ngắn gọn), HIỂN THỊ cho user: sẽ gửi email tự động cho X người; Zalo Y người, Facebook Z người (gửi tay bằng link).
+3. HỎI user xác nhận rõ ràng: "Bạn xác nhận gửi không?"
+4. CHỈ khi user đồng ý rõ ràng (vd: "gửi đi", "đồng ý", "ok") thì mới gọi send_email_reminder.
+5. Sau khi gửi, trình bày kết quả: đã gửi bao nhiêu email tự động; rồi liệt kê phần "Gửi qua Zalo" và "Gửi qua Facebook" — mỗi người kèm LINK (từ zaloContacts/facebookContacts) để user bấm mở chat, và nhắc user copy nội dung (messageToCopy) dán vào gửi.
+CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa quá):
+- EMAIL/GMAIL: gửi HOÀN TOÀN TỰ ĐỘNG. Nhân viên cần có email trong hệ thống.
+- ZALO & FACEBOOK: CHƯA gửi tự động 100% được (Zalo cần Official Account, Facebook không cho gửi chủ động tới người lạ). Hệ thống giúp bằng cách tạo sẵn LINK + nội dung để user bấm và dán gửi nhanh. Muốn Zalo gửi tự động thì chủ công ty cần đăng ký Zalo OA.
+- Nếu ai chưa có email/Zalo/Facebook thì nói rõ để user bổ sung trong Dashboard → Nhân viên.
+- Kế toán (accountant) KHÔNG có quyền gửi — trả lời lịch sự rằng tính năng dành cho admin và quản lý.
 
 ## Hướng dẫn sử dụng Timio (trả lời được không cần tool)
 - Chấm công: nhân viên quét mặt tại kiosk /checkin/[mã công ty] trên điện thoại/tablet văn phòng
