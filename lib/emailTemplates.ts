@@ -364,6 +364,69 @@ export function contractExpiryEmail(opts: {
   return base(`⚠️ ${opts.contracts.length} hợp đồng sắp hết hạn — ${opts.companyName}`, content);
 }
 
+// ─── Admin: báo cáo chấm công hàng ngày ───────────────────────────────────
+
+export function dailyReportEmail(opts: {
+  companyName: string;
+  date: string;
+  scopeLabel: string;
+  totals: { total: number; onTime: number; late: number; notYet: number };
+  branches: { name: string; total: number; onTime: number; late: number; notYet: number }[];
+}) {
+  const { totals } = opts;
+  const stat = (label: string, val: number, color: string) => `
+    <td width="25%" style="padding:14px 8px;text-align:center;">
+      <div style="font-size:26px;font-weight:800;color:${color};line-height:1;">${val}</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:4px;">${label}</div>
+    </td>`;
+
+  const branchRows = opts.branches.length > 1
+    ? opts.branches.map((b, i, arr) => `
+        <tr>
+          <td style="padding:10px 12px;${i < arr.length - 1 ? "border-bottom:1px solid #e5e7eb;" : ""}font-size:14px;color:#111827;">${b.name}</td>
+          <td style="padding:10px 12px;${i < arr.length - 1 ? "border-bottom:1px solid #e5e7eb;" : ""}text-align:center;font-size:14px;color:#16a34a;font-weight:600;">${b.onTime}</td>
+          <td style="padding:10px 12px;${i < arr.length - 1 ? "border-bottom:1px solid #e5e7eb;" : ""}text-align:center;font-size:14px;color:#d97706;font-weight:600;">${b.late}</td>
+          <td style="padding:10px 12px;${i < arr.length - 1 ? "border-bottom:1px solid #e5e7eb;" : ""}text-align:center;font-size:14px;color:#dc2626;font-weight:600;">${b.notYet}</td>
+        </tr>`).join("")
+    : "";
+
+  const content = `
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">Báo cáo chấm công hôm nay</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#6b7280;"><strong>${opts.companyName}</strong> · ${opts.scopeLabel} · ${opts.date}</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:24px;">
+      <tr>
+        ${stat("Đúng giờ", totals.onTime, "#16a34a")}
+        ${stat("Đến trễ", totals.late, "#d97706")}
+        ${stat("Chưa vào", totals.notYet, "#dc2626")}
+        ${stat("Tổng NV", totals.total, "#111827")}
+      </tr>
+    </table>
+
+    ${branchRows ? `
+      <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.5px;">Chi tiết theo chi nhánh</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:24px;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;">Chi nhánh</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;">Đúng giờ</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;">Trễ</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;">Chưa vào</th>
+          </tr>
+        </thead>
+        <tbody>${branchRows}</tbody>
+      </table>
+    ` : ""}
+
+    <div style="text-align:center;">
+      <a href="https://timio.vn/dashboard/reports" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;">
+        Xem báo cáo chi tiết →
+      </a>
+    </div>
+  `;
+  return base(`Báo cáo chấm công ${opts.date} — ${opts.companyName}`, content);
+}
+
 // ─── Admin: nhân viên gửi đơn xin nghỉ ────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {

@@ -63,3 +63,24 @@ export function buildDailyReport(params: {
     `👥 Tổng: ${total} nhân viên`
   );
 }
+
+/** Bản text thuần (không HTML) — dùng cho Zalo. scopeLabel = "Toàn công ty" hoặc tên chi nhánh */
+export function buildDailyReportText(params: {
+  companyName: string;
+  date: string;
+  scopeLabel: string;
+  total: number;
+  onTime: number;
+  late: number;
+  notYet: number;
+}): string {
+  const { companyName, date, scopeLabel, total, onTime, late, notYet } = params;
+  return (
+    `Báo cáo chấm công ${date}\n` +
+    `${companyName} — ${scopeLabel}\n\n` +
+    `Đúng giờ: ${onTime}\n` +
+    `Đến trễ: ${late}\n` +
+    `Chưa vào: ${notYet}\n` +
+    `Tổng: ${total} nhân viên`
+  );
+}

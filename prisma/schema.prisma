@@ -81,6 +81,7 @@ model Admin {
   telegramChatId    String?
   receiveZalo       Boolean @default(false)
   zaloUserId        String? // Zalo user ID (người dùng phải follow OA trước)
+  receiveDailyReport Boolean @default(false) // Nhận báo cáo chấm công hàng ngày (email + zalo)
   createdAt DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

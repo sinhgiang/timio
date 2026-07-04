@@ -16,6 +16,7 @@ interface TeamMember {
   telegramChatId: string | null;
   receiveZalo: boolean;
   zaloUserId: string | null;
+  receiveDailyReport: boolean;
   createdAt: string | Date;
 }
 
@@ -94,7 +95,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
     setShowAdd(false);
   };
 
-  const togglePref = async (id: string, field: "receiveLeaveEmail" | "receiveTelegram" | "receiveZalo", value: boolean) => {
+  const togglePref = async (id: string, field: "receiveLeaveEmail" | "receiveTelegram" | "receiveZalo" | "receiveDailyReport", value: boolean) => {
     const res = await fetch(`/api/team/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
     if (res.ok) {
       const updated = await res.json();
@@ -359,6 +360,29 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                     value={m.zaloUserId ?? ""}
                     onSave={(val) => saveZalo(m.id, val)}
                   />
+                )}
+              </div>
+
+              {/* Daily attendance report */}
+              <div className="border-t border-gray-50 pt-4 mt-4 space-y-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Báo cáo chấm công hàng ngày</p>
+                <button
+                  onClick={() => canEdit && togglePref(m.id, "receiveDailyReport", !m.receiveDailyReport)}
+                  disabled={!canEdit}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    m.receiveDailyReport ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-gray-50 border-gray-200 text-gray-400"
+                  } ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Nhận báo cáo hàng ngày {m.receiveDailyReport ? "BẬT" : "TẮT"}
+                </button>
+                {m.receiveDailyReport && (
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Gửi vào <span className="font-medium text-gray-500">email</span>
+                    {m.receiveZalo && zaloReady && m.zaloUserId ? <> và <span className="font-medium text-gray-500">Zalo</span></> : null}
+                    {" "}mỗi ngày: số nhân viên đúng giờ, đến trễ, chưa vào
+                    {m.branchId ? " (chi nhánh của bạn)" : " (toàn công ty)"}.
+                  </p>
                 )}
               </div>
             </div>

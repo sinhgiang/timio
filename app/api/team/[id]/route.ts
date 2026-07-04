@@ -37,11 +37,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.telegramChatId !== undefined) data.telegramChatId = body.telegramChatId || null;
   if (body.receiveZalo !== undefined) data.receiveZalo = Boolean(body.receiveZalo);
   if (body.zaloUserId !== undefined) data.zaloUserId = body.zaloUserId || null;
+  if (body.receiveDailyReport !== undefined) data.receiveDailyReport = Boolean(body.receiveDailyReport);
 
   const updated = await prisma.admin.update({
     where: { id: params.id },
     data,
-    select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
+    select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, receiveDailyReport: true, createdAt: true,
       branch: { select: { name: true } } },
   });
 
