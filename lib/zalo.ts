@@ -79,6 +79,57 @@ async function refreshOaToken(auth: ZaloCompanyAuth): Promise<string | null> {
 }
 
 /**
+ * Đổi authorization code (sau khi OA admin đồng ý uỷ quyền) lấy access_token +
+ * refresh_token, rồi lưu vào Company. Trả về { ok, error? }.
+ */
+export async function exchangeOaCode({
+  companyId,
+  appId,
+  secretKey,
+  code,
+  oaId,
+}: {
+  companyId: string;
+  appId: string;
+  secretKey: string;
+  code: string;
+  oaId?: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const body = new URLSearchParams({
+    code,
+    app_id: appId,
+    grant_type: "authorization_code",
+  });
+  try {
+    const res = await fetch(OAUTH_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        secret_key: secretKey,
+      },
+      body,
+    });
+    const data = (await res.json()) as RefreshResult;
+    if (!data.access_token) {
+      return { ok: false, error: data.error_description ?? data.error_name ?? `Zalo error ${data.error ?? "unknown"}` };
+    }
+    const expiresInSec = Number(data.expires_in ?? 3600);
+    await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        zaloOaToken: data.access_token,
+        zaloRefreshToken: data.refresh_token ?? null,
+        zaloTokenExpiresAt: new Date(Date.now() + expiresInSec * 1000),
+        ...(oaId ? { zaloOaId: oaId } : {}),
+      },
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "unknown" };
+  }
+}
+
+/**
  * Lấy access token còn hạn. Nếu sắp hết hạn (còn <5 phút) thì tự gia hạn.
  * Trả null nếu công ty chưa cấu hình Zalo hoặc gia hạn thất bại.
  */

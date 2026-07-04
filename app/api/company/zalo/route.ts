@@ -15,22 +15,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Thông báo Zalo OA chỉ có trong gói Pro trở lên" }, { status: 403 });
   }
 
-  const { zaloOaToken, zaloOaId, zaloAppId, zaloSecretKey, zaloRefreshToken } = await req.json();
+  const body = await req.json();
 
-  // Khi dán token mới → đặt hạn 24h (Zalo OA token sống ~25h), sau đó tự gia hạn
-  const expiresAt = zaloOaToken ? new Date(Date.now() + 24 * 3600 * 1000) : null;
+  // Cập nhật TỪNG PHẦN — chỉ đổi field được gửi, tránh xoá mất token OAuth
+  const data: Record<string, unknown> = {};
+  if ("zaloOaId" in body) data.zaloOaId = body.zaloOaId || null;
+  if ("zaloAppId" in body) data.zaloAppId = body.zaloAppId || null;
+  if ("zaloSecretKey" in body) data.zaloSecretKey = body.zaloSecretKey || null;
+  if ("zaloOaToken" in body) {
+    data.zaloOaToken = body.zaloOaToken || null;
+    data.zaloTokenExpiresAt = body.zaloOaToken ? new Date(Date.now() + 3600 * 1000) : null;
+  }
+  if ("zaloRefreshToken" in body) data.zaloRefreshToken = body.zaloRefreshToken || null;
 
-  await prisma.company.update({
-    where: { id: user.companyId },
-    data: {
-      zaloOaToken: zaloOaToken || null,
-      zaloOaId: zaloOaId || null,
-      zaloAppId: zaloAppId || null,
-      zaloSecretKey: zaloSecretKey || null,
-      zaloRefreshToken: zaloRefreshToken || null,
-      zaloTokenExpiresAt: expiresAt,
-    },
-  });
+  await prisma.company.update({ where: { id: user.companyId }, data });
 
   return NextResponse.json({ ok: true });
 }
