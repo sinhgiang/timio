@@ -543,18 +543,9 @@ export async function executeChatTool(
           return { error: "Nội dung email quá ngắn, hãy soạn nội dung rõ ràng hơn." };
         }
         const all = await resolveReminderRecipients(ctx, target, branchFilter);
-        const recipients = all.filter((r) => r.email).slice(0, MAX_EMAIL_RECIPIENTS);
-        if (recipients.length === 0) {
-          return { error: "Không có nhân viên nào có email để gửi. Hãy bổ sung email trong Dashboard trước." };
+        if (all.length === 0) {
+          return { error: "Không tìm thấy nhân viên phù hợp." };
         }
-        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName);
-        const results = await Promise.allSettled(
-          recipients.map((r) =>
-            sendEmail({ to: r.email as string, subject, html })
-          )
-        );
-        const sent = results.filter((x) => x.status === "fulfilled").length;
-        const failed = results.length - sent;
 
         // Zalo & Facebook: chưa gửi tự động được → trả link để gửi tay
         const zaloContacts = all
@@ -563,6 +554,20 @@ export async function executeChatTool(
         const facebookContacts = all
           .filter((r) => r.facebook)
           .map((r) => ({ name: r.name, link: facebookLink(r.facebook as string) }));
+
+        const recipients = all.filter((r) => r.email).slice(0, MAX_EMAIL_RECIPIENTS);
+        if (recipients.length === 0 && zaloContacts.length === 0 && facebookContacts.length === 0) {
+          return { error: "Nhân viên chưa có email/Zalo/Facebook nào. Hãy bổ sung liên hệ trong Dashboard → Nhân viên trước." };
+        }
+
+        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName);
+        const results = await Promise.allSettled(
+          recipients.map((r) =>
+            sendEmail({ to: r.email as string, subject, html })
+          )
+        );
+        const sent = results.filter((x) => x.status === "fulfilled").length;
+        const failed = results.length - sent;
 
         return {
           emailSent: sent,
@@ -574,11 +579,13 @@ export async function executeChatTool(
           zaloContacts,
           facebookContacts,
           note:
-            "Email đã gửi tự động. Zalo/Facebook chưa gửi tự động được — hãy đưa link + nội dung ở trên để user bấm mở chat và dán tin gửi tay.",
+            "Email đã gửi tự động (nếu có). Zalo/Facebook chưa gửi tự động được — hãy đưa link + nội dung ở trên để user bấm mở chat và dán tin gửi tay.",
           message:
-            failed > 0
-              ? `Đã gửi ${sent} email thành công, ${failed} lỗi.`
-              : `Đã gửi email tự động cho ${sent} nhân viên.`,
+            sent > 0
+              ? (failed > 0
+                  ? `Đã gửi ${sent} email thành công, ${failed} lỗi. Xem thêm link Zalo/Facebook để gửi tay.`
+                  : `Đã gửi email tự động cho ${sent} nhân viên. Xem thêm link Zalo/Facebook để gửi tay.`)
+              : "Không có ai có email, nhưng có thể gửi qua Zalo/Facebook bằng link bên dưới.",
         };
       }
 
