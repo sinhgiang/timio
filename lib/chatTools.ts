@@ -199,7 +199,7 @@ const TOOL_DEFS: ToolDef[] = [
     tool: {
       name: "send_email_reminder",
       description:
-        "GỬI thông báo đa kênh: gửi EMAIL tự động cho nhân viên, ĐỒNG THỜI trả về link Zalo + Facebook kèm nội dung để gửi tay. CHỈ gọi tool này SAU KHI đã dùng preview_email_recipients và user đã XÁC NHẬN đồng ý gửi. KHÔNG bao giờ tự gửi khi user chưa đồng ý rõ ràng. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
+        "GỬI thông báo đa kênh: gửi EMAIL tự động cho nhân viên, ĐỒNG THỜI trả về link Zalo + Facebook kèm nội dung để gửi tay. Gọi sau preview_email_recipients. Nếu ÍT người nhận (1-3) và user đã yêu cầu rõ thì gọi LUÔN không cần hỏi xác nhận. Nếu NHIỀU người (4+) thì chỉ gọi sau khi user đã xác nhận. target giống preview_email_recipients. subject = tiêu đề email, message = nội dung (viết sẵn, thân thiện, tiếng Việt).",
       input_schema: {
         type: "object" as const,
         properties: {
@@ -770,12 +770,12 @@ Trả lời câu hỏi về dữ liệu công ty bằng cách dùng các tool đ
 
 ## Gửi thông báo đa kênh cho nhân viên (Email + Zalo + Facebook — dành cho ADMIN và QUẢN LÝ)
 Cả admin (owner) VÀ quản lý (manager) đều dùng được tính năng này. Quản lý chỉ gửi được cho nhân viên chi nhánh mình.
-Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi người chấm công", "gửi tin cho những người chưa check-in qua email zalo facebook"), làm theo ĐÚNG các bước, KHÔNG bỏ bước:
-1. Gọi preview_email_recipients (target: 'absent_today' | 'all' | tên người). Nó cho biết bao nhiêu người có email (gửi tự động), bao nhiêu người có Zalo/Facebook (gửi tay).
-2. Soạn sẵn nội dung (tiếng Việt, thân thiện, ngắn gọn), HIỂN THỊ cho user: sẽ gửi email tự động cho X người; Zalo Y người, Facebook Z người (gửi tay bằng link).
-3. HỎI user xác nhận rõ ràng: "Bạn xác nhận gửi không?"
-4. CHỈ khi user đồng ý rõ ràng (vd: "gửi đi", "đồng ý", "ok") thì mới gọi send_email_reminder.
-5. Sau khi gửi, trình bày kết quả: đã gửi bao nhiêu email tự động; rồi liệt kê phần "Gửi qua Zalo" và "Gửi qua Facebook" — mỗi người kèm LINK (từ zaloContacts/facebookContacts) để user bấm mở chat, và nhắc user copy nội dung (messageToCopy) dán vào gửi.
+Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi người chấm công", "gửi tin cho những người chưa check-in qua email zalo facebook"), làm theo các bước:
+1. Gọi preview_email_recipients (target: 'absent_today' | 'all' | tên người). Nó cho biết TỔNG số người nhận và bao nhiêu người có email/Zalo/Facebook.
+2. QUYẾT ĐỊNH hỏi hay không dựa trên SỐ NGƯỜI NHẬN:
+   - ÍT NGƯỜI (từ 1 đến 3 người): GỬI LUÔN — gọi thẳng send_email_reminder, KHÔNG hỏi xác nhận. User đã yêu cầu rõ ("gửi email cho A", "nhắc B và C") thì cứ gửi, đừng hỏi lại vì gây phiền.
+   - NHIỀU NGƯỜI (từ 4 người trở lên): PHẢI hỏi xác nhận trước. Soạn sẵn nội dung, cho user xem sẽ gửi cho bao nhiêu người, và NHẮC user soát danh sách xem có ai bị nhầm không (vd: "Danh sách có 12 người, anh xem có ai không đúng không? Xác nhận thì tôi gửi."). Chỉ gọi send_email_reminder khi user đồng ý rõ ràng.
+3. Sau khi gửi, trình bày kết quả: đã gửi bao nhiêu email tự động; rồi liệt kê phần "Gửi qua Zalo" và "Gửi qua Facebook" — mỗi người kèm LINK (từ zaloContacts/facebookContacts) để user bấm mở chat, và nhắc user copy nội dung (messageToCopy) dán vào gửi.
 CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa quá):
 - EMAIL/GMAIL: gửi HOÀN TOÀN TỰ ĐỘNG. Nhân viên cần có email trong hệ thống.
 - ZALO: gửi TỰ ĐỘNG cho nhân viên ĐÃ FOLLOW Zalo OA của công ty (preview trả về 'zaloAuto'). Nhân viên có số Zalo nhưng CHƯA follow (zaloManual) thì hệ thống trả LINK để gửi tay. Muốn tự động cho nhiều người hơn → cho nhân viên quét QR follow OA (Dashboard → Nhân viên → Kết nối Zalo).
