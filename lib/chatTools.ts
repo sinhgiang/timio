@@ -741,7 +741,7 @@ function facebookLink(fb: string): string {
 }
 
 // Tạo HTML email nhắc nhở đơn giản, an toàn. logoUrl = link ảnh công khai (nếu có).
-function buildReminderHtml(
+export function buildReminderHtml(
   message: string,
   companyName: string,
   senderName: string,

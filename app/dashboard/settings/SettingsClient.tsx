@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import BranchQRCard from "@/components/settings/BranchQRCard";
+import AutoReminderPanel from "@/components/settings/AutoReminderPanel";
 import PlanGate from "@/components/ui/PlanGate";
 import {
   Monitor,
@@ -1479,6 +1480,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           Báo cáo thử được gửi ngay đến email đăng nhập của bạn (dùng để kiểm tra).
         </p>
       </div>
+
+      {/* ── Auto Reminder (nhắc chấm công tự động) ── */}
+      <AutoReminderPanel zaloConnected={zaloConnected} />
 
       {/* ── Auto Payslip ── */}
       <div className="border-t border-gray-100 pt-6">

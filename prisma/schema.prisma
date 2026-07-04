@@ -32,6 +32,7 @@ model Company {
   affiliateCode   String? // code của affiliate partner đã giới thiệu
   paydayOfMonth   Int     @default(5) // ngày phát lương hàng tháng (1-31)
   trialEndsAt     DateTime? // null = không dùng thử / đã trả tiền
+  autoReminderConfig String? // JSON: nhắc chấm công tự động { enabled, channels{email,telegram,zalo}, times[hour], days[0-6], target, subject, message }
   createdAt   DateTime  @default(now())
 
   branches      Branch[]
