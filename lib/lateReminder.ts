@@ -5,6 +5,7 @@ import { getValidOaToken, sendZaloMessage } from "@/lib/zalo";
 import { sendTelegram } from "@/lib/telegram";
 import { buildReminderHtml } from "@/lib/chatTools";
 import { getTodayString } from "@/lib/utils";
+import { sendExpoPush } from "@/lib/push";
 import type { ReminderChannels } from "@/lib/reminderSend";
 
 export interface LateReminderConfig {
@@ -51,6 +52,7 @@ export interface LateReminderResult {
   emailSent: number;
   telegramGroups: string[];
   zaloSent: number;
+  pushSent: number;
   skippedHoliday?: string;
 }
 
@@ -59,6 +61,7 @@ interface DueEmployee {
   name: string;
   email: string | null;
   zaloUserId: string | null;
+  pushToken: string | null;
   branchId: string;
 }
 
@@ -134,7 +137,7 @@ export async function computeDueEmployees(
     prisma.employee.findMany({
       where: { companyId, status: "active" },
       select: {
-        id: true, name: true, email: true, zaloUserId: true, branchId: true, shiftOverride: true,
+        id: true, name: true, email: true, zaloUserId: true, pushToken: true, branchId: true, shiftOverride: true,
         branch: { select: { checkInTime: true, gracePeriod: true, workDays: true, name: true, telegramChatId: true } },
       },
     }),
@@ -198,7 +201,7 @@ export async function computeDueEmployees(
     if (nowMinutes < thresholdMin) continue; // chưa tới lúc nhắc
     if (nowMinutes > shiftStartMin + REMIND_WINDOW_MINUTES) continue; // đã quá cửa sổ nhắc
 
-    due.push({ id: e.id, name: e.name, email: e.email, zaloUserId: e.zaloUserId, branchId: e.branchId });
+    due.push({ id: e.id, name: e.name, email: e.email, zaloUserId: e.zaloUserId, pushToken: e.pushToken, branchId: e.branchId });
     const bi = branchInfo.get(e.branchId) ?? { name: e.branch.name, chatId: e.branch.telegramChatId, names: [] };
     bi.names.push(e.name);
     branchInfo.set(e.branchId, bi);
@@ -212,7 +215,7 @@ export async function computeDueEmployees(
  * Bỏ qua ngày lễ / nghỉ phép / ngày nghỉ; ưu tiên ca theo ngày; chỉ nhắc 1 lần/người/ngày.
  */
 export async function runLateReminders(companyId: string, cfg: LateReminderConfig): Promise<LateReminderResult> {
-  const result: LateReminderResult = { due: 0, emailSent: 0, telegramGroups: [], zaloSent: 0 };
+  const result: LateReminderResult = { due: 0, emailSent: 0, telegramGroups: [], zaloSent: 0, pushSent: 0 };
   if (!cfg.enabled) return result;
   if (!cfg.channels.email && !cfg.channels.telegram && !cfg.channels.zalo) return result;
 
@@ -293,6 +296,17 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
         ).length;
       }
     }
+  }
+
+  // PUSH — thông báo đẩy tới app cho ai đã cài app + bật thông báo (không cần bật kênh riêng)
+  const pushTokens = due.map((d) => d.pushToken);
+  if (pushTokens.some(Boolean)) {
+    result.pushSent = await sendExpoPush(
+      pushTokens,
+      "Nhắc chấm công",
+      "Bạn chưa chấm công hôm nay — mở app để check-in ngay nhé.",
+      { type: "late_reminder" }
+    );
   }
 
   return result;
