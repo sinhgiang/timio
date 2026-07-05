@@ -253,6 +253,109 @@ const TOOL_DEFS: ToolDef[] = [
       },
     },
   },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "get_requests",
+      description:
+        "Xem chi tiết các ĐƠN TỪ của nhân viên. loai: 'overtime' (đơn tăng ca), 'early_leave' (xin về sớm), 'correction' (xin sửa chấm công), 'shift_swap' (xin đổi ca). status: pending/approved/rejected/all. Dùng khi hỏi 'ai xin tăng ca', 'đơn về sớm chờ duyệt', 'ai xin đổi ca'.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          loai: { type: "string", description: "'overtime' | 'early_leave' | 'correction' | 'shift_swap'" },
+          status: { type: "string", description: "'pending' | 'approved' | 'rejected' | 'all'. Bỏ trống = pending" },
+        },
+        required: ["loai"],
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "get_shift_schedule",
+      description:
+        "Xem lịch phân ca: ai làm ca nào (giờ vào/ra) trong một ngày. Dùng khi hỏi 'hôm nay ai làm ca sáng', 'ca chiều gồm những ai', 'lịch ca ngày mai'.",
+      input_schema: {
+        type: "object" as const,
+        properties: { date: { type: "string", description: "Ngày YYYY-MM-DD. Bỏ trống = hôm nay" } },
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "get_hr_records",
+      description:
+        "Xem hồ sơ nhân sự. loai: 'discipline' (kỷ luật), 'asset' (tài sản bàn giao), 'certificate' (chứng chỉ), 'contract' (hợp đồng lao động), 'work_history' (lịch sử công tác thăng chức/chuyển), 'performance' (đánh giá hiệu suất), 'onboarding' (tiến độ onboarding/offboarding). employeeName = lọc 1 người. expiringSoon=true = chỉ lấy hợp đồng/chứng chỉ sắp hết hạn (trong 60 ngày).",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          loai: { type: "string", description: "'discipline'|'asset'|'certificate'|'contract'|'work_history'|'performance'|'onboarding'" },
+          employeeName: { type: "string", description: "Lọc theo tên nhân viên (tùy chọn)" },
+          expiringSoon: { type: "boolean", description: "true = chỉ hợp đồng/chứng chỉ sắp hết hạn (60 ngày)" },
+        },
+        required: ["loai"],
+      },
+    },
+  },
+  {
+    roles: FINANCE_ROLES,
+    tool: {
+      name: "get_finance_records",
+      description:
+        "Xem dữ liệu TÀI CHÍNH. loai: 'salary_payments' (đã trả/chưa trả lương tháng), 'salary_history' (lịch sử tăng/giảm lương), 'sales' (doanh số/KPI tháng), 'expenses' (đề nghị thanh toán chi phí). year+month cho lương/doanh số; status để lọc. CHỈ admin và kế toán.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          loai: { type: "string", description: "'salary_payments' | 'salary_history' | 'sales' | 'expenses'" },
+          year: { type: "number", description: "Năm (mặc định năm nay)" },
+          month: { type: "number", description: "Tháng 1-12 (mặc định tháng này)" },
+          status: { type: "string", description: "Lọc trạng thái (vd unpaid/paid/pending/approved)" },
+        },
+        required: ["loai"],
+      },
+    },
+  },
+  {
+    roles: ALL_ROLES,
+    tool: {
+      name: "get_announcements",
+      description: "Xem bảng tin / thông báo nội bộ công ty (còn hiệu lực). Dùng khi hỏi 'có thông báo gì mới', 'bảng tin công ty'.",
+      input_schema: { type: "object" as const, properties: {} },
+    },
+  },
+  {
+    roles: ALL_ROLES,
+    tool: {
+      name: "get_holidays",
+      description: "Xem danh sách ngày lễ / ngày nghỉ của công ty trong năm (kèm ngày lễ đó có tính phạt trễ hay không). Dùng khi hỏi 'năm nay nghỉ lễ ngày nào', 'lịch nghỉ tết'.",
+      input_schema: {
+        type: "object" as const,
+        properties: { year: { type: "number", description: "Năm cần xem. Bỏ trống = năm nay" } },
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "get_recruitment",
+      description: "Xem tuyển dụng: các vị trí đang tuyển và số ứng viên theo từng trạng thái (mới/phỏng vấn/offer/đã tuyển). Dùng khi hỏi 'đang tuyển vị trí nào', 'bao nhiêu ứng viên'.",
+      input_schema: { type: "object" as const, properties: {} },
+    },
+  },
+  {
+    roles: OWNER_ONLY,
+    tool: {
+      name: "get_admin_data",
+      description:
+        "Dữ liệu chỉ dành cho ADMIN. loai: 'audit_log' (nhật ký hoạt động admin gần đây), 'billing' (lịch sử thanh toán gói + hạn gói). Dùng khi admin hỏi 'ai vừa sửa gì', 'lịch sử thanh toán', 'gói hết hạn khi nào'.",
+      input_schema: {
+        type: "object" as const,
+        properties: { loai: { type: "string", description: "'audit_log' | 'billing'" } },
+        required: ["loai"],
+      },
+    },
+  },
 ];
 
 /** Danh sách tool theo role — chỉ đưa cho AI những tool user được phép dùng */
@@ -834,6 +937,153 @@ export async function executeChatTool(
         };
       }
 
+      case "get_requests": {
+        const loai = String(input.loai ?? "");
+        const status = String(input.status ?? "pending").toLowerCase();
+        const statusWhere = status === "all" ? {} : { status };
+        const empRel = { companyId: ctx.companyId, ...branchFilter };
+        const take = 30;
+        if (loai === "overtime") {
+          const rows = await prisma.overtimeRequest.findMany({ where: { employee: empRel, ...statusWhere }, select: { date: true, startTime: true, endTime: true, hours: true, reason: true, status: true, employee: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, status, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ngay: r.date, gio: `${r.startTime}-${r.endTime}`, soGio: r.hours, lyDo: r.reason, trangThai: r.status })) };
+        }
+        if (loai === "early_leave") {
+          const rows = await prisma.earlyLeaveRequest.findMany({ where: { employee: empRel, ...statusWhere }, select: { date: true, leaveTime: true, reason: true, status: true, employee: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, status, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ngay: r.date, gioVe: r.leaveTime, lyDo: r.reason, trangThai: r.status })) };
+        }
+        if (loai === "correction") {
+          const rows = await prisma.correctionRequest.findMany({ where: { employee: empRel, ...statusWhere }, select: { date: true, type: true, requestedCheckIn: true, requestedCheckOut: true, reason: true, status: true, employee: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, status, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ngay: r.date, loaiSua: r.type, gioVaoDeNghi: r.requestedCheckIn, gioRaDeNghi: r.requestedCheckOut, lyDo: r.reason, trangThai: r.status })) };
+        }
+        if (loai === "shift_swap") {
+          const rows = await prisma.shiftSwapRequest.findMany({ where: { requester: empRel, ...statusWhere }, select: { requesterDate: true, targetDate: true, reason: true, status: true, requester: { select: { name: true } }, target: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, status, count: rows.length, items: rows.map((r) => ({ nguoiXin: r.requester.name, nguoiDoi: r.target.name, ngayCuaMinh: r.requesterDate, ngayDoiSang: r.targetDate, lyDo: r.reason, trangThai: r.status })) };
+        }
+        return { error: "loai không hợp lệ. Dùng: overtime | early_leave | correction | shift_swap" };
+      }
+
+      case "get_shift_schedule": {
+        const date = String(input.date ?? "").trim() || todayVN();
+        const rows = await prisma.shiftAssignment.findMany({ where: { companyId: ctx.companyId, date, employee: { ...branchFilter } }, select: { shiftLabel: true, checkIn: true, checkOut: true, employee: { select: { name: true } } }, orderBy: { checkIn: "asc" }, take: 100 });
+        return { date, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ca: r.shiftLabel, gioVao: r.checkIn, gioRa: r.checkOut })) };
+      }
+
+      case "get_hr_records": {
+        const loai = String(input.loai ?? "");
+        const empName = String(input.employeeName ?? "").trim();
+        const nameFilter = empName ? { name: { contains: empName, mode: "insensitive" as const } } : {};
+        const empRel = { companyId: ctx.companyId, ...branchFilter, ...nameFilter };
+        const expiringSoon = input.expiringSoon === true;
+        const today = todayVN();
+        const in60 = new Date(Date.now() + 60 * 86400 * 1000).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+        const take = 40;
+        if (loai === "discipline") {
+          const rows = await prisma.disciplineRecord.findMany({ where: { employee: empRel }, select: { type: true, date: true, reason: true, employee: { select: { name: true } } }, orderBy: { date: "desc" }, take });
+          return { loai, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, hinhThuc: r.type, ngay: r.date, lyDo: r.reason })) };
+        }
+        if (loai === "asset") {
+          const rows = await prisma.asset.findMany({ where: { employee: empRel }, select: { code: true, name: true, category: true, status: true, assignedAt: true, employee: { select: { name: true } } }, take });
+          return { loai, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee?.name, ma: r.code, ten: r.name, loai: r.category, trangThai: r.status, ngayGiao: r.assignedAt })) };
+        }
+        if (loai === "certificate") {
+          const rows = await prisma.certificate.findMany({ where: { employee: empRel, ...(expiringSoon ? { expiryDate: { not: null, gte: today, lte: in60 } } : {}) }, select: { name: true, issuer: true, issueDate: true, expiryDate: true, employee: { select: { name: true } } }, take });
+          return { loai, count: rows.length, sapHetHan: expiringSoon, items: rows.map((r) => ({ nhanVien: r.employee.name, ten: r.name, noiCap: r.issuer, ngayCap: r.issueDate, ngayHetHan: r.expiryDate })) };
+        }
+        if (loai === "contract") {
+          const rows = await prisma.contract.findMany({ where: { employee: empRel, ...(expiringSoon ? { endDate: { not: null, gte: today, lte: in60 } } : {}) }, select: { type: true, startDate: true, endDate: true, employee: { select: { name: true } } }, take });
+          return { loai, count: rows.length, sapHetHan: expiringSoon, items: rows.map((r) => ({ nhanVien: r.employee.name, loaiHopDong: r.type, tuNgay: r.startDate, denNgay: r.endDate })) };
+        }
+        if (loai === "work_history") {
+          const rows = await prisma.workHistory.findMany({ where: { employee: empRel }, select: { date: true, type: true, description: true, oldValue: true, newValue: true, employee: { select: { name: true } } }, orderBy: { date: "desc" }, take });
+          return { loai, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ngay: r.date, loai: r.type, moTa: r.description, tu: r.oldValue, den: r.newValue })) };
+        }
+        if (loai === "performance") {
+          const rows = await prisma.performanceReview.findMany({ where: { employee: empRel }, select: { period: true, type: true, overallScore: true, selfScore: true, status: true, employee: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ky: r.period, loai: r.type, diemQuanLy: r.overallScore, diemTuCham: r.selfScore, trangThai: r.status })) };
+        }
+        if (loai === "onboarding") {
+          const rows = await prisma.employeeChecklist.findMany({ where: { employee: empRel }, select: { type: true, status: true, dueDate: true, tasks: true, employee: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, count: rows.length, items: rows.map((r) => {
+            let done = 0, total = 0;
+            try { const arr = JSON.parse(r.tasks) as { done?: boolean }[]; total = arr.length; done = arr.filter((t) => t.done).length; } catch { /* ignore */ }
+            return { nhanVien: r.employee.name, loai: r.type, trangThai: r.status, hanChot: r.dueDate, tienDo: `${done}/${total}` };
+          }) };
+        }
+        return { error: "loai không hợp lệ. Dùng: discipline|asset|certificate|contract|work_history|performance|onboarding" };
+      }
+
+      case "get_finance_records": {
+        const loai = String(input.loai ?? "");
+        const [ty, tm] = todayVN().split("-").map(Number);
+        const year = Number(input.year) || ty;
+        const month = Number(input.month) || tm;
+        const status = String(input.status ?? "").toLowerCase();
+        const statusWhere = status ? { status } : {};
+        const take = 50;
+        if (loai === "salary_payments") {
+          const rows = await prisma.salaryPayment.findMany({ where: { companyId: ctx.companyId, year, month, ...statusWhere }, select: { amount: true, status: true, paidAt: true, employee: { select: { name: true } } }, take });
+          const paid = rows.filter((r) => r.status === "paid");
+          return { loai, year, month, count: rows.length, daTra: paid.length, chuaTra: rows.length - paid.length, tongDaTra: paid.reduce((t, r) => t + r.amount, 0), items: rows.map((r) => ({ nhanVien: r.employee.name, soTien: r.amount, trangThai: r.status, ngayTra: r.paidAt })) };
+        }
+        if (loai === "salary_history") {
+          const rows = await prisma.salaryHistory.findMany({ where: { companyId: ctx.companyId }, select: { date: true, oldSalary: true, newSalary: true, reason: true, employee: { select: { name: true } } }, orderBy: { date: "desc" }, take });
+          return { loai, count: rows.length, items: rows.map((r) => ({ nhanVien: r.employee.name, ngay: r.date, luongCu: r.oldSalary, luongMoi: r.newSalary, lyDo: r.reason })) };
+        }
+        if (loai === "sales") {
+          const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+          const rows = await prisma.salesRecord.findMany({ where: { companyId: ctx.companyId, month: monthStr }, select: { salesAmount: true, kpiScore: true, employee: { select: { name: true } } }, orderBy: { salesAmount: "desc" }, take });
+          return { loai, month: monthStr, count: rows.length, tongDoanhSo: rows.reduce((t, r) => t + r.salesAmount, 0), items: rows.map((r) => ({ nhanVien: r.employee.name, doanhSo: r.salesAmount, kpi: r.kpiScore })) };
+        }
+        if (loai === "expenses") {
+          const rows = await prisma.expenseClaim.findMany({ where: { companyId: ctx.companyId, ...statusWhere }, select: { title: true, category: true, amount: true, date: true, status: true, employee: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take });
+          return { loai, count: rows.length, tongTien: rows.reduce((t, r) => t + r.amount, 0), items: rows.map((r) => ({ nhanVien: r.employee.name, tieuDe: r.title, loaiChiPhi: r.category, soTien: r.amount, ngay: r.date, trangThai: r.status })) };
+        }
+        return { error: "loai không hợp lệ. Dùng: salary_payments | salary_history | sales | expenses" };
+      }
+
+      case "get_announcements": {
+        const now = new Date();
+        const rows = await prisma.announcement.findMany({ where: { companyId: ctx.companyId, OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] }, select: { title: true, content: true, type: true, pinned: true, publishedAt: true }, orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }], take: 20 });
+        return { count: rows.length, items: rows.map((r) => ({ tieuDe: r.title, noiDung: r.content.slice(0, 300), loai: r.type, ghim: r.pinned, ngay: r.publishedAt })) };
+      }
+
+      case "get_holidays": {
+        const [ty] = todayVN().split("-").map(Number);
+        const year = Number(input.year) || ty;
+        const rows = await prisma.holiday.findMany({ where: { companyId: ctx.companyId, date: { gte: `${year}-01-01`, lte: `${year}-12-31` } }, select: { date: true, name: true, penalizeLate: true }, orderBy: { date: "asc" }, take: 60 });
+        return { year, count: rows.length, items: rows.map((r) => ({ ngay: r.date, ten: r.name, vanTinhPhatTre: r.penalizeLate })) };
+      }
+
+      case "get_recruitment": {
+        const [jobs, candidates] = await Promise.all([
+          prisma.jobPosting.findMany({ where: { companyId: ctx.companyId }, select: { id: true, title: true, department: true, status: true, salaryMin: true, salaryMax: true }, orderBy: { createdAt: "desc" }, take: 30 }),
+          prisma.candidate.findMany({ where: { companyId: ctx.companyId }, select: { status: true, jobId: true } }),
+        ]);
+        const byStatus: Record<string, number> = {};
+        for (const c of candidates) byStatus[c.status] = (byStatus[c.status] ?? 0) + 1;
+        return {
+          viTri: jobs.map((j) => ({ tieuDe: j.title, phongBan: j.department, trangThai: j.status, luongMin: j.salaryMin, luongMax: j.salaryMax, soUngVien: candidates.filter((c) => c.jobId === j.id).length })),
+          tongUngVien: candidates.length,
+          ungVienTheoTrangThai: byStatus,
+        };
+      }
+
+      case "get_admin_data": {
+        const loai = String(input.loai ?? "");
+        if (loai === "audit_log") {
+          const rows = await prisma.auditLog.findMany({ where: { companyId: ctx.companyId }, select: { action: true, entityType: true, adminEmail: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 30 });
+          return { loai, count: rows.length, items: rows.map((r) => ({ hanhDong: r.action, doiTuong: r.entityType, admin: r.adminEmail, luc: r.createdAt })) };
+        }
+        if (loai === "billing") {
+          const [payments, company] = await Promise.all([
+            prisma.payment.findMany({ where: { companyId: ctx.companyId }, select: { amount: true, plan: true, months: true, status: true, paidAt: true }, orderBy: { createdAt: "desc" }, take: 20 }),
+            prisma.company.findUnique({ where: { id: ctx.companyId }, select: { plan: true, planExpires: true, trialEndsAt: true } }),
+          ]);
+          return { loai, goiHienTai: company?.plan, hanGoi: company?.planExpires, hetThuNghiem: company?.trialEndsAt, lichSuThanhToan: payments.map((p) => ({ soTien: p.amount, goi: p.plan, soThang: p.months, trangThai: p.status, ngayTra: p.paidAt })) };
+        }
+        return { error: "loai không hợp lệ. Dùng: audit_log | billing" };
+      }
+
       default:
         return { error: `Tool chưa được cài đặt: ${name}` };
     }
@@ -1008,6 +1258,16 @@ CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa q
 - Hỏi lương / BHXH / thực nhận của MỘT người (vd "lương tháng này của Sinh", "BHXH của Vân bao nhiêu", "thực nhận của An") → gọi get_employee_salary (tên bắt buộc; tháng/năm nếu user nêu, không thì mặc định tháng hiện tại). Trả về: lương cơ bản, phụ cấp, thưởng, tăng ca, phạt, thu nhập trước thuế, BHXH nhân viên đóng (10.5%), BHXH công ty đóng (22%), thuế TNCN, và THỰC NHẬN (net).
 - Hỏi tổng lương/quỹ lương cả công ty → get_salary_summary.
 - Quản lý (manager) KHÔNG xem được lương/BHXH — nếu quản lý hỏi, lịch sự từ chối.
+
+## Các dữ liệu khác tra cứu được qua chat (tự chọn tool phù hợp)
+- Đơn từ: get_requests — loai 'overtime'/'early_leave'/'correction'/'shift_swap' (admin & quản lý).
+- Lịch phân ca theo ngày: get_shift_schedule (admin & quản lý).
+- Hồ sơ nhân sự: get_hr_records — loai 'discipline'/'asset'/'certificate'/'contract'/'work_history'/'performance'/'onboarding'; đặt expiringSoon=true để lọc hợp đồng/chứng chỉ SẮP HẾT HẠN (admin & quản lý).
+- Tài chính: get_finance_records — loai 'salary_payments'/'salary_history'/'sales'/'expenses' (CHỈ admin & kế toán).
+- Thông báo nội bộ: get_announcements. Ngày lễ: get_holidays. (mọi vai trò)
+- Tuyển dụng: get_recruitment (admin & quản lý).
+- Nhật ký hoạt động + lịch sử thanh toán gói: get_admin_data — loai 'audit_log'/'billing' (CHỈ admin).
+Nguyên tắc: user hỏi bất kỳ dữ liệu nào của công ty → tìm tool phù hợp và gọi. Nếu vai trò không có quyền, tool trả "KHÔNG CÓ QUYỀN" → từ chối lịch sự. Quản lý chỉ thấy dữ liệu chi nhánh mình.
 
 ## Hướng dẫn sử dụng Timio (trả lời được không cần tool)
 - Chấm công: nhân viên quét mặt tại kiosk /checkin/[mã công ty] trên điện thoại/tablet văn phòng
