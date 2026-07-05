@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { managerBranchId } from "@/lib/branchScope";
 
 interface DeptStat {
   department: string;
@@ -17,10 +18,12 @@ interface DeptStat {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const mgrBranch = managerBranchId(user);
 
   try {
     const { searchParams } = new URL(req.url);
@@ -39,11 +42,11 @@ export async function GET(req: NextRequest) {
 
     const [employees, summaries] = await Promise.all([
       prisma.employee.findMany({
-        where: { companyId, status: "active" },
+        where: { companyId, status: "active", ...(mgrBranch ? { branchId: mgrBranch } : {}) },
         select: { id: true, department: true },
       }),
       prisma.monthlySummary.findMany({
-        where: { employee: { companyId }, year, month },
+        where: { employee: { companyId, ...(mgrBranch ? { branchId: mgrBranch } : {}) }, year, month },
         select: {
           employeeId: true,
           daysPresent: true,

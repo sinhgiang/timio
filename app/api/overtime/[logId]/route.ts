@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { employeeInScope } from "@/lib/branchScope";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,7 +10,8 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    const companyId = (session?.user as { companyId?: string })?.companyId;
+    const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+    const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { action } = await req.json(); // "approve" | "reject"
@@ -25,6 +27,8 @@ export async function PATCH(
     if (!log || log.employee.companyId !== companyId) {
       return NextResponse.json({ error: "Không tìm thấy bản ghi" }, { status: 404 });
     }
+    if (!(await employeeInScope(user, log.employeeId)))
+      return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
     if (log.overtimeStatus !== "pending") {
       return NextResponse.json({ error: "Bản ghi này không ở trạng thái chờ duyệt" }, { status: 400 });
     }

@@ -15,8 +15,11 @@ interface Props {
 
 export default async function PayslipDetailPage({ params, searchParams }: Props) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const companyId = sUser?.companyId;
   if (!companyId) redirect("/login");
+  // Quản lý KHÔNG xem dữ liệu lương
+  if (sUser?.role === "manager") redirect("/dashboard");
 
   const planRow = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
   if (!planRow || planRow.plan === "starter") {

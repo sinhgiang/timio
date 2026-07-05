@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { managerBranchId } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
     const requests = await prisma.shiftSwapRequest.findMany({
       where: {
         companyId,
+        ...(managerBranchId(user) ? { requester: { branchId: managerBranchId(user)! } } : {}),
         ...(status && status !== "all" ? { status } : {}),
       },
       include: {

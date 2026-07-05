@@ -5,14 +5,30 @@ const SEP = "||";
 const PART = "::";
 const TTL = 30 * 24 * 60 * 60 * 1000; // 30 ngày
 
-export function createManagerToken(adminId: string, companyId: string, email: string): string {
+export type ManagerAuth = {
+  adminId: string;
+  companyId: string;
+  email: string;
+  branchId: string | null;
+  role: string;
+};
+
+export function createManagerToken(
+  adminId: string,
+  companyId: string,
+  email: string,
+  branchId: string | null = null,
+  role: string = "owner"
+): string {
   const exp = Date.now() + TTL;
-  const data = [adminId, companyId, email, String(exp)].join(PART);
+  // Format: adminId::companyId::email::branchId::role::exp
+  // branchId encoded as "" when null. exp luôn ở vị trí cuối cùng.
+  const data = [adminId, companyId, email, branchId ?? "", role, String(exp)].join(PART);
   const sig = crypto.createHmac("sha256", SECRET).update(data).digest("hex");
   return Buffer.from(`${data}${SEP}${sig}`).toString("base64url");
 }
 
-export function verifyManagerToken(token: string): { adminId: string; companyId: string; email: string } | null {
+export function verifyManagerToken(token: string): ManagerAuth | null {
   try {
     const raw = Buffer.from(token, "base64url").toString("utf8");
     const sepIdx = raw.lastIndexOf(SEP);
@@ -22,16 +38,34 @@ export function verifyManagerToken(token: string): { adminId: string; companyId:
     const expected = crypto.createHmac("sha256", SECRET).update(data).digest("hex");
     if (expected !== sig) return null;
     const parts = data.split(PART);
-    if (parts.length < 4) return null;
-    const [adminId, companyId, email, expStr] = parts;
-    if (Date.now() > parseInt(expStr, 10)) return null;
-    return { adminId, companyId, email };
+
+    // Backward compat: token cũ có 4 phần [adminId, companyId, email, exp].
+    // Token mới có 6 phần [adminId, companyId, email, branchId, role, exp].
+    if (parts.length === 4) {
+      const [adminId, companyId, email, expStr] = parts;
+      if (Date.now() > parseInt(expStr, 10)) return null;
+      return { adminId, companyId, email, branchId: null, role: "owner" };
+    }
+
+    if (parts.length >= 6) {
+      const [adminId, companyId, email, branchIdRaw, role, expStr] = parts;
+      if (Date.now() > parseInt(expStr, 10)) return null;
+      return {
+        adminId,
+        companyId,
+        email,
+        branchId: branchIdRaw ? branchIdRaw : null,
+        role: role || "owner",
+      };
+    }
+
+    return null;
   } catch {
     return null;
   }
 }
 
-export function getManagerAuth(req: Request): { adminId: string; companyId: string; email: string } | null {
+export function getManagerAuth(req: Request): ManagerAuth | null {
   const auth = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return null;

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email hoặc mật khẩu không đúng" }, { status: 401 });
     }
 
-    const token = createManagerToken(admin.id, admin.companyId, admin.email);
+    const token = createManagerToken(admin.id, admin.companyId, admin.email, admin.branchId, admin.role);
 
     return NextResponse.json({
       token,

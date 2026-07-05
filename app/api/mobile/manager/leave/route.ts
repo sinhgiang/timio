@@ -6,6 +6,8 @@ export async function GET(req: NextRequest) {
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") ?? "pending";
@@ -14,6 +16,7 @@ export async function GET(req: NextRequest) {
       where: {
         companyId: auth.companyId,
         ...(status !== "all" ? { status } : {}),
+        ...(mgrBranch ? { employee: { branchId: mgrBranch } } : {}),
       },
       include: {
         employee: { select: { name: true, department: true, position: true } },

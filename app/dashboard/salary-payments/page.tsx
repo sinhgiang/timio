@@ -17,6 +17,7 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
   const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) redirect("/login");
+  if (user.role === "manager") redirect("/dashboard"); // quản lý không xem lương
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

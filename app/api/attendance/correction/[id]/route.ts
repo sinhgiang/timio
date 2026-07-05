@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { employeeInScope } from "@/lib/branchScope";
 
 // PATCH — HR duyệt hoặc từ chối
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    const companyId = (session?.user as { companyId?: string })?.companyId;
+    const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+    const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { status, adminNote } = await req.json();
@@ -20,6 +22,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       include: { employee: { select: { id: true, branchId: true } } },
     });
     if (!correction) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+
+    if (!(await employeeInScope(user, correction.employeeId)))
+      return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
+
     if (correction.status !== "pending") {
       return NextResponse.json({ error: "Yêu cầu đã được xử lý" }, { status: 409 });
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { employeeInScope } from "@/lib/branchScope";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,7 +10,7 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    const user = session?.user as { companyId?: string } | undefined;
+    const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
     const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -24,6 +25,9 @@ export async function PATCH(
       where: { id: params.id, companyId },
     });
     if (!existing) return NextResponse.json({ error: "Không tìm thấy yêu cầu" }, { status: 404 });
+
+    if (!(await employeeInScope(user, existing.employeeId)))
+      return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
 
     const updated = await prisma.overtimeRequest.update({
       where: { id: params.id },
@@ -70,9 +74,16 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    const user = session?.user as { companyId?: string } | undefined;
+    const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
     const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const existing = await prisma.overtimeRequest.findFirst({
+      where: { id: params.id, companyId },
+      select: { employeeId: true },
+    });
+    if (existing && !(await employeeInScope(user, existing.employeeId)))
+      return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
 
     await prisma.overtimeRequest.deleteMany({
       where: { id: params.id, companyId, status: "pending" },

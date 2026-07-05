@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { managerBranchId } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { companyId?: string } | undefined;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
@@ -14,9 +15,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "employeeId là bắt buộc" }, { status: 400 });
   }
 
+  const scopedBranchId = managerBranchId(user);
   try {
     const history = await prisma.workHistory.findMany({
-      where: { companyId: user.companyId, employeeId },
+      where: {
+        companyId: user.companyId,
+        employeeId,
+        employee: { companyId: user.companyId, ...(scopedBranchId ? { branchId: scopedBranchId } : {}) },
+        ...(user.role === "manager" ? { type: { not: "salary_change" } } : {}),
+      },
       orderBy: { date: "desc" },
       include: {
         employee: { select: { id: true, name: true, code: true } },

@@ -6,9 +6,15 @@ export async function GET(req: NextRequest) {
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+
   try {
     const employees = await prisma.employee.findMany({
-      where: { companyId: auth.companyId, status: "active" },
+      where: {
+        companyId: auth.companyId,
+        status: "active",
+        ...(mgrBranch ? { branchId: mgrBranch } : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -37,7 +43,8 @@ export async function GET(req: NextRequest) {
         phone: e.phone ?? "",
         email: e.email ?? "",
         joinDate: e.joinDate ? e.joinDate.toISOString().slice(0, 10) : null,
-        baseSalary: e.baseSalary ?? 0,
+        // Branch manager không được xem lương → chỉ trả baseSalary cho owner/accountant
+        ...(mgrBranch ? {} : { baseSalary: e.baseSalary ?? 0 }),
         annualLeaveBalance: e.annualLeaveBalance,
         branchName: e.branch.name,
       }))

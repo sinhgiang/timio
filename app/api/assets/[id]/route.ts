@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { employeeInScope } from "@/lib/branchScope";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { companyId?: string } | undefined;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await prisma.asset.findFirst({
@@ -27,6 +28,11 @@ export async function PATCH(
   const allowedStatuses = ["available", "assigned", "damaged", "lost"];
   if (body.status && !allowedStatuses.includes(body.status)) {
     return NextResponse.json({ error: "Trạng thái không hợp lệ" }, { status: 400 });
+  }
+
+  // Branch manager: nếu gán tài sản cho 1 nhân viên, nhân viên đó phải thuộc chi nhánh mình
+  if (body.employeeId && !(await employeeInScope(user, body.employeeId))) {
+    return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
   }
 
   try {

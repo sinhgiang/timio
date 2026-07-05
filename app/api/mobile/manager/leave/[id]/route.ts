@@ -6,6 +6,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+
   try {
     const { status, note } = await req.json();
     if (!["approved", "rejected"].includes(status)) {
@@ -14,9 +16,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     const leave = await prisma.leaveRequest.findFirst({
       where: { id: params.id, companyId: auth.companyId },
+      include: { employee: { select: { branchId: true } } },
     });
 
     if (!leave) return NextResponse.json({ error: "Không tìm thấy đơn" }, { status: 404 });
+
+    // Branch manager chỉ được duyệt/từ chối đơn của nhân viên thuộc chi nhánh mình
+    if (mgrBranch && leave.employee.branchId !== mgrBranch) {
+      return NextResponse.json({ error: "Không có quyền với đơn của chi nhánh khác" }, { status: 403 });
+    }
+
     if (leave.status !== "pending") {
       return NextResponse.json({ error: "Đơn đã được xử lý" }, { status: 409 });
     }

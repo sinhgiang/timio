@@ -6,13 +6,19 @@ export async function GET(req: NextRequest) {
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date") ||
       new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 
     const employees = await prisma.employee.findMany({
-      where: { companyId: auth.companyId, status: "active" },
+      where: {
+        companyId: auth.companyId,
+        status: "active",
+        ...(mgrBranch ? { branchId: mgrBranch } : {}),
+      },
       select: {
         id: true,
         name: true,

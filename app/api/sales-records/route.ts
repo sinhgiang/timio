@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role === "manager") return NextResponse.json({ error: "Quản lý không xem được doanh số/hoa hồng." }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month"); // YYYY-MM
@@ -24,8 +26,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role === "manager") return NextResponse.json({ error: "Quản lý không xem được doanh số/hoa hồng." }, { status: 403 });
 
   const { employeeId, month, salesAmount, kpiScore, note } = await req.json();
   if (!employeeId || !month) return NextResponse.json({ error: "Thiếu employeeId hoặc month" }, { status: 400 });
@@ -44,8 +48,10 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role === "manager") return NextResponse.json({ error: "Quản lý không xem được doanh số/hoa hồng." }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import OnboardingBanner from "@/components/dashboard/OnboardingBanner";
+import { branchWhere, employeeBranchWhere } from "@/lib/branchScope";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -88,8 +89,8 @@ export default async function DashboardPage() {
       where: { employee: empWhereNested, date: { gte: monthStart, lte: today }, minutesLate: { gt: 0 } },
       select: { employeeId: true, minutesLate: true, employee: { select: { name: true, department: true } } },
     }).catch(() => []),
-    prisma.leaveRequest.count({ where: { companyId, status: "pending" } }).catch(() => 0),
-    prisma.correctionRequest.count({ where: { status: "pending", employee: { companyId } } }).catch(() => 0),
+    prisma.leaveRequest.count({ where: { companyId, status: "pending", ...employeeBranchWhere(u) } }).catch(() => 0),
+    prisma.correctionRequest.count({ where: { status: "pending", employee: { companyId, ...branchWhere(u) } } }).catch(() => 0),
   ]);
 
   // 7-day chart

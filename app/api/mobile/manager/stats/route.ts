@@ -6,17 +6,33 @@ export async function GET(req: NextRequest) {
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+
   try {
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 
     const [totalEmployees, logs, pendingLeave] = await Promise.all([
-      prisma.employee.count({ where: { companyId: auth.companyId, status: "active" } }),
+      prisma.employee.count({
+        where: {
+          companyId: auth.companyId,
+          status: "active",
+          ...(mgrBranch ? { branchId: mgrBranch } : {}),
+        },
+      }),
       prisma.attendanceLog.findMany({
-        where: { date: today, employee: { companyId: auth.companyId } },
+        where: {
+          date: today,
+          employee: { companyId: auth.companyId },
+          ...(mgrBranch ? { branchId: mgrBranch } : {}),
+        },
         select: { status: true, minutesLate: true },
       }),
       prisma.leaveRequest.count({
-        where: { companyId: auth.companyId, status: "pending" },
+        where: {
+          companyId: auth.companyId,
+          status: "pending",
+          ...(mgrBranch ? { employee: { branchId: mgrBranch } } : {}),
+        },
       }),
     ]);
 

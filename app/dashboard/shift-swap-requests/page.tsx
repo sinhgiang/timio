@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import ShiftSwapClient from "./ShiftSwapClient";
+import { branchWhere } from "@/lib/branchScope";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Đổi ca cho nhau" };
@@ -15,7 +16,7 @@ export default async function ShiftSwapPage() {
   const companyId = user.companyId;
 
   const employees = await prisma.employee.findMany({
-    where: { companyId, status: "active" },
+    where: { companyId, status: "active", ...branchWhere(user) },
     select: { id: true, name: true, code: true, department: true },
     orderBy: { name: "asc" },
   });

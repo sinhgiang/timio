@@ -2,10 +2,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import LeaveCalendarClient from "./LeaveCalendarClient";
+import { employeeBranchWhere } from "@/lib/branchScope";
 
 export default async function LeaveCalendarPage() {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return null;
 
   const now = new Date();
@@ -21,6 +23,7 @@ export default async function LeaveCalendarPage() {
       status: { in: ["approved", "pending"] },
       fromDate: { lte: toDate },
       toDate: { gte: fromDate },
+      ...employeeBranchWhere(user),
     },
     include: {
       employee: { select: { name: true, department: true } },

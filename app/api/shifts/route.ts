@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendTelegram } from "@/lib/telegram";
+import { employeeInScope } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { companyId?: string } | undefined;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { employeeId, date, shiftLabel, checkIn, checkOut, note } = await req.json();
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
 
   const emp = await prisma.employee.findFirst({ where: { id: employeeId, companyId: user.companyId } });
   if (!emp) return NextResponse.json({ error: "Nhân viên không tồn tại" }, { status: 404 });
+  if (!(await employeeInScope(user, employeeId))) return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
 
   try {
     // Use create — multiple shifts per day are now allowed
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { companyId?: string } | undefined;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await req.json();
@@ -114,6 +116,7 @@ export async function DELETE(req: NextRequest) {
       where: { id, companyId: user.companyId },
     });
     if (!existing) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+    if (!(await employeeInScope(user, existing.employeeId))) return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
 
     await prisma.shiftAssignment.delete({ where: { id } });
     return NextResponse.json({ ok: true });

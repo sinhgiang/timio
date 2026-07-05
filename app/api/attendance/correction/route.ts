@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { managerBranchId } from "@/lib/branchScope";
 
 // POST — nhân viên gửi yêu cầu điều chỉnh
 export async function POST(req: Request) {
@@ -58,7 +59,8 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    const companyId = (session?.user as { companyId?: string })?.companyId;
+    const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+    const companyId = user?.companyId;
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
@@ -66,7 +68,7 @@ export async function GET(req: Request) {
 
     const corrections = await prisma.correctionRequest.findMany({
       where: {
-        employee: { companyId },
+        employee: { companyId, ...(managerBranchId(user) ? { branchId: managerBranchId(user)! } : {}) },
         ...(status !== "all" ? { status } : {}),
       },
       include: {

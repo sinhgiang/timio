@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import WorkHistoryClient from "./WorkHistoryClient";
+import { branchWhere } from "@/lib/branchScope";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Lịch sử công tác" };
@@ -14,7 +15,7 @@ export default async function WorkHistoryPage() {
   if (!user?.companyId) redirect("/login");
 
   const employees = await prisma.employee.findMany({
-    where: { companyId: user.companyId, status: "active" },
+    where: { companyId: user.companyId, status: "active", ...branchWhere(user) },
     orderBy: { name: "asc" },
     select: { id: true, name: true, code: true, department: true },
   });

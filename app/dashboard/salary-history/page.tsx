@@ -8,8 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function SalaryHistoryPage() {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const companyId = sUser?.companyId;
   if (!companyId) redirect("/login");
+  if (sUser?.role === "manager") redirect("/dashboard"); // quản lý không xem lương
 
   const employees = await prisma.employee.findMany({
     where: { companyId, status: "active" },
