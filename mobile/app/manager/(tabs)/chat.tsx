@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList,
   ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Alert, Linking,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { getManager, type StoredManager } from "@/lib/storage";
 import {
@@ -17,7 +18,40 @@ interface Msg {
 
 const SUPPORT_EMAIL = "admin@sinhgiang.com";
 
-// Biến URL thành Text bấm mở được
+// Nút "Chép" một phát — copy vào clipboard
+function CopyButtonRN({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <TouchableOpacity
+      onPress={async () => {
+        try { await Clipboard.setStringAsync(text); } catch { /* ignore */ }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      }}
+      style={[s.copyBtn, copied && s.copyBtnDone]}
+      activeOpacity={0.8}
+    >
+      <Text style={[s.copyBtnText, copied && s.copyBtnTextDone]}>
+        {copied ? "✓ Đã chép" : "⧉ Chép"}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// Khối nội dung tin nhắn mẫu, có nút Chép
+function CopyBlockRN({ text }: { text: string }) {
+  return (
+    <View style={s.copyBlock}>
+      <View style={s.copyBlockHead}>
+        <Text style={s.copyBlockLabel}>NỘI DUNG TIN NHẮN</Text>
+        <CopyButtonRN text={text} />
+      </View>
+      <Text style={s.copyBlockText}>{text}</Text>
+    </View>
+  );
+}
+
+// Biến URL thành nút bấm. Zalo/Facebook hiện nút mở luôn.
 function linkifyRN(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   const urlRe = /(https?:\/\/[^\s)]+)/g;
@@ -27,15 +61,29 @@ function linkifyRN(text: string, keyPrefix: string): React.ReactNode[] {
   while ((m = urlRe.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const url = m[1];
-    nodes.push(
-      <Text
-        key={`${keyPrefix}-a${idx++}`}
-        style={{ color: "#2563eb", textDecorationLine: "underline" }}
-        onPress={() => Linking.openURL(url)}
-      >
-        {url}
-      </Text>
-    );
+    const isZalo = /zalo\.me/i.test(url);
+    const isFb = /facebook\.com/i.test(url);
+    if (isZalo || isFb) {
+      nodes.push(
+        <Text
+          key={`${keyPrefix}-btn${idx++}`}
+          style={[s.chanBtn, isZalo ? s.zaloBtn : s.fbBtn]}
+          onPress={() => Linking.openURL(url)}
+        >
+          {isZalo ? "  Mở Zalo  " : "  Mở Facebook  "}
+        </Text>
+      );
+    } else {
+      nodes.push(
+        <Text
+          key={`${keyPrefix}-a${idx++}`}
+          style={{ color: "#2563eb", textDecorationLine: "underline" }}
+          onPress={() => Linking.openURL(url)}
+        >
+          {url}
+        </Text>
+      );
+    }
     last = urlRe.lastIndex;
   }
   if (last < text.length) nodes.push(text.slice(last));
@@ -62,32 +110,63 @@ function renderInlineRN(text: string, keyPrefix: string): React.ReactNode[] {
   return nodes;
 }
 
-// Hiển thị câu trả lời AI: đậm, tiêu đề, gạch đầu dòng (không in ký hiệu thô)
-function AIText({ text, style }: { text: string; style: object }) {
+// Render 1 đoạn text thường (đậm, tiêu đề, gạch đầu dòng)
+function TextBlockRN({ text, style, keyPrefix }: { text: string; style: object; keyPrefix: string }) {
   const lines = text.split("\n");
   return (
     <View>
       {lines.map((raw, i) => {
         const line = raw.trimEnd();
-        if (line.trim() === "") return <View key={i} style={{ height: 6 }} />;
+        if (line.trim() === "") return <View key={`${keyPrefix}-${i}`} style={{ height: 6 }} />;
         const bullet = line.match(/^\s*[-*•]\s+(.*)/);
         const heading = line.match(/^#{1,6}\s+(.*)/);
         const body = bullet ? bullet[1] : heading ? heading[1] : line;
-        const inline = renderInlineRN(body, `l${i}`);
+        const inline = renderInlineRN(body, `${keyPrefix}-l${i}`);
         if (bullet) {
           return (
-            <View key={i} style={{ flexDirection: "row", marginBottom: 2 }}>
+            <View key={`${keyPrefix}-${i}`} style={{ flexDirection: "row", marginBottom: 2 }}>
               <Text style={[style, { color: "#2563eb" }]}>{"•  "}</Text>
               <Text style={[style, { flex: 1 }]}>{inline}</Text>
             </View>
           );
         }
         return (
-          <Text key={i} style={[style, heading ? { fontWeight: "700" } : null, { marginBottom: 2 }]}>
+          <Text key={`${keyPrefix}-${i}`} style={[style, heading ? { fontWeight: "700" } : null, { marginBottom: 2 }]}>
             {inline}
           </Text>
         );
       })}
+    </View>
+  );
+}
+
+// Hiển thị câu trả lời AI: tách khối code ``` thành CopyBlock (nút Chép), còn lại render text
+function AIText({ text, style }: { text: string; style: object }) {
+  const segments: { type: "text" | "code"; content: string }[] = [];
+  const fenceRe = /```[a-zA-Z]*\n?([\s\S]*?)```/g;
+  let cursor = 0;
+  let fm: RegExpExecArray | null;
+  while ((fm = fenceRe.exec(text)) !== null) {
+    if (fm.index > cursor) segments.push({ type: "text", content: text.slice(cursor, fm.index) });
+    segments.push({ type: "code", content: fm[1].replace(/\n+$/, "") });
+    cursor = fenceRe.lastIndex;
+  }
+  const tail = text.slice(cursor);
+  const openIdx = tail.indexOf("```");
+  if (openIdx !== -1) {
+    if (openIdx > 0) segments.push({ type: "text", content: tail.slice(0, openIdx) });
+    segments.push({ type: "code", content: tail.slice(openIdx + 3).replace(/^[a-zA-Z]*\n?/, "") });
+  } else if (tail) {
+    segments.push({ type: "text", content: tail });
+  }
+
+  return (
+    <View>
+      {segments.map((seg, si) =>
+        seg.type === "code"
+          ? (seg.content.trim() ? <CopyBlockRN key={`c${si}`} text={seg.content.trim()} /> : null)
+          : <TextBlockRN key={`t${si}`} text={seg.content} style={style} keyPrefix={`s${si}`} />
+      )}
     </View>
   );
 }
@@ -390,6 +469,25 @@ const s = StyleSheet.create({
 
   quotaBanner: { backgroundColor: "#fffbeb", borderTopWidth: 1, borderTopColor: "#fde68a", padding: 10 },
   quotaText: { fontSize: 12, color: "#92400e", textAlign: "center" },
+
+  // Khối nội dung có nút Chép
+  copyBlock: { marginVertical: 6, borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, backgroundColor: "#f9fafb", overflow: "hidden" },
+  copyBlockHead: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "#f3f4f6",
+    borderBottomWidth: 1, borderBottomColor: "#e5e7eb",
+  },
+  copyBlockLabel: { fontSize: 10, fontWeight: "700", color: "#6b7280", letterSpacing: 0.5 },
+  copyBlockText: { paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: "#1f2937", lineHeight: 20 },
+  copyBtn: { backgroundColor: "#2563eb", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  copyBtnDone: { backgroundColor: "#dcfce7" },
+  copyBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  copyBtnTextDone: { color: "#15803d" },
+
+  // Nút mở Zalo/Facebook trong tin nhắn
+  chanBtn: { color: "#fff", fontSize: 13, fontWeight: "700", overflow: "hidden", borderRadius: 8, paddingVertical: 4, lineHeight: 24 },
+  zaloBtn: { backgroundColor: "#0068ff" },
+  fbBtn: { backgroundColor: "#1877f2" },
 
   inputBar: {
     flexDirection: "row", alignItems: "center", gap: 8,
