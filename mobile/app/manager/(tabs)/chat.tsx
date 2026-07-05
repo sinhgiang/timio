@@ -4,8 +4,21 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Alert, Linking,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import * as Speech from "expo-speech";
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { router } from "expo-router";
+
+// Bỏ ký hiệu markdown/link để đọc TTS cho tự nhiên
+function cleanForSpeech(s: string): string {
+  return s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/https?:\/\/[^\s]+/g, " ")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/[#*`>_~|]/g, " ")
+    .replace(/^[\s]*[-•]\s+/gm, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 import { getManager, type StoredManager } from "@/lib/storage";
 import {
   getChatHistory, sendChatMessage, submitSupportTicket, type ChatAccess,
@@ -244,9 +257,12 @@ export default function ManagerChat() {
     setListening(false);
     const text = finalTranscriptRef.current.trim();
     finalTranscriptRef.current = "";
-    if (text) { setInput(""); send(text); }
+    if (text) { setInput(""); send(text, true); } // nói xong: gửi + ĐỌC TO câu trả lời
   });
   useSpeechRecognitionEvent("error", () => { setListening(false); });
+
+  // Dừng đọc khi rời màn hình
+  useEffect(() => () => { Speech.stop(); }, []);
 
   async function startVoice() {
     if (sending) return;
@@ -267,11 +283,12 @@ export default function ManagerChat() {
     }
   }
 
-  async function send(text: string) {
+  async function send(text: string, speak = false) {
     const message = text.trim();
     if (!message || sending || !mgr) return;
     setInput("");
     setSending(true);
+    Speech.stop(); // dừng đọc câu trả lời trước
     const userMsg: Msg = { id: `u${Date.now()}`, role: "user", content: message };
     const placeholder: Msg = { id: `a${Date.now()}`, role: "assistant", content: "…" };
     setMessages((prev) => [...prev, userMsg, placeholder]);
@@ -284,6 +301,10 @@ export default function ManagerChat() {
       setMessages((prev) =>
         prev.map((m) => (m.id === placeholder.id ? { ...m, content: reply.text } : m))
       );
+      if (speak) {
+        const spoken = cleanForSpeech(reply.text);
+        if (spoken) Speech.speak(spoken, { language: "vi-VN", rate: 1.0 });
+      }
     } catch (e) {
       const err = e instanceof Error ? e.message : "Lỗi kết nối";
       setMessages((prev) =>
