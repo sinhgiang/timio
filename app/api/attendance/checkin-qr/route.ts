@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, type LateRule } from "@/lib/attendance";
+import { resolveShift } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 
@@ -156,10 +157,19 @@ export async function POST(req: NextRequest) {
           lateRules?: Array<{ minutes: number; amount: number }>;
         })
       : {};
-    const shift = {
-      checkInTime: shiftOv.checkInTime ?? employee.branch.checkInTime,
-      gracePeriod: shiftOv.gracePeriod ?? employee.branch.gracePeriod,
-    };
+    // Ca theo ngày (Lịch phân ca) + ngày lễ → xác định giờ vào chuẩn + có né phạt không
+    const [todaysAssignments, todayHoliday] = await Promise.all([
+      prisma.shiftAssignment.findMany({ where: { employeeId, date: today }, select: { shiftLabel: true, checkIn: true } }),
+      prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } }),
+    ]);
+    const shift = resolveShift({
+      now,
+      branchCheckInTime: employee.branch.checkInTime,
+      branchGracePeriod: employee.branch.gracePeriod,
+      shiftOverrideRaw: employee.shiftOverride,
+      todaysAssignments,
+      holiday: todayHoliday,
+    });
 
     let effectiveLateRules: LateRule[];
     if (shiftOv.useDefaultLate === false) {
@@ -176,12 +186,19 @@ export async function POST(req: NextRequest) {
         .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount, type: "late" as const }));
     }
 
-    const { status, minutesLate, penaltyAmount } = calculateCheckInStatus(
+    let { status, minutesLate, penaltyAmount } = calculateCheckInStatus(
       now,
       shift.checkInTime,
       shift.gracePeriod,
       effectiveLateRules
     );
+
+    // Ngày nghỉ theo ca / ngày lễ không phạt → xoá trễ + phạt
+    if (shift.suppressPenalty) {
+      status = "on_time";
+      minutesLate = 0;
+      penaltyAmount = 0;
+    }
 
     const log = await prisma.attendanceLog.create({
       data: { employeeId, date: today, checkInAt: now, status, minutesLate, penaltyAmount, branchId: employee.branchId },

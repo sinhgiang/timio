@@ -75,6 +75,7 @@ interface Holiday {
   date: string;
   name: string;
   isNational: boolean;
+  penalizeLate?: boolean;
 }
 
 interface HolidayProps extends Props {
@@ -333,6 +334,17 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const deleteHoliday = async (id: string) => {
     await fetch(`/api/holidays/${id}`, { method: "DELETE" });
     setHolidays((prev) => prev.filter((h) => h.id !== id));
+  };
+
+  // Bật/tắt "vẫn tính muộn/phạt" cho 1 ngày lễ (upsert theo date)
+  const toggleHolidayPenalize = async (h: Holiday) => {
+    const next = !h.penalizeLate;
+    setHolidays((prev) => prev.map((x) => (x.id === h.id ? { ...x, penalizeLate: next } : x)));
+    await fetch("/api/holidays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: h.date, name: h.name, isNational: h.isNational, penalizeLate: next }),
+    });
   };
 
   // Penalty (late)
@@ -1167,6 +1179,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                   <th className="text-left px-5 py-3 text-gray-500 font-medium">Ngày</th>
                   <th className="text-left px-5 py-3 text-gray-500 font-medium">Tên ngày lễ</th>
                   <th className="text-left px-5 py-3 text-gray-500 font-medium">Loại</th>
+                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Đi làm ngày này</th>
                   <th className="text-right px-5 py-3"></th>
                 </tr>
               </thead>
@@ -1180,6 +1193,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                         ? <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Quốc gia</span>
                         : <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Công ty</span>}
                     </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => toggleHolidayPenalize(h)}
+                        title="Ngày lễ này: nếu nhân viên vẫn đi làm, có tính muộn + phạt không?"
+                        className={`text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${
+                          h.penalizeLate
+                            ? "bg-amber-50 border-amber-200 text-amber-700"
+                            : "bg-green-50 border-green-200 text-green-700"
+                        }`}
+                      >
+                        {h.penalizeLate ? "Vẫn tính muộn/phạt" : "Không phạt (nghỉ lễ)"}
+                      </button>
+                    </td>
                     <td className="px-5 py-3 text-right">
                       <button onClick={() => deleteHoliday(h.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
                     </td>
@@ -1187,7 +1213,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                 ))}
                 {holidays.filter((h) => h.date.startsWith(String(holidayYear))).length === 0 && (
                   <tr>
-                    <td colSpan={4} className="text-center py-8 text-gray-400">
+                    <td colSpan={5} className="text-center py-8 text-gray-400">
                       <p>Chưa có ngày lễ nào cho năm {holidayYear}</p>
                       <p className="text-xs mt-1">Nhấn &ldquo;Nhập lễ VN&rdquo; để thêm tất cả ngày lễ quốc gia</p>
                     </td>

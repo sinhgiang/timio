@@ -271,6 +271,7 @@ model Holiday {
   date       String  // YYYY-MM-DD
   name       String
   isNational Boolean @default(true)
+  penalizeLate Boolean @default(false) // true = ngày lễ này vẫn tính muộn/phạt như thường; false = không phạt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 

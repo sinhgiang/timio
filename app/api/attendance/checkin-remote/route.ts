@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveShift } from "@/lib/shiftResolve";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     const employee = await prisma.employee.findFirst({
       where: { companyId: company.id, code: code.toUpperCase(), status: "active" },
       select: {
-        id: true, name: true, pin: true,
+        id: true, name: true, pin: true, companyId: true, shiftOverride: true,
         branch: {
           select: {
             id: true, name: true,
@@ -77,14 +78,29 @@ export async function POST(req: Request) {
     const timeStr = vnNow.toISOString().slice(11, 16); // HH:MM
 
     if (action === "checkin") {
-      // Calculate late minutes
-      const [ciH, ciM] = branch.checkInTime.split(":").map(Number);
+      // Ca theo ngày (Lịch phân ca) + ngày lễ → giờ vào chuẩn + né phạt
+      const [todaysAssignments, todayHoliday] = await Promise.all([
+        prisma.shiftAssignment.findMany({ where: { employeeId: employee.id, date: todayStr }, select: { shiftLabel: true, checkIn: true } }),
+        prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: todayStr }, select: { penalizeLate: true } }),
+      ]);
+      const shift = resolveShift({
+        now,
+        branchCheckInTime: branch.checkInTime,
+        branchGracePeriod: branch.gracePeriod,
+        shiftOverrideRaw: employee.shiftOverride,
+        todaysAssignments,
+        holiday: todayHoliday,
+      });
+
+      // Calculate late minutes theo giờ ca đã resolve
+      const [ciH, ciM] = shift.checkInTime.split(":").map(Number);
       const scheduledMinutes = ciH * 60 + ciM;
       const [nowH, nowM] = timeStr.split(":").map(Number);
       const nowMinutes = nowH * 60 + nowM;
       const rawLate = nowMinutes - scheduledMinutes;
-      const minutesLate = rawLate > (branch.gracePeriod ?? 5) ? rawLate : 0;
-      const statusVal = minutesLate > 30 ? "very_late" : minutesLate > 0 ? "late" : "on_time";
+      let minutesLate = rawLate > (shift.gracePeriod ?? 5) ? rawLate : 0;
+      let statusVal = minutesLate > 30 ? "very_late" : minutesLate > 0 ? "late" : "on_time";
+      if (shift.suppressPenalty) { minutesLate = 0; statusVal = "on_time"; }
 
       await prisma.attendanceLog.upsert({
         where: { employeeId_date: { employeeId: employee.id, date: todayStr } },

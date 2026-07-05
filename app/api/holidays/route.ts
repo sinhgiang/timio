@@ -46,13 +46,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Single holiday
-  const { date, name, isNational = false } = body;
+  const { date, name, isNational = false, penalizeLate = false } = body;
   if (!date || !name) return NextResponse.json({ error: "Thiếu ngày hoặc tên" }, { status: 400 });
 
   const holiday = await prisma.holiday.upsert({
     where: { companyId_date: { companyId, date } },
-    create: { companyId, date, name, isNational },
-    update: { name, isNational },
+    create: { companyId, date, name, isNational, penalizeLate: Boolean(penalizeLate) },
+    update: { name, isNational, penalizeLate: Boolean(penalizeLate) },
   });
 
   return NextResponse.json(holiday);
