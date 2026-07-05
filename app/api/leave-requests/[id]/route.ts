@@ -3,10 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendTelegram, buildLeaveApprovedAlert } from "@/lib/telegram";
+import { employeeInScope } from "@/lib/branchScope";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { status, note } = await req.json();
@@ -16,6 +18,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const request = await prisma.leaveRequest.findFirst({ where: { id: params.id, companyId } });
   if (!request) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+  if (!(await employeeInScope(user, request.employeeId))) {
+    return NextResponse.json({ error: "Bạn chỉ được duyệt đơn nghỉ của nhân viên chi nhánh mình." }, { status: 403 });
+  }
 
   // Deduct leave balance if approving annual leave
   if (status === "approved" && request.status === "pending" && request.type === "annual") {
@@ -67,9 +72,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const request = await prisma.leaveRequest.findFirst({ where: { id: params.id, companyId }, select: { employeeId: true } });
+  if (request && !(await employeeInScope(user, request.employeeId))) {
+    return NextResponse.json({ error: "Bạn chỉ được xóa đơn của nhân viên chi nhánh mình." }, { status: 403 });
+  }
   await prisma.leaveRequest.deleteMany({ where: { id: params.id, companyId, status: "pending" } });
   return NextResponse.json({ ok: true });
 }

@@ -6,8 +6,9 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const user = session?.user as { companyId?: string } | undefined;
+    const user = session?.user as { companyId?: string; role?: string } | undefined;
     if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (user.role === "manager") return NextResponse.json({ error: "Quản lý không xem được lịch sử lương." }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
     const employeeId = searchParams.get("employeeId");

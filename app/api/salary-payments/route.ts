@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const companyId = sUser?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (sUser?.role === "manager") return NextResponse.json({ error: "Quản lý không xem được dữ liệu lương." }, { status: 403 });
 
   const year = Number(req.nextUrl.searchParams.get("year"));
   const month = Number(req.nextUrl.searchParams.get("month"));
@@ -26,8 +28,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const companyId = sUser?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (sUser?.role === "manager") return NextResponse.json({ error: "Quản lý không được thao tác dữ liệu lương." }, { status: 403 });
 
   const { employeeId, year, month, amount, status, note } = await req.json();
   if (!employeeId || !year || !month) {

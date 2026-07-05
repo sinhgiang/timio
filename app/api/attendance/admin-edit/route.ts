@@ -3,11 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus } from "@/lib/attendance";
+import { managerBranchId } from "@/lib/branchScope";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const user = (session?.user as { companyId?: string; role?: string } | undefined);
+    const user = (session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined);
     if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (!["owner", "manager", "accountant"].includes(user.role ?? "")) {
       return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
@@ -21,6 +22,10 @@ export async function POST(req: NextRequest) {
       include: { branch: true, company: { include: { penaltyRules: true } } },
     });
     if (!employee) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
+    const mgrBranch = managerBranchId(user);
+    if (mgrBranch && employee.branchId !== mgrBranch) {
+      return NextResponse.json({ error: "Bạn chỉ được sửa chấm công nhân viên chi nhánh mình." }, { status: 403 });
+    }
 
     const checkInDate = checkInAt ? new Date(checkInAt) : null;
     const checkOutDate = checkOutAt ? new Date(checkOutAt) : null;

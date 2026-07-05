@@ -26,7 +26,9 @@ interface Props {
   planExpires?: string | null;
 }
 
-const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings", "/dashboard/audit-log", "/dashboard/chat-logs", "/dashboard/zalo-connect"]);
+const HIDDEN_FOR_MANAGER = new Set(["/dashboard/billing", "/dashboard/settings", "/dashboard/audit-log", "/dashboard/chat-logs", "/dashboard/zalo-connect",
+  // Quản lý KHÔNG xem dữ liệu lương
+  "/dashboard/payslip", "/dashboard/salary-payments", "/dashboard/salary-history", "/dashboard/commission"]);
 const HIDDEN_FOR_ACCOUNTANT = new Set([
   "/dashboard/billing", "/dashboard/settings", "/dashboard/leave",
   "/dashboard/branches", "/dashboard/audit-log", "/dashboard/chat-logs", "/dashboard/zalo-connect",

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { managerBranchId } from "@/lib/branchScope";
 
 function getWeekLabel(dateStr: string): string {
   const date = new Date(dateStr);
@@ -18,9 +19,10 @@ function getMonthLabel(dateStr: string): string {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { companyId?: string } | undefined;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const companyId = user.companyId;
+  const mgrBranch = managerBranchId(user);
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") ?? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
@@ -34,7 +36,8 @@ export async function GET(req: Request) {
       where: { companyId },
       select: { id: true },
     });
-    const branchIds = branches.map((b) => b.id);
+    // Quản lý chi nhánh: chỉ thống kê chi nhánh mình
+    const branchIds = (mgrBranch ? branches.filter((b) => b.id === mgrBranch) : branches).map((b) => b.id);
 
     if (branchIds.length === 0) {
       return NextResponse.json({
@@ -48,9 +51,10 @@ export async function GET(req: Request) {
     // Get employees for department filter
     let employeeIds: string[] | null = null;
     if (department || employeeId) {
-      const empFilter: { companyId: string; department?: string; id?: string } = { companyId };
+      const empFilter: { companyId: string; department?: string; id?: string; branchId?: string } = { companyId };
       if (department) empFilter.department = department;
       if (employeeId) empFilter.id = employeeId;
+      if (mgrBranch) empFilter.branchId = mgrBranch;
       const emps = await prisma.employee.findMany({
         where: empFilter,
         select: { id: true },
