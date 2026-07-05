@@ -57,6 +57,62 @@ export async function speakVi(text: string): Promise<void> {
   }
 }
 
+// ── Hàng đợi đọc theo CÂU (cho chatbot trả lời bằng giọng nói tức thời) ──
+// Mỗi câu vừa stream xong được nạp vào hàng đợi + tải MP3 ngay (song song),
+// rồi phát tuần tự để không đè lên nhau → nghe liền mạch, gần như tức thời.
+let speakQueue: Promise<ArrayBuffer | null>[] = [];
+let draining = false;
+let speakToken = 0; // tăng lên để hủy phiên đọc cũ (barge-in)
+
+async function fetchTts(text: string): Promise<ArrayBuffer | null> {
+  try {
+    const res = await fetch("/api/tts?q=" + encodeURIComponent(text));
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    return buf.byteLength ? buf : null;
+  } catch { return null; }
+}
+
+// Bỏ ký hiệu markdown / link / emoji để đọc cho tự nhiên
+export function cleanForSpeech(s: string): string {
+  return s
+    .replace(/```[\s\S]*?```/g, " ")            // khối code
+    .replace(/https?:\/\/[^\s]+/g, " ")          // link
+    .replace(/\*\*(.+?)\*\*/g, "$1")             // **đậm**
+    .replace(/[#*`>_~|]/g, " ")                   // ký hiệu md
+    .replace(/^[\s]*[-•]\s+/gm, " ")              // gạch đầu dòng
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Dừng đọc + xóa hàng đợi (gọi khi bắt đầu tin nhắn mới)
+export function resetSpeech(): void {
+  speakToken++;
+  speakQueue = [];
+  draining = false;
+  stopAudio();
+}
+
+// Nạp một câu vào hàng đợi để đọc (bắt đầu tải MP3 ngay lập tức)
+export function enqueueSpeak(text: string): void {
+  if (typeof window === "undefined") return;
+  const t = cleanForSpeech(text);
+  if (!t) return;
+  speakQueue.push(fetchTts(t));
+  if (!draining) drainSpeak();
+}
+
+async function drainSpeak(): Promise<void> {
+  const myToken = speakToken;
+  draining = true;
+  while (speakQueue.length && myToken === speakToken) {
+    const buf = await speakQueue.shift()!;
+    if (myToken !== speakToken) break; // đã bị reset
+    if (buf) { try { await playBuffer(buf); } catch { /* ignore */ } }
+  }
+  if (myToken === speakToken) draining = false;
+}
+
 // Phát file MP3 tĩnh — trả về true nếu phát được, false nếu file không tồn tại
 export async function playStatic(url: string): Promise<boolean> {
   if (typeof window === "undefined") return false;

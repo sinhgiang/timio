@@ -8,6 +8,25 @@ import {
 } from "lucide-react";
 import ChatOnboarding from "./ChatOnboarding";
 import ContactSupport from "./ContactSupport";
+import { enqueueSpeak, resetSpeech, unlockAudio } from "@/lib/speech";
+
+// Tách các CÂU đã hoàn chỉnh khỏi buffer đang stream (để đọc dần).
+// Chỉ cắt khi gặp xuống dòng, hoặc .!? theo sau là dấu cách → tránh cắt nhầm "15.000".
+function extractSentences(buf: string): { sentences: string[]; rest: string } {
+  const out: string[] = [];
+  let start = 0;
+  for (let i = 0; i < buf.length; i++) {
+    const c = buf[i];
+    const next = buf[i + 1] ?? "";
+    const boundary = c === "\n" || ((c === "." || c === "!" || c === "?") && (next === " "));
+    if (boundary) {
+      const chunk = buf.slice(start, i + 1);
+      if (chunk.trim()) out.push(chunk);
+      start = i + 1;
+    }
+  }
+  return { sentences: out, rest: buf.slice(start) };
+}
 
 // Kiểu tối giản cho Web Speech API (không có sẵn trong lib DOM của TS)
 interface SpeechRecognitionResultLike { readonly isFinal: boolean; readonly length: number; [i: number]: { transcript: string } }
@@ -307,12 +326,14 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, toolStatus, open]);
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, speak = false) => {
     const message = text.trim();
     if (!message || sending) return;
     setInput("");
     setSending(true);
     setToolStatus("");
+    resetSpeech(); // dừng đọc câu trả lời trước (nếu đang đọc)
+    let ttsBuffer = ""; // gom chữ để cắt câu đọc dần (chỉ khi speak=true)
     setMessages((prev) => [...prev, { role: "user", content: message }, { role: "assistant", content: "" }]);
 
     try {
@@ -363,6 +384,12 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 copy[copy.length - 1] = { ...last, content: last.content + ev.text };
                 return copy;
               });
+              if (speak) {
+                ttsBuffer += ev.text;
+                const { sentences, rest } = extractSentences(ttsBuffer);
+                for (const sen of sentences) enqueueSpeak(sen);
+                ttsBuffer = rest;
+              }
             } else if (ev.type === "tool") {
               if (ev.name === "send_email_reminder") setToolStatus("Đang gửi thông báo...");
               else if (ev.name === "preview_email_recipients") setToolStatus("Đang kiểm tra danh sách...");
@@ -388,6 +415,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
         return copy;
       });
     } finally {
+      if (speak && ttsBuffer.trim()) enqueueSpeak(ttsBuffer); // đọc nốt câu cuối
       setSending(false);
       setToolStatus("");
       inputRef.current?.focus();
@@ -422,6 +450,8 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (listening) { stopVoice(); return; }
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) return;
+    unlockAudio();   // mở khóa audio ngay trong cử chỉ bấm (để đọc được câu trả lời)
+    resetSpeech();   // dừng đọc câu trả lời cũ nếu đang đọc
     const rec: SpeechRecognitionLike = new Ctor();
     rec.lang = "vi-VN";
     rec.interimResults = true;
@@ -443,7 +473,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       recognitionRef.current = null;
       setListening(false);
       const text = finalText.trim();
-      if (text) { setInput(""); send(text); } // tự gửi luôn sau khi nói xong
+      if (text) { setInput(""); send(text, true); } // nói xong: tự gửi + ĐỌC TO câu trả lời
     };
 
     recognitionRef.current = rec;
@@ -452,8 +482,8 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     try { rec.start(); } catch { setListening(false); }
   }, [sending, blocked, listening, stopVoice, send]);
 
-  // Dừng nghe khi đóng khung chat
-  useEffect(() => { if (!open && listening) stopVoice(); }, [open, listening, stopVoice]);
+  // Dừng nghe + dừng đọc khi đóng khung chat
+  useEffect(() => { if (!open) { if (listening) stopVoice(); resetSpeech(); } }, [open, listening, stopVoice]);
 
   return (
     <>
