@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getValidOaToken, sendZaloMessage } from "@/lib/zalo";
 import { sendTelegram } from "@/lib/telegram";
+import { calculateTax } from "@/lib/taxCalculator";
 import type Anthropic from "@anthropic-ai/sdk";
 
 // ============================================================
@@ -209,6 +210,46 @@ const TOOL_DEFS: ToolDef[] = [
           message: { type: "string", description: "Nội dung email (tiếng Việt, thân thiện)" },
         },
         required: ["target", "subject", "message"],
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "get_late_status",
+      description:
+        "Xem tình hình đi muộn / chưa chấm công HÔM NAY và hệ thống ĐÃ TỰ NHẮC ai lúc mấy giờ. Trả về: ai chưa vào, ai đi trễ (kèm số phút), ai đang nghỉ phép, và danh sách người đã được tự động nhắc kèm giờ nhắc. Dùng khi user hỏi 'ai đi muộn', 'ai chưa chấm công', 'đã nhắc ai chưa', 'bao nhiêu người đi trễ'.",
+      input_schema: { type: "object" as const, properties: {} },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "send_late_reminder",
+      description:
+        "GỬI nhắc chấm công cho những người HÔM NAY CHƯA CHẤM CÔNG (đa kênh: email + nhóm Telegram + Zalo follower). TỰ ĐỘNG bỏ qua người đã được nhắc hôm nay (không nhắn trùng với hệ thống tự động) và báo lại đã nhắc họ lúc mấy giờ. Dùng khi user muốn 'nhắc người đi muộn / chưa vào chấm công'. Nếu ÍT người (1-3) thì gửi luôn; NHIỀU người (4+) thì xác nhận trước. message = nội dung nhắc (tiếng Việt, thân thiện mà dứt khoát).",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          message: { type: "string", description: "Nội dung nhắc (tiếng Việt). Bỏ trống = dùng mẫu mặc định." },
+        },
+      },
+    },
+  },
+  {
+    roles: FINANCE_ROLES,
+    tool: {
+      name: "get_employee_salary",
+      description:
+        "Bảng lương chi tiết của MỘT nhân viên trong tháng: lương cơ bản, phụ cấp, thưởng, tăng ca, phạt, thu nhập trước thuế, BHXH nhân viên đóng (10.5%), BHXH công ty đóng (22%), thuế TNCN, và THỰC NHẬN (net). Dùng khi hỏi 'lương tháng này của [tên]', 'BHXH của [tên]', 'thực nhận của [tên] bao nhiêu'.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          employeeName: { type: "string", description: "Tên nhân viên cần xem lương" },
+          year: { type: "number", description: "Năm, vd 2026. Bỏ trống = năm hiện tại" },
+          month: { type: "number", description: "Tháng 1-12. Bỏ trống = tháng hiện tại" },
+        },
+        required: ["employeeName"],
       },
     },
   },
@@ -664,6 +705,135 @@ export async function executeChatTool(
         };
       }
 
+      case "get_late_status": {
+        const today = todayVN();
+        const [employees, logs, reminded, leaves, company] = await Promise.all([
+          prisma.employee.findMany({ where: { companyId: ctx.companyId, status: "active", ...branchFilter }, select: { id: true, name: true } }),
+          prisma.attendanceLog.findMany({ where: { date: today, employee: { companyId: ctx.companyId, ...branchFilter } }, select: { employeeId: true, checkInAt: true, status: true, minutesLate: true } }),
+          prisma.lateReminder.findMany({ where: { companyId: ctx.companyId, date: today }, select: { employeeId: true, sentAt: true } }),
+          prisma.leaveRequest.findMany({ where: { companyId: ctx.companyId, status: "approved", fromDate: { lte: today }, toDate: { gte: today } }, select: { employeeId: true } }),
+          prisma.company.findUnique({ where: { id: ctx.companyId }, select: { autoReminderConfig: true, lateReminderConfig: true } }),
+        ]);
+        const logMap = new Map(logs.map((l) => [l.employeeId, l]));
+        const remindMap = new Map(reminded.map((r) => [r.employeeId, r.sentAt]));
+        const onLeave = new Set(leaves.map((l) => l.employeeId));
+        const notCheckedIn: { name: string; daNhac: boolean; nhacLuc: string | null }[] = [];
+        const late: { name: string; soPhutTre: number; daNhac: boolean; nhacLuc: string | null }[] = [];
+        for (const e of employees) {
+          if (onLeave.has(e.id)) continue;
+          const log = logMap.get(e.id);
+          const rAt = remindMap.get(e.id);
+          const rem = { daNhac: !!rAt, nhacLuc: rAt ? fmtTime(rAt) : null };
+          if (!log || !log.checkInAt) notCheckedIn.push({ name: e.name, ...rem });
+          else if (log.status === "late" || log.status === "very_late") late.push({ name: e.name, soPhutTre: log.minutesLate, ...rem });
+        }
+        const onLeaveToday = employees.filter((e) => onLeave.has(e.id)).map((e) => e.name);
+        const parseEnabled = (raw: string | null) => { try { return raw ? Boolean(JSON.parse(raw).enabled) : false; } catch { return false; } };
+        return {
+          date: today,
+          nhacTuDongDangBat: parseEnabled(company?.autoReminderConfig ?? null) || parseEnabled(company?.lateReminderConfig ?? null),
+          tong: { nhanVienActive: employees.length, chuaChamCong: notCheckedIn.length, diTre: late.length, dangNghiPhep: onLeaveToday.length, daTuNhacHomNay: reminded.length },
+          chuaChamCong: notCheckedIn,
+          diTre: late,
+          nghiPhepHomNay: onLeaveToday,
+        };
+      }
+
+      case "send_late_reminder": {
+        const today = todayVN();
+        const messageText = String(input.message ?? "").trim() || "Chào bạn, bạn chưa chấm công hôm nay dù đã tới giờ vào ca. Vui lòng check-in ngay giúp mình nhé. Cảm ơn!";
+        const recipients = await resolveReminderRecipients(ctx, "absent_today", branchFilter);
+        if (recipients.length === 0) return { sentTo: [], alreadyReminded: [], message: "Mọi người đều đã chấm công — không có ai cần nhắc." };
+
+        const remindedRows = await prisma.lateReminder.findMany({ where: { companyId: ctx.companyId, date: today }, select: { employeeId: true, sentAt: true } });
+        const remindMap = new Map(remindedRows.map((r) => [r.employeeId, r.sentAt]));
+        const fresh = recipients.filter((r) => !remindMap.has(r.id));
+        const alreadyReminded = recipients.filter((r) => remindMap.has(r.id)).map((r) => ({ name: r.name, nhacLuc: fmtTime(remindMap.get(r.id) as Date) }));
+
+        if (fresh.length === 0) {
+          return { sentTo: [], alreadyReminded, message: `Tất cả ${recipients.length} người chưa chấm công đều ĐÃ được nhắc tự động rồi (không nhắn trùng).` };
+        }
+
+        const company = await prisma.company.findUnique({
+          where: { id: ctx.companyId },
+          select: { id: true, logoUrl: true, zaloOaToken: true, zaloAppId: true, zaloSecretKey: true, zaloRefreshToken: true, zaloTokenExpiresAt: true, telegramBotToken: true, branches: { select: { id: true, name: true, telegramChatId: true } } },
+        });
+        const baseUrl = (process.env.NEXTAUTH_URL ?? "https://timio.vn").replace(/\/$/, "");
+        const logoPublicUrl = company?.logoUrl ? `${baseUrl}/api/logo/${ctx.companyId}` : null;
+        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName, logoPublicUrl);
+
+        const emailRecipients = fresh.filter((r) => r.email).slice(0, MAX_EMAIL_RECIPIENTS);
+        const emailResults = await Promise.allSettled(emailRecipients.map((r) => sendEmail({ to: r.email as string, subject: "Nhắc chấm công", html })));
+        const emailSent = emailResults.filter((x) => x.status === "fulfilled").length;
+
+        let zaloSent = 0;
+        const zaloFollowers = fresh.filter((r) => r.zaloUserId);
+        if (company && zaloFollowers.length > 0) {
+          const oaToken = await getValidOaToken(company);
+          if (oaToken) {
+            const zr = await Promise.allSettled(zaloFollowers.map((r) => sendZaloMessage({ oaToken, userId: r.zaloUserId as string, text: messageText })));
+            zaloSent = zr.filter((x) => x.status === "fulfilled" && (x as PromiseFulfilledResult<{ ok: boolean }>).value.ok).length;
+          }
+        }
+
+        const telegramGroups: string[] = [];
+        if (company?.telegramBotToken) {
+          const scopedBranches = company.branches.filter((b) => b.telegramChatId && (!(ctx.role === "manager" && ctx.branchId) || b.id === ctx.branchId));
+          const tgText = `⚠️ Chưa chấm công (đã quá giờ vào ca):\n` + fresh.map((r) => `• ${r.name}`).join("\n") + `\n\n${messageText}`;
+          for (const b of scopedBranches) {
+            try { await sendTelegram(company.telegramBotToken, b.telegramChatId as string, tgText); telegramGroups.push(b.name); } catch { /* non-fatal */ }
+          }
+        }
+
+        // Đánh dấu đã nhắc → dedup với cron tự động
+        await prisma.lateReminder.createMany({ data: fresh.map((r) => ({ companyId: ctx.companyId, employeeId: r.id, date: today })), skipDuplicates: true });
+
+        const zaloManualContacts = fresh.filter((r) => r.zalo && !r.zaloUserId).map((r) => ({ name: r.name, link: zaloLink(r.zalo as string) }));
+        return {
+          sentTo: fresh.map((r) => r.name),
+          emailSent, zaloSentAuto: zaloSent, telegramGroups,
+          alreadyReminded,
+          zaloManualContacts,
+          messageToCopy: messageText,
+          message: `Đã nhắc ${fresh.length} người (email ${emailSent}, Zalo ${zaloSent}${telegramGroups.length ? `, đăng ${telegramGroups.length} nhóm Telegram` : ""}).` + (alreadyReminded.length ? ` ${alreadyReminded.length} người đã được hệ thống tự nhắc trước đó (không nhắn trùng).` : ""),
+        };
+      }
+
+      case "get_employee_salary": {
+        const name = String(input.employeeName ?? "").trim();
+        if (!name) return { error: "Cần tên nhân viên." };
+        const [ty, tm] = todayVN().split("-").map(Number);
+        const year = Number(input.year) || ty;
+        const month = Number(input.month) || tm;
+        const emp = await prisma.employee.findFirst({
+          where: { companyId: ctx.companyId, status: "active", ...branchFilter, name: { contains: name, mode: "insensitive" as const } },
+          select: { id: true, name: true, department: true, baseSalary: true, allowancesJson: true, dependents: true },
+        });
+        if (!emp) return { error: `Không tìm thấy nhân viên tên "${name}".` };
+        const summary = await prisma.monthlySummary.findFirst({
+          where: { employeeId: emp.id, year, month },
+          select: { totalPenalty: true, totalReward: true, totalOvertimeAmount: true, daysPresent: true },
+        });
+        let allowances = 0;
+        try { const arr = emp.allowancesJson ? (JSON.parse(emp.allowancesJson) as { amount?: number }[]) : []; allowances = arr.reduce((t, a) => t + (a.amount ?? 0), 0); } catch { /* ignore */ }
+        const base = emp.baseSalary ?? 0;
+        const penalty = summary?.totalPenalty ?? 0;
+        const reward = summary?.totalReward ?? 0;
+        const overtime = summary?.totalOvertimeAmount ?? 0;
+        const grossIncome = base + allowances + reward + overtime - penalty;
+        const tax = calculateTax({ baseSalary: base, grossIncome, dependents: emp.dependents });
+        return {
+          name: emp.name, department: emp.department, year, month,
+          luongCoBan: base, phuCap: allowances, thuong: reward, tangCa: overtime, phat: penalty,
+          thuNhapTruocThue: grossIncome,
+          bhxhNhanVienDong: tax.bhxhEmployee, bhxhCongTyDong: tax.bhxhEmployer,
+          thuNhapTinhThue: tax.taxableIncome, thueTNCN: tax.tncn,
+          thucNhan: tax.netTakeHome,
+          nguoiPhuThuoc: emp.dependents, ngayCong: summary?.daysPresent ?? 0,
+          ...(summary ? {} : { note: "Chưa có dữ liệu tổng hợp tháng này nên phạt/thưởng/tăng ca = 0." }),
+        };
+      }
+
       default:
         return { error: `Tool chưa được cài đặt: ${name}` };
     }
@@ -796,7 +966,9 @@ Trả lời câu hỏi về dữ liệu công ty bằng cách dùng các tool đ
 ## Quy tắc BẮT BUỘC
 1. CHỈ trả lời dựa trên dữ liệu từ tool. KHÔNG bịa số liệu.
 2. Nếu user hỏi dữ liệu mà họ không có quyền xem (tool trả về "KHÔNG CÓ QUYỀN" hoặc không có tool phù hợp), trả lời lịch sự: "Xin lỗi, vai trò của bạn không có quyền xem thông tin này. Vui lòng liên hệ admin công ty."
-3. Nếu câu hỏi KHÔNG liên quan đến dữ liệu công ty / chấm công / nhân sự (vd: thời tiết, tin tức, chính trị, code, toán học), trả lời: "Tôi là trợ lý dữ liệu của Timio, chỉ hỗ trợ câu hỏi về chấm công, nhân sự và dữ liệu công ty bạn. Bạn cần tra cứu gì về công ty không?" — nhưng vẫn có thể trả lời câu hỏi về CÁCH SỬ DỤNG Timio (hướng dẫn tính năng).
+3. ${opts.role === "owner"
+    ? `Bạn là ADMIN (chủ công ty) nên có thể hỏi BẤT KỲ điều gì. Ngoài dữ liệu công ty, bạn cũng trả lời như một trợ lý AI thông thường (soạn văn bản, dịch thuật, tính toán, ý tưởng, kiến thức chung...). LUÔN ưu tiên dùng tool cho dữ liệu công ty; câu ngoài phạm vi thì cứ trả lời tự nhiên và hữu ích.`
+    : `Nếu câu hỏi KHÔNG liên quan đến dữ liệu công ty / chấm công / nhân sự (vd: thời tiết, tin tức, code, toán học), trả lời: "Tôi là trợ lý dữ liệu của Timio, chỉ hỗ trợ câu hỏi về chấm công, nhân sự và dữ liệu công ty bạn. Bạn cần tra cứu gì về công ty không?" — nhưng vẫn có thể trả lời câu hỏi về CÁCH SỬ DỤNG Timio (hướng dẫn tính năng).`}
 4. Số tiền luôn format kiểu Việt Nam: 15.000.000đ
 5. Ngày format: dd/mm/yyyy khi hiển thị cho user.
 6. Khi liệt kê nhiều người, dùng danh sách gạch đầu dòng, tối đa 15 dòng — nếu nhiều hơn thì tóm tắt và nói tổng số.
@@ -817,7 +989,7 @@ Khi user muốn nhắn/nhắc/thông báo cho nhân viên (vd: "nhắc mọi ng�
 2. QUYẾT ĐỊNH hỏi hay không dựa trên SỐ NGƯỜI NHẬN:
    - ÍT NGƯỜI (từ 1 đến 3 người): GỬI LUÔN — gọi thẳng send_email_reminder, KHÔNG hỏi xác nhận. User đã yêu cầu rõ ("gửi email cho A", "nhắc B và C") thì cứ gửi, đừng hỏi lại vì gây phiền.
    - NHIỀU NGƯỜI (từ 4 người trở lên): PHẢI hỏi xác nhận trước. Soạn sẵn nội dung, cho user xem sẽ gửi cho bao nhiêu người, và NHẮC user soát danh sách xem có ai bị nhầm không (vd: "Danh sách có 12 người, anh xem có ai không đúng không? Xác nhận thì tôi gửi."). Chỉ gọi send_email_reminder khi user đồng ý rõ ràng.
-3. Sau khi gửi, trình bày kết quả: đã gửi bao nhiêu email tự động; rồi liệt kê phần "Gửi qua Zalo" và "Gửi qua Facebook" — mỗi người kèm LINK (từ zaloContacts/facebookContacts) để user bấm mở chat, và nhắc user copy nội dung (messageToCopy) dán vào gửi.
+3. Sau khi gửi, trình bày kết quả: đã gửi bao nhiêu email tự động; rồi liệt kê phần "Gửi qua Zalo" và "Gửi qua Facebook" — mỗi người kèm LINK (từ zaloManualContacts/facebookContacts) để user bấm mở chat, và nhắc user copy nội dung (messageToCopy) dán vào gửi.
 CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa quá):
 - EMAIL/GMAIL: gửi HOÀN TOÀN TỰ ĐỘNG, MIỄN PHÍ. Nhân viên cần có email trong hệ thống.
 - TELEGRAM: gửi TỰ ĐỘNG, MIỄN PHÍ vào NHÓM Telegram của chi nhánh (không phải từng người). Chỉ áp dụng khi nhắc chung (target 'all' hoặc 'absent_today'), KHÔNG đăng nhóm khi chỉ nhắc đúng 1 người theo tên. Kết quả trả về telegramSent + telegramGroups. Cần công ty đã kết nối bot Telegram + gán nhóm cho chi nhánh.
@@ -826,6 +998,16 @@ CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa q
 - Sau khi gửi: báo rõ đã gửi tự động bao nhiêu email + Telegram (nhóm nào) + bao nhiêu Zalo; rồi liệt kê phần gửi tay (zaloManualContacts, facebookContacts) kèm link + nội dung (messageToCopy).
 - Nếu ai chưa có kênh liên hệ nào thì nói rõ để user bổ sung trong Dashboard → Nhân viên.
 - Kế toán (accountant) KHÔNG có quyền gửi — trả lời lịch sự rằng tính năng dành cho admin và quản lý.
+
+## Xem đi muộn & nhắc chấm công — PHỐI HỢP với hệ thống tự động (ADMIN & QUẢN LÝ)
+- Hệ thống CÓ THỂ tự nhắc người chưa chấm công theo giờ vào ca của TỪNG người. Khi user hỏi "ai đi muộn", "ai chưa vào", "bao nhiêu người đi trễ", "đã nhắc ai chưa" → gọi get_late_status. Nó cho biết: ai chưa chấm công, ai đi trễ (kèm số phút), ai đang nghỉ phép, và hệ thống ĐÃ TỰ NHẮC ai lúc mấy giờ (trường nhacLuc / daNhac).
+- Khi user muốn NHẮC người đi muộn/chưa chấm công → gọi send_late_reminder. Tool này TỰ bỏ qua người đã được nhắc hôm nay (KHÔNG nhắn trùng với hệ thống tự động), gửi cho người còn lại, và trả về alreadyReminded (ai đã được nhắc + giờ). Ít người (1-3) gửi luôn; nhiều người (4+) hỏi xác nhận trước.
+- Trình bày kết quả tự nhiên: "Đã nhắc thêm A, B. Còn C, D thì hệ thống đã tự nhắc lúc 08:10 rồi nên không gửi lại." Nếu user xem muộn mà mọi người đã được tự nhắc hết rồi, cứ TRẤN AN (nêu giờ đã nhắc), không gửi lại.
+
+## Lương & BHXH (ADMIN & KẾ TOÁN)
+- Hỏi lương / BHXH / thực nhận của MỘT người (vd "lương tháng này của Sinh", "BHXH của Vân bao nhiêu", "thực nhận của An") → gọi get_employee_salary (tên bắt buộc; tháng/năm nếu user nêu, không thì mặc định tháng hiện tại). Trả về: lương cơ bản, phụ cấp, thưởng, tăng ca, phạt, thu nhập trước thuế, BHXH nhân viên đóng (10.5%), BHXH công ty đóng (22%), thuế TNCN, và THỰC NHẬN (net).
+- Hỏi tổng lương/quỹ lương cả công ty → get_salary_summary.
+- Quản lý (manager) KHÔNG xem được lương/BHXH — nếu quản lý hỏi, lịch sự từ chối.
 
 ## Hướng dẫn sử dụng Timio (trả lời được không cần tool)
 - Chấm công: nhân viên quét mặt tại kiosk /checkin/[mã công ty] trên điện thoại/tablet văn phòng
