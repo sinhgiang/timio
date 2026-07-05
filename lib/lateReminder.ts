@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getValidOaToken, sendZaloMessage } from "@/lib/zalo";
@@ -11,7 +12,8 @@ export interface LateReminderConfig {
   channels: ReminderChannels;
   delayMinutes: number; // nhắc sau khi quá (giờ vào ca + ân hạn) thêm N phút
   target: "absent_today" | "all"; // giữ cho đồng bộ UI; chế độ này luôn chỉ nhắc người chưa chấm công
-  message: string; // dùng {ten} để chèn tên nhân viên
+  useAI: boolean; // để AI tự soạn tin (ấm áp, có ngày/thứ), tự chèn {ten}
+  message: string; // dùng {ten} để chèn tên nhân viên (khi tắt AI)
 }
 
 export const DEFAULT_LATE_REMINDER: LateReminderConfig = {
@@ -19,6 +21,7 @@ export const DEFAULT_LATE_REMINDER: LateReminderConfig = {
   channels: { email: true, telegram: true, zalo: false },
   delayMinutes: 10,
   target: "absent_today",
+  useAI: false,
   message: "Chào {ten}, đã đến giờ vào ca mà bạn chưa chấm công. Sếp đang đợi — vui lòng check-in ngay. Cảm ơn!",
 };
 
@@ -38,6 +41,7 @@ export function sanitizeLateReminderConfig(raw: unknown): LateReminderConfig {
     },
     delayMinutes: Number.isFinite(delay) && delay >= 0 && delay <= 120 ? delay : DEFAULT_LATE_REMINDER.delayMinutes,
     target: r.target === "all" ? "all" : "absent_today",
+    useAI: Boolean(r.useAI),
     message: message || DEFAULT_LATE_REMINDER.message,
   };
 }
@@ -47,6 +51,7 @@ export interface LateReminderResult {
   emailSent: number;
   telegramGroups: string[];
   zaloSent: number;
+  skippedHoliday?: string;
 }
 
 interface DueEmployee {
@@ -66,24 +71,66 @@ function parseShift(raw: string | null): { checkInTime?: string; gracePeriod?: n
   }
 }
 
-/**
- * Rà từng nhân viên của 1 công ty: ai đã quá (giờ vào ca + ân hạn + delay) mà chưa check-in,
- * không nghỉ phép, hôm nay là ngày làm việc của họ, và chưa bị nhắc → gửi nhắc riêng.
- * Gọi mỗi ~10 phút bởi cron/late-reminder. Chỉ nhắc 1 lần/người/ngày (bảng LateReminder).
- */
-export async function runLateReminders(companyId: string, cfg: LateReminderConfig): Promise<LateReminderResult> {
-  const result: LateReminderResult = { due: 0, emailSent: 0, telegramGroups: [], zaloSent: 0 };
-  if (!cfg.enabled) return result;
-  if (!cfg.channels.email && !cfg.channels.telegram && !cfg.channels.zalo) return result;
+const VN_WEEKDAYS = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
-  // Giờ + thứ theo giờ VN (UTC+7)
-  const nowVN = new Date(Date.now() + 7 * 3600 * 1000);
+/** Nhờ AI soạn 1 tin nhắc (ấm áp mà dứt khoát, có ngày/thứ), chứa {ten} để chèn tên. Lỗi/không key → null. */
+async function generateAiMessage(companyName: string, nowVN: Date): Promise<string | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  try {
+    const dateStr = `${VN_WEEKDAYS[nowVN.getUTCDay()]}, ${String(nowVN.getUTCDate()).padStart(2, "0")}/${String(nowVN.getUTCMonth() + 1).padStart(2, "0")}/${nowVN.getUTCFullYear()}`;
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const resp = await anthropic.messages.create({
+      model: process.env.CHAT_MODEL ?? "claude-haiku-4-5",
+      max_tokens: 220,
+      system:
+        "Bạn là trợ lý nhân sự viết tin nhắc chấm công cho nhân viên Việt Nam. Viết 1 tin NGẮN (1–2 câu), giọng tích cực ấm áp nhưng vẫn dứt khoát để nhân viên hiểu cần vào chấm công NGAY. " +
+        "Bắt buộc dùng đúng chuỗi {ten} (không đổi) làm chỗ chèn tên. Có thể nhắc tới ngày/thứ hôm nay một cách tự nhiên. Không dùng emoji, không xưng hô suồng sã, không thêm chú thích. Chỉ trả về đúng nội dung tin nhắn.",
+      messages: [
+        {
+          role: "user",
+          content: `Hôm nay là ${dateStr}. Công ty: ${companyName}. Nhân viên {ten} chưa chấm công dù đã quá giờ vào ca. Viết tin nhắc.`,
+        },
+      ],
+    });
+    const text = resp.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join("")
+      .trim();
+    if (!text) return null;
+    return text.includes("{ten}") ? text : `{ten} ơi, ${text}`;
+  } catch {
+    return null;
+  }
+}
+
+interface DueComputation {
+  holidayName: string | null;
+  due: DueEmployee[];
+  branchInfo: Map<string, { name: string; chatId: string | null; names: string[] }>;
+}
+
+/**
+ * TÍNH (không gửi) ai đến hạn nhắc, tại thời điểm nowVN cho trước. Tách riêng để test được.
+ * Ưu tiên ca theo ngày (Lịch phân ca); "Nghỉ" hoặc ngày lễ hoặc nghỉ phép → bỏ qua.
+ */
+export async function computeDueEmployees(
+  companyId: string,
+  cfg: LateReminderConfig,
+  nowVN: Date
+): Promise<DueComputation> {
   const nowMinutes = nowVN.getUTCHours() * 60 + nowVN.getUTCMinutes();
   const jsDay = nowVN.getUTCDay(); // 0=CN .. 6=T7
   const isoDay = jsDay === 0 ? 7 : jsDay; // 1=T2 .. 7=CN (khớp workDays)
-  const today = getTodayString();
+  const today = nowVN.toISOString().slice(0, 10); // YYYY-MM-DD theo giờ VN (nowVN đã +7h)
 
-  const [employees, logs, leaves, reminded] = await Promise.all([
+  const branchInfo = new Map<string, { name: string; chatId: string | null; names: string[] }>();
+
+  // Ngày lễ toàn công ty → không nhắc ai cả
+  const holiday = await prisma.holiday.findFirst({ where: { companyId, date: today }, select: { name: true } });
+  if (holiday) return { holidayName: holiday.name, due: [], branchInfo };
+
+  const [employees, logs, leaves, reminded, assignments] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId, status: "active" },
       select: {
@@ -100,15 +147,25 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
       select: { employeeId: true },
     }),
     prisma.lateReminder.findMany({ where: { companyId, date: today }, select: { employeeId: true } }),
+    prisma.shiftAssignment.findMany({
+      where: { companyId, date: today },
+      select: { employeeId: true, shiftLabel: true, checkIn: true },
+    }),
   ]);
 
   const checkedIn = new Set(logs.map((l) => l.employeeId));
   const onLeave = new Set(leaves.map((l) => l.employeeId));
   const alreadyReminded = new Set(reminded.map((l) => l.employeeId));
 
+  // Ca theo ngày (Lịch phân ca) — có thể nhiều ca/ngày
+  const assignMap = new Map<string, { shiftLabel: string; checkIn: string }[]>();
+  for (const a of assignments) {
+    const arr = assignMap.get(a.employeeId) ?? [];
+    arr.push({ shiftLabel: a.shiftLabel, checkIn: a.checkIn });
+    assignMap.set(a.employeeId, arr);
+  }
+
   const due: DueEmployee[] = [];
-  // Nhóm tên trễ theo chi nhánh (để đăng Telegram nhóm)
-  const branchInfo = new Map<string, { name: string; chatId: string | null; names: string[] }>();
 
   for (const e of employees) {
     if (!e.branch) continue;
@@ -116,12 +173,23 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
     if (onLeave.has(e.id)) continue;
     if (alreadyReminded.has(e.id)) continue;
 
+    let checkInTime: string;
     const ov = parseShift(e.shiftOverride);
-    const checkInTime = ov.checkInTime ?? e.branch.checkInTime; // "HH:MM"
     const gracePeriod = Number.isFinite(ov.gracePeriod) ? Number(ov.gracePeriod) : e.branch.gracePeriod;
-    const workDaysStr = ov.workDays ?? e.branch.workDays; // "1,2,3,4,5"
-    const workDays = workDaysStr.split(",").map((s) => s.trim());
-    if (!workDays.includes(String(isoDay))) continue; // hôm nay không phải ngày làm của họ
+
+    const roster = assignMap.get(e.id);
+    if (roster && roster.length > 0) {
+      // Có phân ca hôm nay → ca theo ngày là nguồn chuẩn
+      const workShifts = roster.filter((r) => r.shiftLabel !== "Nghỉ" && /^\d{1,2}:\d{2}$/.test(r.checkIn));
+      if (workShifts.length === 0) continue; // hôm nay được xếp nghỉ
+      checkInTime = workShifts.map((r) => r.checkIn).sort()[0]; // ca sớm nhất trong ngày
+    } else {
+      // Không phân ca → dùng lịch tuần (giờ riêng của NV → mặc định chi nhánh)
+      const workDaysStr = ov.workDays ?? e.branch.workDays; // "1,2,3,4,5"
+      const workDays = workDaysStr.split(",").map((s) => s.trim());
+      if (!workDays.includes(String(isoDay))) continue; // hôm nay không phải ngày làm của họ
+      checkInTime = ov.checkInTime ?? e.branch.checkInTime; // "HH:MM"
+    }
 
     const [h, m] = checkInTime.split(":").map((x) => Number(x));
     if (!Number.isFinite(h) || !Number.isFinite(m)) continue;
@@ -136,6 +204,23 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
     branchInfo.set(e.branchId, bi);
   }
 
+  return { holidayName: null, due, branchInfo };
+}
+
+/**
+ * Rà + GỬI nhắc chấm công trễ cho 1 công ty. Gọi mỗi ~10 phút bởi cron/late-reminder.
+ * Bỏ qua ngày lễ / nghỉ phép / ngày nghỉ; ưu tiên ca theo ngày; chỉ nhắc 1 lần/người/ngày.
+ */
+export async function runLateReminders(companyId: string, cfg: LateReminderConfig): Promise<LateReminderResult> {
+  const result: LateReminderResult = { due: 0, emailSent: 0, telegramGroups: [], zaloSent: 0 };
+  if (!cfg.enabled) return result;
+  if (!cfg.channels.email && !cfg.channels.telegram && !cfg.channels.zalo) return result;
+
+  const nowVN = new Date(Date.now() + 7 * 3600 * 1000);
+  const today = nowVN.toISOString().slice(0, 10);
+
+  const { holidayName, due, branchInfo } = await computeDueEmployees(companyId, cfg, nowVN);
+  if (holidayName) return { ...result, skippedHoliday: holidayName };
   result.due = due.length;
   if (due.length === 0) return result;
 
@@ -155,7 +240,13 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
   });
   if (!company) return result;
 
-  const personalText = (name: string) => cfg.message.replace(/\{ten\}/gi, name).trim();
+  // Nội dung: AI tự soạn (nếu bật) → nếu lỗi thì dùng nội dung cấu hình
+  let template = cfg.message;
+  if (cfg.useAI) {
+    const ai = await generateAiMessage(company.name, nowVN);
+    if (ai) template = ai;
+  }
+  const personalText = (name: string) => template.replace(/\{ten\}/gi, name).trim();
 
   // EMAIL — từng người
   if (cfg.channels.email) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlarmClock, Mail, Send, MessageCircle } from "lucide-react";
+import { AlarmClock, Mail, Send, MessageCircle, Sparkles } from "lucide-react";
 
 interface Channels { email: boolean; telegram: boolean; zalo: boolean; }
 interface LateConfig {
@@ -9,6 +9,7 @@ interface LateConfig {
   channels: Channels;
   delayMinutes: number;
   target: "absent_today" | "all";
+  useAI: boolean;
   message: string;
 }
 
@@ -17,6 +18,7 @@ const DEFAULT: LateConfig = {
   channels: { email: true, telegram: true, zalo: false },
   delayMinutes: 10,
   target: "absent_today",
+  useAI: false,
   message: "Chào {ten}, đã đến giờ vào ca mà bạn chưa chấm công. Sếp đang đợi — vui lòng check-in ngay. Cảm ơn!",
 };
 
@@ -149,6 +151,25 @@ export default function LateReminderPanel({ zaloConnected }: { zaloConnected: bo
           {/* Message */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Nội dung nhắc</p>
+
+            {/* AI toggle */}
+            <button
+              onClick={() => patch({ useAI: !cfg.useAI })}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors mb-3 ${
+                cfg.useAI ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-gray-50 border-gray-200 text-gray-500"
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              {cfg.useAI ? "AI đang tự soạn tin nhắn (BẬT)" : "Để AI tự soạn tin nhắn (TẮT)"}
+            </button>
+
+            {cfg.useAI && (
+              <p className="text-[11px] text-purple-600 mb-2 leading-relaxed">
+                Mỗi ngày AI viết một tin nhắc tươi mới — tích cực mà vẫn dứt khoát, có nhắc ngày/thứ hôm nay, tự chèn tên
+                nhân viên. Ô dưới đây là <b>nội dung dự phòng</b> nếu AI gặp lỗi.
+              </p>
+            )}
+
             <textarea
               value={cfg.message}
               onChange={(e) => patch({ message: e.target.value })}
