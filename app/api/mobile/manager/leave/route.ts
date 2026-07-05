@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getManagerAuth } from "@/lib/mobileAuth";
+import { scopedBranchId } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+  const mgrBranch = scopedBranchId(auth);
 
   try {
     const { searchParams } = new URL(req.url);

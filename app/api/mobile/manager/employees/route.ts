@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getManagerAuth } from "@/lib/mobileAuth";
+import { scopedBranchId } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   const auth = getManagerAuth(req);
   if (!auth) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const mgrBranch = auth.role === "manager" && auth.branchId ? auth.branchId : null;
+  // Quản lý CN + kế toán CN đều bị giới hạn chi nhánh; nhưng chỉ QUẢN LÝ mới bị ẩn lương
+  const mgrBranch = scopedBranchId(auth);
+  const hideSalary = auth.role === "manager";
 
   try {
     const employees = await prisma.employee.findMany({
@@ -43,8 +46,8 @@ export async function GET(req: NextRequest) {
         phone: e.phone ?? "",
         email: e.email ?? "",
         joinDate: e.joinDate ? e.joinDate.toISOString().slice(0, 10) : null,
-        // Branch manager không được xem lương → chỉ trả baseSalary cho owner/accountant
-        ...(mgrBranch ? {} : { baseSalary: e.baseSalary ?? 0 }),
+        // Chỉ QUẢN LÝ bị ẩn lương; kế toán (kể cả kế toán chi nhánh) vẫn xem được
+        ...(hideSalary ? {} : { baseSalary: e.baseSalary ?? 0 }),
         annualLeaveBalance: e.annualLeaveBalance,
         branchName: e.branch.name,
       }))
