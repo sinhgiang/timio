@@ -20,6 +20,7 @@ export default function ManagerTabsLayout() {
       <Tabs.Screen name="attendance" options={{ title: "Chấm công", tabBarIcon: ({ color }) => <TabIcon emoji="📋" color={color} /> }} />
       <Tabs.Screen name="employees" options={{ title: "Nhân viên", tabBarIcon: ({ color }) => <TabIcon emoji="👥" color={color} /> }} />
       <Tabs.Screen name="leave" options={{ title: "Nghỉ phép", tabBarIcon: ({ color }) => <TabIcon emoji="📅" color={color} /> }} />
+      <Tabs.Screen name="requests" options={{ title: "Đơn từ", tabBarIcon: ({ color }) => <TabIcon emoji="🗂️" color={color} /> }} />
       <Tabs.Screen name="report" options={{ title: "Báo cáo", tabBarIcon: ({ color }) => <TabIcon emoji="📊" color={color} /> }} />
       <Tabs.Screen name="chat" options={{ title: "Trợ lý", tabBarIcon: ({ color }) => <TabIcon emoji="🤖" color={color} /> }} />
     </Tabs>

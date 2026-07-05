@@ -290,6 +290,26 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Self-service grid */}
+        <View style={styles.grid}>
+          <TouchableOpacity style={styles.gridItem} onPress={() => router.push("/payslip")} activeOpacity={0.85}>
+            <Text style={styles.gridIcon}>💰</Text>
+            <Text style={styles.gridLabel}>Phiếu lương</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem} onPress={() => router.push("/history")} activeOpacity={0.85}>
+            <Text style={styles.gridIcon}>📅</Text>
+            <Text style={styles.gridLabel}>Lịch sử</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem} onPress={() => router.push("/leave-request")} activeOpacity={0.85}>
+            <Text style={styles.gridIcon}>📝</Text>
+            <Text style={styles.gridLabel}>Xin nghỉ phép</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.gridItem} onPress={() => router.push("/feed")} activeOpacity={0.85}>
+            <Text style={styles.gridIcon}>📢</Text>
+            <Text style={styles.gridLabel}>Bảng tin</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.pullHint}>Kéo xuống để cập nhật</Text>
       </ScrollView>
     </View>
@@ -401,4 +421,21 @@ const styles = StyleSheet.create({
   doneSubText: { fontSize: 14, color: "#6b7280", marginTop: 6 },
 
   pullHint: { textAlign: "center", color: "#d1d5db", fontSize: 12, marginTop: 8 },
+
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
+  gridItem: {
+    width: "47%",
+    flexGrow: 1,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  gridIcon: { fontSize: 28, marginBottom: 8 },
+  gridLabel: { fontSize: 14, fontWeight: "700", color: "#374151" },
 });

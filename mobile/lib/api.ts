@@ -1,3 +1,5 @@
+import { getManager } from "@/lib/storage";
+
 const BASE = "https://timio.vn";
 
 // ─── Employee types ────────────────────────────────────────────────
@@ -294,6 +296,49 @@ export async function sendChatMessage(
   return { sessionId: sid, text: text || "(Không có phản hồi)", remaining };
 }
 
+// ─── Manager approval requests API ─────────────────────────────────
+export type RequestType = "overtime" | "early_leave" | "correction" | "shift_swap";
+
+export interface RequestItem {
+  id: string;
+  type: RequestType;
+  employeeName: string;
+  detail: string;
+  reason: string;
+  status: string;
+  createdAt: string;
+}
+
+export async function getRequests(type: RequestType, status = "pending"): Promise<RequestItem[]> {
+  const mgr = await getManager();
+  if (!mgr) throw new Error("Chưa đăng nhập");
+  const res = await fetch(
+    `${BASE}/api/mobile/manager/requests?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`,
+    { headers: mgrHeaders(mgr.token) }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không lấy được danh sách đơn");
+  return data as RequestItem[];
+}
+
+export async function actionRequest(
+  type: RequestType,
+  id: string,
+  action: "approve" | "reject",
+  note?: string
+): Promise<{ ok: boolean; id: string; status: string }> {
+  const mgr = await getManager();
+  if (!mgr) throw new Error("Chưa đăng nhập");
+  const res = await fetch(`${BASE}/api/mobile/manager/requests/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${mgr.token}` },
+    body: JSON.stringify({ type, id, action, note }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Xử lý đơn thất bại");
+  return data as { ok: boolean; id: string; status: string };
+}
+
 export async function submitSupportTicket(
   token: string,
   title: string,
@@ -308,4 +353,122 @@ export async function submitSupportTicket(
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Không gửi được ticket");
   return data.message as string;
+}
+
+// ─── Employee self-service types ──────────────────────────────────
+export interface Payslip {
+  month: string;
+  baseSalary: number;
+  earnedBase: number;
+  allowances: number;
+  daysPresent: number;
+  daysLate: number;
+  daysAbsent: number;
+  penalty: number;
+  reward: number;
+  overtime: number;
+  grossIncome: number;
+  bhxhEmployee: number;
+  tncn: number;
+  netTakeHome: number;
+}
+
+export interface HistoryDay {
+  date: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  status: string | null;
+  minutesLate: number;
+  penaltyAmount: number;
+}
+
+export interface HistoryResult {
+  month: string;
+  days: HistoryDay[];
+  summary: { present: number; late: number; absent: number };
+}
+
+export interface FeedAnnouncement {
+  title: string;
+  content: string;
+  type: string;
+  pinned: boolean;
+  publishedAt: string;
+}
+
+export interface FeedHoliday {
+  date: string;
+  name: string;
+}
+
+export interface FeedResult {
+  announcements: FeedAnnouncement[];
+  holidays: FeedHoliday[];
+}
+
+export type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other";
+
+export interface LeavePayload {
+  type: LeaveType;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+}
+
+// ─── Employee self-service API ────────────────────────────────────
+export async function getPayslip(employeeId: string, pin: string, month?: string): Promise<Payslip> {
+  const params = new URLSearchParams({ employeeId, pin });
+  if (month) params.set("month", month);
+  const res = await fetch(`${BASE}/api/mobile/employee/payslip?${params.toString()}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không lấy được phiếu lương");
+  return data as Payslip;
+}
+
+export async function getHistory(employeeId: string, pin: string, month?: string): Promise<HistoryResult> {
+  const params = new URLSearchParams({ employeeId, pin });
+  if (month) params.set("month", month);
+  const res = await fetch(`${BASE}/api/mobile/employee/history?${params.toString()}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không lấy được lịch sử chấm công");
+  return data as HistoryResult;
+}
+
+export async function getFeed(employeeId: string, pin: string): Promise<FeedResult> {
+  const params = new URLSearchParams({ employeeId, pin });
+  const res = await fetch(`${BASE}/api/mobile/employee/feed?${params.toString()}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không lấy được bảng tin");
+  return data as FeedResult;
+}
+
+export async function submitLeave(
+  employeeId: string,
+  pin: string,
+  payload: LeavePayload
+): Promise<{ ok: boolean; id: string }> {
+  const res = await fetch(`${BASE}/api/mobile/employee/leave`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeId, pin, ...payload }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Gửi đơn nghỉ phép thất bại");
+  return data as { ok: boolean; id: string };
+}
+
+export async function registerPushToken(
+  employeeId: string,
+  pin: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/mobile/push-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeId, pin, token }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({} as { error?: string }));
+    throw new Error((data as { error?: string }).error ?? "Không đăng ký được thông báo");
+  }
 }

@@ -6,6 +6,7 @@ import {
 import { router } from "expo-router";
 import { mobileAuth } from "@/lib/api";
 import { saveEmployee } from "@/lib/storage";
+import { registerForPush } from "@/lib/notifications";
 
 export default function EmployeeLogin() {
   const [slug, setSlug] = useState("");
@@ -22,6 +23,8 @@ export default function EmployeeLogin() {
     try {
       const emp = await mobileAuth(s, p);
       await saveEmployee({ ...emp, slug: s, pin: p });
+      // Đăng ký nhận thông báo đẩy — không được chặn login nếu lỗi
+      try { await registerForPush(emp.id, p); } catch { /* bỏ qua */ }
       router.replace("/home");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Đăng nhập thất bại");
