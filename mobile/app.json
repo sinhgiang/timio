@@ -2,7 +2,7 @@
   "expo": {
     "name": "Timio",
     "slug": "timio",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "owner": "sinhgiangs-team",
     "extra": {
       "eas": {
@@ -18,7 +18,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Cho phép Timio dùng micro để bạn nói với trợ lý AI.",
+          "speechRecognitionPermission": "Cho phép Timio nhận diện giọng nói để chuyển lời bạn thành câu hỏi."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

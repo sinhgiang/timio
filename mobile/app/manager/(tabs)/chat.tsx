@@ -4,6 +4,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Alert, Linking,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { router } from "expo-router";
 import { getManager, type StoredManager } from "@/lib/storage";
 import {
@@ -206,6 +207,8 @@ export default function ManagerChat() {
   const [ticketTitle, setTicketTitle] = useState("");
   const [ticketDesc, setTicketDesc] = useState("");
   const [ticketSending, setTicketSending] = useState(false);
+  const [listening, setListening] = useState(false);
+  const finalTranscriptRef = useRef("");
   const listRef = useRef<FlatList<Msg>>(null);
 
   useEffect(() => {
@@ -230,6 +233,39 @@ export default function ManagerChat() {
   const scrollToEnd = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
+
+  // ── Nhận giọng nói on-device (miễn phí, tiếng Việt), nói xong tự gửi ──
+  useSpeechRecognitionEvent("result", (e) => {
+    const t = e.results?.[0]?.transcript ?? "";
+    if (e.isFinal) finalTranscriptRef.current = t;
+    setInput(t);
+  });
+  useSpeechRecognitionEvent("end", () => {
+    setListening(false);
+    const text = finalTranscriptRef.current.trim();
+    finalTranscriptRef.current = "";
+    if (text) { setInput(""); send(text); }
+  });
+  useSpeechRecognitionEvent("error", () => { setListening(false); });
+
+  async function startVoice() {
+    if (sending) return;
+    if (listening) { ExpoSpeechRecognitionModule.stop(); return; }
+    try {
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Cần quyền micro", "Vui lòng cho phép dùng micro để nói với trợ lý.");
+        return;
+      }
+      finalTranscriptRef.current = "";
+      setInput("");
+      setListening(true);
+      ExpoSpeechRecognitionModule.start({ lang: "vi-VN", interimResults: true, continuous: false });
+    } catch {
+      setListening(false);
+      Alert.alert("Không nghe được", "Thiết bị chưa hỗ trợ nhận giọng nói. Anh gõ giúp nhé.");
+    }
+  }
 
   async function send(text: string) {
     const message = text.trim();
@@ -359,7 +395,7 @@ export default function ManagerChat() {
       <View style={s.inputBar}>
         <TextInput
           style={s.input}
-          placeholder={quotaBlocked ? "Đã hết quota hôm nay" : "Nhập câu hỏi..."}
+          placeholder={listening ? "Đang nghe... nói đi anh" : quotaBlocked ? "Đã hết quota hôm nay" : "Nhập câu hỏi..."}
           placeholderTextColor="#9ca3af"
           value={input}
           onChangeText={setInput}
@@ -367,6 +403,13 @@ export default function ManagerChat() {
           onSubmitEditing={() => send(input)}
           returnKeyType="send"
         />
+        <TouchableOpacity
+          style={[s.micBtn, listening && s.micBtnOn, (sending || quotaBlocked) && s.sendBtnOff]}
+          onPress={startVoice}
+          disabled={sending || !!quotaBlocked}
+        >
+          <Text style={[s.micIcon, listening && s.micIconOn]}>{listening ? "■" : "🎤"}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[s.sendBtn, (sending || !input.trim() || quotaBlocked) && s.sendBtnOff]}
           onPress={() => send(input)}
@@ -504,6 +547,14 @@ const s = StyleSheet.create({
   },
   sendBtnOff: { opacity: 0.4 },
   sendBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+
+  micBtn: {
+    width: 42, height: 42, borderRadius: 21, backgroundColor: "#e5e7eb",
+    justifyContent: "center", alignItems: "center",
+  },
+  micBtnOn: { backgroundColor: "#ef4444" },
+  micIcon: { fontSize: 18 },
+  micIconOn: { color: "#fff", fontSize: 16, fontWeight: "800" },
 
   lockIcon: { fontSize: 44, marginBottom: 12 },
   lockTitle: { fontSize: 18, fontWeight: "800", color: "#111827", marginBottom: 8 },
