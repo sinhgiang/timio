@@ -1,0 +1,18 @@
+name: Late clock-in reminder
+
+# Rà nhắc chấm công trễ theo ca mỗi 10 phút (gói Hobby không cho Vercel cron dày như vậy).
+# Endpoint tự khớp giờ vào ca từng nhân viên + chống spam, nên gọi thường xuyên là an toàn.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # mỗi 10 phút
+  workflow_dispatch: {} # cho phép bấm chạy tay để test
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call late-reminder endpoint
+        run: |
+          curl -fsS -X GET "https://timio.vn/api/cron/late-reminder" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

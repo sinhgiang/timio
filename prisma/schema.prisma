@@ -33,6 +33,7 @@ model Company {
   paydayOfMonth   Int     @default(5) // ngày phát lương hàng tháng (1-31)
   trialEndsAt     DateTime? // null = không dùng thử / đã trả tiền
   autoReminderConfig String? // JSON: nhắc chấm công tự động { enabled, channels{email,telegram,zalo}, times[hour], days[0-6], target, subject, message }
+  lateReminderConfig String? // JSON: nhắc trễ theo ca { enabled, channels, delayMinutes, target, message }
   createdAt   DateTime  @default(now())
 
   branches      Branch[]
@@ -67,6 +68,18 @@ model Company {
   shiftTemplates      ShiftTemplate[]
   chatSessions        ChatSession[]
   supportTickets      SupportTicket[]
+}
+
+// Đánh dấu đã nhắc "chấm công trễ" cho 1 nhân viên trong 1 ngày → tránh spam mỗi 10 phút
+model LateReminder {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       String   // YYYY-MM-DD (giờ VN)
+  sentAt     DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([companyId, date])
 }
 
 model Admin {

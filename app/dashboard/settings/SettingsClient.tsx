@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import BranchQRCard from "@/components/settings/BranchQRCard";
 import AutoReminderPanel from "@/components/settings/AutoReminderPanel";
+import LateReminderPanel from "@/components/settings/LateReminderPanel";
 import PlanGate from "@/components/ui/PlanGate";
 import {
   Monitor,
@@ -1483,6 +1484,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
       {/* ── Auto Reminder (nhắc chấm công tự động) ── */}
       <AutoReminderPanel zaloConnected={zaloConnected} />
+
+      {/* ── Late Reminder (nhắc trễ theo ca) ── */}
+      <LateReminderPanel zaloConnected={zaloConnected} />
 
       {/* ── Auto Payslip ── */}
       <div className="border-t border-gray-100 pt-6">
