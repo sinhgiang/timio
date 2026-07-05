@@ -875,7 +875,7 @@ export async function executeChatTool(
         const today = todayVN();
         const messageText = String(input.message ?? "").trim() || "Chào bạn, bạn chưa chấm công hôm nay dù đã tới giờ vào ca. Vui lòng check-in ngay giúp mình nhé. Cảm ơn!";
         const recipients = await resolveReminderRecipients(ctx, "absent_today", branchFilter);
-        if (recipients.length === 0) return { sentTo: [], alreadyReminded: [], message: "Mọi người đều đã chấm công — không có ai cần nhắc." };
+        if (recipients.length === 0) return { sentOk: false, sentTo: [], alreadyReminded: [], message: "KHÔNG gửi gì cả: mọi người đều đã chấm công — không có ai cần nhắc." };
 
         const remindedRows = await prisma.lateReminder.findMany({ where: { companyId: ctx.companyId, date: today }, select: { employeeId: true, sentAt: true } });
         const remindMap = new Map(remindedRows.map((r) => [r.employeeId, r.sentAt]));
@@ -883,7 +883,13 @@ export async function executeChatTool(
         const alreadyReminded = recipients.filter((r) => remindMap.has(r.id)).map((r) => ({ name: r.name, nhacLuc: fmtTime(remindMap.get(r.id) as Date) }));
 
         if (fresh.length === 0) {
-          return { sentTo: [], alreadyReminded, message: `Tất cả ${recipients.length} người chưa chấm công đều ĐÃ được nhắc tự động rồi (không nhắn trùng).` };
+          return {
+            sentOk: false, // KHÔNG gửi mới lần này
+            sentTo: [],
+            alreadyReminded,
+            hint: "LẦN NÀY KHÔNG gửi email nào cả (không nhắn trùng). Những người này đã được nhắc TRƯỚC ĐÓ. Nếu user muốn GỬI LẠI cho một người cụ thể thì phải dùng send_email_reminder (target=tên người) — đừng nói 'vừa gửi' ở đây.",
+            message: `LẦN NÀY không gửi thêm email nào. Cả ${recipients.length} người chưa chấm công đều đã được nhắc từ trước (lúc: ${alreadyReminded.map((a) => `${a.name} ${a.nhacLuc}`).join(", ")}) nên không nhắn trùng.`,
+          };
         }
 
         const company = await prisma.company.findUnique({
@@ -922,13 +928,17 @@ export async function executeChatTool(
         await prisma.lateReminder.createMany({ data: fresh.map((r) => ({ companyId: ctx.companyId, employeeId: r.id, date: today })), skipDuplicates: true });
 
         const zaloManualContacts = fresh.filter((r) => r.zalo && !r.zaloUserId).map((r) => ({ name: r.name, link: zaloLink(r.zalo as string) }));
+        const lateSentTotal = emailSent + zaloSent + telegramGroups.length;
         return {
-          sentTo: fresh.map((r) => r.name),
+          sentOk: lateSentTotal > 0, // true nếu THẬT SỰ gửi được ít nhất 1 kênh lần này
+          sentTo: emailSent > 0 || zaloSent > 0 ? fresh.map((r) => r.name) : [],
           emailSent, zaloSentAuto: zaloSent, telegramGroups,
           alreadyReminded,
           zaloManualContacts,
           messageToCopy: messageText,
-          message: `Đã nhắc ${fresh.length} người (email ${emailSent}, Zalo ${zaloSent}${telegramGroups.length ? `, đăng ${telegramGroups.length} nhóm Telegram` : ""}).` + (alreadyReminded.length ? ` ${alreadyReminded.length} người đã được hệ thống tự nhắc trước đó (không nhắn trùng).` : ""),
+          message: lateSentTotal > 0
+            ? `Đã nhắc ${fresh.length} người (email ${emailSent}, Zalo ${zaloSent}${telegramGroups.length ? `, đăng ${telegramGroups.length} nhóm Telegram` : ""}).` + (alreadyReminded.length ? ` ${alreadyReminded.length} người đã được hệ thống tự nhắc trước đó (không nhắn trùng).` : "")
+            : `LẦN NÀY chưa gửi được email/Zalo/Telegram nào (${fresh.length} người cần nhắc nhưng không ai có kênh gửi được).`,
         };
       }
 
@@ -1397,8 +1407,12 @@ CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa q
 
 ## Xem đi muộn & nhắc chấm công — PHỐI HỢP với hệ thống tự động (ADMIN & QUẢN LÝ)
 - Hệ thống CÓ THỂ tự nhắc người chưa chấm công theo giờ vào ca của TỪNG người. Khi user hỏi "ai đi muộn", "ai chưa vào", "bao nhiêu người đi trễ", "đã nhắc ai chưa" → gọi get_late_status. Nó cho biết: ai chưa chấm công, ai đi trễ (kèm số phút), ai đang nghỉ phép, và hệ thống ĐÃ TỰ NHẮC ai lúc mấy giờ (trường nhacLuc / daNhac).
-- Khi user muốn NHẮC người đi muộn/chưa chấm công → gọi send_late_reminder. Tool này TỰ bỏ qua người đã được nhắc hôm nay (KHÔNG nhắn trùng với hệ thống tự động), gửi cho người còn lại, và trả về alreadyReminded (ai đã được nhắc + giờ). Ít người (1-3) gửi luôn; nhiều người (4+) hỏi xác nhận trước.
-- Trình bày kết quả tự nhiên: "Đã nhắc thêm A, B. Còn C, D thì hệ thống đã tự nhắc lúc 08:10 rồi nên không gửi lại." Nếu user xem muộn mà mọi người đã được tự nhắc hết rồi, cứ TRẤN AN (nêu giờ đã nhắc), không gửi lại.
+- CHỌN ĐÚNG TOOL (rất quan trọng — chọn sai sẽ báo gửi mà thật ra không gửi):
+  • Gửi/nhắc cho MỘT NGƯỜI CỤ THỂ theo tên (vd "gửi mail cho Giang A Sinh", "nhắc lại cho Vân", "gửi lại cho An", "gửi lần nữa cho B") → LUÔN dùng send_email_reminder với target = tên người đó. Tool này KHÔNG bỏ qua ai, gửi thật mỗi lần → đúng khi user muốn GỬI LẠI.
+  • Nhắc CHUNG cả nhóm người chưa chấm công / đi muộn (vd "nhắc mọi người chưa vào", "nhắc hết những ai đi trễ") → dùng send_late_reminder. Tool này TỰ bỏ qua người đã được nhắc hôm nay để KHÔNG nhắn trùng với hệ thống tự động.
+  • TUYỆT ĐỐI KHÔNG dùng send_late_reminder cho yêu cầu "gửi lại cho [một người]" — vì nếu người đó đã được nhắc rồi, tool sẽ bỏ qua và KHÔNG gửi gì, khiến bạn báo nhầm "đã gửi".
+- TRUNG THỰC với send_late_reminder: đọc trường 'sentOk'. Nếu sentOk=false (hoặc sentTo rỗng / emailSent=0) → LẦN NÀY KHÔNG gửi email nào. ĐỪNG nói "đã gửi"/"vừa gửi". Với người trong alreadyReminded, nói đúng sự thật: "đã được nhắc lúc HH:MM từ trước rồi" (quá khứ), không nói "vừa gửi". Chỉ nói "đã gửi/đã nhắc" khi sentOk=true, kèm đúng số (email mấy cái, cho ai).
+- Nếu user xem muộn mà mọi người đã được tự nhắc hết rồi, cứ TRẤN AN (nêu giờ đã nhắc), KHÔNG nói vừa gửi lại.
 
 ## Lương & BHXH (ADMIN & KẾ TOÁN)
 - Hỏi lương / BHXH / thực nhận của MỘT người (vd "lương tháng này của Sinh", "BHXH của Vân bao nhiêu", "thực nhận của An") → gọi get_employee_salary (tên bắt buộc; tháng/năm nếu user nêu, không thì mặc định tháng hiện tại). Trả về: lương cơ bản, phụ cấp, thưởng, tăng ca, phạt, thu nhập trước thuế, BHXH nhân viên đóng (10.5%), BHXH công ty đóng (22%), thuế TNCN, và THỰC NHẬN (net).
