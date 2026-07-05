@@ -1129,16 +1129,18 @@ async function resolveReminderRecipients(
     });
   }
 
-  // Lọc theo tên
-  return prisma.employee.findMany({
-    where: {
-      companyId: ctx.companyId,
-      status: "active",
-      ...branchFilter,
-      name: { contains: target, mode: "insensitive" as const },
-    },
+  // Lọc theo tên — BỎ QUA DẤU tiếng Việt + hoa/thường (Giàng == Giang)
+  const nq = stripAccents(target);
+  const candidates = await prisma.employee.findMany({
+    where: { companyId: ctx.companyId, status: "active", ...branchFilter },
     select,
   });
+  return candidates.filter((e) => stripAccents(e.name).includes(nq));
+}
+
+/** Bỏ dấu tiếng Việt + về chữ thường để so tên không phụ thuộc dấu/hoa-thường */
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
 }
 
 interface Recipient {
