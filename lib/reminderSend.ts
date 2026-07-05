@@ -109,7 +109,7 @@ export async function sendCompanyReminder(opts: {
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     select: {
-      id: true, name: true, logoUrl: true,
+      id: true, name: true, slug: true, logoUrl: true,
       zaloOaToken: true, zaloAppId: true, zaloSecretKey: true, zaloRefreshToken: true, zaloTokenExpiresAt: true,
       telegramBotToken: true,
       branches: { select: { id: true, name: true, telegramChatId: true } },
@@ -125,7 +125,8 @@ export async function sendCompanyReminder(opts: {
   if (channels.email) {
     const base = (process.env.NEXTAUTH_URL ?? "https://timio.vn").replace(/\/$/, "");
     const logoUrl = company.logoUrl ? `${base}/api/logo/${company.id}` : null;
-    const html = buildReminderHtml(text, company.name, opts.senderName ?? company.name, logoUrl);
+    const checkinUrl = company.slug ? `${base}/go/checkin/${company.slug}` : null;
+    const html = buildReminderHtml(text, company.name, opts.senderName ?? company.name, logoUrl, checkinUrl);
     const withEmail = recipients.filter((r) => r.email).slice(0, 200);
     const res = await Promise.allSettled(withEmail.map((r) => sendEmail({ to: r.email as string, subject, html })));
     result.emailSent = res.filter((x) => x.status === "fulfilled").length;

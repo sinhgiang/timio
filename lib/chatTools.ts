@@ -716,7 +716,7 @@ export async function executeChatTool(
         const company = await prisma.company.findUnique({
           where: { id: ctx.companyId },
           select: {
-            id: true, logoUrl: true, zaloOaToken: true, zaloAppId: true, zaloSecretKey: true,
+            id: true, slug: true, logoUrl: true, zaloOaToken: true, zaloAppId: true, zaloSecretKey: true,
             zaloRefreshToken: true, zaloTokenExpiresAt: true,
             telegramBotToken: true,
             branches: { select: { id: true, name: true, telegramChatId: true } },
@@ -724,10 +724,11 @@ export async function executeChatTool(
         });
         const base = (process.env.NEXTAUTH_URL ?? "https://timio.vn").replace(/\/$/, "");
         const logoPublicUrl = company?.logoUrl ? `${base}/api/logo/${ctx.companyId}` : null;
+        const checkinUrl = company?.slug ? `${base}/go/checkin/${company.slug}` : null;
 
         // ── EMAIL: gửi tự động ──
         const emailRecipients = all.filter((r) => r.email).slice(0, MAX_EMAIL_RECIPIENTS);
-        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName, logoPublicUrl);
+        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName, logoPublicUrl, checkinUrl);
         const emailResults = await Promise.allSettled(
           emailRecipients.map((r) => sendEmail({ to: r.email as string, subject, html }))
         );
@@ -860,11 +861,12 @@ export async function executeChatTool(
 
         const company = await prisma.company.findUnique({
           where: { id: ctx.companyId },
-          select: { id: true, logoUrl: true, zaloOaToken: true, zaloAppId: true, zaloSecretKey: true, zaloRefreshToken: true, zaloTokenExpiresAt: true, telegramBotToken: true, branches: { select: { id: true, name: true, telegramChatId: true } } },
+          select: { id: true, slug: true, logoUrl: true, zaloOaToken: true, zaloAppId: true, zaloSecretKey: true, zaloRefreshToken: true, zaloTokenExpiresAt: true, telegramBotToken: true, branches: { select: { id: true, name: true, telegramChatId: true } } },
         });
         const baseUrl = (process.env.NEXTAUTH_URL ?? "https://timio.vn").replace(/\/$/, "");
         const logoPublicUrl = company?.logoUrl ? `${baseUrl}/api/logo/${ctx.companyId}` : null;
-        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName, logoPublicUrl);
+        const checkinUrl = company?.slug ? `${baseUrl}/go/checkin/${company.slug}` : null;
+        const html = buildReminderHtml(messageText, ctx.companyName, ctx.userName, logoPublicUrl, checkinUrl);
 
         const emailRecipients = fresh.filter((r) => r.email).slice(0, MAX_EMAIL_RECIPIENTS);
         const emailResults = await Promise.allSettled(emailRecipients.map((r) => sendEmail({ to: r.email as string, subject: "Nhắc chấm công", html })));
@@ -1166,7 +1168,8 @@ export function buildReminderHtml(
   message: string,
   companyName: string,
   senderName: string,
-  logoUrl?: string | null
+  logoUrl?: string | null,
+  checkinUrl?: string | null
 ): string {
   const safe = message
     .replace(/&/g, "&amp;")
@@ -1176,9 +1179,17 @@ export function buildReminderHtml(
   const header = logoUrl
     ? `<div style="text-align:center;margin-bottom:20px;"><img src="${logoUrl}" alt="${escapeHtml(companyName)}" style="max-height:56px;max-width:200px;"></div>`
     : `<div style="font-weight:bold;font-size:18px;color:#111827;margin-bottom:16px;">${escapeHtml(companyName)}</div>`;
+  // Nút chấm công: mở app nếu đã cài, không thì ra trang quét mặt trên web
+  const button = checkinUrl
+    ? `<div style="text-align:center;margin:26px 0;">
+    <a href="${checkinUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:bold;font-size:16px;">Chấm công ngay &rarr;</a>
+    <div style="font-size:12px;color:#9ca3af;margin-top:8px;">Bấm để mở ứng dụng Timio (hoặc quét mặt trên trình duyệt).</div>
+  </div>`
+    : "";
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937;">
   ${header}
   <div style="font-size:15px;line-height:1.6;">${safe}</div>
+  ${button}
   <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
   <p style="font-size:12px;color:#9ca3af;margin:0;">Email gửi từ ${escapeHtml(companyName)} (người gửi: ${escapeHtml(senderName)}) qua hệ thống chấm công Timio.</p>
 </div>`;

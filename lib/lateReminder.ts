@@ -236,7 +236,7 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     select: {
-      id: true, name: true, logoUrl: true,
+      id: true, name: true, slug: true, logoUrl: true,
       zaloOaToken: true, zaloAppId: true, zaloSecretKey: true, zaloRefreshToken: true, zaloTokenExpiresAt: true,
       telegramBotToken: true,
     },
@@ -255,13 +255,14 @@ export async function runLateReminders(companyId: string, cfg: LateReminderConfi
   if (cfg.channels.email) {
     const base = (process.env.NEXTAUTH_URL ?? "https://timio.vn").replace(/\/$/, "");
     const logoUrl = company.logoUrl ? `${base}/api/logo/${company.id}` : null;
+    const checkinUrl = company.slug ? `${base}/go/checkin/${company.slug}` : null;
     const withEmail = due.filter((d) => d.email).slice(0, 200);
     const res = await Promise.allSettled(
       withEmail.map((d) =>
         sendEmail({
           to: d.email as string,
           subject: "Nhắc chấm công — bạn chưa check-in",
-          html: buildReminderHtml(personalText(d.name), company.name, company.name, logoUrl),
+          html: buildReminderHtml(personalText(d.name), company.name, company.name, logoUrl, checkinUrl),
         })
       )
     );
