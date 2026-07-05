@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchWhere, employeeInScope } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const sUser = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   const companyId = sUser?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (sUser?.role === "manager") return NextResponse.json({ error: "Quản lý không xem được dữ liệu lương." }, { status: 403 });
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const payments = await prisma.salaryPayment.findMany({
-      where: { companyId, year, month },
+      where: { companyId, year, month, ...employeeBranchWhere(sUser) },
       select: { employeeId: true, status: true, paidAt: true, amount: true, note: true },
     });
     return NextResponse.json(payments);
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const sUser = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   const companyId = sUser?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (sUser?.role === "manager") return NextResponse.json({ error: "Quản lý không được thao tác dữ liệu lương." }, { status: 403 });
@@ -36,6 +37,10 @@ export async function POST(req: NextRequest) {
   const { employeeId, year, month, amount, status, note } = await req.json();
   if (!employeeId || !year || !month) {
     return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
+  }
+
+  if (!(await employeeInScope(sUser, employeeId))) {
+    return NextResponse.json({ error: "Nhân viên không thuộc chi nhánh của bạn." }, { status: 403 });
   }
 
   const isPaid = (status ?? "paid") === "paid";

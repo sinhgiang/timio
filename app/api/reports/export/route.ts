@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { scopedBranchId } from "@/lib/branchScope";
 import ExcelJS from "exceljs";
 import * as XLSX from "xlsx"; // chỉ dùng cho CSV
 
@@ -60,12 +61,14 @@ function applyDataBorder(cell: ExcelJS.Cell) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const sUser = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   const companyId = sUser?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (sUser?.role === "manager") {
     return NextResponse.json({ error: "Báo cáo lương chỉ dành cho admin và kế toán. Quản lý dùng Báo cáo tùy chỉnh (chấm công) thay thế." }, { status: 403 });
   }
+  // Kế toán chi nhánh → chỉ chi nhánh mình (null = owner/tổng kế toán → toàn công ty)
+  const scopeBranch = scopedBranchId(sUser);
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
@@ -82,7 +85,7 @@ export async function GET(req: NextRequest) {
     const { calculate13thMonth } = await import("@/lib/attendance");
 
     const employees = await prisma.employee.findMany({
-      where: { companyId, status: "active" },
+      where: { companyId, status: "active", ...(scopeBranch ? { branchId: scopeBranch } : {}) },
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, code: true, department: true,
@@ -222,7 +225,7 @@ export async function GET(req: NextRequest) {
 
   const [employees, logs, leaveRequests] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId, status: "active", ...(employeeId ? { id: employeeId } : {}) },
+      where: { companyId, status: "active", ...(employeeId ? { id: employeeId } : {}), ...(scopeBranch ? { branchId: scopeBranch } : {}) },
       include: { branch: true },
       orderBy: { name: "asc" },
     }),
@@ -231,6 +234,7 @@ export async function GET(req: NextRequest) {
         employee: { companyId },
         date: { gte: `${year}-${monthStr}-01`, lte: `${year}-${monthStr}-31` },
         ...(employeeId ? { employeeId } : {}),
+        ...(scopeBranch ? { branchId: scopeBranch } : {}),
       },
     }),
     prisma.leaveRequest.findMany({
@@ -241,6 +245,7 @@ export async function GET(req: NextRequest) {
         fromDate: { lte: `${year}-${monthStr}-31` },
         toDate: { gte: `${year}-${monthStr}-01` },
         ...(employeeId ? { employeeId } : {}),
+        ...(scopeBranch ? { employee: { branchId: scopeBranch } } : {}),
       },
       select: { employeeId: true, fromDate: true, toDate: true },
     }),

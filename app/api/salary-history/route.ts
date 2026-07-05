@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { employeeBranchWhere } from "@/lib/branchScope";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const user = session?.user as { companyId?: string; role?: string } | undefined;
+    const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
     if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (user.role === "manager") return NextResponse.json({ error: "Quản lý không xem được lịch sử lương." }, { status: 403 });
 
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
       where: {
         companyId: user.companyId,
         ...(employeeId ? { employeeId } : {}),
+        ...employeeBranchWhere(user),
       },
       include: { employee: { select: { id: true, name: true, code: true } } },
       orderBy: { date: "desc" },

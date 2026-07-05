@@ -386,7 +386,8 @@ export async function executeChatTool(
   }
 
   // Manager bị giới hạn theo chi nhánh
-  const branchFilter = ctx.role === "manager" && ctx.branchId ? { branchId: ctx.branchId } : {};
+  // Quản lý HOẶC kế toán có gán chi nhánh → chỉ thấy chi nhánh mình
+  const branchFilter = (ctx.role === "manager" || ctx.role === "accountant") && ctx.branchId ? { branchId: ctx.branchId } : {};
 
   try {
     switch (name) {

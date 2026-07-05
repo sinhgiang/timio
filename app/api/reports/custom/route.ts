@@ -85,8 +85,8 @@ export async function GET(req: NextRequest) {
     const to = searchParams.get("to");
     const employeeIdFilter = searchParams.get("employeeId") ?? null;
     let branchIdFilter = searchParams.get("branchId") ?? null;
-    // Quản lý chỉ được xuất dữ liệu chi nhánh mình — ép branchId về chi nhánh của họ
-    if (user?.role === "manager" && user.branchId) branchIdFilter = user.branchId;
+    // Quản lý & kế toán chi nhánh chỉ được xuất dữ liệu chi nhánh mình — ép branchId về chi nhánh của họ
+    if ((user?.role === "manager" || user?.role === "accountant") && user.branchId) branchIdFilter = user.branchId;
     const format = searchParams.get("format") ?? null;
 
     if (!from || !to) {

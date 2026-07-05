@@ -6,6 +6,7 @@ import PayslipListClient from "./PayslipListClient";
 import { calculateTax } from "@/lib/taxCalculator";
 import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 import { canViewData, retentionLabel } from "@/lib/retention";
+import { branchWhere } from "@/lib/branchScope";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ interface Props {
 
 export default async function PayslipPage({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
-  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const sUser = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   const companyId = sUser?.companyId;
   if (!companyId) redirect("/login");
   // Quản lý KHÔNG xem dữ liệu lương
@@ -68,7 +69,7 @@ export default async function PayslipPage({ searchParams }: Props) {
 
   const [employees, company, payments] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId, status: "active" },
+      where: { companyId, status: "active", ...branchWhere(sUser) },
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, code: true, department: true, position: true,

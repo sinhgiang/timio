@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const ctx: ChatContext = {
       companyId: user.companyId,
       role: user.role,
-      branchId: user.role === "manager" ? user.branchId : null,
+      branchId: (user.role === "manager" || user.role === "accountant") ? user.branchId : null,
       companyName: user.companyName,
       userName: user.name,
     };

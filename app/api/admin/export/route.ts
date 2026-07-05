@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { scopedBranchId } from "@/lib/branchScope";
 import ExcelJS from "exceljs";
 
 export async function GET() {
@@ -17,8 +18,9 @@ export async function GET() {
   const companyId = user.companyId;
   // Quản lý: chỉ chi nhánh mình + KHÔNG có dữ liệu lương
   const isManager = user.role === "manager";
-  const scopedBranchId = isManager && user.branchId ? user.branchId : null;
-  const branchWhere = scopedBranchId ? { branchId: scopedBranchId } : {};
+  // Chi nhánh áp dụng cho CẢ quản lý chi nhánh VÀ kế toán chi nhánh (null = owner/tổng → toàn công ty)
+  const scopeBranch = scopedBranchId(user);
+  const branchWhere = scopeBranch ? { branchId: scopeBranch } : {};
 
   // Date helpers
   const now = new Date();
@@ -73,7 +75,7 @@ export async function GET() {
           orderBy: [{ date: "desc" }, { employee: { name: "asc" } }],
         }),
         prisma.leaveRequest.findMany({
-          where: { companyId, ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}) },
+          where: { companyId, ...(scopeBranch ? { employee: { branchId: scopeBranch } } : {}) },
           select: {
             fromDate: true,
             toDate: true,
@@ -100,7 +102,10 @@ export async function GET() {
         }),
         prisma.salaryPayment.findMany({
           // Quản lý KHÔNG được xuất dữ liệu lương → truy vấn rỗng
-          where: isManager ? { id: "___never___" } : { companyId },
+          // Kế toán chi nhánh → chỉ lương nhân viên chi nhánh mình
+          where: isManager
+            ? { id: "___never___" }
+            : { companyId, ...(scopeBranch ? { employee: { branchId: scopeBranch } } : {}) },
           select: {
             year: true,
             month: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { scopedBranchId } from "@/lib/branchScope";
 import ExcelJS from "exceljs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ const MONTH_VI = [
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { companyId?: string; role?: string; branchId?: string } | undefined;
+  const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   const companyId = user?.companyId;
   if (!companyId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -86,6 +87,8 @@ export async function GET(req: NextRequest) {
   if (user?.role === "manager") {
     return NextResponse.json({ error: "Báo cáo tổng kết năm (có dữ liệu lương) chỉ dành cho admin và kế toán." }, { status: 403 });
   }
+  // Kế toán chi nhánh → chỉ chi nhánh mình (null = owner/tổng kế toán → toàn công ty)
+  const scopeBranch = scopedBranchId(user);
 
   try {
     const { searchParams } = new URL(req.url);
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
     // Fetch all monthly summaries for year, all employees in company
     const [summaries, salaryPayments, employees] = await Promise.all([
       prisma.monthlySummary.findMany({
-        where: { employee: { companyId }, year },
+        where: { employee: { companyId, ...(scopeBranch ? { branchId: scopeBranch } : {}) }, year },
         select: {
           employeeId: true,
           month: true,
@@ -112,11 +115,11 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.salaryPayment.findMany({
-        where: { companyId, year },
+        where: { companyId, year, ...(scopeBranch ? { employee: { branchId: scopeBranch } } : {}) },
         select: { month: true, amount: true, status: true },
       }),
       prisma.employee.findMany({
-        where: { companyId, status: "active" },
+        where: { companyId, status: "active", ...(scopeBranch ? { branchId: scopeBranch } : {}) },
         select: { id: true },
       }),
     ]);

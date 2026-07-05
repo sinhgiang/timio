@@ -5,6 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import PayslipPrint from "./PayslipPrint";
 import { calculateTax } from "@/lib/taxCalculator";
 import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
+import { scopedBranchId } from "@/lib/branchScope";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ interface Props {
 
 export default async function PayslipDetailPage({ params, searchParams }: Props) {
   const session = await getServerSession(authOptions);
-  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const sUser = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   const companyId = sUser?.companyId;
   if (!companyId) redirect("/login");
   // Quản lý KHÔNG xem dữ liệu lương
@@ -48,7 +49,7 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
     prisma.employee.findFirst({
       where: { id: params.employeeId, companyId },
       select: {
-        id: true, name: true, code: true, department: true, position: true,
+        id: true, name: true, code: true, department: true, position: true, branchId: true,
         baseSalary: true, joinDate: true, phone: true, dependents: true,
         bankName: true, bankAccount: true, bankBranch: true,
         branch: { select: { name: true, standardWorkDays: true } },
@@ -69,6 +70,10 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
   ]);
 
   if (!employee) notFound();
+
+  // Kế toán chi nhánh chỉ xem phiếu lương nhân viên chi nhánh mình
+  const b = scopedBranchId(sUser);
+  if (b && employee.branchId !== b) redirect("/dashboard");
 
   const s = employee.summaries[0];
   const base = employee.baseSalary ?? 0;

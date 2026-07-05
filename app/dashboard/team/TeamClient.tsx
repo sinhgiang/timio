@@ -442,8 +442,8 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                 </p>
               </div>
 
-              {/* Branch scope — chỉ hiện khi role = manager */}
-              {form.role === "manager" && branches.length > 0 && (
+              {/* Branch scope — hiện cho cả quản lý và kế toán */}
+              {(form.role === "manager" || form.role === "accountant") && branches.length > 0 && (
                 <div>
                   <label className="text-sm font-semibold text-gray-700 block mb-1.5">Phạm vi chi nhánh</label>
                   <select
@@ -451,12 +451,36 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                     onChange={(e) => setForm((f) => ({ ...f, branchId: e.target.value }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
-                    <option value="">Toàn công ty (xem tất cả chi nhánh)</option>
+                    <option value="">Toàn công ty ({form.role === "accountant" ? "tổng kế toán — xem tiền toàn công ty" : "quản lý tổng — xem tất cả chi nhánh"})</option>
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>{b.name} (chỉ chi nhánh này)</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-400 mt-1">Giới hạn chi nhánh → quản lý chỉ thấy dữ liệu chi nhánh được giao</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {form.role === "accountant"
+                      ? "Giới hạn chi nhánh → kế toán chỉ thấy lương/tiền và dữ liệu của chi nhánh được giao"
+                      : "Giới hạn chi nhánh → quản lý chỉ thấy dữ liệu chi nhánh được giao"}
+                  </p>
+                </div>
+              )}
+
+              {/* Tóm tắt chức danh sống động — hiện rõ đang tạo cấp nào */}
+              {(form.role === "manager" || form.role === "accountant") && (
+                <div className="rounded-xl bg-blue-50 border border-blue-100 px-3.5 py-2.5">
+                  <p className="text-xs text-blue-900 leading-relaxed">
+                    Đang tạo:{" "}
+                    <b>
+                      {form.role === "accountant"
+                        ? (form.branchId ? `Kế toán chi nhánh ${branches.find((b) => b.id === form.branchId)?.name ?? ""}` : "Tổng kế toán")
+                        : (form.branchId ? `Quản lý chi nhánh ${branches.find((b) => b.id === form.branchId)?.name ?? ""}` : "Quản lý tổng")}
+                    </b>
+                    {" — "}
+                    {form.branchId
+                      ? "chỉ xem/làm dữ liệu của chi nhánh này"
+                      : form.role === "accountant"
+                        ? "xem lương/tiền & dữ liệu toàn công ty"
+                        : "xem dữ liệu tất cả chi nhánh (không xem lương)"}
+                  </p>
                 </div>
               )}
             </div>

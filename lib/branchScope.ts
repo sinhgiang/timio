@@ -7,13 +7,16 @@ export interface ScopeUser {
 }
 
 /**
- * Chi nhánh mà 1 quản lý bị giới hạn. Trả về:
- *  - string branchId  → quản lý chi nhánh (chỉ được xem/sửa chi nhánh này)
- *  - null             → owner / accountant / "quản lý tổng" (branchId=null) → không giới hạn
+ * Chi nhánh mà 1 người bị giới hạn (quản lý HOẶC kế toán có gán chi nhánh). Trả về:
+ *  - string branchId  → "chi nhánh" (quản lý CN / kế toán CN) → chỉ xem/sửa chi nhánh này
+ *  - null             → owner / "tổng" (quản lý tổng / tổng kế toán, branchId=null) → không giới hạn
  */
-export function managerBranchId(user: ScopeUser | undefined | null): string | null {
-  return user?.role === "manager" && user.branchId ? user.branchId : null;
+export function scopedBranchId(user: ScopeUser | undefined | null): string | null {
+  return (user?.role === "manager" || user?.role === "accountant") && user.branchId ? user.branchId : null;
 }
+
+/** Giữ tên cũ cho tương thích — nay bao gồm cả kế toán chi nhánh. */
+export const managerBranchId = scopedBranchId;
 
 /** true nếu user là kế toán/quản lý KHÔNG được xem lương (chỉ owner + accountant xem lương) */
 export function canSeeSalary(user: ScopeUser | undefined | null): boolean {

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { calculateTax } from "@/lib/taxCalculator";
 import SalaryPaymentsClient from "./SalaryPaymentsClient";
+import { branchWhere } from "@/lib/branchScope";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Thanh toán lương" };
@@ -26,8 +27,6 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
   const year  = parseInt(yearStr);
   const month = parseInt(monStr);
 
-  const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
-
   // salaryAdvance table may not exist yet on Neon — safe fallback
   let advancesRaw: { employeeId: string; amount: number }[] = [];
   try {
@@ -42,7 +41,7 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
       where: {
         companyId: user.companyId,
         status: "active",
-        ...(scopedBranchId ? { branchId: scopedBranchId } : {}),
+        ...branchWhere(user),
       },
       orderBy: { name: "asc" },
       select: {

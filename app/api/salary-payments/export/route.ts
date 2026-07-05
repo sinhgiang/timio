@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateTax } from "@/lib/taxCalculator";
+import { scopedBranchId as scopedBranchIdFn } from "@/lib/branchScope";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
@@ -18,8 +19,8 @@ export async function GET(req: NextRequest) {
   const year  = parseInt(searchParams.get("year")  ?? String(now.getFullYear()));
   const month = parseInt(searchParams.get("month") ?? String(now.getMonth() + 1));
   const filter = searchParams.get("filter") ?? "all"; // "all" | "unpaid"
-  // Chỉ owner/accountant tới được đây → xem toàn công ty (không lọc chi nhánh)
-  const scopedBranchId: string | null = null;
+  // Owner + tổng kế toán → toàn công ty (null); kế toán chi nhánh → chỉ chi nhánh mình
+  const scopedBranchId = scopedBranchIdFn(user);
 
   let advances: { employeeId: string; amount: number }[] = [];
   try {
