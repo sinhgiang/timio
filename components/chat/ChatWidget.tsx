@@ -437,6 +437,8 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (typeof window === "undefined") return;
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     setVoiceSupported(!!Ctor);
+    // Làm nóng danh sách giọng đọc (getVoices() nạp bất đồng bộ)
+    try { window.speechSynthesis?.getVoices(); } catch { /* ignore */ }
   }, []);
 
   const stopVoice = useCallback(() => {
@@ -458,6 +460,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     rec.continuous = false;
     rec.maxAlternatives = 1;
     let finalText = "";
+    let lastInterim = "";
 
     rec.onresult = (e: SpeechRecognitionEventLike) => {
       let interim = "";
@@ -466,13 +469,14 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
         if (r.isFinal) finalText += r[0].transcript;
         else interim += r[0].transcript;
       }
+      lastInterim = interim;
       setInput((finalText + interim).trim());
     };
     rec.onerror = () => { stopVoice(); };
     rec.onend = () => {
       recognitionRef.current = null;
       setListening(false);
-      const text = finalText.trim();
+      const text = (finalText || lastInterim).trim(); // dùng bản tạm nếu thiếu kết quả cuối
       if (text) { setInput(""); send(text, true); } // nói xong: tự gửi + ĐỌC TO câu trả lời
     };
 

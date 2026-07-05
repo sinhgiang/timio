@@ -57,23 +57,11 @@ export async function speakVi(text: string): Promise<void> {
   }
 }
 
-// ── Hàng đợi đọc theo CÂU (cho chatbot trả lời bằng giọng nói tức thời) ──
-// Mỗi câu vừa stream xong được nạp vào hàng đợi + tải MP3 ngay (song song),
-// rồi phát tuần tự để không đè lên nhau → nghe liền mạch, gần như tức thời.
-let speakQueue: Promise<ArrayBuffer | null>[] = [];
-let draining = false;
-let speakToken = 0; // tăng lên để hủy phiên đọc cũ (barge-in)
+// ── Đọc câu trả lời chatbot bằng SpeechSynthesis (giọng có sẵn trong trình duyệt) ──
+// KHÔNG gọi server /api/tts (endpoint đó treo trên Vercel serverless). Dùng giọng
+// tiếng Việt của trình duyệt/hệ điều hành: tức thời, miễn phí, tự xếp hàng theo câu.
 
-async function fetchTts(text: string): Promise<ArrayBuffer | null> {
-  try {
-    const res = await fetch("/api/tts?q=" + encodeURIComponent(text));
-    if (!res.ok) return null;
-    const buf = await res.arrayBuffer();
-    return buf.byteLength ? buf : null;
-  } catch { return null; }
-}
-
-// Bỏ ký hiệu markdown / link / emoji để đọc cho tự nhiên
+// Bỏ ký hiệu markdown / link để đọc cho tự nhiên
 export function cleanForSpeech(s: string): string {
   return s
     .replace(/```[\s\S]*?```/g, " ")            // khối code
@@ -85,32 +73,41 @@ export function cleanForSpeech(s: string): string {
     .trim();
 }
 
-// Dừng đọc + xóa hàng đợi (gọi khi bắt đầu tin nhắn mới)
-export function resetSpeech(): void {
-  speakToken++;
-  speakQueue = [];
-  draining = false;
-  stopAudio();
+export function speechSupported(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-// Nạp một câu vào hàng đợi để đọc (bắt đầu tải MP3 ngay lập tức)
+function pickViVoice(): SpeechSynthesisVoice | null {
+  try {
+    const voices = window.speechSynthesis.getVoices();
+    return (
+      voices.find((v) => /vi[-_]?VN/i.test(v.lang)) ??
+      voices.find((v) => /^vi\b/i.test(v.lang)) ??
+      null
+    );
+  } catch { return null; }
+}
+
+// Dừng đọc (gọi khi bắt đầu tin nhắn mới / đóng chat)
+export function resetSpeech(): void {
+  if (!speechSupported()) return;
+  try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+}
+
+// Đọc một câu — trình duyệt TỰ xếp hàng, các câu phát tuần tự liền mạch
 export function enqueueSpeak(text: string): void {
-  if (typeof window === "undefined") return;
+  if (!speechSupported()) return;
   const t = cleanForSpeech(text);
   if (!t) return;
-  speakQueue.push(fetchTts(t));
-  if (!draining) drainSpeak();
-}
-
-async function drainSpeak(): Promise<void> {
-  const myToken = speakToken;
-  draining = true;
-  while (speakQueue.length && myToken === speakToken) {
-    const buf = await speakQueue.shift()!;
-    if (myToken !== speakToken) break; // đã bị reset
-    if (buf) { try { await playBuffer(buf); } catch { /* ignore */ } }
-  }
-  if (myToken === speakToken) draining = false;
+  try {
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = "vi-VN";
+    const v = pickViVoice();
+    if (v) u.voice = v;
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    window.speechSynthesis.speak(u);
+  } catch { /* ignore */ }
 }
 
 // Phát file MP3 tĩnh — trả về true nếu phát được, false nếu file không tồn tại
