@@ -60,8 +60,12 @@ function applyDataBorder(cell: ExcelJS.Cell) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const sUser = session?.user as { companyId?: string; role?: string } | undefined;
+  const companyId = sUser?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (sUser?.role === "manager") {
+    return NextResponse.json({ error: "Báo cáo lương chỉ dành cho admin và kế toán. Quản lý dùng Báo cáo tùy chỉnh (chấm công) thay thế." }, { status: 403 });
+  }
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");

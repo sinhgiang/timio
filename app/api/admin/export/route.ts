@@ -7,7 +7,7 @@ import ExcelJS from "exceljs";
 export async function GET() {
   const session = await getServerSession(authOptions);
   const user = session?.user as
-    | { companyId?: string; role?: string }
+    | { companyId?: string; role?: string; branchId?: string | null }
     | undefined;
 
   if (!user?.companyId) {
@@ -15,6 +15,10 @@ export async function GET() {
   }
 
   const companyId = user.companyId;
+  // Quản lý: chỉ chi nhánh mình + KHÔNG có dữ liệu lương
+  const isManager = user.role === "manager";
+  const scopedBranchId = isManager && user.branchId ? user.branchId : null;
+  const branchWhere = scopedBranchId ? { branchId: scopedBranchId } : {};
 
   // Date helpers
   const now = new Date();
@@ -33,7 +37,7 @@ export async function GET() {
     const [employees, attendanceLogs, leaveRequests, contracts, salaryPayments] =
       await Promise.all([
         prisma.employee.findMany({
-          where: { companyId },
+          where: { companyId, ...branchWhere },
           select: {
             id: true,
             name: true,
@@ -53,6 +57,7 @@ export async function GET() {
           where: {
             employee: { companyId },
             date: { gte: threeMonthsAgoStr },
+            ...branchWhere,
           },
           select: {
             date: true,
@@ -68,7 +73,7 @@ export async function GET() {
           orderBy: [{ date: "desc" }, { employee: { name: "asc" } }],
         }),
         prisma.leaveRequest.findMany({
-          where: { companyId },
+          where: { companyId, ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}) },
           select: {
             fromDate: true,
             toDate: true,
@@ -82,7 +87,7 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
         }),
         prisma.contract.findMany({
-          where: { employee: { companyId } },
+          where: { employee: { companyId, ...branchWhere } },
           select: {
             type: true,
             startDate: true,
@@ -94,7 +99,8 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
         }),
         prisma.salaryPayment.findMany({
-          where: { companyId },
+          // Quản lý KHÔNG được xuất dữ liệu lương → truy vấn rỗng
+          where: isManager ? { id: "___never___" } : { companyId },
           select: {
             year: true,
             month: true,
@@ -122,7 +128,7 @@ export async function GET() {
       { header: "Chức vụ", key: "position", width: 20 },
       { header: "Email", key: "email", width: 28 },
       { header: "Điện thoại", key: "phone", width: 15 },
-      { header: "Lương cơ bản", key: "baseSalary", width: 16 },
+      ...(isManager ? [] : [{ header: "Lương cơ bản", key: "baseSalary", width: 16 }]),
       { header: "Ngày vào làm", key: "joinDate", width: 16 },
       { header: "Trạng thái", key: "status", width: 12 },
     ];
@@ -282,7 +288,8 @@ export async function GET() {
       });
     }
 
-    // ── Sheet 5: Lương ──
+    // ── Sheet 5: Lương (chỉ admin & kế toán — quản lý không có) ──
+    if (!isManager) {
     const sheetSalary = workbook.addWorksheet("Lương");
     sheetSalary.columns = [
       { header: "Nhân viên", key: "empName", width: 25 },
@@ -318,6 +325,7 @@ export async function GET() {
         note: sp.note ?? "",
       });
     }
+    } // hết if (!isManager) — bỏ sheet Lương cho quản lý
 
     // Write to buffer
     const buffer = await workbook.xlsx.writeBuffer();

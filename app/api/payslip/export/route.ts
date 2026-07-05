@@ -9,12 +9,16 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.role !== "owner" && user.role !== "accountant") {
+    return NextResponse.json({ error: "Chỉ admin và kế toán mới xuất được bảng lương." }, { status: 403 });
+  }
 
   const { searchParams } = new URL(req.url);
   const now = new Date();
   const year  = parseInt(searchParams.get("year")  ?? String(now.getFullYear()));
   const month = parseInt(searchParams.get("month") ?? String(now.getMonth() + 1));
-  const scopedBranchId = user.role === "manager" && user.branchId ? user.branchId : null;
+  // Chỉ owner/accountant tới được đây → xem toàn công ty (không lọc chi nhánh)
+  const scopedBranchId: string | null = null;
 
   const [employees, company] = await Promise.all([
     prisma.employee.findMany({

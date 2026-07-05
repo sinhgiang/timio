@@ -84,7 +84,9 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const employeeIdFilter = searchParams.get("employeeId") ?? null;
-    const branchIdFilter = searchParams.get("branchId") ?? null;
+    let branchIdFilter = searchParams.get("branchId") ?? null;
+    // Quản lý chỉ được xuất dữ liệu chi nhánh mình — ép branchId về chi nhánh của họ
+    if (user?.role === "manager" && user.branchId) branchIdFilter = user.branchId;
     const format = searchParams.get("format") ?? null;
 
     if (!from || !to) {

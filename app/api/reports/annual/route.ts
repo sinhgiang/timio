@@ -83,6 +83,9 @@ export async function GET(req: NextRequest) {
   if (!companyId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (user?.role === "manager") {
+    return NextResponse.json({ error: "Báo cáo tổng kết năm (có dữ liệu lương) chỉ dành cho admin và kế toán." }, { status: 403 });
+  }
 
   try {
     const { searchParams } = new URL(req.url);
