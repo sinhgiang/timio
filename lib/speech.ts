@@ -19,14 +19,16 @@ export function stopAudio(): void {
   }
 }
 
-// Phát ArrayBuffer qua AudioContext, await đến khi âm thanh kết thúc
-async function playBuffer(arrayBuffer: ArrayBuffer): Promise<void> {
+// Phát ArrayBuffer qua AudioContext, await đến khi âm thanh kết thúc.
+// rate > 1 = đọc nhanh hơn (dùng cho giọng chatbot; kiosk giữ mặc định 1).
+async function playBuffer(arrayBuffer: ArrayBuffer, rate = 1): Promise<void> {
   stopAudio();
   const ctx = getCtx();
   if (ctx.state === "suspended") await ctx.resume();
   const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
+  source.playbackRate.value = rate;
   source.connect(ctx.destination);
   currentSource = source;
   await new Promise<void>((resolve) => {
@@ -64,6 +66,7 @@ let speakQueue: Promise<ArrayBuffer | null>[] = [];
 let draining = false;
 let speakToken = 0; // tăng lên để hủy phiên đọc cũ (dừng / barge-in)
 let speakingListener: ((speaking: boolean) => void) | null = null;
+const SPEAK_RATE = 1.35; // tốc độ đọc câu trả lời chatbot (1 = bình thường)
 
 // Component đăng ký để biết khi nào đang đọc (hiện/ẩn nút Dừng)
 export function setSpeakingListener(fn: ((speaking: boolean) => void) | null): void {
@@ -119,7 +122,7 @@ async function drainSpeak(): Promise<void> {
   while (speakQueue.length && myToken === speakToken) {
     const buf = await speakQueue.shift()!;
     if (myToken !== speakToken) break; // đã bị dừng
-    if (buf) { try { await playBuffer(buf); } catch { /* ignore */ } }
+    if (buf) { try { await playBuffer(buf, SPEAK_RATE); } catch { /* ignore */ } }
   }
   if (myToken === speakToken) {
     draining = false;
