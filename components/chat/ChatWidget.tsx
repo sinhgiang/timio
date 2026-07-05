@@ -4,10 +4,27 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   MessageSquare, X, Send, Bot, HelpCircle, SquarePen, Loader2, Lock, LifeBuoy,
-  Copy, Check, MessageCircle, Facebook,
+  Copy, Check, MessageCircle, Facebook, Mic,
 } from "lucide-react";
 import ChatOnboarding from "./ChatOnboarding";
 import ContactSupport from "./ContactSupport";
+
+// Kiểu tối giản cho Web Speech API (không có sẵn trong lib DOM của TS)
+interface SpeechRecognitionResultLike { readonly isFinal: boolean; readonly length: number; [i: number]: { transcript: string } }
+interface SpeechRecognitionEventLike { readonly resultIndex: number; readonly results: { readonly length: number; [i: number]: SpeechRecognitionResultLike } }
+interface SpeechRecognitionLike {
+  lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void; stop: () => void;
+}
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  }
+}
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -383,6 +400,61 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     setBlocked((b) => (b?.reason === "limit" ? b : null));
   }
 
+  // ── Nhận giọng nói (Web Speech API — miễn phí, tiếng Việt) ──
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const [listening, setListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    setVoiceSupported(!!Ctor);
+  }, []);
+
+  const stopVoice = useCallback(() => {
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    recognitionRef.current = null;
+    setListening(false);
+  }, []);
+
+  const startVoice = useCallback(() => {
+    if (sending || blocked) return;
+    if (listening) { stopVoice(); return; }
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Ctor) return;
+    const rec: SpeechRecognitionLike = new Ctor();
+    rec.lang = "vi-VN";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    let finalText = "";
+
+    rec.onresult = (e: SpeechRecognitionEventLike) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onerror = () => { stopVoice(); };
+    rec.onend = () => {
+      recognitionRef.current = null;
+      setListening(false);
+      const text = finalText.trim();
+      if (text) { setInput(""); send(text); } // tự gửi luôn sau khi nói xong
+    };
+
+    recognitionRef.current = rec;
+    setInput("");
+    setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  }, [sending, blocked, listening, stopVoice, send]);
+
+  // Dừng nghe khi đóng khung chat
+  useEffect(() => { if (!open && listening) stopVoice(); }, [open, listening, stopVoice]);
+
   return (
     <>
       {/* Floating button */}
@@ -536,10 +608,26 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                     ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={blocked ? "Đã hết quota hôm nay" : "Nhập câu hỏi..."}
+                    placeholder={listening ? "Đang nghe... nói đi anh" : blocked ? "Đã hết quota hôm nay" : "Nhập câu hỏi..."}
                     disabled={sending || !!blocked}
                     className="flex-1 border border-gray-200 rounded-full px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
                   />
+                  {voiceSupported && (
+                    <button
+                      type="button"
+                      onClick={startVoice}
+                      disabled={sending || !!blocked}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 ${
+                        listening
+                          ? "bg-red-500 text-white animate-pulse"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }`}
+                      aria-label={listening ? "Dừng nghe" : "Nói để nhập"}
+                      title={listening ? "Đang nghe... bấm để dừng" : "Bấm rồi nói"}
+                    >
+                      <Mic className="w-4 h-4" strokeWidth={1.5} />
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={sending || !input.trim() || !!blocked}
