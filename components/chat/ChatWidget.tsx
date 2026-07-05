@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   MessageSquare, X, Send, Bot, HelpCircle, SquarePen, Loader2, Lock, LifeBuoy,
+  Copy, Check, MessageCircle, Facebook,
 } from "lucide-react";
 import ChatOnboarding from "./ChatOnboarding";
 import ContactSupport from "./ContactSupport";
@@ -15,7 +16,49 @@ interface ChatMsg {
 
 const TUTORIAL_KEY = "timio_chat_tutorial_seen";
 
-// Biến URL trong text thành link bấm được
+// Nút "Chép" một phát — copy text vào clipboard
+function CopyButton({ text, label = "Chép", className = "" }: { text: string; label?: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          // Fallback cho trình duyệt cũ
+          const ta = document.createElement("textarea");
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand("copy"); } catch { /* ignore */ }
+          document.body.removeChild(ta);
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      }}
+      className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+        copied ? "bg-green-100 text-green-700" : "bg-blue-600 text-white hover:bg-blue-700"
+      } ${className}`}
+    >
+      {copied ? <Check className="w-3.5 h-3.5" strokeWidth={2} /> : <Copy className="w-3.5 h-3.5" strokeWidth={2} />}
+      {copied ? "Đã chép" : label}
+    </button>
+  );
+}
+
+// Khối nội dung có nút Chép (dùng cho tin nhắn mẫu để gửi tay Zalo/Facebook)
+function CopyBlock({ text }: { text: string }) {
+  return (
+    <div className="my-1.5 rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-100/70">
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Nội dung tin nhắn</span>
+        <CopyButton text={text} />
+      </div>
+      <p className="px-3 py-2.5 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
+// Biến URL trong text thành link/nút bấm được. Zalo & Facebook hiện thành nút mở luôn.
 function linkify(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   const urlRe = /(https?:\/\/[^\s)]+)/g;
@@ -24,17 +67,37 @@ function linkify(text: string, keyPrefix: string): React.ReactNode[] {
   let idx = 0;
   while ((m = urlRe.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
-    nodes.push(
-      <a
-        key={`${keyPrefix}-a-${idx++}`}
-        href={m[1]}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 underline break-all"
-      >
-        {m[1]}
-      </a>
-    );
+    const url = m[1];
+    const isZalo = /zalo\.me/i.test(url);
+    const isFb = /facebook\.com/i.test(url);
+    if (isZalo || isFb) {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-btn-${idx++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors ${
+            isZalo ? "bg-[#0068ff] hover:bg-[#0057d9]" : "bg-[#1877f2] hover:bg-[#0f66d9]"
+          }`}
+        >
+          {isZalo ? <MessageCircle className="w-3.5 h-3.5" strokeWidth={2} /> : <Facebook className="w-3.5 h-3.5" strokeWidth={2} />}
+          {isZalo ? "Mở Zalo" : "Mở Facebook"}
+        </a>
+      );
+    } else {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-a-${idx++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline break-all"
+        >
+          {url}
+        </a>
+      );
+    }
     last = urlRe.lastIndex;
   }
   if (last < text.length) nodes.push(text.slice(last));
@@ -61,8 +124,41 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return nodes;
 }
 
-// Chuyển markdown thô của AI thành giao diện đẹp: đậm, tiêu đề, gạch đầu dòng
+// Chuyển markdown thô của AI thành giao diện đẹp: đậm, tiêu đề, gạch đầu dòng,
+// và tách khối code ``` thành CopyBlock (có nút Chép).
 function AssistantContent({ text }: { text: string }) {
+  const segments: { type: "text" | "code"; content: string }[] = [];
+  const fenceRe = /```[a-zA-Z]*\n?([\s\S]*?)```/g;
+  let cursor = 0;
+  let fm: RegExpExecArray | null;
+  while ((fm = fenceRe.exec(text)) !== null) {
+    if (fm.index > cursor) segments.push({ type: "text", content: text.slice(cursor, fm.index) });
+    segments.push({ type: "code", content: fm[1].replace(/\n+$/, "") });
+    cursor = fenceRe.lastIndex;
+  }
+  // Xử lý khối code ĐANG stream (mở ``` nhưng chưa đóng)
+  const tail = text.slice(cursor);
+  const openIdx = tail.indexOf("```");
+  if (openIdx !== -1) {
+    if (openIdx > 0) segments.push({ type: "text", content: tail.slice(0, openIdx) });
+    segments.push({ type: "code", content: tail.slice(openIdx + 3).replace(/^[a-zA-Z]*\n?/, "") });
+  } else if (tail) {
+    segments.push({ type: "text", content: tail });
+  }
+
+  return (
+    <div>
+      {segments.map((seg, si) =>
+        seg.type === "code"
+          ? seg.content.trim() && <CopyBlock key={`code-${si}`} text={seg.content.trim()} />
+          : <TextBlocks key={`txt-${si}`} text={seg.content} keyPrefix={`s${si}`} />
+      )}
+    </div>
+  );
+}
+
+// Render 1 đoạn text thường: đậm, tiêu đề, gạch đầu dòng
+function TextBlocks({ text, keyPrefix }: { text: string; keyPrefix: string }) {
   const lines = text.split("\n");
   const blocks: React.ReactNode[] = [];
   let bullets: string[] = [];
@@ -95,21 +191,21 @@ function AssistantContent({ text }: { text: string }) {
     const headingMatch = line.match(/^#{1,6}\s+(.*)/);
     if (headingMatch) {
       blocks.push(
-        <p key={`h-${i}`} className="font-bold text-gray-900 mt-1.5 mb-0.5">
-          {renderInline(headingMatch[1], `h-${i}`)}
+        <p key={`${keyPrefix}-h-${i}`} className="font-bold text-gray-900 mt-1.5 mb-0.5">
+          {renderInline(headingMatch[1], `${keyPrefix}-h-${i}`)}
         </p>
       );
       return;
     }
 
     if (line.trim() === "") {
-      blocks.push(<div key={`sp-${i}`} className="h-1.5" />);
+      blocks.push(<div key={`${keyPrefix}-sp-${i}`} className="h-1.5" />);
       return;
     }
 
     blocks.push(
-      <p key={`p-${i}`} className="leading-relaxed">
-        {renderInline(line, `p-${i}`)}
+      <p key={`${keyPrefix}-p-${i}`} className="leading-relaxed">
+        {renderInline(line, `${keyPrefix}-p-${i}`)}
       </p>
     );
   });
