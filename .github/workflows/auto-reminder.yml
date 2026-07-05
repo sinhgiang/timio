@@ -1,0 +1,19 @@
+name: Hourly auto-reminder
+
+# Gọi endpoint nhắc chấm công mỗi giờ. Dùng lịch chạy MIỄN PHÍ của GitHub
+# Actions thay cho Vercel cron (gói Hobby chỉ cho cron 1 lần/ngày).
+# Endpoint tự khớp giờ + thứ theo config từng công ty, nên gọi mỗi giờ là đủ.
+
+on:
+  schedule:
+    - cron: "0 * * * *" # mỗi giờ (theo UTC; endpoint tự quy đổi sang giờ VN)
+  workflow_dispatch: {} # cho phép bấm chạy tay để test
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call auto-reminder endpoint
+        run: |
+          curl -fsS -X GET "https://timio.vn/api/cron/auto-reminder" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
