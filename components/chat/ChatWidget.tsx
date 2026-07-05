@@ -4,11 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   MessageSquare, X, Send, Bot, HelpCircle, SquarePen, Loader2, Lock, LifeBuoy,
-  Copy, Check, MessageCircle, Facebook, Mic,
+  Copy, Check, MessageCircle, Facebook, Mic, Square, Volume2,
 } from "lucide-react";
 import ChatOnboarding from "./ChatOnboarding";
 import ContactSupport from "./ContactSupport";
-import { enqueueSpeak, resetSpeech, unlockAudio } from "@/lib/speech";
+import { enqueueSpeak, resetSpeech, unlockAudio, setSpeakingListener } from "@/lib/speech";
 
 // Tách các CÂU đã hoàn chỉnh khỏi buffer đang stream (để đọc dần).
 // Chỉ cắt khi gặp xuống dòng, hoặc .!? theo sau là dấu cách → tránh cắt nhầm "15.000".
@@ -432,13 +432,18 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [listening, setListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     setVoiceSupported(!!Ctor);
-    // Làm nóng danh sách giọng đọc (getVoices() nạp bất đồng bộ)
-    try { window.speechSynthesis?.getVoices(); } catch { /* ignore */ }
+  }, []);
+
+  // Biết khi nào AI đang đọc → hiện nút Dừng
+  useEffect(() => {
+    setSpeakingListener(setSpeaking);
+    return () => setSpeakingListener(null);
   }, []);
 
   const stopVoice = useCallback(() => {
@@ -629,6 +634,21 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                   {blocked.reason !== "limit" ? null : (
                     <Link href="/dashboard/billing" className="font-semibold underline">Nâng cấp</Link>
                   )}
+                </div>
+              )}
+
+              {/* Nút Dừng đọc — hiện khi AI đang đọc */}
+              {speaking && (
+                <div className="px-3 pt-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { resetSpeech(); setSpeaking(false); }}
+                    className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 rounded-full py-2 text-sm font-semibold hover:bg-red-100 transition-colors"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-red-600" strokeWidth={0} />
+                    Dừng đọc
+                    <Volume2 className="w-4 h-4 animate-pulse" strokeWidth={1.5} />
+                  </button>
                 </div>
               )}
 
