@@ -769,7 +769,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       </nav>
 
       {/* ── Content ── */}
-      <div className="flex-1 p-6 max-w-3xl">
+      <div className={`flex-1 p-6 ${activeSection === "qr" ? "max-w-6xl" : "max-w-3xl"}`}>
         <h1 className="text-2xl font-bold text-gray-800 mb-6">
           {SETTINGS_NAV.find(s => s.key === activeSection)?.label ?? "Cài đặt"}
         </h1>
@@ -803,8 +803,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét mặt → check-in tự động.</p>
           <div className="bg-blue-50 p-2 rounded-xl border border-blue-100 mb-2">
-            <canvas ref={setQrCanvas} className={qrReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
-            {!qrReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
+            <canvas ref={setQrCanvas} className={qrReady ? "block" : "hidden"} style={{ width: 150, height: 150 }} />
+            {!qrReady && <div className="w-[150px] h-[150px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
             <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-blue-800 break-all min-w-0 leading-tight">{checkinUrl}</code>
@@ -834,8 +834,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét mặt → gửi đơn nghỉ.</p>
           <div className="bg-green-50 p-2 rounded-xl border border-green-100 mb-2">
-            <canvas ref={setQrLeaveCanvas} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
-            {!qrLeaveReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
+            <canvas ref={setQrLeaveCanvas} className={qrLeaveReady ? "block" : "hidden"} style={{ width: 150, height: 150 }} />
+            {!qrLeaveReady && <div className="w-[150px] h-[150px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
             <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-green-800 break-all min-w-0 leading-tight">{leaveUrl}</code>
@@ -865,8 +865,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Nhân viên quét → nhập mã + PIN → xem lịch.</p>
           <div className="bg-violet-50 p-2 rounded-xl border border-violet-100 mb-2">
-            <canvas ref={setQrEmployeeCanvas} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
-            {!qrEmployeeReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
+            <canvas ref={setQrEmployeeCanvas} className={qrEmployeeReady ? "block" : "hidden"} style={{ width: 150, height: 150 }} />
+            {!qrEmployeeReady && <div className="w-[150px] h-[150px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
             <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-violet-800 break-all min-w-0 leading-tight">{employeeUrl}</code>
@@ -896,8 +896,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
           <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Ứng viên quét → xem vị trí → tự nộp đơn.</p>
           <div className="bg-orange-50 p-2 rounded-xl border border-orange-100 mb-2">
-            <canvas ref={setQrRecruitCanvas} className={qrRecruitReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
-            {!qrRecruitReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
+            <canvas ref={setQrRecruitCanvas} className={qrRecruitReady ? "block" : "hidden"} style={{ width: 150, height: 150 }} />
+            {!qrRecruitReady && <div className="w-[150px] h-[150px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
           </div>
           <div className="flex items-center gap-1 mb-2 w-full">
             <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-orange-800 break-all min-w-0 leading-tight">{recruitUrl}</code>

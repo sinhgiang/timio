@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, Star, ExternalLink, Link2 } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, Star, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck } from "lucide-react";
 
 type Branch = { id: string; name: string };
 
@@ -103,6 +103,7 @@ export default function RecruitmentClient({ companySlug, branches }: { companySl
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"jobs" | "candidates">("jobs");
+  const [showGuide, setShowGuide] = useState(false);
 
   // Job form
   const [jobForm, setJobForm] = useState<Partial<Job> | null>(null);
@@ -237,18 +238,96 @@ export default function RecruitmentClient({ companySlug, branches }: { companySl
 
       {/* Banner giới thiệu trang công khai */}
       {companySlug && (
-        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-            <Link2 size={18} className="text-white" strokeWidth={1.5} />
+        <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <Link2 size={18} className="text-white" strokeWidth={1.5} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-800">Trang tuyển dụng công khai của bạn đã sẵn sàng</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Chia sẻ link này lên Facebook/Zalo để ứng viên tự nộp đơn — đơn về thẳng mục Ứng viên.
+              </p>
+              <code className="inline-block mt-1.5 text-[11px] bg-white border border-blue-100 px-2 py-1 rounded text-blue-700 break-all">
+                {publicUrl}
+              </code>
+            </div>
+            <button
+              onClick={() => setShowGuide((v) => !v)}
+              className="shrink-0 flex items-center gap-1.5 bg-white border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
+            >
+              <HelpCircle size={15} /> Cách dùng
+              {(showGuide || (!loading && jobs.length === 0)) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800">Trang tuyển dụng công khai của bạn đã sẵn sàng</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Chia sẻ link này lên Facebook/Zalo để ứng viên tự nộp đơn — đơn về thẳng mục Ứng viên.
-            </p>
-            <code className="inline-block mt-1.5 text-[11px] bg-white border border-blue-100 px-2 py-1 rounded text-blue-700 break-all">
-              {publicUrl}
-            </code>
+        </div>
+      )}
+
+      {/* Hướng dẫn nhanh 4 bước — tự mở khi chưa có vị trí nào */}
+      {companySlug && (showGuide || (!loading && jobs.length === 0)) && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-800">Tuyển dụng hoạt động thế nào?</h3>
+            <span className="text-xs text-gray-400">4 bước đơn giản</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              {
+                n: 1, Icon: FileText, color: "blue",
+                title: "Đăng vị trí tuyển",
+                desc: 'Bấm "Thêm vị trí", điền công việc/lương/ca làm. Nhớ bật "Hiện trên trang tuyển dụng công khai".',
+              },
+              {
+                n: 2, Icon: Share2, color: "indigo",
+                title: "Chia sẻ link / QR",
+                desc: 'Bấm "Chép link" hoặc lấy QR trong Cài đặt → QR & Link, đăng lên Facebook/Zalo hoặc in dán trước cửa hàng.',
+              },
+              {
+                n: 3, Icon: Inbox, color: "orange",
+                title: "Ứng viên tự nộp đơn",
+                desc: "Người xem bấm link → chọn vị trí → điền tên/SĐT/kinh nghiệm. Bạn nhận email báo ngay khi có đơn mới.",
+              },
+              {
+                n: 4, Icon: UserCheck, color: "green",
+                title: "Xem & liên hệ",
+                desc: 'Mọi đơn hiện ở tab "Ứng viên". Bấm để xem thông tin, gọi điện, đổi trạng thái theo tiến trình tuyển.',
+              },
+            ].map((s) => {
+              const c = {
+                blue: "bg-blue-50 text-blue-600 border-blue-100",
+                indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
+                orange: "bg-orange-50 text-orange-600 border-orange-100",
+                green: "bg-green-50 text-green-600 border-green-100",
+              }[s.color]!;
+              return (
+                <div key={s.n} className={`rounded-xl border p-3.5 ${c.split(" ")[2]}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.split(" ").slice(0, 2).join(" ")}`}>
+                      <s.Icon size={16} strokeWidth={1.5} />
+                    </div>
+                    <span className="text-xs font-bold text-gray-400">Bước {s.n}</span>
+                  </div>
+                  <p className="font-semibold text-gray-800 text-sm">{s.title}</p>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{s.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => { setActiveTab("jobs"); setJobForm({ title: "", department: null, location: null, description: null, requirements: null, salaryMin: null, salaryMax: null, branchId: null, quantity: null, workTime: null, benefits: null, isPublic: true }); }}
+              className="flex items-center gap-1.5 bg-blue-600 text-white px-3.5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={15} /> Đăng vị trí đầu tiên
+            </button>
+            <a
+              href={publicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3.5 py-2 rounded-lg text-sm hover:border-blue-300 hover:text-blue-600 transition-colors"
+            >
+              <ExternalLink size={15} /> Xem thử trang tuyển dụng
+            </a>
           </div>
         </div>
       )}

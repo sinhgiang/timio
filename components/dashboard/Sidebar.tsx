@@ -42,6 +42,7 @@ type NavEntry = NavItem | NavGroup;
 const navStructure: NavEntry[] = [
   { type: "item",  href: "/dashboard",          label: "Tổng quan",   Icon: LayoutDashboard },
   { type: "item",  href: "/dashboard/employees", label: "Nhân viên",   Icon: Users },
+  { type: "item",  href: "/dashboard/recruitment", label: "Tuyển dụng", Icon: Briefcase },
   { type: "item",  href: "/dashboard/leave",     label: "Nghỉ phép",   Icon: Umbrella, badgeKey: "leave" },
   {
     type: "group", key: "chamcong", label: "Chấm công", Icon: ClipboardEdit, badgeKey: "correction",
@@ -89,7 +90,6 @@ const navStructure: NavEntry[] = [
       { href: "/dashboard/branches",           label: "Chi nhánh",                Icon: Building2 },
       { href: "/dashboard/team",               label: "Nhóm & Quyền",             Icon: UsersRound },
       { href: "/dashboard/org-chart",          label: "Sơ đồ tổ chức",            Icon: Network },
-      { href: "/dashboard/recruitment",        label: "Tuyển dụng",               Icon: Briefcase },
       { href: "/dashboard/performance-reviews",label: "Đánh giá nhân viên",       Icon: Star },
       { href: "/dashboard/onboarding",         label: "Onboarding / Offboarding", Icon: ClipboardCheck },
       { href: "/dashboard/announcements",      label: "Bảng tin nội bộ",          Icon: Megaphone },
