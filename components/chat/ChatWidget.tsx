@@ -776,14 +776,17 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 </div>
               )}
 
-              {/* 2 nút chọn cách nói (luôn hiện khi rảnh) — bấm phát nào ra kết quả đó */}
+              {/* 2 nút chọn cách nói (luôn hiện khi rảnh) — nút đang chọn sáng xanh */}
               {voiceSupported && !convoActive && !listening && !speaking && !sending && !blocked && (
                 <div className="px-3 pt-2 shrink-0 flex items-center gap-1.5">
-                  <span className="text-[11px] text-gray-400 shrink-0">Nói với AI:</span>
                   <button
                     type="button"
                     onClick={() => startWithMode("conversation")}
-                    className="flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2.5 py-1 text-xs font-semibold hover:bg-blue-100"
+                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      voiceMode === "conversation"
+                        ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                        : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
                     title="Nói xong AI đọc trả lời, đọc xong tự mở mic để nói tiếp"
                   >
                     <Radio className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -792,7 +795,11 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                   <button
                     type="button"
                     onClick={() => startWithMode("ptt")}
-                    className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 text-gray-600 px-2.5 py-1 text-xs font-semibold hover:bg-gray-100"
+                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      voiceMode === "ptt"
+                        ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                        : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+                    }`}
                     title="Nói 1 lần rồi AI trả lời"
                   >
                     <Mic className="w-3.5 h-3.5" strokeWidth={1.75} />
