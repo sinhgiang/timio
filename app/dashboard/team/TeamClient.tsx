@@ -9,6 +9,7 @@ interface TeamMember {
   name: string;
   email: string;
   role: string;
+  gender?: string | null;
   branchId: string | null;
   branch: { name: string } | null;
   receiveLeaveEmail: boolean;
@@ -48,7 +49,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager", branchId: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager", branchId: "", gender: "male" });
 
   // Zalo OA inline setup
   const [zaloReady, setZaloReady] = useState(zaloConfigured);
@@ -91,7 +92,7 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
     setAdding(false);
     if (!res.ok) { setAddError(data.error ?? "Lỗi thêm thành viên"); return; }
     setMembers((prev) => [...prev, data]);
-    setForm({ name: "", email: "", password: "", role: "manager", branchId: "" });
+    setForm({ name: "", email: "", password: "", role: "manager", branchId: "", gender: "male" });
     setShowAdd(false);
   };
 
@@ -406,6 +407,20 @@ export default function TeamClient({ initialMembers, currentUserEmail, currentRo
                 <label className="text-sm font-semibold text-gray-700 block mb-1.5">Họ tên</label>
                 <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nguyễn Văn A" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">Giới tính</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([["male", "Nam"], ["female", "Nữ"]] as const).map(([g, lbl]) => (
+                    <button key={g} type="button" onClick={() => setForm((f) => ({ ...f, gender: g }))}
+                      className={`px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors ${
+                        form.gender === g ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                      }`}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">Để trợ lý AI xưng hô đúng anh/chị với người này.</p>
               </div>
               <div>
                 <label className="text-sm font-semibold text-gray-700 block mb-1.5">Email đăng nhập</label>

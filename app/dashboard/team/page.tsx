@@ -16,7 +16,7 @@ export default async function TeamPage() {
   const [members, company, branches] = await Promise.all([
     prisma.admin.findMany({
       where: { companyId: user.companyId },
-      select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, receiveDailyReport: true, createdAt: true,
+      select: { id: true, name: true, email: true, role: true, gender: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, receiveDailyReport: true, createdAt: true,
         branch: { select: { name: true } } },
       orderBy: { createdAt: "asc" },
     }),

@@ -12,6 +12,7 @@ export interface AuthedChatUser {
   branchName: string | null;
   name: string;
   email: string;
+  gender: string | null; // "male" | "female" | null → AI xưng anh/chị
 }
 
 /** Xác thực chat: web dashboard (NextAuth) hoặc mobile app (Bearer HMAC token) */
@@ -33,6 +34,7 @@ export async function authenticateChatUser(req: Request): Promise<AuthedChatUser
       branchName: admin.branch?.name ?? null,
       name: admin.name,
       email: admin.email,
+      gender: admin.gender ?? null,
     };
   }
 
@@ -64,5 +66,6 @@ export async function authenticateChatUser(req: Request): Promise<AuthedChatUser
     branchName: admin.branch?.name ?? null,
     name: admin.name,
     email: admin.email,
+    gender: admin.gender ?? null,
   };
 }

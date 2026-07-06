@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
       userName: user.name,
       role: user.role,
       branchName: user.role === "manager" ? user.branchName : null,
+      gender: user.gender,
     });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

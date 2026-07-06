@@ -17,7 +17,7 @@ export async function GET() {
 
   const admins = await prisma.admin.findMany({
     where: { companyId: user.companyId },
-    select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
+    select: { id: true, name: true, email: true, role: true, gender: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
       branch: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
@@ -33,10 +33,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chỉ chủ tài khoản mới có thể thêm thành viên" }, { status: 403 });
   }
 
-  const { name, email, password, role, branchId } = await req.json();
+  const { name, email, password, role, branchId, gender } = await req.json();
   if (!name || !email || !password || !role) {
     return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
   }
+  const genderValue = gender === "male" || gender === "female" ? gender : null;
   if (!["manager", "accountant"].includes(role)) {
     return NextResponse.json({ error: "Role không hợp lệ" }, { status: 400 });
   }
@@ -58,8 +59,8 @@ export async function POST(req: NextRequest) {
 
   const hashed = await bcrypt.hash(password, 10);
   const admin = await prisma.admin.create({
-    data: { companyId: user.companyId, name, email, password: hashed, role, branchId: branchId || null },
-    select: { id: true, name: true, email: true, role: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
+    data: { companyId: user.companyId, name, email, password: hashed, role, branchId: branchId || null, gender: genderValue },
+    select: { id: true, name: true, email: true, role: true, gender: true, branchId: true, receiveLeaveEmail: true, receiveTelegram: true, telegramChatId: true, receiveZalo: true, zaloUserId: true, createdAt: true,
       branch: { select: { name: true } } },
   });
 

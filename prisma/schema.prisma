@@ -89,6 +89,7 @@ model Admin {
   name      String
   password  String?
   role      String   @default("owner") // "owner" | "manager" | "accountant"
+  gender    String?  // "male" | "female" — để trợ lý AI xưng hô anh/chị đúng
   branchId  String?  // null = xem toàn công ty, có value = chỉ xem chi nhánh này
   receiveLeaveEmail Boolean @default(true)
   receiveTelegram   Boolean @default(false)

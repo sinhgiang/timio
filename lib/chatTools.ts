@@ -1356,9 +1356,11 @@ export function buildSystemPrompt(opts: {
   userName: string;
   role: string;
   branchName?: string | null;
+  gender?: string | null;
 }): string {
   const today = todayVN();
-  const address = guessAddress(opts.userName); // "anh" hoặc "chị"
+  // Ưu tiên giới tính đã set trong tài khoản; chưa set thì đoán theo tên
+  const address = opts.gender === "female" ? "chị" : opts.gender === "male" ? "anh" : guessAddress(opts.userName);
   return `Bạn là Trợ lý AI của Timio — hệ thống chấm công dành cho doanh nghiệp Việt Nam.
 
 ## Người đang chat với bạn
