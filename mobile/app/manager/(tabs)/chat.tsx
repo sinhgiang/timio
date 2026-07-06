@@ -303,7 +303,7 @@ export default function ManagerChat() {
       );
       if (speak) {
         const spoken = cleanForSpeech(reply.text);
-        if (spoken) Speech.speak(spoken, { language: "vi-VN", rate: 1.35 });
+        if (spoken) Speech.speak(spoken, { language: "vi-VN", rate: 1.2 });
       }
     } catch (e) {
       const err = e instanceof Error ? e.message : "Lỗi kết nối";
