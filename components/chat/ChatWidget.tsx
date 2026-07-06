@@ -289,7 +289,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const [blocked, setBlocked] = useState<{ reason: string; message: string } | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const hasChatPlan = plan === "pro" || plan === "business";
 
@@ -329,6 +329,14 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, toolStatus, open]);
+
+  // Ô nhập tự giãn chiều cao theo nội dung (xuống dòng), tối đa ~128px rồi cuộn bên trong
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 128) + "px";
+  }, [input]);
 
   const send = useCallback(async (text: string, speak = false) => {
     const message = text.trim();
@@ -949,11 +957,21 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                     userTypingRef.current = false;
                     send(input, speak);
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-end gap-2"
                 >
-                  <input
+                  <textarea
                     ref={inputRef}
                     value={input}
+                    rows={1}
+                    onKeyDown={(e) => {
+                      // Enter = gửi; Shift+Enter = xuống dòng
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        const speak = convoActiveRef.current;
+                        userTypingRef.current = false;
+                        send(input, speak);
+                      }
+                    }}
                     onChange={(e) => {
                       setInput(e.target.value);
                       // Gõ tay giữa lúc đang trò chuyện → tạm dừng mic (không để nó chen vào)
@@ -968,7 +986,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                     }}
                     placeholder={listening ? "Đang nghe... nói đi anh" : blocked ? "Đã hết quota hôm nay" : "Nhập câu hỏi..."}
                     disabled={sending || !!blocked}
-                    className="flex-1 border border-gray-200 rounded-full px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
+                    className="flex-1 resize-none border border-gray-200 rounded-2xl px-4 py-2.5 text-sm leading-relaxed max-h-32 overflow-y-auto focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
                   />
                   {voiceSupported && (
                     <button
