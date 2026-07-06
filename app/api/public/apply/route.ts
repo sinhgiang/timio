@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { scoreCandidate, aiConfigured } from "@/lib/recruitAI";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Rate limit đơn giản trong bộ nhớ (lớp chặn nhẹ; serverless có thể reset — kèm honeypot + dedupe DB)
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   const company = await prisma.company.findUnique({
     where: { slug },
-    select: { id: true, name: true },
+    select: { id: true, name: true, plan: true },
   });
   if (!company) {
     return NextResponse.json({ error: "Không tìm thấy công ty." }, { status: 404 });
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
 
   const job = await prisma.jobPosting.findFirst({
     where: { id: jobId, companyId: company.id },
-    select: { id: true, title: true, status: true, isPublic: true, branchId: true },
+    select: { id: true, title: true, status: true, isPublic: true, branchId: true, requirements: true, description: true },
   });
   if (!job) {
     return NextResponse.json({ error: "Không tìm thấy vị trí tuyển dụng." }, { status: 404 });
@@ -140,6 +142,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Không lưu được đơn. Vui lòng thử lại." }, { status: 500 });
   }
 
+  // Chấm điểm AI ngay (chỉ gói Business + có API key) — lỗi AI KHÔNG ảnh hưởng việc lưu đơn
+  let aiScore: number | null = null;
+  if (company.plan === "business" && aiConfigured()) {
+    try {
+      const scored = await scoreCandidate(
+        { name, experience, phone, notes },
+        { title: job.title, requirements: job.requirements, description: job.description }
+      );
+      aiScore = scored.score;
+      await prisma.candidate.update({
+        where: { id: candidate.id },
+        data: { aiScore: scored.score, aiSummary: scored.summary },
+      });
+    } catch (e) {
+      console.error("[apply] Chấm điểm AI lỗi (bỏ qua):", e);
+    }
+  }
+
   // Thông báo admin qua email (không chặn phản hồi — lỗi email vẫn coi là nộp thành công)
   try {
     const admins = await prisma.admin.findMany({
@@ -160,7 +180,7 @@ export async function POST(req: NextRequest) {
       const html = `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
           <h2 style="color:#1e3a8a;margin-bottom:4px">Có ứng viên mới 🎉</h2>
-          <p style="color:#475569;margin-top:0">Vị trí: <b>${esc(job.title)}</b></p>
+          <p style="color:#475569;margin-top:0">Vị trí: <b>${esc(job.title)}</b>${aiScore != null ? ` · <span style="color:${aiScore >= 70 ? "#16a34a" : aiScore >= 40 ? "#d97706" : "#64748b"}">Điểm AI: ${aiScore}/100</span>` : ""}</p>
           <table style="width:100%;border-collapse:collapse;font-size:14px;color:#334155">
             <tr><td style="padding:6px 0;color:#64748b">Họ tên</td><td style="padding:6px 0"><b>${esc(name)}</b></td></tr>
             <tr><td style="padding:6px 0;color:#64748b">Điện thoại</td><td style="padding:6px 0">${esc(phone)}</td></tr>

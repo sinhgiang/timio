@@ -2,14 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { scopedBranchId, type ScopeUser } from "@/lib/branchScope";
+
+// Kiểm tra job có thuộc phạm vi (công ty + chi nhánh của manager) không
+async function jobInScope(user: ScopeUser, id: string): Promise<boolean> {
+  const b = scopedBranchId(user);
+  const job = await prisma.jobPosting.findFirst({
+    where: { id, companyId: user.companyId, ...(b ? { OR: [{ branchId: b }, { branchId: null }] } : {}) },
+    select: { id: true },
+  });
+  return !!job;
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as ScopeUser | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role === "accountant") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
+  if (!(await jobInScope(user!, params.id))) return NextResponse.json({ error: "Không tìm thấy hoặc không có quyền" }, { status: 404 });
 
   const { title, department, location, description, requirements, salaryMin, salaryMax, status,
     branchId, quantity, workTime, benefits, isPublic } = await req.json();
+
+  // Manager chi nhánh không được chuyển job sang chi nhánh khác
+  const scoped = scopedBranchId(user!);
 
   const job = await prisma.jobPosting.updateMany({
     where: { id: params.id, companyId },
@@ -22,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(salaryMin !== undefined && { salaryMin: salaryMin ? Number(salaryMin) : null }),
       ...(salaryMax !== undefined && { salaryMax: salaryMax ? Number(salaryMax) : null }),
       ...(status !== undefined && { status }),
-      ...(branchId !== undefined && { branchId: branchId || null }),
+      ...(!scoped && branchId !== undefined && { branchId: branchId || null }),
       ...(quantity !== undefined && { quantity: quantity ? Number(quantity) : null }),
       ...(workTime !== undefined && { workTime: workTime || null }),
       ...(benefits !== undefined && { benefits: benefits || null }),
@@ -35,8 +52,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as { companyId?: string })?.companyId;
+  const user = session?.user as ScopeUser | undefined;
+  const companyId = user?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user?.role === "accountant") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
+  if (!(await jobInScope(user!, params.id))) return NextResponse.json({ error: "Không tìm thấy hoặc không có quyền" }, { status: 404 });
 
   await prisma.jobPosting.deleteMany({ where: { id: params.id, companyId } });
   return NextResponse.json({ ok: true });
