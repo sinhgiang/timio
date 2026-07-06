@@ -56,12 +56,6 @@ const INITIAL_SILENCE_MS = 6000; // TRƯỚC khi nói câu đầu → cho thời
 const SILENCE_MS = 1300;         // SAU khi đã nói → im ~1,3s là chốt (phản hồi nhanh)
 const MAX_LISTEN_MS = 25000;     // trần an toàn: nghe tối đa 1 lượt
 
-// Bỏ dấu + ký tự để so lời nghe được với lời AI đang đọc (chống nghe lại tiếng AI khi chen ngang)
-function stripVi(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
-    .toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-
 // Nút "Chép" một phát — copy text vào clipboard
 function CopyButton({ text, label = "Chép", className = "" }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -459,9 +453,10 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const sendingRef = useRef(false);
   const speakingRef = useRef(false);
   const listeningRef = useRef(false);
-  const bargedRef = useRef(false); // trong lượt nghe hiện tại: đã cắt lời AI (chen ngang) chưa
-  const armSilenceRef = useRef<((ms: number) => void) | null>(null); // để lịch chốt lời từ ngoài
-  const lastAssistantSpokenRef = useRef(""); // lời AI đang đọc (đã bỏ dấu) — để lọc vọng âm
+  // Cảm biến âm lượng (VAD) để phát hiện anh nói chen ngang KHI AI đang đọc — có khử vọng âm
+  const vadStreamRef = useRef<MediaStream | null>(null);
+  const vadRafRef = useRef<number | null>(null);
+  const vadCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -471,23 +466,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (m === "conversation" || m === "ptt") { setVoiceMode(m); voiceModeRef.current = m; }
   }, []);
 
-  // Biết khi nào AI đang đọc. Khi AI đọc XONG mà mic chen-ngang đang mở và user chưa chen
-  // → chuyển mic đó sang chờ lượt user (bắt đầu đếm im lặng).
-  useEffect(() => {
-    setSpeakingListener((s) => {
-      setSpeaking(s);
-      if (!s && voiceModeRef.current === "conversation" && convoActiveRef.current && listeningRef.current && !bargedRef.current) {
-        bargedRef.current = true;
-        armSilenceRef.current?.(INITIAL_SILENCE_MS);
-      }
-    });
-    return () => setSpeakingListener(null);
-  }, []);
-  // Lời AI đang đọc (bỏ dấu) để lọc vọng âm khi nghe chen ngang
-  useEffect(() => {
-    const last = messages[messages.length - 1];
-    lastAssistantSpokenRef.current = last && last.role === "assistant" ? stripVi(last.content) : "";
-  }, [messages]);
+  useEffect(() => { setSpeakingListener(setSpeaking); return () => setSpeakingListener(null); }, []);
   useEffect(() => { convoActiveRef.current = convoActive; }, [convoActive]);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { sendingRef.current = sending; }, [sending]);
@@ -506,25 +485,31 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     setListening(false);
   }, [clearListenTimers]);
 
+  const stopVad = useCallback(() => {
+    if (vadRafRef.current) { cancelAnimationFrame(vadRafRef.current); vadRafRef.current = null; }
+    vadStreamRef.current?.getTracks().forEach((t) => t.stop());
+    vadStreamRef.current = null;
+    try { vadCtxRef.current?.close(); } catch { /* ignore */ }
+    vadCtxRef.current = null;
+  }, []);
+
   const endConversation = useCallback(() => {
     setConvoActive(false); convoActiveRef.current = false;
     setConvoPaused(false);
     emptyTurnsRef.current = 0;
     if (reopenTimerRef.current) { clearTimeout(reopenTimerRef.current); reopenTimerRef.current = null; }
+    stopVad();
     stopVoice();
     resetSpeech();
-  }, [stopVoice]);
+  }, [stopVoice, stopVad]);
 
-  // Mở mic nghe 1 lượt. bargeIn=true: mở mic TRONG khi AI đang đọc để anh chen ngang
-  // (không cắt AI ngay; chỉ cắt khi phát hiện anh THẬT SỰ nói, không phải nghe lại tiếng AI).
-  const beginListening = useCallback((opts?: { bargeIn?: boolean }) => {
-    const bargeIn = opts?.bargeIn ?? false;
+  // Mở mic nghe 1 lượt (AI đã im — không có vọng âm). onend tự nối lượt tiếp trong trò chuyện.
+  const beginListening = useCallback(() => {
     if (sendingRef.current || blocked || listeningRef.current) return;
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) return;
     unlockAudio();
-    if (!bargeIn) resetSpeech();  // chế độ chen ngang thì GIỮ AI đọc tiếp
-    bargedRef.current = !bargeIn; // chưa chen (barge) → false; lượt thường → coi như đã "cắt"
+    resetSpeech();
     const rec: SpeechRecognitionLike = new Ctor();
     rec.lang = "vi-VN";
     rec.interimResults = true;
@@ -538,25 +523,12 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
         try { rec.stop(); } catch { /* ignore */ }
       }, ms);
     };
-    armSilenceRef.current = armSilence;
 
     rec.onresult = (e: SpeechRecognitionEventLike) => {
       let full = "";
       for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
-      full = full.trim();
-
-      // Đang mở mic để chen ngang mà chưa chen: kiểm tra có phải anh thật sự nói không
-      if (bargeIn && !bargedRef.current) {
-        const sp = stripVi(full);
-        if (sp.length < 4) return;                       // quá ngắn, chờ thêm
-        const ai = lastAssistantSpokenRef.current;
-        if (ai && ai.includes(sp)) return;               // trùng lời AI → là vọng âm, bỏ qua
-        bargedRef.current = true;                        // anh thật sự nói
-        resetSpeech();                                   // CẮT lời AI ngay
-      }
-
-      lastFull = full;
-      setInput(full);
+      lastFull = full.trim();
+      setInput(lastFull);
       armSilence(SILENCE_MS);
     };
     rec.onerror = () => { clearListenTimers(); stopVoice(); };
@@ -585,15 +557,48 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
 
     userTypingRef.current = false;
     recognitionRef.current = rec;
-    if (!bargeIn) setInput("");
+    setInput("");
     setListening(true);
     try {
       rec.start();
-      if (!bargeIn) armSilence(INITIAL_SILENCE_MS); // chen-ngang: chưa đếm im lặng, chờ anh nói / AI đọc xong
+      armSilence(INITIAL_SILENCE_MS);
       if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
       maxTimerRef.current = setTimeout(() => { try { rec.stop(); } catch { /* ignore */ } }, MAX_LISTEN_MS);
     } catch { setListening(false); }
   }, [blocked, send, stopVoice, clearListenTimers]);
+
+  // ── VAD: phát hiện anh nói chen ngang KHI AI đang đọc (khử vọng âm nên KHÔNG dính tiếng AI) ──
+  const startVad = useCallback(async (onVoice: () => void) => {
+    if (vadStreamRef.current || !navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      // AI có thể đã đọc xong trong lúc xin quyền → khỏi chạy
+      if (!speakingRef.current || !convoActiveRef.current) { stream.getTracks().forEach((t) => t.stop()); return; }
+      vadStreamRef.current = stream;
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new Ctx();
+      vadCtxRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      let voiceFrames = 0;
+      const THRESH = 0.06; // ngưỡng âm lượng (giọng thật của anh mới vượt; tiếng AI đã bị khử)
+      const NEED = 5;      // số khung liên tiếp vượt ngưỡng mới tính là anh nói (~80ms)
+      const loop = () => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / data.length);
+        if (rms > THRESH) { voiceFrames++; if (voiceFrames >= NEED) { onVoice(); return; } }
+        else voiceFrames = 0;
+        vadRafRef.current = requestAnimationFrame(loop);
+      };
+      vadRafRef.current = requestAnimationFrame(loop);
+    } catch { /* không có quyền mic → bỏ qua chen ngang, không sao */ }
+  }, []);
 
   // Chọn chế độ (lần đầu / khi đổi) rồi bắt đầu nghe luôn
   const chooseMode = useCallback((mode: "ptt" | "conversation") => {
@@ -646,23 +651,29 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     return () => clearTimeout(id);
   }, [voiceMode, convoActive, open, blocked, sending, speaking, listening, messages, beginListening]);
 
-  // Chế độ trò chuyện: mở mic NGAY KHI AI đang đọc → cho anh chen ngang (barge-in).
+  // Chế độ trò chuyện: khi AI đang đọc → bật cảm biến âm lượng. Anh nói (giọng thật) → cắt AI + nghe anh.
   useEffect(() => {
-    if (voiceMode !== "conversation" || !convoActive || !open || blocked) return;
-    if (sending || listening || !speaking) return;
-    beginListening({ bargeIn: true });
-  }, [voiceMode, convoActive, open, blocked, sending, listening, speaking, beginListening]);
+    if (voiceMode !== "conversation" || !convoActive || !open || blocked) { stopVad(); return; }
+    if (!speaking || sending || listening) { stopVad(); return; }
+    startVad(() => {
+      stopVad();
+      resetSpeech();     // cắt lời AI
+      beginListening();  // AI đã im → nghe anh, không dính vọng âm
+    });
+    return () => stopVad();
+  }, [voiceMode, convoActive, open, blocked, speaking, sending, listening, startVad, stopVad, beginListening]);
 
   // Đóng khung chat → dừng nghe, dừng đọc, kết thúc trò chuyện
   useEffect(() => {
     if (!open) {
       if (listening) stopVoice();
+      stopVad();
       resetSpeech();
       setConvoActive(false); convoActiveRef.current = false;
       setConvoPaused(false);
       if (reopenTimerRef.current) { clearTimeout(reopenTimerRef.current); reopenTimerRef.current = null; }
     }
-  }, [open, listening, stopVoice]);
+  }, [open, listening, stopVoice, stopVad]);
 
   return (
     <>
