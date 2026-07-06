@@ -51,6 +51,9 @@ interface ChatMsg {
 }
 
 const TUTORIAL_KEY = "timio_chat_tutorial_seen";
+// Giữ mic mở qua các khoảng nghỉ; chỉ chốt lời khi im lặng đủ lâu (cho thời gian suy nghĩ)
+const SILENCE_MS = 2200;    // im lặng bao lâu thì coi là nói xong
+const MAX_LISTEN_MS = 25000; // trần an toàn: nghe tối đa 1 lượt
 
 // Nút "Chép" một phát — copy text vào clipboard
 function CopyButton({ text, label = "Chép", className = "" }: { text: string; label?: string; className?: string }) {
@@ -443,6 +446,8 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const emptyTurnsRef = useRef(0);
   const startAfterChoiceRef = useRef(false); // chọn chế độ xong có nói luôn không
   const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendingRef = useRef(false);
   const speakingRef = useRef(false);
   const listeningRef = useRef(false);
@@ -463,11 +468,17 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   useEffect(() => { speakingRef.current = speaking; }, [speaking]);
   useEffect(() => { listeningRef.current = listening; }, [listening]);
 
+  const clearListenTimers = useCallback(() => {
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    if (maxTimerRef.current) { clearTimeout(maxTimerRef.current); maxTimerRef.current = null; }
+  }, []);
+
   const stopVoice = useCallback(() => {
+    clearListenTimers();
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
     recognitionRef.current = null;
     setListening(false);
-  }, []);
+  }, [clearListenTimers]);
 
   const endConversation = useCallback(() => {
     setConvoActive(false); convoActiveRef.current = false;
@@ -488,10 +499,18 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     const rec: SpeechRecognitionLike = new Ctor();
     rec.lang = "vi-VN";
     rec.interimResults = true;
-    rec.continuous = false;
+    rec.continuous = true;   // GIỮ mic mở qua các khoảng nghỉ (không tự chốt sớm)
     rec.maxAlternatives = 1;
     let finalText = "";
     let lastInterim = "";
+
+    // Đồng hồ im lặng: chỉ chốt lời khi ngừng nói đủ SILENCE_MS → cho thời gian suy nghĩ
+    const armSilence = () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        try { rec.stop(); } catch { /* ignore */ }
+      }, SILENCE_MS);
+    };
 
     rec.onresult = (e: SpeechRecognitionEventLike) => {
       let interim = "";
@@ -502,9 +521,11 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       }
       lastInterim = interim;
       setInput((finalText + interim).trim());
+      armSilence(); // có tiếng → lùi thời điểm chốt lời
     };
-    rec.onerror = () => { stopVoice(); }; // lỗi tạm → dừng, onend xử lý tiếp
+    rec.onerror = () => { clearListenTimers(); stopVoice(); }; // lỗi tạm → dừng, onend xử lý tiếp
     rec.onend = () => {
+      clearListenTimers();
       recognitionRef.current = null;
       setListening(false);
       const text = (finalText || lastInterim).trim();
@@ -529,8 +550,13 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     recognitionRef.current = rec;
     setInput("");
     setListening(true);
-    try { rec.start(); } catch { setListening(false); }
-  }, [blocked, send, stopVoice]);
+    try {
+      rec.start();
+      armSilence(); // bắt đầu đếm im lặng (reset mỗi khi có tiếng)
+      if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = setTimeout(() => { try { rec.stop(); } catch { /* ignore */ } }, MAX_LISTEN_MS);
+    } catch { setListening(false); }
+  }, [blocked, send, stopVoice, clearListenTimers]);
 
   // Chọn chế độ (lần đầu / khi đổi) rồi bắt đầu nghe luôn
   const chooseMode = useCallback((mode: "ptt" | "conversation") => {
