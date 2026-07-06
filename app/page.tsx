@@ -44,6 +44,9 @@ import {
   Briefcase,
   Megaphone,
   ClipboardCheck,
+  Mic,
+  Sparkles,
+  Radio,
 } from "lucide-react";
 
 /* ── Custom SVG icon backgrounds — replaces emoji ─────────────────── */
@@ -399,6 +402,80 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 </ul>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── AI VOICE ASSISTANT (điểm khác biệt lớn) ── */}
+      <section id="ai-assistant" className="py-20 px-4 bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 text-white overflow-hidden">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <span className="inline-flex items-center gap-1.5 bg-blue-500/20 text-blue-200 border border-blue-400/30 text-xs font-bold px-3 py-1 rounded-full mb-5">
+              <Sparkles size={13} /> MỚI · ĐIỂM KHÁC BIỆT CỦA TIMIO
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold mb-4 leading-tight">
+              Trợ lý AI biết nói — hỏi bằng giọng, nghe AI trả lời
+            </h2>
+            <p className="text-blue-100/80 text-lg mb-7 leading-relaxed">
+              Không cần mở báo cáo, không cần bấm nhiều. Bạn chỉ cần <strong className="text-white">nói</strong>:
+              “Hôm nay ai chưa chấm công?”, “Lương tháng này của Vân bao nhiêu?”, “Nhắc mọi người đi làm đúng giờ” —
+              trợ lý tra dữ liệu, trả lời và <strong className="text-white">đọc to</strong> cho bạn nghe, ngay trên điện thoại.
+            </p>
+            <ul className="space-y-3.5 mb-8">
+              {[
+                ["Hỏi bất kỳ điều gì bằng giọng nói", "Chấm công, lương, nghỉ phép, báo cáo — hỏi như nói chuyện với thư ký."],
+                ["AI đọc trả lời bằng giọng tiếng Việt", "Vừa hiện chữ vừa đọc to, rảnh tay hoàn toàn."],
+                ["Trò chuyện liên tục & chen ngang", "Nói xong AI đáp, đọc xong tự mở mic — như gọi điện. Muốn ngắt lời cứ chạm là AI dừng nghe bạn."],
+                ["Thay bạn gửi nhắc việc", "“Nhắc những người chưa chấm công” — AI soạn và gửi Email/Zalo giúp bạn."],
+                ["Phân quyền chặt chẽ", "Quản lý không xem được lương, kế toán không gửi tin — mỗi vai trò hỏi đúng phần của mình."],
+              ].map(([t, d]) => (
+                <li key={t} className="flex gap-3">
+                  <CheckCircle2 size={20} className="text-blue-400 shrink-0 mt-0.5" />
+                  <span className="text-sm sm:text-base"><strong className="text-white">{t}</strong> <span className="text-blue-100/70">— {d}</span></span>
+                </li>
+              ))}
+            </ul>
+            <Link href="/register" className="inline-flex items-center gap-2 bg-white text-blue-900 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
+              Dùng thử miễn phí <ArrowRight size={18} />
+            </Link>
+          </div>
+
+          {/* Mock khung chat minh hoạ */}
+          <div className="relative">
+            <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-sm mx-auto">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Volume2 className="w-5 h-5 text-white" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 text-sm leading-tight">Trợ lý Timio</p>
+                  <p className="text-xs text-gray-400">Hỏi gì về công ty cũng được</p>
+                </div>
+              </div>
+              <div className="p-4 space-y-3 bg-gray-50/60">
+                <div className="flex justify-end">
+                  <div className="bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 text-sm max-w-[80%] flex items-center gap-2">
+                    <Mic size={14} className="shrink-0 opacity-80" /> Hôm nay ai chưa chấm công?
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-bl-md px-4 py-2.5 text-sm max-w-[85%] shadow-sm">
+                    Dạ anh, hôm nay có <strong>5 nhân viên</strong> chưa chấm công ạ: Giàng A Kỳ, Hầu Thị Chinh, Thầu A Chinh…
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-semibold bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1">
+                    <Radio size={12} className="animate-pulse" /> AI đang đọc trả lời…
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 border-t border-gray-100">
+                <div className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-400">Nhập câu hỏi…</div>
+                <div className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center animate-pulse">
+                  <Mic size={16} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1305,6 +1382,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <ul className="space-y-2.5 mb-6">
                   {[
                     "20 nhân viên · 3 chi nhánh · 3 quản lý",
+                    "Trợ lý AI hội thoại — hỏi & nghe trả lời bằng giọng nói",
                     "Chấm công khuôn mặt AI + QR code",
                     "GPS xác minh vị trí",
                     "Phản hồi giọng nói tiếng Việt",

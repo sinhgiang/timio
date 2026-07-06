@@ -3,6 +3,7 @@
 const links = [
   { label: "Vấn đề", id: "pain" },
   { label: "Tính năng", id: "features" },
+  { label: "Trợ lý AI", id: "ai-assistant" },
   { label: "Bảng giá", id: "pricing" },
   { label: "Demo", id: "demo" },
 ];
