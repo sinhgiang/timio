@@ -56,6 +56,12 @@ const INITIAL_SILENCE_MS = 6000; // TRƯỚC khi nói câu đầu → cho thời
 const SILENCE_MS = 1300;         // SAU khi đã nói → im ~1,3s là chốt (phản hồi nhanh)
 const MAX_LISTEN_MS = 25000;     // trần an toàn: nghe tối đa 1 lượt
 
+// Bỏ dấu + ký tự để so lời nghe được với lời AI đang đọc (chống nghe lại tiếng AI khi chen ngang)
+function stripVi(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
+    .toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 // Nút "Chép" một phát — copy text vào clipboard
 function CopyButton({ text, label = "Chép", className = "" }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -453,6 +459,9 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const sendingRef = useRef(false);
   const speakingRef = useRef(false);
   const listeningRef = useRef(false);
+  const bargedRef = useRef(false); // trong lượt nghe hiện tại: đã cắt lời AI (chen ngang) chưa
+  const armSilenceRef = useRef<((ms: number) => void) | null>(null); // để lịch chốt lời từ ngoài
+  const lastAssistantSpokenRef = useRef(""); // lời AI đang đọc (đã bỏ dấu) — để lọc vọng âm
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -462,8 +471,23 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (m === "conversation" || m === "ptt") { setVoiceMode(m); voiceModeRef.current = m; }
   }, []);
 
-  // Biết khi nào AI đang đọc → hiện nút Dừng + kích hoạt mở lại mic
-  useEffect(() => { setSpeakingListener(setSpeaking); return () => setSpeakingListener(null); }, []);
+  // Biết khi nào AI đang đọc. Khi AI đọc XONG mà mic chen-ngang đang mở và user chưa chen
+  // → chuyển mic đó sang chờ lượt user (bắt đầu đếm im lặng).
+  useEffect(() => {
+    setSpeakingListener((s) => {
+      setSpeaking(s);
+      if (!s && voiceModeRef.current === "conversation" && convoActiveRef.current && listeningRef.current && !bargedRef.current) {
+        bargedRef.current = true;
+        armSilenceRef.current?.(INITIAL_SILENCE_MS);
+      }
+    });
+    return () => setSpeakingListener(null);
+  }, []);
+  // Lời AI đang đọc (bỏ dấu) để lọc vọng âm khi nghe chen ngang
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    lastAssistantSpokenRef.current = last && last.role === "assistant" ? stripVi(last.content) : "";
+  }, [messages]);
   useEffect(() => { convoActiveRef.current = convoActive; }, [convoActive]);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { sendingRef.current = sending; }, [sending]);
@@ -491,53 +515,62 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     resetSpeech();
   }, [stopVoice]);
 
-  // Mở mic nghe 1 lượt. Trong chế độ trò chuyện, onend sẽ tự nối lượt tiếp.
-  const beginListening = useCallback(() => {
+  // Mở mic nghe 1 lượt. bargeIn=true: mở mic TRONG khi AI đang đọc để anh chen ngang
+  // (không cắt AI ngay; chỉ cắt khi phát hiện anh THẬT SỰ nói, không phải nghe lại tiếng AI).
+  const beginListening = useCallback((opts?: { bargeIn?: boolean }) => {
+    const bargeIn = opts?.bargeIn ?? false;
     if (sendingRef.current || blocked || listeningRef.current) return;
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) return;
-    unlockAudio();   // mở khóa audio (để đọc được câu trả lời)
-    resetSpeech();   // dừng đọc câu cũ nếu còn
+    unlockAudio();
+    if (!bargeIn) resetSpeech();  // chế độ chen ngang thì GIỮ AI đọc tiếp
+    bargedRef.current = !bargeIn; // chưa chen (barge) → false; lượt thường → coi như đã "cắt"
     const rec: SpeechRecognitionLike = new Ctor();
     rec.lang = "vi-VN";
     rec.interimResults = true;
-    rec.continuous = true;   // GIỮ mic mở qua các khoảng nghỉ (không tự chốt sớm)
+    rec.continuous = true;
     rec.maxAlternatives = 1;
-    let finalText = "";
-    let lastInterim = "";
+    let lastFull = "";
 
-    // Đồng hồ im lặng: dài lúc đầu (cho suy nghĩ), ngắn sau khi đã nói (chốt nhanh)
     const armSilence = (ms: number) => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         try { rec.stop(); } catch { /* ignore */ }
       }, ms);
     };
+    armSilenceRef.current = armSilence;
 
     rec.onresult = (e: SpeechRecognitionEventLike) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalText += r[0].transcript;
-        else interim += r[0].transcript;
+      let full = "";
+      for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
+      full = full.trim();
+
+      // Đang mở mic để chen ngang mà chưa chen: kiểm tra có phải anh thật sự nói không
+      if (bargeIn && !bargedRef.current) {
+        const sp = stripVi(full);
+        if (sp.length < 4) return;                       // quá ngắn, chờ thêm
+        const ai = lastAssistantSpokenRef.current;
+        if (ai && ai.includes(sp)) return;               // trùng lời AI → là vọng âm, bỏ qua
+        bargedRef.current = true;                        // anh thật sự nói
+        resetSpeech();                                   // CẮT lời AI ngay
       }
-      lastInterim = interim;
-      setInput((finalText + interim).trim());
-      armSilence(SILENCE_MS); // đã có tiếng → ngưỡng ngắn, chốt nhanh khi ngừng
+
+      lastFull = full;
+      setInput(full);
+      armSilence(SILENCE_MS);
     };
-    rec.onerror = () => { clearListenTimers(); stopVoice(); }; // lỗi tạm → dừng, onend xử lý tiếp
+    rec.onerror = () => { clearListenTimers(); stopVoice(); };
     rec.onend = () => {
       clearListenTimers();
       recognitionRef.current = null;
       setListening(false);
-      if (userTypingRef.current) return; // đã chuyển sang gõ tay → không tự gửi/mở lại mic
-      const text = (finalText || lastInterim).trim();
+      if (userTypingRef.current) return;
+      const text = lastFull.trim();
       if (text) {
         emptyTurnsRef.current = 0;
         setInput("");
-        send(text, true); // giọng → luôn đọc trả lời (hiệu ứng mở lại mic ở useEffect)
+        send(text, true);
       } else if (convoActiveRef.current) {
-        // im lặng: sau 2 lượt liên tiếp thì tạm dừng
         emptyTurnsRef.current += 1;
         if (emptyTurnsRef.current >= 2) {
           setConvoActive(false); convoActiveRef.current = false;
@@ -550,13 +583,13 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       }
     };
 
-    userTypingRef.current = false; // bắt đầu lượt nói mới
+    userTypingRef.current = false;
     recognitionRef.current = rec;
-    setInput("");
+    if (!bargeIn) setInput("");
     setListening(true);
     try {
       rec.start();
-      armSilence(INITIAL_SILENCE_MS); // lúc đầu chờ lâu hơn cho người dùng suy nghĩ
+      if (!bargeIn) armSilence(INITIAL_SILENCE_MS); // chen-ngang: chưa đếm im lặng, chờ anh nói / AI đọc xong
       if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
       maxTimerRef.current = setTimeout(() => { try { rec.stop(); } catch { /* ignore */ } }, MAX_LISTEN_MS);
     } catch { setListening(false); }
@@ -612,6 +645,13 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     reopenTimerRef.current = id;
     return () => clearTimeout(id);
   }, [voiceMode, convoActive, open, blocked, sending, speaking, listening, messages, beginListening]);
+
+  // Chế độ trò chuyện: mở mic NGAY KHI AI đang đọc → cho anh chen ngang (barge-in).
+  useEffect(() => {
+    if (voiceMode !== "conversation" || !convoActive || !open || blocked) return;
+    if (sending || listening || !speaking) return;
+    beginListening({ bargeIn: true });
+  }, [voiceMode, convoActive, open, blocked, sending, listening, speaking, beginListening]);
 
   // Đóng khung chat → dừng nghe, dừng đọc, kết thúc trò chuyện
   useEffect(() => {
@@ -814,7 +854,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
                   <div className="flex-1 flex items-center gap-2 text-xs text-gray-500">
                     <Radio className="w-4 h-4 text-blue-600 animate-pulse" strokeWidth={1.75} />
-                    {listening ? "Đang nghe... nói đi anh" : speaking ? "Trợ lý đang trả lời..." : "Trò chuyện liên tục"}
+                    {speaking ? "Trợ lý đang đọc — nói để chen ngang" : listening ? "Đang nghe... nói đi anh" : "Trò chuyện liên tục"}
                   </div>
                   <button
                     type="button"
@@ -936,7 +976,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                     Trò chuyện liên tục
                     {voiceMode === "conversation" && <Check className="w-4 h-4 text-blue-600 ml-auto" strokeWidth={2.5} />}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Nói xong AI trả lời, đọc xong tự mở mic để anh nói tiếp — như gọi điện. Im lặng 2 lượt thì tự tạm dừng.</p>
+                  <p className="text-xs text-gray-500 mt-1">Nói xong AI trả lời, đọc xong tự mở mic để nói tiếp — như gọi điện. Đang đọc mà anh nói chen vào thì AI dừng ngay để nghe anh. Im lặng 2 lượt thì tự tạm dừng.</p>
                 </button>
 
                 <button
