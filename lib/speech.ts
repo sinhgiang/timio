@@ -82,15 +82,39 @@ async function fetchTts(text: string): Promise<ArrayBuffer | null> {
   } catch { return null; }
 }
 
-// Bỏ ký hiệu markdown / ký tự đặc biệt để đọc cho tự nhiên.
-// GIỮ LẠI . , ! ? : ; ( ) % để máy đọc ngắt nghỉ đúng chỗ (không đọc thành "chấm").
-export function cleanForSpeech(s: string): string {
+// Chuẩn hóa số/ngày/giờ/tiền thành LỜI tiếng Việt để máy đọc đúng.
+// Vd: "16/07/2026" → "ngày 16 tháng 7 năm 2026"; "07:30" → "7 giờ 30";
+// "15.000.000đ" → "15000000 đồng"; "10%" → "10 phần trăm".
+function normalizeForSpeech(s: string): string {
   return s
+    .replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (m, d, mo, y) =>
+      (+mo >= 1 && +mo <= 12 && +d >= 1 && +d <= 31) ? `ngày ${+d} tháng ${+mo} năm ${y}` : m)
+    .replace(/\b(\d{1,2})\/(\d{1,2})\b/g, (m, d, mo) =>
+      (+mo >= 1 && +mo <= 12 && +d >= 1 && +d <= 31) ? `ngày ${+d} tháng ${+mo}` : m)
+    .replace(/\b(\d{1,2}):(\d{2})\b/g, (m, h, mi) =>
+      (+h <= 23 && +mi <= 59) ? (mi === "00" ? `${+h} giờ` : `${+h} giờ ${+mi}`) : m)
+    .replace(/\b\d{1,3}(?:\.\d{3})+\b/g, (m) => m.replace(/\./g, "")) // 15.000.000 → 15000000
+    .replace(/(\d)\s*đ(?=[\s.,;:!?)]|$)/g, "$1 đồng")
+    .replace(/(\d)\s*(VNĐ|VND)\b/gi, "$1 đồng")
+    .replace(/(\d)\s*%/g, "$1 phần trăm")
+    .replace(/(\d|giờ)\s*[-–—]\s*(\d)/g, "$1 đến $2") // khoảng: 16-17 / 22 giờ-6 giờ
+    .replace(/\bBHXH\b/g, "bảo hiểm xã hội")
+    .replace(/\bBHYT\b/g, "bảo hiểm y tế")
+    .replace(/\bTNCN\b/g, "thu nhập cá nhân")
+    .replace(/\bngày\s+ngày\b/gi, "ngày");
+}
+
+// Bỏ ký hiệu markdown + chuẩn hóa số/ngày để đọc cho tự nhiên.
+// GIỮ LẠI . , ! ? : ; ( ) để máy đọc ngắt nghỉ đúng chỗ (không đọc thành "chấm").
+export function cleanForSpeech(s: string): string {
+  let t = s
     .replace(/```[\s\S]*?```/g, " ")             // khối code
     .replace(/`[^`]*`/g, " ")                     // code inline
     .replace(/https?:\/\/[^\s]+/g, " ")           // link
     .replace(/\*\*(.+?)\*\*/g, "$1")              // **đậm** → chữ thường
-    .replace(/^\s*[-*•]\s+/gm, " ")               // dấu gạch đầu dòng
+    .replace(/^\s*[-*•]\s+/gm, " ");              // dấu gạch đầu dòng
+  t = normalizeForSpeech(t);                       // số/ngày/giờ/tiền → lời
+  return t
     .replace(/(^|[\s(])[-–—+*=_#>~|^`](?=[\s)]|$)/g, "$1 ") // ký hiệu đứng riêng
     .replace(/[*_#`>~|^=]/g, " ")                  // ký hiệu md còn sót
     .replace(/\s{2,}/g, " ")

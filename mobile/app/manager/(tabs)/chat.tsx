@@ -8,14 +8,36 @@ import * as Speech from "expo-speech";
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { router } from "expo-router";
 
-// Bỏ ký hiệu markdown/link để đọc TTS cho tự nhiên
-function cleanForSpeech(s: string): string {
+// Chuẩn hóa số/ngày/giờ/tiền thành LỜI tiếng Việt để máy đọc đúng
+function normalizeForSpeech(s: string): string {
   return s
+    .replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (m, d, mo, y) =>
+      (+mo >= 1 && +mo <= 12 && +d >= 1 && +d <= 31) ? `ngày ${+d} tháng ${+mo} năm ${y}` : m)
+    .replace(/\b(\d{1,2})\/(\d{1,2})\b/g, (m, d, mo) =>
+      (+mo >= 1 && +mo <= 12 && +d >= 1 && +d <= 31) ? `ngày ${+d} tháng ${+mo}` : m)
+    .replace(/\b(\d{1,2}):(\d{2})\b/g, (m, h, mi) =>
+      (+h <= 23 && +mi <= 59) ? (mi === "00" ? `${+h} giờ` : `${+h} giờ ${+mi}`) : m)
+    .replace(/\b\d{1,3}(?:\.\d{3})+\b/g, (m) => m.replace(/\./g, ""))
+    .replace(/(\d)\s*đ(?=[\s.,;:!?)]|$)/g, "$1 đồng")
+    .replace(/(\d)\s*(VNĐ|VND)\b/gi, "$1 đồng")
+    .replace(/(\d)\s*%/g, "$1 phần trăm")
+    .replace(/(\d|giờ)\s*[-–—]\s*(\d)/g, "$1 đến $2")
+    .replace(/\bBHXH\b/g, "bảo hiểm xã hội")
+    .replace(/\bBHYT\b/g, "bảo hiểm y tế")
+    .replace(/\bTNCN\b/g, "thu nhập cá nhân")
+    .replace(/\bngày\s+ngày\b/gi, "ngày");
+}
+
+// Bỏ ký hiệu markdown/link + chuẩn hóa số/ngày để đọc TTS cho tự nhiên
+function cleanForSpeech(s: string): string {
+  let t = s
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/https?:\/\/[^\s]+/g, " ")
     .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/^[\s]*[-•]\s+/gm, " ");
+  t = normalizeForSpeech(t);
+  return t
     .replace(/[#*`>_~|]/g, " ")
-    .replace(/^[\s]*[-•]\s+/gm, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
