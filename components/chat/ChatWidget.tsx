@@ -589,11 +589,11 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       // Phát hiện "âm ĐỘT NGỘT tăng vọt" (anh bắt đầu nói), KHÔNG cắt vì tiếng đều đều.
       // Tiếng AI lọt vào mic + tiếng ồn nền = "nền" (baseline). Chỉ khi âm nhanh vượt HẲN
       // lên trên nền (anh nói to, gần mic) mới cắt. WARMUP để nền kịp học mức tiếng AI.
-      const ABS_MIN = 0.055; // sàn tuyệt đối (phòng yên tĩnh) — vừa đủ để bắt giọng anh
-      const FACTOR = 1.8;    // vượt ~1.8 lần nền là tính (nhạy hơn để bắt anh nói)
-      const MARGIN = 0.03;   // biên an toàn trên nền
-      const NEED = 6;        // liên tục ~100ms mới tính (bỏ tiếng động ngắn)
-      const WARMUP = 22;     // ~370ms đầu chỉ học nền rồi cho chen ngang ngay
+      const ABS_MIN = 0.03;  // sàn tuyệt đối thấp để BẮT ĐƯỢC giọng anh (mic mỗi máy 1 mức)
+      const FACTOR = 1.6;    // vượt ~1.6 lần nền là tính
+      const MARGIN = 0.02;   // biên an toàn trên nền
+      const NEED = 5;        // liên tục ~85ms mới tính
+      const WARMUP = 18;     // ~300ms đầu chỉ học nền rồi cho chen ngang ngay
       let baseline = 0.03;   // mức nền (gồm tiếng AI lọt) — học NHANH lúc đầu, chậm về sau
       let fast = 0.03;       // mức tức thời (nhạy)
       let voiceFrames = 0;
@@ -643,6 +643,13 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (mode === "conversation") { setConvoActive(true); convoActiveRef.current = true; }
     beginListening();
   }, [sending, blocked, beginListening, endConversation]);
+
+  // Chen ngang THỦ CÔNG (chạm nút): cắt AI ngay + nghe anh — chắc chắn chạy mọi máy
+  const bargeNow = useCallback(() => {
+    stopVad();
+    resetSpeech();
+    beginListening();
+  }, [stopVad, beginListening]);
 
   const startVoice = useCallback(() => {
     if (sending || blocked) return;
@@ -884,14 +891,26 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
               {/* Đang trò chuyện liên tục → thanh trạng thái + nút Kết thúc */}
               {convoActive && (
                 <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
-                  <div className="flex-1 flex items-center gap-2 text-xs text-gray-500">
-                    <Radio className="w-4 h-4 text-blue-600 animate-pulse" strokeWidth={1.75} />
-                    {speaking ? "Trợ lý đang đọc — nói để chen ngang" : listening ? "Đang nghe... nói đi anh" : "Trò chuyện liên tục"}
-                  </div>
+                  {speaking ? (
+                    // AI đang đọc → nút to để CHẠM chen ngang (chắc chắn chạy), hoặc nói (cảm biến)
+                    <button
+                      type="button"
+                      onClick={bargeNow}
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white rounded-full py-2 text-sm font-semibold hover:bg-blue-700 transition-colors"
+                    >
+                      <Mic className="w-4 h-4" strokeWidth={2} />
+                      Chạm để nói chen (hoặc nói to)
+                    </button>
+                  ) : (
+                    <div className="flex-1 flex items-center gap-2 text-xs text-gray-500">
+                      <Radio className="w-4 h-4 text-blue-600 animate-pulse" strokeWidth={1.75} />
+                      {listening ? "Đang nghe... nói đi anh" : "Trò chuyện liên tục"}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={endConversation}
-                    className="flex items-center gap-1.5 bg-red-500 text-white rounded-full px-3 py-1.5 text-xs font-semibold hover:bg-red-600 transition-colors"
+                    className="flex items-center gap-1.5 bg-red-500 text-white rounded-full px-3 py-1.5 text-xs font-semibold hover:bg-red-600 transition-colors shrink-0"
                   >
                     <PhoneOff className="w-3.5 h-3.5" strokeWidth={2} />
                     Kết thúc
