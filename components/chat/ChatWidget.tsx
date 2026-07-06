@@ -589,12 +589,12 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       // Phát hiện "âm ĐỘT NGỘT tăng vọt" (anh bắt đầu nói), KHÔNG cắt vì tiếng đều đều.
       // Tiếng AI lọt vào mic + tiếng ồn nền = "nền" (baseline). Chỉ khi âm nhanh vượt HẲN
       // lên trên nền (anh nói to, gần mic) mới cắt. WARMUP để nền kịp học mức tiếng AI.
-      const ABS_MIN = 0.10;  // sàn tuyệt đối — phải đủ to (nói gần mic)
-      const FACTOR = 2.2;    // phải vượt ~2.2 lần nền
-      const MARGIN = 0.04;   // cộng thêm biên an toàn trên nền
-      const NEED = 8;        // liên tục ~130ms mới tính (bỏ tiếng động ngắn)
-      const WARMUP = 45;     // ~750ms đầu: chỉ học nền, chưa cho cắt (tránh AI tự cắt mình)
-      let baseline = 0.03;   // mức nền (gồm tiếng AI lọt) — luôn cập nhật chậm
+      const ABS_MIN = 0.055; // sàn tuyệt đối (phòng yên tĩnh) — vừa đủ để bắt giọng anh
+      const FACTOR = 1.8;    // vượt ~1.8 lần nền là tính (nhạy hơn để bắt anh nói)
+      const MARGIN = 0.03;   // biên an toàn trên nền
+      const NEED = 6;        // liên tục ~100ms mới tính (bỏ tiếng động ngắn)
+      const WARMUP = 22;     // ~370ms đầu chỉ học nền rồi cho chen ngang ngay
+      let baseline = 0.03;   // mức nền (gồm tiếng AI lọt) — học NHANH lúc đầu, chậm về sau
       let fast = 0.03;       // mức tức thời (nhạy)
       let voiceFrames = 0;
       let frames = 0;
@@ -611,8 +611,10 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
           if (voiceFrames >= NEED) { onVoice(); return; }
         } else {
           voiceFrames = 0;
+          // nền học NHANH lúc khởi động (bắt kịp mức tiếng AI), rồi chậm lại để giọng anh nổi bật
+          const bw = frames < WARMUP ? 0.2 : 0.03;
+          baseline = (1 - bw) * baseline + bw * rms;
         }
-        baseline = 0.96 * baseline + 0.04 * rms; // nền học cả tiếng AI đều đều → không tự cắt
         vadRafRef.current = requestAnimationFrame(loop);
       };
       vadRafRef.current = requestAnimationFrame(loop);
