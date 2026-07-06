@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, Star, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck } from "lucide-react";
+import ComboField from "@/components/ui/ComboField";
 
 type Branch = { id: string; name: string };
 
@@ -85,7 +86,22 @@ const SOURCE_LABELS: Record<string, string> = {
   other: "Khác",
 };
 
-export default function RecruitmentClient({ companySlug, branches }: { companySlug: string; branches: Branch[] }) {
+export default function RecruitmentClient({ companySlug, branches, allDepartments, customDepartments }: { companySlug: string; branches: Branch[]; allDepartments: string[]; customDepartments: string[] }) {
+  const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
+  const [customDepts, setCustomDepts] = useState<Set<string>>(new Set(customDepartments));
+  const saveCustomOption = async (name: string) => {
+    await fetch("/api/company/custom-options", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "department", name }),
+    }).catch(() => {});
+  };
+  const addDept = (v: string) => {
+    setLocalDepts((p) => (p.includes(v) ? p : [v, ...p]));
+    setCustomDepts((p) => new Set(Array.from(p).concat(v)));
+    void saveCustomOption(v);
+  };
+
   const publicUrl =
     typeof window !== "undefined" && companySlug
       ? `${window.location.origin}/tuyendung/${companySlug}`
@@ -531,13 +547,19 @@ export default function RecruitmentClient({ companySlug, branches }: { companySl
                 <input type="text" value={jobForm.title || ""} onChange={e => setJobForm({ ...jobForm, title: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Senior Developer" />
               </div>
               <div className="grid grid-cols-2 gap-3">
+                <ComboField
+                  label="Phòng ban"
+                  value={jobForm.department || ""}
+                  onChange={(v) => setJobForm({ ...jobForm, department: v || null })}
+                  options={localDepts}
+                  onAddOption={addDept}
+                  customEntries={customDepts}
+                  placeholder="Chọn hoặc gõ tên mới"
+                  entityName="phòng ban"
+                />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
-                  <input type="text" value={jobForm.department || ""} onChange={e => setJobForm({ ...jobForm, department: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Kỹ thuật" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Địa điểm</label>
-                  <input type="text" value={jobForm.location || ""} onChange={e => setJobForm({ ...jobForm, location: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Hà Nội" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Địa điểm</label>
+                  <input type="text" value={jobForm.location || ""} onChange={e => setJobForm({ ...jobForm, location: e.target.value || null })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Hà Nội" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
