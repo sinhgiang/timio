@@ -51,9 +51,10 @@ interface ChatMsg {
 }
 
 const TUTORIAL_KEY = "timio_chat_tutorial_seen";
-// Giữ mic mở qua các khoảng nghỉ; chỉ chốt lời khi im lặng đủ lâu (cho thời gian suy nghĩ)
-const SILENCE_MS = 2200;    // im lặng bao lâu thì coi là nói xong
-const MAX_LISTEN_MS = 25000; // trần an toàn: nghe tối đa 1 lượt
+// Giữ mic mở qua các khoảng nghỉ; chốt lời khi im lặng đủ lâu
+const INITIAL_SILENCE_MS = 6000; // TRƯỚC khi nói câu đầu → cho thời gian suy nghĩ, chưa vội chốt
+const SILENCE_MS = 1300;         // SAU khi đã nói → im ~1,3s là chốt (phản hồi nhanh)
+const MAX_LISTEN_MS = 25000;     // trần an toàn: nghe tối đa 1 lượt
 
 // Nút "Chép" một phát — copy text vào clipboard
 function CopyButton({ text, label = "Chép", className = "" }: { text: string; label?: string; className?: string }) {
@@ -505,12 +506,12 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     let finalText = "";
     let lastInterim = "";
 
-    // Đồng hồ im lặng: chỉ chốt lời khi ngừng nói đủ SILENCE_MS → cho thời gian suy nghĩ
-    const armSilence = () => {
+    // Đồng hồ im lặng: dài lúc đầu (cho suy nghĩ), ngắn sau khi đã nói (chốt nhanh)
+    const armSilence = (ms: number) => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         try { rec.stop(); } catch { /* ignore */ }
-      }, SILENCE_MS);
+      }, ms);
     };
 
     rec.onresult = (e: SpeechRecognitionEventLike) => {
@@ -522,7 +523,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       }
       lastInterim = interim;
       setInput((finalText + interim).trim());
-      armSilence(); // có tiếng → lùi thời điểm chốt lời
+      armSilence(SILENCE_MS); // đã có tiếng → ngưỡng ngắn, chốt nhanh khi ngừng
     };
     rec.onerror = () => { clearListenTimers(); stopVoice(); }; // lỗi tạm → dừng, onend xử lý tiếp
     rec.onend = () => {
@@ -555,7 +556,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     setListening(true);
     try {
       rec.start();
-      armSilence(); // bắt đầu đếm im lặng (reset mỗi khi có tiếng)
+      armSilence(INITIAL_SILENCE_MS); // lúc đầu chờ lâu hơn cho người dùng suy nghĩ
       if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
       maxTimerRef.current = setTimeout(() => { try { rec.stop(); } catch { /* ignore */ } }, MAX_LISTEN_MS);
     } catch { setListening(false); }
@@ -607,7 +608,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       if (convoActiveRef.current && !sendingRef.current && !speakingRef.current && !listeningRef.current && !userTypingRef.current) {
         beginListening();
       }
-    }, 500);
+    }, 300);
     reopenTimerRef.current = id;
     return () => clearTimeout(id);
   }, [voiceMode, convoActive, open, blocked, sending, speaking, listening, messages, beginListening]);
