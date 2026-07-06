@@ -572,7 +572,8 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (vadStreamRef.current || !navigator.mediaDevices?.getUserMedia) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        // TẮT autoGainControl để tiếng ở xa/nhỏ KHÔNG bị khuếch đại lên (giữ đúng độ to thật)
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
       });
       // AI có thể đã đọc xong trong lúc xin quyền → khỏi chạy
       if (!speakingRef.current || !convoActiveRef.current) { stream.getTracks().forEach((t) => t.stop()); return; }
@@ -584,16 +585,26 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       analyser.fftSize = 512;
       ctx.createMediaStreamSource(stream).connect(analyser);
       const data = new Uint8Array(analyser.fftSize);
+
+      // Chỉ cắt AI khi âm THẬT SỰ TO (giọng anh nói gần mic), bỏ qua tiếng ồn/người nói xa:
+      const ABS_MIN = 0.11; // ngưỡng tuyệt đối — phải to như nói gần mic mới xét
+      const FACTOR = 3.2;   // và phải to gấp ~3 lần nền ồn hiện tại
+      const NEED = 9;       // liên tục ~150ms mới tính là anh nói (bỏ tiếng động ngắn)
+      let noise = 0.02;     // nền ồn ước lượng (tự cập nhật lúc yên)
       let voiceFrames = 0;
-      const THRESH = 0.06; // ngưỡng âm lượng (giọng thật của anh mới vượt; tiếng AI đã bị khử)
-      const NEED = 5;      // số khung liên tiếp vượt ngưỡng mới tính là anh nói (~80ms)
       const loop = () => {
         analyser.getByteTimeDomainData(data);
         let sum = 0;
         for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
         const rms = Math.sqrt(sum / data.length);
-        if (rms > THRESH) { voiceFrames++; if (voiceFrames >= NEED) { onVoice(); return; } }
-        else voiceFrames = 0;
+        const trigger = Math.max(ABS_MIN, noise * FACTOR);
+        if (rms > trigger) {
+          voiceFrames++;
+          if (voiceFrames >= NEED) { onVoice(); return; }
+        } else {
+          voiceFrames = 0;
+          noise = 0.9 * noise + 0.1 * rms; // học nền ồn khi không có tiếng to
+        }
         vadRafRef.current = requestAnimationFrame(loop);
       };
       vadRafRef.current = requestAnimationFrame(loop);
