@@ -36,7 +36,7 @@ interface SpeechRecognitionLike {
   onresult: ((e: SpeechRecognitionEventLike) => void) | null;
   onerror: (() => void) | null;
   onend: (() => void) | null;
-  start: () => void; stop: () => void;
+  start: () => void; stop: () => void; abort: () => void;
 }
 declare global {
   interface Window {
@@ -444,6 +444,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const convoActiveRef = useRef(false);
   const voiceModeRef = useRef<"ptt" | "conversation">("ptt");
   const emptyTurnsRef = useRef(0);
+  const userTypingRef = useRef(false); // đang gõ tay giữa lúc trò chuyện
   const startAfterChoiceRef = useRef(false); // chọn chế độ xong có nói luôn không
   const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -528,6 +529,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       clearListenTimers();
       recognitionRef.current = null;
       setListening(false);
+      if (userTypingRef.current) return; // đã chuyển sang gõ tay → không tự gửi/mở lại mic
       const text = (finalText || lastInterim).trim();
       if (text) {
         emptyTurnsRef.current = 0;
@@ -547,6 +549,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       }
     };
 
+    userTypingRef.current = false; // bắt đầu lượt nói mới
     recognitionRef.current = rec;
     setInput("");
     setListening(true);
@@ -570,6 +573,17 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     beginListening();
   }, [beginListening]);
 
+  // Bắt đầu nói ngay theo một chế độ (dùng cho 2 nút chọn luôn hiện)
+  const startWithMode = useCallback((mode: "ptt" | "conversation") => {
+    if (sending || blocked) return;
+    if (convoActiveRef.current || listeningRef.current) { endConversation(); return; }
+    localStorage.setItem("timio_voice_mode", mode);
+    setVoiceMode(mode); voiceModeRef.current = mode;
+    emptyTurnsRef.current = 0; setConvoPaused(false);
+    if (mode === "conversation") { setConvoActive(true); convoActiveRef.current = true; }
+    beginListening();
+  }, [sending, blocked, beginListening, endConversation]);
+
   const startVoice = useCallback(() => {
     if (sending || blocked) return;
     // Đang nghe / đang trò chuyện → bấm để dừng hẳn
@@ -590,7 +604,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant" || !last.content) return;
     const id = setTimeout(() => {
-      if (convoActiveRef.current && !sendingRef.current && !speakingRef.current && !listeningRef.current) {
+      if (convoActiveRef.current && !sendingRef.current && !speakingRef.current && !listeningRef.current && !userTypingRef.current) {
         beginListening();
       }
     }, 500);
@@ -762,6 +776,31 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 </div>
               )}
 
+              {/* 2 nút chọn cách nói (luôn hiện khi rảnh) — bấm phát nào ra kết quả đó */}
+              {voiceSupported && !convoActive && !listening && !speaking && !sending && !blocked && (
+                <div className="px-3 pt-2 shrink-0 flex items-center gap-1.5">
+                  <span className="text-[11px] text-gray-400 shrink-0">Nói với AI:</span>
+                  <button
+                    type="button"
+                    onClick={() => startWithMode("conversation")}
+                    className="flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-2.5 py-1 text-xs font-semibold hover:bg-blue-100"
+                    title="Nói xong AI đọc trả lời, đọc xong tự mở mic để nói tiếp"
+                  >
+                    <Radio className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    Trò chuyện liên tục
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startWithMode("ptt")}
+                    className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 text-gray-600 px-2.5 py-1 text-xs font-semibold hover:bg-gray-100"
+                    title="Nói 1 lần rồi AI trả lời"
+                  >
+                    <Mic className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    Nói 1 lần
+                  </button>
+                </div>
+              )}
+
               {/* Đang trò chuyện liên tục → thanh trạng thái + nút Kết thúc */}
               {convoActive && (
                 <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
@@ -805,13 +844,29 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
               {/* Input */}
               <div className="border-t border-gray-100 bg-white p-3 shrink-0">
                 <form
-                  onSubmit={(e) => { e.preventDefault(); send(input); }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const speak = convoActiveRef.current; // đang trò chuyện → vẫn đọc trả lời
+                    userTypingRef.current = false;
+                    send(input, speak);
+                  }}
                   className="flex items-center gap-2"
                 >
                   <input
                     ref={inputRef}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      // Gõ tay giữa lúc đang trò chuyện → tạm dừng mic (không để nó chen vào)
+                      if (convoActiveRef.current && listeningRef.current) {
+                        userTypingRef.current = true;
+                        clearListenTimers();
+                        if (reopenTimerRef.current) { clearTimeout(reopenTimerRef.current); reopenTimerRef.current = null; }
+                        try { recognitionRef.current?.abort(); } catch { /* ignore */ }
+                        recognitionRef.current = null;
+                        setListening(false);
+                      }
+                    }}
                     placeholder={listening ? "Đang nghe... nói đi anh" : blocked ? "Đã hết quota hôm nay" : "Nhập câu hỏi..."}
                     disabled={sending || !!blocked}
                     className="flex-1 border border-gray-200 rounded-full px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"

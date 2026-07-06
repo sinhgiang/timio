@@ -37,7 +37,9 @@ function cleanForSpeech(s: string): string {
     .replace(/^[\s]*[-•]\s+/gm, " ");
   t = normalizeForSpeech(t);
   return t
-    .replace(/[#*`>_~|]/g, " ")
+    .replace(/[-–—_=~*#>|^`+\\/]{2,}/g, " ")
+    .replace(/[*_#`~|^=+<>\\/[\]{}«»"“”&→←↑↓➤►▶•·§¶©®™]/g, " ")
+    .replace(/[-–—]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -115,8 +115,9 @@ export function cleanForSpeech(s: string): string {
     .replace(/^\s*[-*•]\s+/gm, " ");              // dấu gạch đầu dòng
   t = normalizeForSpeech(t);                       // số/ngày/giờ/tiền → lời
   return t
-    .replace(/(^|[\s(])[-–—+*=_#>~|^`](?=[\s)]|$)/g, "$1 ") // ký hiệu đứng riêng
-    .replace(/[*_#`>~|^=]/g, " ")                  // ký hiệu md còn sót
+    .replace(/[-–—_=~*#>|^`+\\/]{2,}/g, " ")        // chuỗi ký hiệu: --- *** === ___ //
+    .replace(/[*_#`~|^=+<>\\/[\]{}«»"“”&→←↑↓➤►▶•·§¶©®™]/g, " ") // ký hiệu lẻ đọc khó chịu
+    .replace(/[-–—]+/g, " ")                         // gạch ngang còn lại → khoảng trắng
     .replace(/\s{2,}/g, " ")
     .trim();
 }
