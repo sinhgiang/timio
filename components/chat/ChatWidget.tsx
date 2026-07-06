@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   MessageSquare, X, Send, Bot, HelpCircle, SquarePen, Loader2, Lock, LifeBuoy,
-  Copy, Check, MessageCircle, Facebook, Mic, Square, Volume2,
+  Copy, Check, MessageCircle, Facebook, Mic, Square, Volume2, PhoneOff, Radio, Settings2,
 } from "lucide-react";
 import ChatOnboarding from "./ChatOnboarding";
 import ContactSupport from "./ContactSupport";
@@ -433,18 +433,35 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
   const [listening, setListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  // Chế độ trò chuyện liên tục (hands-free)
+  const [voiceMode, setVoiceMode] = useState<"ptt" | "conversation">("ptt");
+  const [convoActive, setConvoActive] = useState(false); // đang trong phiên trò chuyện
+  const [convoPaused, setConvoPaused] = useState(false);  // tạm dừng vì im lặng
+  const [showModeChoice, setShowModeChoice] = useState(false);
+  const convoActiveRef = useRef(false);
+  const voiceModeRef = useRef<"ptt" | "conversation">("ptt");
+  const emptyTurnsRef = useRef(0);
+  const startAfterChoiceRef = useRef(false); // chọn chế độ xong có nói luôn không
+  const reopenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendingRef = useRef(false);
+  const speakingRef = useRef(false);
+  const listeningRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     setVoiceSupported(!!Ctor);
+    const m = localStorage.getItem("timio_voice_mode");
+    if (m === "conversation" || m === "ptt") { setVoiceMode(m); voiceModeRef.current = m; }
   }, []);
 
-  // Biết khi nào AI đang đọc → hiện nút Dừng
-  useEffect(() => {
-    setSpeakingListener(setSpeaking);
-    return () => setSpeakingListener(null);
-  }, []);
+  // Biết khi nào AI đang đọc → hiện nút Dừng + kích hoạt mở lại mic
+  useEffect(() => { setSpeakingListener(setSpeaking); return () => setSpeakingListener(null); }, []);
+  useEffect(() => { convoActiveRef.current = convoActive; }, [convoActive]);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { sendingRef.current = sending; }, [sending]);
+  useEffect(() => { speakingRef.current = speaking; }, [speaking]);
+  useEffect(() => { listeningRef.current = listening; }, [listening]);
 
   const stopVoice = useCallback(() => {
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
@@ -452,13 +469,22 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     setListening(false);
   }, []);
 
-  const startVoice = useCallback(() => {
-    if (sending || blocked) return;
-    if (listening) { stopVoice(); return; }
+  const endConversation = useCallback(() => {
+    setConvoActive(false); convoActiveRef.current = false;
+    setConvoPaused(false);
+    emptyTurnsRef.current = 0;
+    if (reopenTimerRef.current) { clearTimeout(reopenTimerRef.current); reopenTimerRef.current = null; }
+    stopVoice();
+    resetSpeech();
+  }, [stopVoice]);
+
+  // Mở mic nghe 1 lượt. Trong chế độ trò chuyện, onend sẽ tự nối lượt tiếp.
+  const beginListening = useCallback(() => {
+    if (sendingRef.current || blocked || listeningRef.current) return;
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) return;
-    unlockAudio();   // mở khóa audio ngay trong cử chỉ bấm (để đọc được câu trả lời)
-    resetSpeech();   // dừng đọc câu trả lời cũ nếu đang đọc
+    unlockAudio();   // mở khóa audio (để đọc được câu trả lời)
+    resetSpeech();   // dừng đọc câu cũ nếu còn
     const rec: SpeechRecognitionLike = new Ctor();
     rec.lang = "vi-VN";
     rec.interimResults = true;
@@ -477,22 +503,85 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       lastInterim = interim;
       setInput((finalText + interim).trim());
     };
-    rec.onerror = () => { stopVoice(); };
+    rec.onerror = () => { stopVoice(); }; // lỗi tạm → dừng, onend xử lý tiếp
     rec.onend = () => {
       recognitionRef.current = null;
       setListening(false);
-      const text = (finalText || lastInterim).trim(); // dùng bản tạm nếu thiếu kết quả cuối
-      if (text) { setInput(""); send(text, true); } // nói xong: tự gửi + ĐỌC TO câu trả lời
+      const text = (finalText || lastInterim).trim();
+      if (text) {
+        emptyTurnsRef.current = 0;
+        setInput("");
+        send(text, true); // giọng → luôn đọc trả lời (hiệu ứng mở lại mic ở useEffect)
+      } else if (convoActiveRef.current) {
+        // im lặng: sau 2 lượt liên tiếp thì tạm dừng
+        emptyTurnsRef.current += 1;
+        if (emptyTurnsRef.current >= 2) {
+          setConvoActive(false); convoActiveRef.current = false;
+          setConvoPaused(true);
+        } else {
+          setTimeout(() => {
+            if (convoActiveRef.current && !sendingRef.current && !speakingRef.current && !listeningRef.current) beginListening();
+          }, 400);
+        }
+      }
     };
 
     recognitionRef.current = rec;
     setInput("");
     setListening(true);
     try { rec.start(); } catch { setListening(false); }
-  }, [sending, blocked, listening, stopVoice, send]);
+  }, [blocked, send, stopVoice]);
 
-  // Dừng nghe + dừng đọc khi đóng khung chat
-  useEffect(() => { if (!open) { if (listening) stopVoice(); resetSpeech(); } }, [open, listening, stopVoice]);
+  // Chọn chế độ (lần đầu / khi đổi) rồi bắt đầu nghe luôn
+  const chooseMode = useCallback((mode: "ptt" | "conversation") => {
+    localStorage.setItem("timio_voice_mode", mode);
+    setVoiceMode(mode); voiceModeRef.current = mode;
+    setShowModeChoice(false);
+    if (!startAfterChoiceRef.current) return; // mở từ nút cài đặt → chỉ đổi mặc định
+    startAfterChoiceRef.current = false;
+    emptyTurnsRef.current = 0; setConvoPaused(false);
+    if (mode === "conversation") { setConvoActive(true); convoActiveRef.current = true; }
+    beginListening();
+  }, [beginListening]);
+
+  const startVoice = useCallback(() => {
+    if (sending || blocked) return;
+    // Đang nghe / đang trò chuyện → bấm để dừng hẳn
+    if (listening || convoActiveRef.current) { endConversation(); return; }
+    // Lần đầu dùng mic → hỏi chọn chế độ rồi nói luôn
+    if (!localStorage.getItem("timio_voice_mode")) { startAfterChoiceRef.current = true; setShowModeChoice(true); return; }
+    emptyTurnsRef.current = 0; setConvoPaused(false);
+    if (voiceMode === "conversation") { setConvoActive(true); convoActiveRef.current = true; }
+    beginListening();
+  }, [sending, blocked, listening, voiceMode, beginListening, endConversation]);
+
+  // Chế độ trò chuyện: AI đọc XONG → tự mở lại mic.
+  // Debounce 500ms + chờ speaking đứng yên để KHÔNG mở sớm giữa các câu đang đọc.
+  useEffect(() => {
+    if (voiceMode !== "conversation" || !convoActive) return;
+    if (!open || blocked) return;
+    if (sending || speaking || listening) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || !last.content) return;
+    const id = setTimeout(() => {
+      if (convoActiveRef.current && !sendingRef.current && !speakingRef.current && !listeningRef.current) {
+        beginListening();
+      }
+    }, 500);
+    reopenTimerRef.current = id;
+    return () => clearTimeout(id);
+  }, [voiceMode, convoActive, open, blocked, sending, speaking, listening, messages, beginListening]);
+
+  // Đóng khung chat → dừng nghe, dừng đọc, kết thúc trò chuyện
+  useEffect(() => {
+    if (!open) {
+      if (listening) stopVoice();
+      resetSpeech();
+      setConvoActive(false); convoActiveRef.current = false;
+      setConvoPaused(false);
+      if (reopenTimerRef.current) { clearTimeout(reopenTimerRef.current); reopenTimerRef.current = null; }
+    }
+  }, [open, listening, stopVoice]);
 
   return (
     <>
@@ -525,6 +614,16 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {voiceSupported && (
+                <button
+                  onClick={() => setShowModeChoice(true)}
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-400"
+                  title="Cách nói chuyện bằng giọng"
+                  aria-label="Chế độ giọng nói"
+                >
+                  <Settings2 className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              )}
               <button
                 onClick={() => setShowOnboarding(true)}
                 className="p-2 rounded-full hover:bg-gray-100 text-gray-400"
@@ -637,8 +736,33 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                 </div>
               )}
 
-              {/* Nút Dừng đọc — hiện khi AI đang đọc */}
-              {speaking && (
+              {/* Đang trò chuyện liên tục → thanh trạng thái + nút Kết thúc */}
+              {convoActive && (
+                <div className="px-3 pt-2 shrink-0 flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-2 text-xs text-gray-500">
+                    <Radio className="w-4 h-4 text-blue-600 animate-pulse" strokeWidth={1.75} />
+                    {listening ? "Đang nghe... nói đi anh" : speaking ? "Trợ lý đang trả lời..." : "Trò chuyện liên tục"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={endConversation}
+                    className="flex items-center gap-1.5 bg-red-500 text-white rounded-full px-3 py-1.5 text-xs font-semibold hover:bg-red-600 transition-colors"
+                  >
+                    <PhoneOff className="w-3.5 h-3.5" strokeWidth={2} />
+                    Kết thúc
+                  </button>
+                </div>
+              )}
+
+              {/* Đã tạm dừng vì im lặng */}
+              {convoPaused && !convoActive && (
+                <div className="px-3 pt-2 shrink-0">
+                  <p className="text-center text-xs text-gray-400">Đã tạm dừng nghe — bấm nút micro để tiếp tục</p>
+                </div>
+              )}
+
+              {/* Nút Dừng đọc — hiện khi AI đang đọc (chế độ bấm-từng-lần) */}
+              {speaking && !convoActive && (
                 <div className="px-3 pt-2 shrink-0">
                   <button
                     type="button"
@@ -672,14 +796,14 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
                       onClick={startVoice}
                       disabled={sending || !!blocked}
                       className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 ${
-                        listening
+                        listening || convoActive
                           ? "bg-red-500 text-white animate-pulse"
                           : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                       }`}
-                      aria-label={listening ? "Dừng nghe" : "Nói để nhập"}
-                      title={listening ? "Đang nghe... bấm để dừng" : "Bấm rồi nói"}
+                      aria-label={listening || convoActive ? "Dừng nói" : "Nói để nhập"}
+                      title={convoActive ? "Đang trò chuyện — bấm để kết thúc" : listening ? "Đang nghe... bấm để dừng" : "Bấm rồi nói"}
                     >
-                      <Mic className="w-4 h-4" strokeWidth={1.5} />
+                      {convoActive ? <PhoneOff className="w-4 h-4" strokeWidth={1.75} /> : <Mic className="w-4 h-4" strokeWidth={1.5} />}
                     </button>
                   )}
                   <button
@@ -703,6 +827,45 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
           )}
 
           {showSupport && <ContactSupport onClose={() => setShowSupport(false)} />}
+
+          {/* Bảng chọn cách nói chuyện bằng giọng */}
+          {showModeChoice && (
+            <div className="absolute inset-0 z-20 bg-black/40 flex items-end md:items-center justify-center p-4" onClick={() => setShowModeChoice(false)}>
+              <div className="bg-white rounded-3xl w-full max-w-[340px] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Mic className="w-5 h-5 text-blue-600" strokeWidth={1.75} />
+                  <h3 className="font-bold text-gray-900">Cách nói chuyện bằng giọng</h3>
+                </div>
+                <p className="text-xs text-gray-500 mb-4">Chọn kiểu anh muốn. Đổi lại bất cứ lúc nào ở nút cài đặt trên cùng.</p>
+
+                <button
+                  onClick={() => chooseMode("conversation")}
+                  className={`w-full text-left rounded-2xl border p-3.5 mb-2.5 transition-colors ${voiceMode === "conversation" ? "border-blue-500 bg-blue-50/50" : "border-gray-200 hover:border-blue-300"}`}
+                >
+                  <div className="flex items-center gap-2 font-semibold text-gray-900 text-sm">
+                    <Radio className="w-4 h-4 text-blue-600" strokeWidth={1.75} />
+                    Trò chuyện liên tục
+                    {voiceMode === "conversation" && <Check className="w-4 h-4 text-blue-600 ml-auto" strokeWidth={2.5} />}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Nói xong AI trả lời, đọc xong tự mở mic để anh nói tiếp — như gọi điện. Im lặng 2 lượt thì tự tạm dừng.</p>
+                </button>
+
+                <button
+                  onClick={() => chooseMode("ptt")}
+                  className={`w-full text-left rounded-2xl border p-3.5 transition-colors ${voiceMode === "ptt" ? "border-blue-500 bg-blue-50/50" : "border-gray-200 hover:border-blue-300"}`}
+                >
+                  <div className="flex items-center gap-2 font-semibold text-gray-900 text-sm">
+                    <Mic className="w-4 h-4 text-gray-600" strokeWidth={1.75} />
+                    Bấm từng lần
+                    {voiceMode === "ptt" && <Check className="w-4 h-4 text-blue-600 ml-auto" strokeWidth={2.5} />}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Mỗi lần muốn nói thì bấm nút micro. AI vẫn đọc trả lời cho anh.</p>
+                </button>
+
+                <button onClick={() => setShowModeChoice(false)} className="mt-3 w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1">Để sau</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
