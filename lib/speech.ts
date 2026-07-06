@@ -66,7 +66,7 @@ let speakQueue: Promise<ArrayBuffer | null>[] = [];
 let draining = false;
 let speakToken = 0; // tăng lên để hủy phiên đọc cũ (dừng / barge-in)
 let speakingListener: ((speaking: boolean) => void) | null = null;
-const SPEAK_RATE = 1.5; // tốc độ đọc câu trả lời chatbot (1 = bình thường)
+const SPEAK_RATE = 1.35; // tốc độ đọc câu trả lời chatbot (1 = bình thường)
 
 // Component đăng ký để biết khi nào đang đọc (hiện/ẩn nút Dừng)
 export function setSpeakingListener(fn: ((speaking: boolean) => void) | null): void {
