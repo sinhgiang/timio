@@ -53,7 +53,7 @@ interface ChatMsg {
 const TUTORIAL_KEY = "timio_chat_tutorial_seen";
 // Giữ mic mở qua các khoảng nghỉ; chốt lời khi im lặng đủ lâu
 const INITIAL_SILENCE_MS = 6000; // TRƯỚC khi nói câu đầu → cho thời gian suy nghĩ, chưa vội chốt
-const SILENCE_MS = 1300;         // SAU khi đã nói → im ~1,3s là chốt (phản hồi nhanh)
+const SILENCE_MS = 1700;         // SAU khi đã nói → im ~1,7s mới chốt (đỡ cắt lời khi anh nghỉ nghĩ)
 const MAX_LISTEN_MS = 25000;     // trần an toàn: nghe tối đa 1 lượt
 
 // Nút "Chép" một phát — copy text vào clipboard
@@ -586,25 +586,33 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       ctx.createMediaStreamSource(stream).connect(analyser);
       const data = new Uint8Array(analyser.fftSize);
 
-      // Chỉ cắt AI khi âm THẬT SỰ TO (giọng anh nói gần mic), bỏ qua tiếng ồn/người nói xa:
-      const ABS_MIN = 0.11; // ngưỡng tuyệt đối — phải to như nói gần mic mới xét
-      const FACTOR = 3.2;   // và phải to gấp ~3 lần nền ồn hiện tại
-      const NEED = 9;       // liên tục ~150ms mới tính là anh nói (bỏ tiếng động ngắn)
-      let noise = 0.02;     // nền ồn ước lượng (tự cập nhật lúc yên)
+      // Phát hiện "âm ĐỘT NGỘT tăng vọt" (anh bắt đầu nói), KHÔNG cắt vì tiếng đều đều.
+      // Tiếng AI lọt vào mic + tiếng ồn nền = "nền" (baseline). Chỉ khi âm nhanh vượt HẲN
+      // lên trên nền (anh nói to, gần mic) mới cắt. WARMUP để nền kịp học mức tiếng AI.
+      const ABS_MIN = 0.10;  // sàn tuyệt đối — phải đủ to (nói gần mic)
+      const FACTOR = 2.2;    // phải vượt ~2.2 lần nền
+      const MARGIN = 0.04;   // cộng thêm biên an toàn trên nền
+      const NEED = 8;        // liên tục ~130ms mới tính (bỏ tiếng động ngắn)
+      const WARMUP = 45;     // ~750ms đầu: chỉ học nền, chưa cho cắt (tránh AI tự cắt mình)
+      let baseline = 0.03;   // mức nền (gồm tiếng AI lọt) — luôn cập nhật chậm
+      let fast = 0.03;       // mức tức thời (nhạy)
       let voiceFrames = 0;
+      let frames = 0;
       const loop = () => {
         analyser.getByteTimeDomainData(data);
         let sum = 0;
         for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
         const rms = Math.sqrt(sum / data.length);
-        const trigger = Math.max(ABS_MIN, noise * FACTOR);
-        if (rms > trigger) {
+        fast = 0.5 * fast + 0.5 * rms;
+        frames++;
+        const thr = Math.max(ABS_MIN, baseline * FACTOR + MARGIN);
+        if (frames > WARMUP && fast > thr) {
           voiceFrames++;
           if (voiceFrames >= NEED) { onVoice(); return; }
         } else {
           voiceFrames = 0;
-          noise = 0.9 * noise + 0.1 * rms; // học nền ồn khi không có tiếng to
         }
+        baseline = 0.96 * baseline + 0.04 * rms; // nền học cả tiếng AI đều đều → không tự cắt
         vadRafRef.current = requestAnimationFrame(loop);
       };
       vadRafRef.current = requestAnimationFrame(loop);
@@ -657,7 +665,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
       if (convoActiveRef.current && !sendingRef.current && !speakingRef.current && !listeningRef.current && !userTypingRef.current) {
         beginListening();
       }
-    }, 300);
+    }, 200);
     reopenTimerRef.current = id;
     return () => clearTimeout(id);
   }, [voiceMode, convoActive, open, blocked, sending, speaking, listening, messages, beginListening]);
