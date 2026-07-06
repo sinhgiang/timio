@@ -438,6 +438,9 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
             <Link href="/register" className="inline-flex items-center gap-2 bg-white text-blue-900 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
               Dùng thử miễn phí <ArrowRight size={18} />
             </Link>
+            <p className="text-blue-200/60 text-xs mt-3">
+              Có ở gói <strong className="text-blue-100">Pro</strong> (100 tin/ngày mỗi người) và <strong className="text-blue-100">Business</strong> (không giới hạn).
+            </p>
           </div>
 
           {/* Mock khung chat minh hoạ */}
@@ -1351,6 +1354,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 </ul>
                 <ul className="space-y-2 mb-6">
                   {[
+                    "Trợ lý AI hội thoại (chỉ Pro/Business)",
                     "Chấm công khuôn mặt AI",
                     "Quản lý nghỉ phép",
                     "Telegram / Zalo alert",
@@ -1382,7 +1386,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <ul className="space-y-2.5 mb-6">
                   {[
                     "20 nhân viên · 3 chi nhánh · 3 quản lý",
-                    "Trợ lý AI hội thoại — hỏi & nghe trả lời bằng giọng nói",
+                    "Trợ lý AI hội thoại (giọng nói) — 100 tin/ngày mỗi người",
                     "Chấm công khuôn mặt AI + QR code",
                     "GPS xác minh vị trí",
                     "Phản hồi giọng nói tiếng Việt",
@@ -1431,6 +1435,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   {[
                     "100 nhân viên · 20 chi nhánh · không giới hạn quản lý",
                     "Tất cả tính năng Pro",
+                    "Trợ lý AI hội thoại — KHÔNG giới hạn tin nhắn",
                     "Phiếu nghỉ phép A4 + chữ ký số + dấu công ty",
                     "Tài sản bàn giao nhân viên",
                     "Lịch sử công tác & thăng chức",

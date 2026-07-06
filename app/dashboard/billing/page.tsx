@@ -26,6 +26,7 @@ const PLANS = {
     features: [
       "20 nhân viên · 3 chi nhánh",
       "3 người dùng (chủ + 2 thành viên)",
+      "Trợ lý AI hội thoại (giọng nói) — 100 tin/ngày mỗi người",
       "Chấm công khuôn mặt AI + QR code",
       "GPS xác minh vị trí",
       "Quản lý nghỉ phép (kiosk + phiếu duyệt)",
@@ -50,6 +51,7 @@ const PLANS = {
       "100 nhân viên · 20 chi nhánh",
       "Không giới hạn người dùng quản lý",
       "Tất cả tính năng Pro",
+      "Trợ lý AI hội thoại — KHÔNG giới hạn tin nhắn",
       "Phiếu duyệt A4 có chữ ký số + dấu công ty",
       "Tài sản bàn giao nhân viên",
       "Lịch sử công tác & chứng chỉ",
