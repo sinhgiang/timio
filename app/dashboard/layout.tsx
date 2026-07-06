@@ -70,7 +70,7 @@ export default async function DashboardLayout({
   return (
     <PlanProvider plan={currentPlan} planExpires={planExpires}>
       <div className="flex h-screen bg-gray-50">
-        <UpsellChecker />
+        <UpsellChecker plan={currentPlan} role={userRole} />
         {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
         {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
         <TrialBanner trialEndsAt={trialEndsAt} plan={currentPlan} />

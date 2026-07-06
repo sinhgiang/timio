@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { usePlan } from "@/context/PlanContext";
 import {
   Crown,
   CheckCircle,
@@ -26,7 +27,16 @@ function fmt(n: number) {
 
 export default function WelcomePage() {
   const router = useRouter();
+  const { plan } = usePlan();
   const [loading, setLoading] = useState(false);
+
+  // Tài khoản đã trả phí (pro/business) không nên thấy trang mời nâng cấp → thoát ngay
+  useEffect(() => {
+    if (plan && plan !== "starter" && plan !== "free") {
+      try { localStorage.setItem("timio_upsell_seen", "1"); } catch { /* ignore */ }
+      router.replace("/dashboard");
+    }
+  }, [plan, router]);
   const [order, setOrder] = useState<{
     reference: string;
     qrUrl: string;
