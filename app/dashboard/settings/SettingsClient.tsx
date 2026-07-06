@@ -513,6 +513,68 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     win.document.close();
   };
 
+  // QR code canvas — trang tuyển dụng công khai
+  const qrRecruitCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [qrRecruitReady, setQrRecruitReady] = useState(false);
+  const [copiedRecruit, setCopiedRecruit] = useState(false);
+  const recruitUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/tuyendung/${company.slug}`
+      : `/tuyendung/${company.slug}`;
+
+  const copyRecruitUrl = () => {
+    navigator.clipboard.writeText(recruitUrl).catch(() => {});
+    setCopiedRecruit(true);
+    setTimeout(() => setCopiedRecruit(false), 2000);
+  };
+
+  const setQrRecruitCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    qrRecruitCanvasRef.current = canvas;
+    if (!canvas) return;
+    setQrRecruitReady(false);
+    import("qrcode").then(({ toCanvas }) => {
+      toCanvas(canvas, recruitUrl, {
+        width: 260,
+        margin: 2,
+        color: { dark: "#c2410c", light: "#ffffff" },
+      }).then(() => setQrRecruitReady(true)).catch(() => {});
+    });
+  }, [recruitUrl]);
+
+  const downloadRecruitQR = () => {
+    if (!qrRecruitCanvasRef.current) return;
+    const link = document.createElement("a");
+    link.download = `qrcode-tuyendung-${company.slug}.png`;
+    link.href = qrRecruitCanvasRef.current.toDataURL("image/png");
+    link.click();
+  };
+
+  const printRecruitQR = () => {
+    if (!qrRecruitCanvasRef.current) return;
+    const dataUrl = qrRecruitCanvasRef.current.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>QR Tuyển Dụng — ${company.name}</title>
+      <style>
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; background: #fff; }
+        img { width: 280px; height: 280px; }
+        h2 { font-size: 22px; margin: 16px 0 8px; color: #c2410c; }
+        p { font-size: 13px; color: #64748b; margin: 0; }
+        .url { font-size: 11px; color: #94a3b8; margin-top: 8px; font-family: monospace; }
+        @media print { @page { margin: 1cm; } }
+      </style></head>
+      <body>
+        <img src="${dataUrl}" />
+        <h2>${company.name} đang tuyển dụng</h2>
+        <p>Quét mã để xem vị trí và ứng tuyển</p>
+        <p class="url">${recruitUrl}</p>
+        <script>window.onload = () => { window.print(); window.close(); }<\/script>
+      </body></html>
+    `);
+    win.document.close();
+  };
+
   // Signature / Stamp upload
   const [sigUrl, setSigUrl] = useState<string | null>(company.signatureUrl ?? null);
   const [stampUrl, setStampUrl] = useState<string | null>(company.stampUrl ?? null);
@@ -729,8 +791,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
 
-      {/* QR Codes — 3 cột */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      {/* QR Codes — 4 loại */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
 
         {/* QR Chấm công */}
         <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-col items-center">
@@ -819,6 +881,37 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               <Download size={11} /> Tải
             </button>
             <button onClick={printEmployeeQR} disabled={!qrEmployeeReady}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-[11px] hover:bg-gray-50 disabled:opacity-50">
+              <Printer size={11} /> In
+            </button>
+          </div>
+        </div>
+
+        {/* QR Tuyển dụng */}
+        <div className="bg-white border border-gray-100 rounded-xl p-3 flex flex-col items-center">
+          <div className="flex items-center gap-1.5 mb-1 self-start flex-wrap">
+            <QrCode size={14} className="text-orange-600" />
+            <span className="font-semibold text-gray-800 text-xs">QR Tuyển dụng</span>
+            <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">Đăng FB/Zalo</span>
+          </div>
+          <p className="text-[10px] text-gray-400 mb-2 self-start leading-tight">Ứng viên quét → xem vị trí → tự nộp đơn.</p>
+          <div className="bg-orange-50 p-2 rounded-xl border border-orange-100 mb-2">
+            <canvas ref={setQrRecruitCanvas} className={qrRecruitReady ? "block" : "hidden"} style={{ width: 130, height: 130 }} />
+            {!qrRecruitReady && <div className="w-[130px] h-[130px] flex items-center justify-center text-gray-400 text-[10px]">Đang tạo QR...</div>}
+          </div>
+          <div className="flex items-center gap-1 mb-2 w-full">
+            <code className="flex-1 text-[10px] bg-gray-100 px-1.5 py-1 rounded text-orange-800 break-all min-w-0 leading-tight">{recruitUrl}</code>
+            <button onClick={copyRecruitUrl} title="Copy link"
+              className={`shrink-0 p-1 rounded-lg border transition-all ${copiedRecruit ? "bg-green-50 border-green-200 text-green-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600"}`}>
+              {copiedRecruit ? <Check size={12} /> : <Copy size={12} />}
+            </button>
+          </div>
+          <div className="flex gap-1.5 w-full">
+            <button onClick={downloadRecruitQR} disabled={!qrRecruitReady}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-orange-600 text-white rounded-lg text-[11px] hover:bg-orange-700 disabled:opacity-50">
+              <Download size={11} /> Tải
+            </button>
+            <button onClick={printRecruitQR} disabled={!qrRecruitReady}
               className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-[11px] hover:bg-gray-50 disabled:opacity-50">
               <Printer size={11} /> In
             </button>

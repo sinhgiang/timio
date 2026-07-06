@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Users, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Briefcase, UserPlus, X, Check, Clock, Star, XCircle } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, Star, ExternalLink, Link2 } from "lucide-react";
+
+type Branch = { id: string; name: string };
 
 type Job = {
   id: string;
@@ -12,6 +14,11 @@ type Job = {
   salaryMin: number | null;
   salaryMax: number | null;
   status: string;
+  branchId: string | null;
+  quantity: number | null;
+  workTime: string | null;
+  benefits: string | null;
+  isPublic: boolean;
   createdAt: string;
   _count: { candidates: number };
 };
@@ -25,6 +32,8 @@ type Candidate = {
   status: string;
   notes: string | null;
   source: string | null;
+  experience: string | null;
+  cvUrl: string | null;
   appliedAt: string;
   job: { id: string; title: string; department: string | null };
 };
@@ -76,7 +85,19 @@ const SOURCE_LABELS: Record<string, string> = {
   other: "Khác",
 };
 
-export default function RecruitmentClient() {
+export default function RecruitmentClient({ companySlug, branches }: { companySlug: string; branches: Branch[] }) {
+  const publicUrl =
+    typeof window !== "undefined" && companySlug
+      ? `${window.location.origin}/tuyendung/${companySlug}`
+      : `/tuyendung/${companySlug}`;
+  const [copiedLink, setCopiedLink] = useState(false);
+  const copyPublicUrl = () => {
+    navigator.clipboard.writeText(publicUrl).catch(() => {});
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+  const branchName = (id: string | null) => (id ? branches.find((b) => b.id === id)?.name ?? null : null);
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -192,7 +213,45 @@ export default function RecruitmentClient() {
             <p className="text-sm text-gray-500">Quản lý vị trí tuyển dụng và ứng viên</p>
           </div>
         </div>
+        {companySlug && (
+          <div className="flex items-center gap-2">
+            <a
+              href={publicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:border-blue-300 hover:text-blue-600 transition-colors"
+            >
+              <ExternalLink size={14} /> Xem trang tuyển dụng
+            </a>
+            <button
+              onClick={copyPublicUrl}
+              title="Sao chép link trang tuyển dụng"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${copiedLink ? "bg-green-50 border-green-200 text-green-600" : "bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600"}`}
+            >
+              {copiedLink ? <Check size={14} /> : <Link2 size={14} />}
+              {copiedLink ? "Đã chép" : "Chép link"}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Banner giới thiệu trang công khai */}
+      {companySlug && (
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+            <Link2 size={18} className="text-white" strokeWidth={1.5} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-800">Trang tuyển dụng công khai của bạn đã sẵn sàng</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Chia sẻ link này lên Facebook/Zalo để ứng viên tự nộp đơn — đơn về thẳng mục Ứng viên.
+            </p>
+            <code className="inline-block mt-1.5 text-[11px] bg-white border border-blue-100 px-2 py-1 rounded text-blue-700 break-all">
+              {publicUrl}
+            </code>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -227,7 +286,7 @@ export default function RecruitmentClient() {
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-semibold text-gray-700">Vị trí tuyển dụng</h2>
             <button
-              onClick={() => setJobForm({ title: "", department: null, location: null, description: null, requirements: null, salaryMin: null, salaryMax: null })}
+              onClick={() => setJobForm({ title: "", department: null, location: null, description: null, requirements: null, salaryMin: null, salaryMax: null, branchId: null, quantity: null, workTime: null, benefits: null, isPublic: true })}
               className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors"
             >
               <Plus size={14} /> Thêm vị trí
@@ -257,10 +316,20 @@ export default function RecruitmentClient() {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>
                           {JOB_STATUS_LABELS[job.status]}
                         </span>
+                        {job.status === "open" && (
+                          job.isPublic ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-600">Công khai</span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500">Nội bộ</span>
+                          )
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                         {job.department && <span>{job.department}</span>}
-                        {job.location && <span>· {job.location}</span>}
+                        {branchName(job.branchId) && <span>· {branchName(job.branchId)}</span>}
+                        {job.location && !branchName(job.branchId) && <span>· {job.location}</span>}
+                        {job.workTime && <span>· {job.workTime}</span>}
+                        {job.quantity ? <span>· Cần {job.quantity}</span> : null}
                         {(job.salaryMin || job.salaryMax) && (
                           <span>· {job.salaryMin ? job.salaryMin.toLocaleString("vi-VN") : "?"} — {job.salaryMax ? job.salaryMax.toLocaleString("vi-VN") : "?"} ₫</span>
                         )}
@@ -410,6 +479,36 @@ export default function RecruitmentClient() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Yêu cầu</label>
                 <textarea rows={3} value={jobForm.requirements || ""} onChange={e => setJobForm({ ...jobForm, requirements: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="Kinh nghiệm, kỹ năng yêu cầu..." />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quyền lợi</label>
+                <textarea rows={2} value={jobForm.benefits || ""} onChange={e => setJobForm({ ...jobForm, benefits: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="VD: Bao ăn ca, thưởng chuyên cần, môi trường trẻ trung..." />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ca / Giờ làm</label>
+                  <input type="text" value={jobForm.workTime || ""} onChange={e => setJobForm({ ...jobForm, workTime: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Ca tối 17h-22h" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng cần tuyển</label>
+                  <input type="number" min="1" value={jobForm.quantity || ""} onChange={e => setJobForm({ ...jobForm, quantity: e.target.value ? Number(e.target.value) : null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: 2" />
+                </div>
+              </div>
+              {branches.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Chi nhánh</label>
+                  <select value={jobForm.branchId || ""} onChange={e => setJobForm({ ...jobForm, branchId: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white">
+                    <option value="">Toàn công ty</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <label className="flex items-center gap-2.5 cursor-pointer bg-gray-50 rounded-lg px-3 py-2.5">
+                <input type="checkbox" checked={jobForm.isPublic ?? true} onChange={e => setJobForm({ ...jobForm, isPublic: e.target.checked })} className="w-4 h-4 rounded accent-blue-600" />
+                <span className="text-sm text-gray-700">
+                  Hiện trên trang tuyển dụng công khai
+                  <span className="block text-xs text-gray-400">Tắt nếu chỉ muốn quản lý nội bộ, không cho ứng viên tự nộp.</span>
+                </span>
+              </label>
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setJobForm(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition-colors">Hủy</button>
@@ -460,7 +559,15 @@ export default function RecruitmentClient() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kinh nghiệm / Giới thiệu</label>
+                <textarea rows={3} value={candForm.experience || ""} onChange={e => setCandForm({ ...candForm, experience: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="Kinh nghiệm ứng viên tự khai..." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Link CV</label>
+                <input type="url" value={candForm.cvUrl || ""} onChange={e => setCandForm({ ...candForm, cvUrl: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Link CV (nếu có)" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú nội bộ</label>
                 <textarea rows={2} value={candForm.notes || ""} onChange={e => setCandForm({ ...candForm, notes: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="Ghi chú về ứng viên..." />
               </div>
             </div>

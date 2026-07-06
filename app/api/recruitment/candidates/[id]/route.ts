@@ -8,7 +8,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { status, notes, hiredEmpId } = await req.json();
+  const { status, notes, hiredEmpId, name, email, phone, source, experience, cvUrl } = await req.json();
 
   const updated = await prisma.candidate.updateMany({
     where: { id: params.id, companyId },
@@ -16,6 +16,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(status !== undefined && { status }),
       ...(notes !== undefined && { notes: notes || null }),
       ...(hiredEmpId !== undefined && { hiredEmpId: hiredEmpId || null }),
+      ...(name !== undefined && { name }),
+      ...(email !== undefined && { email: email || null }),
+      ...(phone !== undefined && { phone: phone || null }),
+      ...(source !== undefined && { source: source || null }),
+      ...(experience !== undefined && { experience: experience || null }),
+      ...(cvUrl !== undefined && { cvUrl: cvUrl || null }),
     },
   });
 

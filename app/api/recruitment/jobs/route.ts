@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, department, location, description, requirements, salaryMin, salaryMax } = await req.json();
+  const { title, department, location, description, requirements, salaryMin, salaryMax,
+    branchId, quantity, workTime, benefits, isPublic } = await req.json();
   if (!title) return NextResponse.json({ error: "Thiếu tiêu đề vị trí" }, { status: 400 });
 
   const job = await prisma.jobPosting.create({
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
       requirements: requirements || null,
       salaryMin: salaryMin ? Number(salaryMin) : null,
       salaryMax: salaryMax ? Number(salaryMax) : null,
+      branchId: branchId || null,
+      quantity: quantity ? Number(quantity) : null,
+      workTime: workTime || null,
+      benefits: benefits || null,
+      isPublic: isPublic === undefined ? true : !!isPublic,
     },
   });
 

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { jobId, name, email, phone, source, notes } = await req.json();
+  const { jobId, name, email, phone, source, notes, experience, cvUrl } = await req.json();
   if (!jobId || !name) return NextResponse.json({ error: "Thiếu jobId hoặc tên ứng viên" }, { status: 400 });
 
   const candidate = await prisma.candidate.create({
@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
       phone: phone || null,
       source: source || null,
       notes: notes || null,
+      experience: experience || null,
+      cvUrl: cvUrl || null,
     },
     include: { job: { select: { id: true, title: true, department: true } } },
   });

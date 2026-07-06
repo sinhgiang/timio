@@ -8,7 +8,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const companyId = (session?.user as { companyId?: string })?.companyId;
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, department, location, description, requirements, salaryMin, salaryMax, status } = await req.json();
+  const { title, department, location, description, requirements, salaryMin, salaryMax, status,
+    branchId, quantity, workTime, benefits, isPublic } = await req.json();
 
   const job = await prisma.jobPosting.updateMany({
     where: { id: params.id, companyId },
@@ -21,6 +22,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(salaryMin !== undefined && { salaryMin: salaryMin ? Number(salaryMin) : null }),
       ...(salaryMax !== undefined && { salaryMax: salaryMax ? Number(salaryMax) : null }),
       ...(status !== undefined && { status }),
+      ...(branchId !== undefined && { branchId: branchId || null }),
+      ...(quantity !== undefined && { quantity: quantity ? Number(quantity) : null }),
+      ...(workTime !== undefined && { workTime: workTime || null }),
+      ...(benefits !== undefined && { benefits: benefits || null }),
+      ...(isPublic !== undefined && { isPublic: !!isPublic }),
     },
   });
 

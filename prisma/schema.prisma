@@ -636,6 +636,11 @@ model JobPosting {
   salaryMin    Int?
   salaryMax    Int?
   status       String      @default("open") // "open" | "closed" | "filled"
+  branchId     String?     // null = toàn công ty; nếu set → chỉ manager chi nhánh đó thấy
+  quantity     Int?        // số lượng cần tuyển
+  workTime     String?     // ca/giờ làm (vd "Ca tối 17h-22h")
+  benefits     String?     // quyền lợi
+  isPublic     Boolean     @default(true) // hiện trên trang tuyển dụng công khai
   createdAt    DateTime    @default(now())
 
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -655,6 +660,10 @@ model Candidate {
   status     String    @default("new") // "new" | "reviewing" | "interview" | "offer" | "hired" | "rejected"
   notes      String?
   source     String?   // "website" | "referral" | "linkedin" | "facebook" | "other"
+  experience String?   // kinh nghiệm/giới thiệu (từ form ứng tuyển online)
+  cvUrl      String?   // link CV (Drive/website) — không upload file GĐ1
+  aiScore    Int?      // 0-100 điểm AI chấm (GĐ3)
+  aiSummary  String?   // AI tóm tắt + lý do điểm (GĐ3)
   hiredEmpId String?   // employeeId nếu được tuyển vào làm
   appliedAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
