@@ -336,6 +336,7 @@ export default function ChatWidget({ role, plan }: { role: string; plan: string 
     if (!el) return;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 128) + "px";
+    el.scrollTop = el.scrollHeight; // LUÔN cuộn xuống chỗ chữ mới nhất (nhất là khi nói, chữ tự đổ vào)
   }, [input]);
 
   const send = useCallback(async (text: string, speak = false) => {
