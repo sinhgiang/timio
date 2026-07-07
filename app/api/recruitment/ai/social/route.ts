@@ -29,7 +29,10 @@ export async function POST(req: NextRequest) {
   const b = scopedBranchId(user!);
   const job = await prisma.jobPosting.findFirst({
     where: { id: jobId, companyId, ...(b ? { OR: [{ branchId: b }, { branchId: null }] } : {}) },
-    select: { title: true, salaryMin: true, salaryMax: true, location: true, workTime: true, benefits: true, quantity: true },
+    select: {
+      title: true, department: true, description: true, requirements: true, benefits: true,
+      salaryMin: true, salaryMax: true, location: true, workTime: true, quantity: true,
+    },
   });
   if (!job) return NextResponse.json({ error: "Không tìm thấy vị trí" }, { status: 404 });
 

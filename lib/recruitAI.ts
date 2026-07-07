@@ -10,6 +10,20 @@ export function aiConfigured(): boolean {
   return !!process.env.ANTHROPIC_API_KEY;
 }
 
+// Bỏ ký hiệu markdown để dán sạch lên Facebook/Zalo (2 nền tảng không render markdown)
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, "$1")      // **đậm**
+    .replace(/__([^_]+)__/g, "$1")          // __đậm__
+    .replace(/(^|\n)\s{0,3}#{1,6}\s*/g, "$1") // # tiêu đề
+    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1")  // `code`
+    .replace(/(^|\n)\s*\*\s+/g, "$1• ")     // bullet "* " → "• "
+    .replace(/\*+/g, "")                       // sao lẻ còn sót
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Trích JSON đầu tiên trong text (phòng khi model bọc ```json ... ```)
 function extractJson<T>(text: string): T | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -67,6 +81,8 @@ export async function generateJD(hint: string, ctx: CompanyContext): Promise<Gen
   if (ctx.existingTitles?.length) contextLines.push(`Vị trí công ty đã đăng tuyển: ${ctx.existingTitles.slice(0, 15).join(", ")}`);
 
   const system = `Bạn là CHUYÊN GIA TUYỂN DỤNG & EMPLOYER BRANDING với 15 NĂM kinh nghiệm, từng viết hàng nghìn tin tuyển dụng chuyển đổi cao cho doanh nghiệp Việt Nam (từ quán ăn, cửa hàng, xưởng nhỏ đến chuỗi lớn). Nhiệm vụ: từ vài từ gợi ý của chủ doanh nghiệp, soạn một BÀI TUYỂN DỤNG HOÀN CHỈNH, CHUYÊN NGHIỆP, thuyết phục — như một chuyên gia thực thụ.
+
+CHÍNH TẢ (RẤT QUAN TRỌNG): Viết đúng chính tả tiếng Việt CHUẨN 100%, có dấu đầy đủ. Đầu vào có thể từ giọng nói nên SAI chính tả/nghe nhầm — bạn PHẢI TỰ SỬA cho đúng (ví dụ: "tạc vụ"/"đặc vụ" → "tạp vụ"; "chuyển sự" → "tuyển sự"). TUYỆT ĐỐI không để lỗi chính tả trong bài viết ra.
 
 NGUYÊN TẮC CHUYÊN GIA:
 - Bám sát cơ cấu công ty đã cho (phòng ban, chức vụ, các vị trí đã tuyển) để đặt tên vị trí & mô tả cho NHẤT QUÁN với công ty. Nếu gợi ý khớp một chức vụ có sẵn, ưu tiên dùng đúng tên đó.
@@ -155,28 +171,54 @@ Chấm điểm (chỉ trả JSON).`;
 // ─── 3. Soạn bài đăng Facebook/Zalo ──────────────────────────────────────────────
 
 export async function generateSocialPost(
-  job: { title: string; salaryMin?: number | null; salaryMax?: number | null; location?: string | null; workTime?: string | null; benefits?: string | null; quantity?: number | null },
+  job: {
+    title: string; department?: string | null; description?: string | null; requirements?: string | null;
+    benefits?: string | null; salaryMin?: number | null; salaryMax?: number | null;
+    location?: string | null; workTime?: string | null; quantity?: number | null;
+  },
   publicUrl: string,
   companyName: string
 ): Promise<string> {
   const sal =
     job.salaryMin && job.salaryMax
-      ? `${job.salaryMin.toLocaleString("vi-VN")}–${job.salaryMax.toLocaleString("vi-VN")}đ`
+      ? `${job.salaryMin.toLocaleString("vi-VN")} - ${job.salaryMax.toLocaleString("vi-VN")} VND/tháng`
       : job.salaryMin
-      ? `từ ${job.salaryMin.toLocaleString("vi-VN")}đ`
-      : "thỏa thuận";
+      ? `từ ${job.salaryMin.toLocaleString("vi-VN")} VND/tháng`
+      : "Thỏa thuận theo năng lực";
 
-  const system = `Bạn là người viết content tuyển dụng cho mạng xã hội (Facebook/Zalo) ở Việt Nam. Viết bài đăng NGẮN, bắt mắt, có emoji phù hợp, xuống dòng thoáng, kêu gọi ứng tuyển. Đây là content MXH nên ĐƯỢC dùng emoji. Kết bài PHẢI có dòng "👉 Ứng tuyển: <link>". Chỉ trả về nội dung bài đăng, không giải thích.`;
+  const system = `Bạn là CHUYÊN GIA TUYỂN DỤNG & MARKETING NHÂN SỰ 15 NĂM kinh nghiệm tại Việt Nam, viết bài đăng tuyển cho Facebook/Zalo đạt tương tác và ứng tuyển cao. Nhiệm vụ: dựa TRÊN NỘI DUNG TIN TUYỂN DỤNG ĐÃ CÓ, viết lại thành BÀI ĐĂNG MẠNG XÃ HỘI HOÀN CHỈNH, CHUYÊN NGHIỆP, đúng văn hóa & thị trường lao động Việt Nam.
 
-  const user = `Công ty: ${companyName}
-Vị trí: ${job.title}${job.quantity ? ` (tuyển ${job.quantity} người)` : ""}
+QUY TẮC BẮT BUỘC:
+1. CHÍNH TẢ tiếng Việt CHUẨN 100%, có dấu đầy đủ. Tự sửa mọi lỗi chính tả trong dữ liệu đầu vào (VD "tạc vụ" → "tạp vụ"). TUYỆT ĐỐI không sai chính tả.
+2. KHÔNG dùng markdown (KHÔNG **, __, #, \`). Đây là Facebook/Zalo — chúng KHÔNG hiển thị markdown, sẽ hiện ra dấu sao xấu. Muốn nhấn mạnh thì dùng CHỮ IN HOA hoặc emoji, KHÔNG dùng dấu sao.
+3. ĐƯỢC dùng emoji phù hợp (📍💰⏰✅📞🔥...) và gạch đầu dòng bằng "•" hoặc emoji.
+4. Bài viết ĐẦY ĐỦ & CHUYÊN NGHIỆP như người làm nhân sự thật: tiêu đề hút mắt → giới thiệu ngắn về công ty/cơ hội → MÔ TẢ CÔNG VIỆC → YÊU CẦU → QUYỀN LỢI (đầy đủ, bám nội dung đã cho) → thông tin lương/địa điểm/ca làm/số lượng → lời kêu gọi ứng tuyển → link. Giọng văn tự nhiên, thân thiện, đáng tin của người Việt.
+5. Dựa SÁT nội dung tin đã cung cấp, không bịa thêm phúc lợi vô căn cứ. Kết bài có dòng kêu gọi + "👉 Ứng tuyển ngay: <link>".
+6. Chỉ trả về NỘI DUNG BÀI ĐĂNG (không giải thích, không markdown).`;
+
+  const user = `THÔNG TIN TIN TUYỂN DỤNG ĐÃ SOẠN (viết lại thành bài đăng MXH, đừng bịa thêm):
+Công ty: ${companyName}
+Vị trí: ${job.title}${job.department ? ` — Phòng ${job.department}` : ""}
+Số lượng: ${job.quantity ? `${job.quantity} người` : "(không nêu)"}
 Lương: ${sal}
-${job.workTime ? `Ca làm: ${job.workTime}\n` : ""}${job.location ? `Địa điểm: ${job.location}\n` : ""}${job.benefits ? `Quyền lợi: ${job.benefits}\n` : ""}Link ứng tuyển: ${publicUrl}
+Ca/giờ làm: ${job.workTime || "(không nêu)"}
+Địa điểm: ${job.location || "(không nêu)"}
 
-Viết bài đăng tuyển dụng cho Facebook/Zalo.`;
+MÔ TẢ CÔNG VIỆC:
+${job.description || "(chưa có — hãy viết hợp lý theo vị trí)"}
 
-  const text = await complete(system, user, 600);
-  const content = text.trim();
-  // Đảm bảo có link (phòng khi model quên)
-  return content.includes(publicUrl) ? content : `${content}\n\n👉 Ứng tuyển: ${publicUrl}`;
+YÊU CẦU:
+${job.requirements || "(chưa có)"}
+
+QUYỀN LỢI:
+${job.benefits || "(chưa có — hãy nêu quyền lợi hợp lý, trung thực)"}
+
+Link ứng tuyển: ${publicUrl}
+
+Viết bài đăng tuyển dụng chuyên nghiệp, đầy đủ cho Facebook/Zalo (tiếng Việt, không markdown).`;
+
+  const text = await complete(system, user, 1200);
+  let content = stripMarkdown(text.trim());
+  if (!content.includes(publicUrl)) content = `${content}\n\n👉 Ứng tuyển ngay: ${publicUrl}`;
+  return content;
 }

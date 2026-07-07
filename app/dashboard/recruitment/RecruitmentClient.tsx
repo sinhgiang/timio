@@ -822,9 +822,15 @@ export default function RecruitmentClient({
       {/* Job form modal */}
       {jobForm && (
         <div className="fixed inset-0 bg-black/40 flex items-start md:items-center justify-center z-50 p-2 md:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-6 max-h-[95vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">{jobForm.id ? "Chỉnh sửa vị trí" : "Thêm vị trí tuyển dụng"}</h3>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col">
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
+              <h3 className="text-lg font-bold text-gray-800">{jobForm.id ? "Chỉnh sửa vị trí" : "Thêm vị trí tuyển dụng"}</h3>
+              <button onClick={() => setJobForm(null)} title="Đóng" className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
 
+            <div className="overflow-y-auto px-6 py-5">
             {/* AI viết giúp — chỉ gói Business */}
             {isBusiness && (
               <div className="mb-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-xl p-3">
@@ -948,7 +954,8 @@ export default function RecruitmentClient({
                 </span>
               </label>
             </div>
-            <div className="flex gap-3 mt-6">
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
               <button onClick={() => setJobForm(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition-colors">Hủy</button>
               <button onClick={saveJob} disabled={savingJob || !jobForm.title} className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm hover:bg-blue-700 transition-colors disabled:opacity-60">
                 {savingJob ? "Đang lưu..." : jobForm.id ? "Cập nhật" : "Tạo vị trí"}
