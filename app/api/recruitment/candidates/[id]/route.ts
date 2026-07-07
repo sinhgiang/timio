@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (user?.role === "accountant") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
   if (!(await candidateInScope(user!, params.id))) return NextResponse.json({ error: "Không tìm thấy hoặc không có quyền" }, { status: 404 });
 
-  const { status, notes, hiredEmpId, name, email, phone, source, experience, cvUrl } = await req.json();
+  const { status, notes, hiredEmpId, name, email, phone, source, experience, cvUrl, interviewAt } = await req.json();
 
   const updated = await prisma.candidate.updateMany({
     where: { id: params.id, companyId },
@@ -40,6 +40,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(source !== undefined && { source: source || null }),
       ...(experience !== undefined && { experience: experience || null }),
       ...(cvUrl !== undefined && { cvUrl: cvUrl || null }),
+      ...(interviewAt !== undefined && { interviewAt: interviewAt ? new Date(interviewAt) : null }),
+      // Ghi thời điểm tuyển để tính time-to-hire (chỉ set lần đầu chuyển sang hired)
+      ...(status === "hired" && { hiredAt: new Date() }),
     },
   });
 

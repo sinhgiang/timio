@@ -339,6 +339,46 @@ export async function actionRequest(
   return data as { ok: boolean; id: string; status: string };
 }
 
+// ─── Tuyển dụng ────────────────────────────────────────────────────
+export interface RecruitCandidate {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  jobTitle: string;
+  status: string;
+  aiScore: number | null;
+  aiSummary: string;
+  experience: string;
+  hasCv: boolean;
+  interviewAt: string | null;
+  appliedAt: string;
+}
+
+export async function getRecruitCandidates(status = "all"): Promise<{ counts: Record<string, number>; candidates: RecruitCandidate[] }> {
+  const mgr = await getManager();
+  if (!mgr) throw new Error("Chưa đăng nhập");
+  const res = await fetch(`${BASE}/api/mobile/manager/recruitment?status=${encodeURIComponent(status)}`, {
+    headers: mgrHeaders(mgr.token),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Không lấy được ứng viên");
+  return data as { counts: Record<string, number>; candidates: RecruitCandidate[] };
+}
+
+export async function updateRecruitStatus(id: string, status: string): Promise<{ ok: boolean }> {
+  const mgr = await getManager();
+  if (!mgr) throw new Error("Chưa đăng nhập");
+  const res = await fetch(`${BASE}/api/mobile/manager/recruitment/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${mgr.token}` },
+    body: JSON.stringify({ id, status }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Đổi trạng thái thất bại");
+  return data as { ok: boolean };
+}
+
 export async function submitSupportTicket(
   token: string,
   title: string,

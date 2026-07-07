@@ -81,7 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Đánh dấu ứng viên đã tuyển
   await prisma.candidate.update({
     where: { id: candidate.id },
-    data: { status: "hired", hiredEmpId: employee.id },
+    data: { status: "hired", hiredEmpId: employee.id, hiredAt: new Date() },
   });
 
   // Link onboarding: nhân viên tự điền hồ sơ + quét mặt (hiệu lực 7 ngày)

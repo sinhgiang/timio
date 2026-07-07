@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2 } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2, Calendar, Mail, BarChart3, Archive, Send, TrendingUp } from "lucide-react";
 import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
 import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
@@ -40,9 +40,22 @@ type Candidate = {
   cvFileName: string | null;
   aiScore: number | null;
   aiSummary: string | null;
+  interviewAt: string | null;
   hiredEmpId: string | null;
   appliedAt: string;
   job: { id: string; title: string; department: string | null; branchId?: string | null };
+};
+
+type Stats = {
+  total: number;
+  openJobs: number;
+  funnel: Record<string, number>;
+  conversions: { applyToInterview: number; interviewToHire: number; applyToHire: number };
+  avgDaysToHire: number | null;
+  applied: { today: number; week: number; month: number };
+  avgAiScore: number | null;
+  perJob: { title: string; status: string; total: number; hired: number; interview: number; new: number }[];
+  upcomingInterviews: number;
 };
 
 // Thứ tự các cột pipeline (rejected để cuối, tách riêng)
@@ -151,8 +164,22 @@ export default function RecruitmentClient({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"jobs" | "candidates">("jobs");
+  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool">("jobs");
   const [showGuide, setShowGuide] = useState(false);
+
+  // Báo cáo
+  const [stats, setStats] = useState<Stats | null>(null);
+  // Kho ứng viên
+  const [poolSearch, setPoolSearch] = useState("");
+  const [reuseCand, setReuseCand] = useState<Candidate | null>(null);
+  const [reuseJobId, setReuseJobId] = useState("");
+  // Email + lịch phỏng vấn
+  const [emailCand, setEmailCand] = useState<Candidate | null>(null);
+  const [emailType, setEmailType] = useState<"interview" | "reject" | "custom">("interview");
+  const [emailMsg, setEmailMsg] = useState("");
+  const [emailInterviewAt, setEmailInterviewAt] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<string | null>(null);
 
   // Job form
   const [jobForm, setJobForm] = useState<Partial<Job> | null>(null);
@@ -321,7 +348,75 @@ export default function RecruitmentClient({
     setCandidates(Array.isArray(data) ? data : []);
   }, []);
 
-  useEffect(() => { fetchJobs(); fetchCandidates(); }, [fetchJobs, fetchCandidates]);
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/recruitment/stats");
+      if (res.ok) setStats(await res.json());
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => { fetchJobs(); fetchCandidates(); fetchStats(); }, [fetchJobs, fetchCandidates, fetchStats]);
+
+  // Đặt lịch phỏng vấn cho ứng viên
+  async function setInterview(id: string, isoLocal: string) {
+    const iso = isoLocal ? new Date(isoLocal).toISOString() : null;
+    setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, interviewAt: iso } : c)));
+    setViewCand((v) => (v && v.id === id ? { ...v, interviewAt: iso } : v));
+    await fetch(`/api/recruitment/candidates/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interviewAt: iso }),
+    }).catch(() => {});
+  }
+
+  function openEmail(cand: Candidate, type: "interview" | "reject" | "custom") {
+    setEmailCand(cand);
+    setEmailType(type);
+    setEmailMsg("");
+    setEmailResult(null);
+    setEmailInterviewAt(cand.interviewAt ? new Date(cand.interviewAt).toISOString().slice(0, 16) : "");
+  }
+
+  async function sendCandidateEmail() {
+    if (!emailCand) return;
+    setEmailSending(true); setEmailResult(null);
+    try {
+      const res = await fetch(`/api/recruitment/candidates/${emailCand.id}/email`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: emailType, message: emailMsg || null, interviewAt: emailType === "interview" && emailInterviewAt ? new Date(emailInterviewAt).toISOString() : null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.sentOk) {
+        // Nếu là mời phỏng vấn kèm giờ → lưu luôn lịch + chuyển trạng thái
+        if (emailType === "interview" && emailInterviewAt) {
+          await setInterview(emailCand.id, emailInterviewAt);
+          updateCandStatus(emailCand.id, "interview");
+        }
+        if (emailType === "reject") updateCandStatus(emailCand.id, "rejected");
+        setEmailResult("ok");
+        setTimeout(() => setEmailCand(null), 1200);
+      } else {
+        setEmailResult(data.error || "Gửi email thất bại.");
+      }
+    } catch {
+      setEmailResult("Lỗi kết nối.");
+    }
+    setEmailSending(false);
+  }
+
+  // Dùng lại ứng viên (kho) cho vị trí khác
+  async function reuseCandidate() {
+    if (!reuseCand || !reuseJobId) return;
+    await fetch("/api/recruitment/candidates", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobId: reuseJobId, name: reuseCand.name, email: reuseCand.email, phone: reuseCand.phone,
+        source: reuseCand.source || "referral", experience: reuseCand.experience, cvUrl: reuseCand.cvUrl,
+        notes: `Dùng lại từ ứng viên cũ (vị trí: ${reuseCand.job?.title ?? "?"})`,
+      }),
+    }).catch(() => {});
+    setReuseCand(null); setReuseJobId("");
+    fetchCandidates(selectedJob?.id); fetchJobs(); fetchStats();
+  }
 
   async function saveJob() {
     setSavingJob(true);
@@ -563,14 +658,19 @@ export default function RecruitmentClient({
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl w-fit">
-        {(["jobs", "candidates"] as const).map(tab => (
+      <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">
+        {([
+          { k: "jobs", label: `Vị trí tuyển (${jobs.length})` },
+          { k: "candidates", label: `Ứng viên (${candidates.filter(c => c.status !== "rejected" && c.status !== "hired").length})` },
+          { k: "reports", label: "Báo cáo" },
+          { k: "pool", label: `Kho ứng viên (${candidates.filter(c => c.status === "rejected" || c.status === "hired").length})` },
+        ] as const).map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            key={tab.k}
+            onClick={() => { setActiveTab(tab.k); if (tab.k === "reports") fetchStats(); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.k ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
           >
-            {tab === "jobs" ? `Vị trí tuyển (${jobs.length})` : `Ứng viên (${candidates.length})`}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -690,17 +790,17 @@ export default function RecruitmentClient({
             </button>
           </div>
 
-          {displayedCandidates.length === 0 ? (
+          {displayedCandidates.filter((c) => PIPELINE.includes(c.status)).length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
               <Users size={32} className="text-gray-300 mx-auto mb-2" strokeWidth={1.5} />
-              <p className="text-gray-500 text-sm">Chưa có ứng viên nào</p>
-              <p className="text-xs text-gray-400 mt-1">Ứng viên nộp từ trang tuyển dụng sẽ tự hiện ở đây.</p>
+              <p className="text-gray-500 text-sm">Chưa có ứng viên nào trong quy trình</p>
+              <p className="text-xs text-gray-400 mt-1">Ứng viên nộp từ trang tuyển dụng sẽ tự hiện ở đây. Ứng viên bị từ chối nằm ở tab Kho ứng viên.</p>
             </div>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-3">
-              {PIPELINE_ALL.map((status) => {
+              {PIPELINE.map((status) => {
                 const cands = displayedCandidates.filter((c) => c.status === status);
-                const isRejected = status === "rejected";
+                const isRejected = false;
                 return (
                   <div
                     key={status}
@@ -758,6 +858,11 @@ export default function RecruitmentClient({
                             )}
                             {cand.experience && (
                               <p className="text-[11px] text-gray-500 mt-1 line-clamp-2 leading-snug">{cand.experience}</p>
+                            )}
+                            {cand.interviewAt && (
+                              <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">
+                                <Calendar size={11} /> PV: {new Date(cand.interviewAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                              </p>
                             )}
 
                             {canHire && (
@@ -822,6 +927,138 @@ export default function RecruitmentClient({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Reports tab */}
+      {activeTab === "reports" && (
+        <div className="space-y-4">
+          {!stats ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400 text-sm">Đang tải báo cáo...</div>
+          ) : (
+            <>
+              {/* Số liệu nhanh */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Vị trí đang tuyển", value: stats.openJobs, color: "text-green-600", bg: "bg-green-50" },
+                  { label: "Tổng ứng viên", value: stats.total, color: "text-blue-600", bg: "bg-blue-50" },
+                  { label: "Đã tuyển được", value: stats.funnel.hired, color: "text-purple-600", bg: "bg-purple-50" },
+                  { label: "PV sắp tới", value: stats.upcomingInterviews, color: "text-orange-600", bg: "bg-orange-50" },
+                ].map((s) => (
+                  <div key={s.label} className={`${s.bg} rounded-2xl p-4 text-center`}>
+                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Phễu tuyển dụng */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp size={16} className="text-blue-600" strokeWidth={1.5} /> Phễu tuyển dụng</h3>
+                  <div className="space-y-2.5">
+                    {PIPELINE_ALL.map((s) => {
+                      const count = stats.funnel[s] ?? 0;
+                      const pct = stats.total ? Math.round((count / stats.total) * 100) : 0;
+                      return (
+                        <div key={s}>
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-600">{CANDIDATE_STATUS_LABELS[s]}</span>
+                            <span className="font-semibold text-gray-700">{count} <span className="text-gray-400 font-normal">({pct}%)</span></span>
+                          </div>
+                          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${s === "rejected" ? "bg-red-400" : s === "hired" ? "bg-green-500" : "bg-blue-500"}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Chỉ số */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><BarChart3 size={16} className="text-blue-600" strokeWidth={1.5} /> Hiệu quả</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between"><span className="text-gray-500">Nộp đơn → Phỏng vấn</span><span className="font-bold text-gray-800">{stats.conversions.applyToInterview}%</span></div>
+                    <div className="flex items-center justify-between"><span className="text-gray-500">Phỏng vấn → Tuyển</span><span className="font-bold text-gray-800">{stats.conversions.interviewToHire}%</span></div>
+                    <div className="flex items-center justify-between"><span className="text-gray-500">Nộp đơn → Tuyển</span><span className="font-bold text-gray-800">{stats.conversions.applyToHire}%</span></div>
+                    <div className="border-t border-gray-100 pt-3 flex items-center justify-between"><span className="text-gray-500">Thời gian tuyển trung bình</span><span className="font-bold text-gray-800">{stats.avgDaysToHire != null ? `${stats.avgDaysToHire} ngày` : "—"}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-gray-500">Điểm AI trung bình</span><span className="font-bold text-gray-800">{stats.avgAiScore != null ? stats.avgAiScore : "—"}</span></div>
+                    <div className="border-t border-gray-100 pt-3 grid grid-cols-3 gap-2 text-center">
+                      <div><p className="text-lg font-bold text-blue-600">{stats.applied.today}</p><p className="text-[11px] text-gray-400">Hôm nay</p></div>
+                      <div><p className="text-lg font-bold text-blue-600">{stats.applied.week}</p><p className="text-[11px] text-gray-400">7 ngày</p></div>
+                      <div><p className="text-lg font-bold text-blue-600">{stats.applied.month}</p><p className="text-[11px] text-gray-400">30 ngày</p></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Theo vị trí */}
+              {stats.perJob.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100"><h3 className="font-semibold text-gray-800 text-sm">Ứng viên theo vị trí</h3></div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                        <tr><th className="text-left px-4 py-2.5">Vị trí</th><th className="px-3 py-2.5">Tổng</th><th className="px-3 py-2.5">Mới</th><th className="px-3 py-2.5">PV/Offer</th><th className="px-3 py-2.5">Đã tuyển</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {stats.perJob.map((j, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5 text-gray-800">{j.title}</td>
+                            <td className="px-3 py-2.5 text-center font-medium">{j.total}</td>
+                            <td className="px-3 py-2.5 text-center text-gray-500">{j.new}</td>
+                            <td className="px-3 py-2.5 text-center text-gray-500">{j.interview}</td>
+                            <td className="px-3 py-2.5 text-center text-green-600 font-medium">{j.hired}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Kho ứng viên tab */}
+      {activeTab === "pool" && (
+        <div>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div>
+              <h2 className="font-semibold text-gray-700 flex items-center gap-2"><Archive size={16} className="text-gray-500" /> Kho ứng viên</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Ứng viên đã từ chối / đã tuyển — dùng lại cho vị trí mới khi cần.</p>
+            </div>
+            <input value={poolSearch} onChange={(e) => setPoolSearch(e.target.value)} placeholder="Tìm theo tên..." className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+          </div>
+          {(() => {
+            const pool = candidates.filter((c) => (c.status === "rejected" || c.status === "hired") && (!poolSearch.trim() || c.name.toLowerCase().includes(poolSearch.trim().toLowerCase())));
+            if (pool.length === 0) return (
+              <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
+                <Archive size={30} className="text-gray-300 mx-auto mb-2" strokeWidth={1.5} />
+                <p className="text-gray-500 text-sm">Chưa có ứng viên nào trong kho</p>
+              </div>
+            );
+            return (
+              <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-50">
+                {pool.map((c) => (
+                  <div key={c.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50">
+                    <button onClick={() => setViewCand(c)} className="min-w-0 flex-1 text-left">
+                      <p className="font-medium text-gray-800 text-sm flex items-center gap-2">{c.name}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CANDIDATE_STATUS_COLORS[c.status]}`}>{CANDIDATE_STATUS_LABELS[c.status]}</span>
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">{c.job?.title || "—"}{c.phone ? ` · ${c.phone}` : ""}</p>
+                    </button>
+                    {c.aiScore != null && <span className={`shrink-0 text-[11px] font-bold w-7 h-7 rounded-lg flex items-center justify-center ${aiScoreStyle(c.aiScore).cls}`}>{c.aiScore}</span>}
+                    <button onClick={() => { setReuseCand(c); setReuseJobId(jobs.find(j => j.status === "open")?.id || ""); }} className="shrink-0 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
+                      Dùng lại
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1086,6 +1323,31 @@ export default function RecruitmentClient({
               )}
               {viewCand.cvUrl && <p><span className="text-gray-400">Link CV: </span><a href={viewCand.cvUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{viewCand.cvUrl}</a></p>}
               {viewCand.notes && <p><span className="text-gray-400">Ghi chú: </span>{viewCand.notes}</p>}
+
+              {/* Lịch phỏng vấn */}
+              <div className="border-t border-gray-100 pt-3">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Calendar size={13} /> Lịch phỏng vấn</label>
+                <input
+                  type="datetime-local"
+                  value={viewCand.interviewAt ? new Date(viewCand.interviewAt).toISOString().slice(0, 16) : ""}
+                  onChange={(e) => setInterview(viewCand.id, e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
+              {/* Gửi email cho ứng viên */}
+              <div className="border-t border-gray-100 pt-3">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5"><Mail size={13} /> Gửi email cho ứng viên</label>
+                {viewCand.email ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => openEmail(viewCand, "interview")} className="flex items-center gap-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-1.5 rounded-lg hover:bg-purple-100 font-medium"><Calendar size={13} /> Mời phỏng vấn</button>
+                    <button onClick={() => openEmail(viewCand, "reject")} className="flex items-center gap-1.5 text-xs bg-red-50 text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-100 font-medium"><X size={13} /> Cảm ơn / từ chối</button>
+                    <button onClick={() => openEmail(viewCand, "custom")} className="flex items-center gap-1.5 text-xs bg-gray-50 text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 font-medium"><Send size={13} /> Email tùy chỉnh</button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">Ứng viên chưa có email — không gửi được.</p>
+                )}
+              </div>
             </div>
             <div className="flex gap-2 mt-5">
               {(viewCand.status === "offer" || viewCand.status === "hired") && !viewCand.hiredEmpId && (
@@ -1219,6 +1481,70 @@ export default function RecruitmentClient({
                 <p className="text-xs text-gray-400 mt-3">Mẹo: bấm “Chép nội dung” rồi dán vào nhóm/trang Facebook hoặc Zalo của bạn. Link ứng tuyển đã có sẵn trong bài.</p>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal soạn email cho ứng viên */}
+      {emailCand && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setEmailCand(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">
+                  {emailType === "interview" ? "Mời phỏng vấn" : emailType === "reject" ? "Gửi lời cảm ơn / từ chối" : "Email tùy chỉnh"}
+                </h3>
+                <p className="text-xs text-gray-500">Gửi tới {emailCand.name} · {emailCand.email}</p>
+              </div>
+              <button onClick={() => setEmailCand(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+            </div>
+            {emailResult === "ok" ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2"><Check size={26} className="text-green-600" /></div>
+                <p className="font-semibold text-gray-800">Đã gửi email!</p>
+              </div>
+            ) : (
+              <>
+                {emailType === "interview" && (
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian phỏng vấn</label>
+                    <input type="datetime-local" value={emailInterviewAt} onChange={(e) => setEmailInterviewAt(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+                    <p className="text-xs text-gray-400 mt-1">Gửi lời mời kèm giờ này + tự đặt lịch + chuyển sang “Phỏng vấn”.</p>
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{emailType === "custom" ? "Nội dung *" : "Lời nhắn thêm (tùy chọn)"}</label>
+                  <textarea rows={4} value={emailMsg} onChange={(e) => setEmailMsg(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none"
+                    placeholder={emailType === "interview" ? "VD: Địa chỉ phỏng vấn, cần mang theo gì..." : emailType === "reject" ? "VD: Lý do (tùy chọn), lời chúc..." : "Nội dung email gửi ứng viên..."} />
+                </div>
+                {emailResult && emailResult !== "ok" && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{emailResult}</p>}
+                <div className="flex gap-3">
+                  <button onClick={() => setEmailCand(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Hủy</button>
+                  <button onClick={sendCandidateEmail} disabled={emailSending || (emailType === "custom" && !emailMsg.trim())} className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-1.5">
+                    {emailSending ? <><Loader2 size={15} className="animate-spin" /> Đang gửi...</> : <><Send size={15} /> Gửi email</>}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal dùng lại ứng viên (kho) */}
+      {reuseCand && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setReuseCand(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Dùng lại ứng viên</h3>
+            <p className="text-xs text-gray-500 mb-4">Thêm <b>{reuseCand.name}</b> vào một vị trí đang tuyển (tạo hồ sơ mới ở cột “Mới”, giữ nguyên thông tin/CV).</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Chọn vị trí</label>
+            <select value={reuseJobId} onChange={(e) => setReuseJobId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white mb-4">
+              <option value="">-- Chọn vị trí đang tuyển --</option>
+              {jobs.filter((j) => j.status === "open").map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
+            </select>
+            <div className="flex gap-3">
+              <button onClick={() => setReuseCand(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Hủy</button>
+              <button onClick={reuseCandidate} disabled={!reuseJobId} className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-60">Thêm vào vị trí</button>
+            </div>
           </div>
         </div>
       )}

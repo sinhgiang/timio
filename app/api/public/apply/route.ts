@@ -229,5 +229,26 @@ export async function POST(req: NextRequest) {
     console.error("[apply] Lỗi gửi email thông báo (đơn vẫn được lưu):", e);
   }
 
+  // Email tự động xác nhận cho ứng viên (nếu có email) — không chặn phản hồi
+  if (email) {
+    try {
+      const logo = (await prisma.company.findUnique({ where: { id: company.id }, select: { logoUrl: true } }))?.logoUrl;
+      const head = logo
+        ? `<div style="text-align:center;margin-bottom:18px"><img src="${logo}" alt="${esc(company.name)}" style="max-height:52px;max-width:180px"></div>`
+        : `<div style="font-weight:bold;font-size:18px;color:#111827;margin-bottom:14px">${esc(company.name)}</div>`;
+      const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
+        ${head}
+        <p style="font-size:15px;line-height:1.6;margin:0 0 12px">Chào ${esc(name)},</p>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 12px"><b>${esc(company.name)}</b> đã nhận được hồ sơ ứng tuyển vị trí <b>${esc(job.title)}</b> của bạn.</p>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 12px">Chúng tôi sẽ xem xét và liên hệ lại với bạn qua số điện thoại sớm nhất. Cảm ơn bạn đã quan tâm!</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0">
+        <p style="font-size:12px;color:#9ca3af;margin:0">Email tự động từ ${esc(company.name)} qua hệ thống tuyển dụng Timio.</p>
+      </div>`;
+      await sendEmail({ to: email, subject: `Đã nhận hồ sơ — ${job.title} — ${company.name}`, html });
+    } catch (e) {
+      console.error("[apply] Lỗi gửi email xác nhận cho ứng viên (bỏ qua):", e);
+    }
+  }
+
   return NextResponse.json({ ok: true, candidateId: candidate.id });
 }

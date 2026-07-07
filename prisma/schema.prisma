@@ -666,6 +666,8 @@ model Candidate {
   cvFileName String?   // tên file CV gốc
   aiScore    Int?      // 0-100 điểm AI chấm (GĐ3)
   aiSummary  String?   // AI tóm tắt + lý do điểm (GĐ3)
+  interviewAt DateTime? // lịch phỏng vấn
+  hiredAt    DateTime? // thời điểm được tuyển (để tính time-to-hire)
   hiredEmpId String?   // employeeId nếu được tuyển vào làm
   appliedAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt

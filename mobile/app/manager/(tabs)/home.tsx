@@ -171,6 +171,15 @@ export default function ManagerHome() {
           <Text style={s.quickLabel}>Báo cáo tháng</Text>
         </TouchableOpacity>
       </View>
+      {mgr?.role !== "accountant" && (
+        <View style={s.quickRow}>
+          <TouchableOpacity style={s.quickCard} onPress={() => router.push("/recruitment")} activeOpacity={0.85}>
+            <Text style={s.quickIcon}>💼</Text>
+            <Text style={s.quickLabel}>Tuyển dụng</Text>
+          </TouchableOpacity>
+          <View style={[s.quickCard, { opacity: 0 }]} pointerEvents="none" />
+        </View>
+      )}
 
       <Text style={s.pullHint}>Kéo xuống để cập nhật</Text>
     </ScrollView>
