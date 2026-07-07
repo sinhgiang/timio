@@ -165,7 +165,7 @@ export default function RecruitmentClient({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool">("jobs");
+  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool">("reports");
   const [showGuide, setShowGuide] = useState(false);
 
   // Báo cáo
@@ -520,10 +520,6 @@ export default function RecruitmentClient({
     ? candidates.filter(c => c.jobId === selectedJob.id)
     : candidates;
 
-  const openJobs = jobs.filter(j => j.status === "open").length;
-  const totalCandidates = candidates.length;
-  const hiredCount = candidates.filter(c => c.status === "hired").length;
-
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -655,33 +651,20 @@ export default function RecruitmentClient({
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {[
-          { label: "Vị trí đang tuyển", value: openJobs, color: "text-green-600", bg: "bg-green-50" },
-          { label: "Tổng ứng viên", value: totalCandidates, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Đã tuyển được", value: hiredCount, color: "text-purple-600", bg: "bg-purple-50" },
-        ].map(stat => (
-          <div key={stat.label} className={`${stat.bg} rounded-2xl p-4 text-center`}>
-            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="text-xs text-gray-500 mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Tabs */}
+      {/* Tabs — Báo cáo đầu tiên (mặc định) */}
       <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">
         {([
-          { k: "jobs", label: `Vị trí tuyển (${jobs.length})` },
-          { k: "candidates", label: `Ứng viên (${candidates.filter(c => c.status !== "rejected" && c.status !== "hired").length})` },
-          { k: "reports", label: "Báo cáo" },
-          { k: "pool", label: `Kho ứng viên (${candidates.filter(c => c.status === "rejected" || c.status === "hired").length})` },
+          { k: "reports", label: "Báo cáo", Icon: BarChart3 },
+          { k: "jobs", label: `Vị trí tuyển (${jobs.length})`, Icon: Briefcase },
+          { k: "candidates", label: `Ứng viên (${candidates.filter(c => c.status !== "rejected" && c.status !== "hired").length})`, Icon: Users },
+          { k: "pool", label: `Kho ứng viên (${candidates.filter(c => c.status === "rejected" || c.status === "hired").length})`, Icon: Archive },
         ] as const).map(tab => (
           <button
             key={tab.k}
             onClick={() => { setActiveTab(tab.k); if (tab.k === "reports") fetchStats(); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.k ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.k ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
           >
+            <tab.Icon size={15} strokeWidth={activeTab === tab.k ? 2.4 : 2} />
             {tab.label}
           </button>
         ))}
