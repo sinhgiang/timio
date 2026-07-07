@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2, Calendar, Mail, BarChart3, Archive, Send, TrendingUp } from "lucide-react";
 import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
@@ -356,6 +357,17 @@ export default function RecruitmentClient({
   }, []);
 
   useEffect(() => { fetchJobs(); fetchCandidates(); fetchStats(); }, [fetchJobs, fetchCandidates, fetchStats]);
+
+  // Mở form sửa khi vào từ trang tuyển dụng (?edit=jobId)
+  const searchParams = useSearchParams();
+  const [editHandled, setEditHandled] = useState(false);
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (editId && !editHandled && jobs.length > 0) {
+      const j = jobs.find((x) => x.id === editId);
+      if (j) { setActiveTab("jobs"); setJobForm({ ...j }); setEditHandled(true); }
+    }
+  }, [searchParams, jobs, editHandled]);
 
   // Đặt lịch phỏng vấn cho ứng viên
   async function setInterview(id: string, isoLocal: string) {

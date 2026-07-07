@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Clock, Users, Wallet, ArrowLeft, Briefcase, Gift, ListChecks, FileText } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { MapPin, Clock, Users, Wallet, ArrowLeft, Briefcase, Gift, ListChecks, FileText, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import ApplyForm from "@/components/recruitment/ApplyForm";
 
@@ -38,14 +40,23 @@ export async function generateMetadata({
   };
 }
 
-// Render text với xuống dòng thành các đoạn
+// Render text: mỗi ý một dòng; dòng bắt đầu bằng • hoặc - hiển thị dạng gạch đầu dòng
 function TextBlock({ text }: { text: string }) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   return (
-    <div className="space-y-1.5 text-sm text-gray-600 leading-relaxed">
-      {lines.map((line, i) => (
-        <p key={i}>{line}</p>
-      ))}
+    <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
+      {lines.map((line, i) => {
+        const m = /^([•\-*]|\d+[.)])\s+(.*)$/.exec(line);
+        if (m) {
+          return (
+            <div key={i} className="flex gap-2.5">
+              <span className="text-blue-500 shrink-0 mt-[1px]">•</span>
+              <span className="flex-1">{m[2]}</span>
+            </div>
+          );
+        }
+        return <p key={i} className={i === 0 ? "text-gray-800" : ""}>{line}</p>;
+      })}
     </div>
   );
 }
@@ -84,6 +95,11 @@ export default async function JobDetailPage({
 
   const isOpen = job.status === "open" && job.isPublic;
 
+  // Nếu người xem là admin/quản lý của chính công ty này → cho nút Chỉnh sửa
+  const session = await getServerSession(authOptions);
+  const viewer = session?.user as { companyId?: string; role?: string } | undefined;
+  const canEdit = viewer?.companyId === company.id && (viewer?.role === "owner" || viewer?.role === "manager");
+
   let place = job.location;
   if (job.branchId) {
     const branch = await prisma.branch.findFirst({
@@ -117,12 +133,28 @@ export default async function JobDetailPage({
               <Briefcase size={20} className="text-blue-600" strokeWidth={1.5} />
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-blue-600 font-medium">Tuyển dụng</p>
             <h1 className="text-base font-bold text-gray-800 truncate">{company.name}</h1>
           </div>
+          {canEdit && (
+            <Link
+              href={`/dashboard/recruitment?edit=${job.id}`}
+              className="shrink-0 flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Pencil size={14} /> Chỉnh sửa
+            </Link>
+          )}
         </div>
       </header>
+
+      {canEdit && (
+        <div className="max-w-3xl mx-auto px-4 pt-3">
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Bạn đang xem với quyền quản lý. Bấm <b>Chỉnh sửa</b> để sửa tin (có AI hỗ trợ viết lại). Ứng viên bên ngoài không thấy nút này.
+          </p>
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         {/* Job header card */}

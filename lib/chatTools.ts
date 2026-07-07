@@ -349,12 +349,13 @@ const TOOL_DEFS: ToolDef[] = [
     tool: {
       name: "create_job_posting",
       description:
-        "Tạo tin tuyển dụng mới bằng AI. QUY TRÌNH 2 BƯỚC: (B1) gọi với 'mo_ta' (mô tả 1 câu, VD 'tuyển 2 phục vụ ca tối 25k/giờ chi nhánh Cầu Giấy') → nhận bản NHÁP (preview), ĐỌC LẠI cho user nghe rồi HỎI xác nhận. (B2) khi user đồng ý ('đăng đi'/'ok') → gọi LẠI với xac_nhan=true VÀ đầy đủ các trường (title, description...) từ bản nháp để thật sự tạo tin. Chỉ gói Business mới soạn được bằng AI.",
+        "Tạo tin tuyển dụng mới bằng AI. QUY TRÌNH 2 BƯỚC: (B1) gọi với 'mo_ta' (mô tả 1 câu, VD 'tuyển 2 phục vụ ca tối 25k/giờ chi nhánh Cầu Giấy') → hệ thống soạn + LƯU NHÁP, trả về 'draftJobId' + bản preview; ĐỌC LẠI cho user rồi HỎI xác nhận. (B2) khi user đồng ý ('đăng đi'/'ok') → gọi LẠI với xac_nhan=true VÀ draftJobId (KHÔNG cần gõ lại nội dung — hệ thống giữ nguyên bản đầy đủ). Nếu user muốn sửa gì thì truyền kèm trường đó. Chỉ gói Business mới soạn được bằng AI.",
       input_schema: {
         type: "object" as const,
         properties: {
           mo_ta: { type: "string", description: "Mô tả 1 câu vị trí cần tuyển (bước 1)" },
-          xac_nhan: { type: "boolean", description: "true = user đã đồng ý → tạo tin thật (bước 2)" },
+          xac_nhan: { type: "boolean", description: "true = user đã đồng ý → đăng tin (bước 2)" },
+          draftJobId: { type: "string", description: "ID bản nháp trả về ở bước 1 — truyền lại ở bước 2 để đăng đúng nội dung đã soạn" },
           title: { type: "string", description: "Tên vị trí (bước 2)" },
           department: { type: "string" },
           location: { type: "string" },
@@ -1215,56 +1216,95 @@ export async function executeChatTool(
               positions: opts.positions ?? [],
               branches: branchRows.map((x) => x.name),
             });
+            // Khớp chi nhánh + LƯU NHÁP ẨN (isPublic=false) để giữ nguyên nội dung đầy đủ,
+            // bước 2 chỉ cần xuất bản → tránh AI gõ lại làm mất định dạng/chi tiết.
+            let draftBranchId: string | null = b;
+            if (!draftBranchId && jd.branchName) {
+              const bn = stripAccents(jd.branchName);
+              const br = (await prisma.branch.findMany({ where: { companyId: ctx.companyId }, select: { id: true, name: true } }))
+                .find((x) => stripAccents(x.name) === bn || stripAccents(x.name).includes(bn) || bn.includes(stripAccents(x.name)));
+              draftBranchId = br?.id ?? null;
+            }
+            const draft = await prisma.jobPosting.create({
+              data: {
+                companyId: ctx.companyId, title: jd.title,
+                department: jd.department || null, location: jd.location || null,
+                description: jd.description || null, requirements: jd.requirements || null, benefits: jd.benefits || null,
+                workTime: jd.workTime || null, quantity: jd.quantity ?? null,
+                salaryMin: jd.salaryMin ?? null, salaryMax: jd.salaryMax ?? null,
+                branchId: draftBranchId, isPublic: false, status: "closed", // nháp ẩn
+              },
+              select: { id: true },
+            });
             return {
               needsConfirm: true,
+              draftJobId: draft.id,
               preview: jd,
-              message: "Đây là bản nháp tin tuyển dụng. Đọc lại cho user nghe (tên vị trí, lương, mô tả, yêu cầu, quyền lợi) rồi HỎI xác nhận. Khi user đồng ý, gọi lại create_job_posting với xac_nhan=true và ĐẦY ĐỦ các trường từ bản nháp này.",
+              message: "Đây là BẢN NHÁP (đã lưu tạm, CHƯA đăng công khai). Đọc lại cho user nghe (tên vị trí, lương, tóm tắt mô tả/yêu cầu/quyền lợi) rồi HỎI xác nhận. Khi user ĐỒNG Ý, gọi LẠI create_job_posting với xac_nhan=true và draftJobId=\"" + draft.id + "\" (KHÔNG cần gõ lại nội dung, hệ thống đã giữ nguyên bản đầy đủ). Nếu user muốn SỬA gì thì truyền kèm trường đó để cập nhật.",
             };
           } catch {
             return { error: "AI đang bận, chưa soạn được tin. Thử lại sau ít phút giúp em nhé." };
           }
         }
 
-        // BƯỚC 2: xác nhận → tạo tin thật
-        const title = String(input.title ?? "").trim();
-        if (!title) return { createdOk: false, error: "Thiếu tên vị trí để tạo tin." };
-        // Khớp chi nhánh
-        let branchId: string | null = b;
-        if (!branchId && typeof input.branchName === "string" && input.branchName.trim()) {
-          const bn = stripAccents(input.branchName);
-          const branch = (await prisma.branch.findMany({ where: { companyId: ctx.companyId }, select: { id: true, name: true } }))
-            .find((x) => stripAccents(x.name) === bn || stripAccents(x.name).includes(bn) || bn.includes(stripAccents(x.name)));
-          branchId = branch?.id ?? null;
-        }
+        // BƯỚC 2: xác nhận → xuất bản
         const num = (v: unknown) => (typeof v === "number" && !Number.isNaN(v) ? Math.round(v) : null);
-        const job = await prisma.jobPosting.create({
-          data: {
-            companyId: ctx.companyId,
-            title,
-            department: (input.department as string) || null,
-            location: (input.location as string) || null,
-            description: (input.description as string) || null,
-            requirements: (input.requirements as string) || null,
-            benefits: (input.benefits as string) || null,
-            workTime: (input.workTime as string) || null,
-            quantity: num(input.quantity),
-            salaryMin: num(input.salaryMin),
-            salaryMax: num(input.salaryMax),
-            branchId,
-            isPublic: true,
-            status: "open",
-          },
-          select: { id: true, title: true },
-        });
+        const draftId = typeof input.draftJobId === "string" ? input.draftJobId : "";
         const publicUrl = `https://timio.vn/tuyendung/${company?.slug ?? ""}`;
-        // Soạn luôn content Facebook/Zalo (Business)
+        let job: { id: string; title: string; department: string | null; description: string | null; requirements: string | null; benefits: string | null; salaryMin: number | null; salaryMax: number | null; location: string | null; workTime: string | null; quantity: number | null };
+
+        if (draftId) {
+          // Xuất bản nháp đã lưu (giữ nguyên nội dung đầy đủ) + áp field sửa nếu có
+          const existing = await prisma.jobPosting.findFirst({ where: { id: draftId, companyId: ctx.companyId }, select: { id: true } });
+          if (!existing) return { createdOk: false, error: "Không tìm thấy bản nháp. Anh/chị thử tạo lại giúp em." };
+          job = await prisma.jobPosting.update({
+            where: { id: draftId },
+            data: {
+              isPublic: true, status: "open",
+              ...(input.title !== undefined && { title: String(input.title) }),
+              ...(input.department !== undefined && { department: (input.department as string) || null }),
+              ...(input.location !== undefined && { location: (input.location as string) || null }),
+              ...(input.description !== undefined && { description: (input.description as string) || null }),
+              ...(input.requirements !== undefined && { requirements: (input.requirements as string) || null }),
+              ...(input.benefits !== undefined && { benefits: (input.benefits as string) || null }),
+              ...(input.workTime !== undefined && { workTime: (input.workTime as string) || null }),
+              ...(input.quantity !== undefined && { quantity: num(input.quantity) }),
+              ...(input.salaryMin !== undefined && { salaryMin: num(input.salaryMin) }),
+              ...(input.salaryMax !== undefined && { salaryMax: num(input.salaryMax) }),
+            },
+            select: { id: true, title: true, department: true, description: true, requirements: true, benefits: true, salaryMin: true, salaryMax: true, location: true, workTime: true, quantity: true },
+          });
+        } else {
+          // Fallback: không có draftId → tạo từ field (đường cũ)
+          const title = String(input.title ?? "").trim();
+          if (!title) return { createdOk: false, error: "Thiếu bản nháp/tên vị trí để đăng." };
+          let branchId: string | null = b;
+          if (!branchId && typeof input.branchName === "string" && input.branchName.trim()) {
+            const bn = stripAccents(input.branchName);
+            const branch = (await prisma.branch.findMany({ where: { companyId: ctx.companyId }, select: { id: true, name: true } }))
+              .find((x) => stripAccents(x.name) === bn || stripAccents(x.name).includes(bn) || bn.includes(stripAccents(x.name)));
+            branchId = branch?.id ?? null;
+          }
+          job = await prisma.jobPosting.create({
+            data: {
+              companyId: ctx.companyId, title,
+              department: (input.department as string) || null, location: (input.location as string) || null,
+              description: (input.description as string) || null, requirements: (input.requirements as string) || null,
+              benefits: (input.benefits as string) || null, workTime: (input.workTime as string) || null,
+              quantity: num(input.quantity), salaryMin: num(input.salaryMin), salaryMax: num(input.salaryMax),
+              branchId, isPublic: true, status: "open",
+            },
+            select: { id: true, title: true, department: true, description: true, requirements: true, benefits: true, salaryMin: true, salaryMax: true, location: true, workTime: true, quantity: true },
+          });
+        }
+
+        // Soạn content Facebook/Zalo từ nội dung ĐÃ LƯU (không phụ thuộc field AI gõ lại)
         let socialContent: string | null = null;
         if (company?.plan === "business" && aiConfigured()) {
           try {
             socialContent = await generateSocialPost(
-              { title: job.title, department: (input.department as string) || null, description: (input.description as string) || null, requirements: (input.requirements as string) || null, benefits: (input.benefits as string) || null, salaryMin: num(input.salaryMin), salaryMax: num(input.salaryMax), location: (input.location as string) || null, workTime: (input.workTime as string) || null, quantity: num(input.quantity) },
-              publicUrl,
-              company.name
+              { title: job.title, department: job.department, description: job.description, requirements: job.requirements, benefits: job.benefits, salaryMin: job.salaryMin, salaryMax: job.salaryMax, location: job.location, workTime: job.workTime, quantity: job.quantity },
+              publicUrl, company.name
             );
           } catch { /* bỏ qua nếu lỗi */ }
         }
@@ -1274,7 +1314,7 @@ export async function executeChatTool(
           title: job.title,
           publicUrl,
           socialContent,
-          message: "ĐÃ TẠO tin và đăng lên trang tuyển dụng công khai. Báo cho user link ứng tuyển. Nếu có socialContent, đưa nội dung đó trong khối ``` để hiện nút Chép cho user đăng Facebook/Zalo.",
+          message: "ĐÃ ĐĂNG tin lên trang tuyển dụng công khai (nội dung đầy đủ đúng bản nháp). Báo cho user link ứng tuyển. Nếu có socialContent, đưa nội dung đó trong khối ``` để hiện nút Chép cho user đăng Facebook/Zalo.",
         };
       }
 
