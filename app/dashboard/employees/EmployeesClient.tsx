@@ -143,6 +143,20 @@ export default function EmployeesClient({
   }, [refreshRules]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [talentResult, setTalentResult] = useState<{ name: string; link: string; emailed: boolean; hasEmail: boolean; score: number | null; copied: boolean } | null>(null);
+
+  async function handleTalentInvite(emp: { id: string; name: string }) {
+    try {
+      const res = await fetch("/api/recruitment/talent/invite", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: emp.id, reason: "resigned" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data?.error || "Không mời được."); return; }
+      setTalentResult({ name: emp.name, link: data.inviteLink, emailed: data.emailed, hasEmail: data.hasEmail, score: data.stats?.vScore ?? null, copied: false });
+    } catch { alert("Lỗi kết nối."); }
+  }
+
   const [faceTarget, setFaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [contractTarget, setContractTarget] = useState<{ id: string; name: string } | null>(null);
   const [profileTarget, setProfileTarget] = useState<Employee | null>(null);
@@ -564,6 +578,31 @@ export default function EmployeesClient({
       )}
       {profileTarget && (
         <EmployeeProfileModal employee={profileTarget} onClose={() => setProfileTarget(null)} />
+      )}
+      {talentResult && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setTalentResult(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Đã mời {talentResult.name} vào cộng đồng</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              {talentResult.emailed
+                ? "Đã gửi email lời mời kèm link hoàn thiện hồ sơ cho cựu nhân viên."
+                : talentResult.hasEmail ? "Email chưa gửi được — bạn có thể gửi link dưới đây thủ công." : "Nhân viên chưa có email — hãy gửi link dưới đây (Zalo/tin nhắn)."}
+            </p>
+            {talentResult.score != null && (
+              <p className="text-sm text-indigo-700 bg-indigo-50 rounded-lg px-3 py-2 mb-3">Điểm tin cậy Timio của hồ sơ: <b>{talentResult.score}/100</b></p>
+            )}
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-[11px] bg-gray-100 px-2 py-1.5 rounded text-indigo-700 break-all">{talentResult.link}</code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(talentResult.link).catch(() => {}); setTalentResult((t) => t ? { ...t, copied: true } : t); }}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium border ${talentResult.copied ? "bg-green-50 border-green-200 text-green-600" : "bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700"}`}
+              >
+                {talentResult.copied ? "Đã chép" : "Chép link"}
+              </button>
+            </div>
+            <button onClick={() => setTalentResult(null)} className="mt-5 w-full border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Xong</button>
+          </div>
+        </div>
       )}
       {/* QR Code Modal */}
       {qrTarget && (
@@ -1551,6 +1590,15 @@ export default function EmployeesClient({
                           HĐ
                         </button>
                       </PlanGate>
+                      {emp.status !== "active" && (
+                        <button
+                          onClick={() => handleTalentInvite(emp)}
+                          className="px-2.5 py-1.5 text-[11px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-100 transition-colors"
+                          title="Mời cựu nhân viên vào cộng đồng ứng viên Timio (giới thiệu việc tốt sau này)"
+                        >
+                          Mời cộng đồng
+                        </button>
+                      )}
                       <button
                         onClick={() => handleEdit(emp)}
                         className="px-2.5 py-1.5 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-100 transition-colors"

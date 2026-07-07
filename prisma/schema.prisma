@@ -680,6 +680,49 @@ model Candidate {
   @@index([jobId])
 }
 
+// GĐ2: Lời mời cựu nhân viên vào cộng đồng ứng viên
+model TalentInvite {
+  id            String    @id @default(cuid())
+  employeeId    String    @unique
+  companyId     String
+  reason        String    @default("resigned") // "resigned" | "inactive"
+  vAttendance   Int?
+  vPunctuality  Int?
+  vTenureMonths Int?
+  vScore        Int?
+  status        String    @default("invited") // "invited" | "opted_in" | "declined"
+  nurtureCount  Int       @default(0)
+  lastNurtureAt DateTime?
+  invitedAt     DateTime  @default(now())
+  optedInAt     DateTime?
+
+  @@index([status])
+}
+
+// GĐ2: Hồ sơ cộng đồng của cựu nhân viên (tạo khi họ đồng ý)
+model TalentProfile {
+  id               String   @id @default(cuid())
+  employeeId       String   @unique
+  sourceCompanyId  String
+  isOpen           Boolean  @default(true)
+  desiredTitle     String?
+  desiredArea      String?
+  desiredSalaryMin Int?
+  desiredSalaryMax Int?
+  skills           String?
+  bio              String?
+  showAvatar       Boolean  @default(false)
+  vAttendance      Int?
+  vPunctuality     Int?
+  vTenureMonths    Int?
+  vScore           Int?
+  vStatsAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([isOpen])
+}
+
 // Bảng tin nội bộ công ty
 model Announcement {
   id          String    @id @default(cuid())
