@@ -25,9 +25,10 @@ export default async function DashboardLayout({
 }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
-  const user = session.user as { companyId?: string; impersonating?: boolean; role?: string };
+  const user = session.user as { companyId?: string; impersonating?: boolean; role?: string; branchId?: string | null };
   const companyId = user?.companyId;
   const userRole = user?.role ?? "owner";
+  const userBranchId = (userRole === "manager" || userRole === "accountant") && user?.branchId ? user.branchId : null;
   const needsSetup = !companyId;
   const isImpersonating = user?.impersonating === true;
 
@@ -36,10 +37,20 @@ export default async function DashboardLayout({
     redirect("/admin");
   }
 
-  const [pendingLeaveCount, pendingCorrectionCount, company, companyPlan] = await Promise.all([
+  const canRecruit = userRole === "owner" || userRole === "manager";
+  const [pendingLeaveCount, pendingCorrectionCount, pendingCandidateCount, company, companyPlan] = await Promise.all([
     companyId ? prisma.leaveRequest.count({ where: { companyId, status: "pending" } }) : Promise.resolve(0),
     companyId
       ? prisma.correctionRequest.count({ where: { employee: { companyId }, status: "pending" } }).catch(() => 0)
+      : Promise.resolve(0),
+    companyId && canRecruit
+      ? prisma.candidate.count({
+          where: {
+            companyId,
+            status: "new",
+            ...(userBranchId ? { job: { OR: [{ branchId: userBranchId }, { branchId: null }] } } : {}),
+          },
+        }).catch(() => 0)
       : Promise.resolve(0),
     companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { name: true, slug: true } }) : Promise.resolve(null),
     companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, planExpires: true, trialEndsAt: true } }) : Promise.resolve(null),
@@ -74,7 +85,7 @@ export default async function DashboardLayout({
         {isImpersonating && <ImpersonationBanner companyName={company?.name ?? "..."} companyId={companyId ?? ""} />}
         {showExpiryBanner && <PlanExpiryBanner daysLeft={daysLeft!} plan={companyPlan!.plan} />}
         <TrialBanner trialEndsAt={trialEndsAt} plan={currentPlan} />
-        <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} role={userRole} plan={currentPlan} planExpires={planExpires} />
+        <Sidebar companyName={company?.name ?? "Công ty"} companySlug={company?.slug} pendingLeaveCount={pendingLeaveCount} pendingCorrectionCount={pendingCorrectionCount} pendingCandidateCount={pendingCandidateCount} role={userRole} plan={currentPlan} planExpires={planExpires} />
         <main className={`flex-1 overflow-auto pt-14 pb-16 md:pt-0 md:pb-0 ${isImpersonating ? "md:pt-10" : ""} ${showExpiryBanner || showTrialBanner ? "md:pt-10" : ""}`}>{children}</main>
         <MobileBottomNav pendingLeaveCount={pendingLeaveCount} role={userRole} />
         {!needsSetup && <ChatWidget role={userRole} plan={currentPlan} />}

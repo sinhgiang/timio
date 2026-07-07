@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import {
   LayoutDashboard, Users, Building2, BarChart3, Gift, Umbrella,
   BookOpen, Settings, Clock, LogOut, Menu, X, CreditCard, UsersRound,
@@ -21,6 +22,7 @@ interface Props {
   companySlug?: string;
   pendingLeaveCount?: number;
   pendingCorrectionCount?: number;
+  pendingCandidateCount?: number;
   role?: string;
   plan?: string;
   planExpires?: string | null;
@@ -42,7 +44,7 @@ type NavEntry = NavItem | NavGroup;
 const navStructure: NavEntry[] = [
   { type: "item",  href: "/dashboard",          label: "Tổng quan",   Icon: LayoutDashboard },
   { type: "item",  href: "/dashboard/employees", label: "Nhân viên",   Icon: Users },
-  { type: "item",  href: "/dashboard/recruitment", label: "Tuyển dụng", Icon: Briefcase },
+  { type: "item",  href: "/dashboard/recruitment", label: "Tuyển dụng", Icon: Briefcase, badgeKey: "recruitment" },
   { type: "item",  href: "/dashboard/leave",     label: "Nghỉ phép",   Icon: Umbrella, badgeKey: "leave" },
   {
     type: "group", key: "chamcong", label: "Chấm công", Icon: ClipboardEdit, badgeKey: "correction",
@@ -137,7 +139,7 @@ function PlanBadge({ plan, planExpires }: { plan: string; planExpires?: string |
   );
 }
 
-export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 0, pendingCorrectionCount = 0, role = "owner", plan = "starter", planExpires }: Props) {
+export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 0, pendingCorrectionCount = 0, pendingCandidateCount = 0, role = "owner", plan = "starter", planExpires }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -187,6 +189,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
   function getBadgeCount(badgeKey?: string): number {
     if (badgeKey === "leave") return pendingLeaveCount;
     if (badgeKey === "correction") return pendingCorrectionCount;
+    if (badgeKey === "recruitment") return pendingCandidateCount;
     return 0;
   }
 
@@ -251,13 +254,16 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
               <Clock size={18} className="text-white" />
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-gray-900 text-sm leading-tight truncate max-w-[110px]">{companyName}</p>
+              <p className="font-bold text-gray-900 text-sm leading-tight truncate max-w-[90px]">{companyName}</p>
               <div className="mt-1"><PlanBadge plan={plan} planExpires={planExpires} /></div>
             </div>
           </div>
-          <button onClick={() => setMobileOpen(false)} className="md:hidden p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" aria-label="Đóng menu">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <NotificationBell />
+            <button onClick={() => setMobileOpen(false)} className="md:hidden p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100" aria-label="Đóng menu">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Nav */}
@@ -280,7 +286,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
                   <entry.Icon size={17} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
                   <span className="flex-1">{entry.label}</span>
                   {count > 0 && (
-                    <span className={cn("min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500")}>
+                    <span className={cn("min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
                       {count > 99 ? "99+" : count}
                     </span>
                   )}
