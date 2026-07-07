@@ -20,9 +20,8 @@ import {
 interface Props {
   companyName: string;
   companySlug?: string;
-  pendingLeaveCount?: number;
-  pendingCorrectionCount?: number;
-  pendingCandidateCount?: number;
+  /** Số việc đang chờ, key theo badgeKey: leave, correction, overtime, earlyleave, shiftswap, recruitment */
+  counts?: Record<string, number>;
   role?: string;
   plan?: string;
   planExpires?: string | null;
@@ -47,13 +46,13 @@ const navStructure: NavEntry[] = [
   { type: "item",  href: "/dashboard/recruitment", label: "Tuyển dụng", Icon: Briefcase, badgeKey: "recruitment" },
   { type: "item",  href: "/dashboard/leave",     label: "Nghỉ phép",   Icon: Umbrella, badgeKey: "leave" },
   {
-    type: "group", key: "chamcong", label: "Chấm công", Icon: ClipboardEdit, badgeKey: "correction",
+    type: "group", key: "chamcong", label: "Chấm công", Icon: ClipboardEdit,
     children: [
       { href: "/dashboard/corrections",          label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
       { href: "/dashboard/overtime",             label: "Tăng ca",              Icon: Timer },
-      { href: "/dashboard/overtime-requests",    label: "Duyệt tăng ca",        Icon: Clock },
-      { href: "/dashboard/early-leave-requests", label: "Duyệt về sớm",         Icon: LogOut },
-      { href: "/dashboard/shift-swap-requests",  label: "Đổi ca cho nhau",      Icon: ArrowLeftRight },
+      { href: "/dashboard/overtime-requests",    label: "Duyệt tăng ca",        Icon: Clock, badgeKey: "overtime" },
+      { href: "/dashboard/early-leave-requests", label: "Duyệt về sớm",         Icon: LogOut, badgeKey: "earlyleave" },
+      { href: "/dashboard/shift-swap-requests",  label: "Đổi ca cho nhau",      Icon: ArrowLeftRight, badgeKey: "shiftswap" },
     ],
   },
   {
@@ -139,7 +138,7 @@ function PlanBadge({ plan, planExpires }: { plan: string; planExpires?: string |
   );
 }
 
-export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 0, pendingCorrectionCount = 0, pendingCandidateCount = 0, role = "owner", plan = "starter", planExpires }: Props) {
+export default function Sidebar({ companyName, companySlug, counts = {}, role = "owner", plan = "starter", planExpires }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -187,10 +186,13 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
   }
 
   function getBadgeCount(badgeKey?: string): number {
-    if (badgeKey === "leave") return pendingLeaveCount;
-    if (badgeKey === "correction") return pendingCorrectionCount;
-    if (badgeKey === "recruitment") return pendingCandidateCount;
-    return 0;
+    if (!badgeKey) return 0;
+    return counts[badgeKey] ?? 0;
+  }
+
+  // Số của menu MẸ = tổng số việc chờ của các menu CON (cuộn lên); mở ra thì hiện đúng con nào có việc
+  function getGroupBadge(children: NavLeaf[]): number {
+    return children.reduce((sum, c) => (shouldHide(c.href) ? sum : sum + getBadgeCount(c.badgeKey)), 0);
   }
 
   function Badge({ count, color }: { count: number; color: string }) {
@@ -218,7 +220,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
         )}
       >
         <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-        <span className="flex-1 leading-snug">{leaf.label}</span>
+        <span className="flex-1 leading-snug whitespace-nowrap">{leaf.label}</span>
         <Badge count={count} color={leaf.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500"} />
       </Link>
     );
@@ -242,7 +244,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
 
       {/* Sidebar */}
       <aside className={cn(
-        "w-56 bg-white border-r border-gray-200 flex flex-col shadow-sm",
+        "w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm",
         "fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         "md:relative md:translate-x-0 md:transition-none"
@@ -254,7 +256,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
               <Clock size={18} className="text-white" />
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-gray-900 text-sm leading-tight truncate max-w-[90px]">{companyName}</p>
+              <p className="font-bold text-gray-900 text-sm leading-tight truncate max-w-[130px]">{companyName}</p>
               <div className="mt-1"><PlanBadge plan={plan} planExpires={planExpires} /></div>
             </div>
           </div>
@@ -284,7 +286,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
                   )}
                 >
                   <entry.Icon size={17} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-                  <span className="flex-1">{entry.label}</span>
+                  <span className="flex-1 whitespace-nowrap">{entry.label}</span>
                   {count > 0 && (
                     <span className={cn("min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
                       {count > 99 ? "99+" : count}
@@ -300,7 +302,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
 
             const isOpen = openGroups.has(entry.key);
             const groupActive = visibleChildren.some(c => isItemActive(c.href));
-            const groupBadgeCount = getBadgeCount(entry.badgeKey);
+            const groupBadgeCount = getGroupBadge(entry.children);
 
             return (
               <div key={entry.key}>
@@ -312,7 +314,7 @@ export default function Sidebar({ companyName, companySlug, pendingLeaveCount = 
                   )}
                 >
                   <entry.Icon size={17} strokeWidth={groupActive ? 2.5 : 2} className="shrink-0" />
-                  <span className="flex-1 text-left">{entry.label}</span>
+                  <span className="flex-1 text-left whitespace-nowrap">{entry.label}</span>
                   {!isOpen && groupBadgeCount > 0 && (
                     <span className="min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                       {groupBadgeCount > 99 ? "99+" : groupBadgeCount}
