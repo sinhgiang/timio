@@ -53,6 +53,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: "Payment expired" });
   }
 
+  // ── Nạp CREDIT cộng đồng ứng viên (không gia hạn gói) ──────────────────────
+  if (payment.kind === "credit") {
+    const credits = payment.credits ?? 0;
+    await prisma.$transaction([
+      prisma.payment.update({ where: { reference }, data: { status: "completed", paidAt: now } }),
+      prisma.talentCredit.upsert({
+        where: { companyId: payment.companyId },
+        create: { companyId: payment.companyId, balance: credits },
+        update: { balance: { increment: credits } },
+      }),
+    ]);
+    void sendCreditConfirmEmail(payment.companyId, credits, payment.amount);
+    return NextResponse.json({ success: true, kind: "credit", creditsAdded: credits });
+  }
+
   const company = await prisma.company.findUnique({ where: { id: payment.companyId } });
   if (!company) return NextResponse.json({ success: true, message: "Company not found" });
 
@@ -99,6 +114,31 @@ export async function POST(req: NextRequest) {
   void sendPaymentEmails({ company, payment, planLabel, planPrice, newExpiry, now });
 
   return NextResponse.json({ success: true });
+}
+
+// Email xác nhận nạp credit thành công cho chủ công ty
+async function sendCreditConfirmEmail(companyId: string, credits: number, amount: number) {
+  try {
+    const [company, owner, credit] = await Promise.all([
+      prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
+      prisma.admin.findFirst({ where: { companyId, role: "owner" }, select: { name: true, email: true } }),
+      prisma.talentCredit.findUnique({ where: { companyId }, select: { balance: true } }),
+    ]);
+    if (!owner?.email) return;
+    const vnd = new Intl.NumberFormat("vi-VN").format(amount);
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
+      <div style="font-weight:bold;font-size:18px;color:#7c3aed;margin-bottom:12px">Cộng đồng ứng viên Timio</div>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 12px">Chào ${owner.name || "bạn"},</p>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 12px">Đã nhận thanh toán <b>${vnd}đ</b> — cộng <b>${credits} credit</b> vào ví tìm ứng viên của <b>${company?.name ?? "công ty"}</b>.</p>
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:12px;padding:14px;margin:12px 0">
+        <p style="margin:0;color:#5b21b6;font-size:15px">Số dư hiện tại: <b>${credit?.balance ?? credits} credit</b> (mỗi credit = 1 lượt mở khóa liên hệ ứng viên).</p>
+      </div>
+      <p style="font-size:12px;color:#9ca3af;margin:0">Cảm ơn bạn đã tin dùng Timio.</p>
+    </div>`;
+    await sendEmail({ to: owner.email, subject: `✅ Timio: Đã nạp ${credits} credit tìm ứng viên`, html });
+  } catch (e) {
+    console.error("[sepay] credit confirm email lỗi:", e);
+  }
 }
 
 async function sendPaymentEmails(opts: {

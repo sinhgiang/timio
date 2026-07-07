@@ -27,6 +27,14 @@
     {
       "path": "/api/cron/monthly-salary-report",
       "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/talent-job-alerts",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/monthly-review-reminder",
+      "schedule": "0 3 1 * *"
     }
   ]
 }

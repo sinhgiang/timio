@@ -17,8 +17,15 @@ export async function GET() {
   return NextResponse.json({ balance: credit?.balance ?? 0 });
 }
 
-// POST: nạp credit (chỉ owner). TODO: nối thanh toán Sepay thật — hiện nạp thủ công/demo.
+// POST: nạp credit thủ công — CHỈ dùng cho demo/test (bật env DEMO_FREE_CREDIT=1).
+// Nạp thật đi qua /api/recruitment/talent/credit/create (Sepay chuyển khoản).
 export async function POST(req: NextRequest) {
+  if (process.env.DEMO_FREE_CREDIT !== "1") {
+    return NextResponse.json(
+      { error: "Vui lòng nạp credit qua chuyển khoản.", useTransfer: true },
+      { status: 403 }
+    );
+  }
   const session = await getServerSession(authOptions);
   const user = session?.user as { companyId?: string; role?: string } | undefined;
   const companyId = user?.companyId;

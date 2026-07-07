@@ -335,9 +335,11 @@ model Payment {
   companyId String
   reference String    @unique  // e.g., TIMIO_ABC123
   amount    Int                // VND
-  plan      String             // "pro"
+  plan      String             // "pro" | "business" | "credit" (nạp credit cộng đồng)
   months    Int       @default(1)
   status    String    @default("pending") // pending | completed | expired
+  kind      String    @default("subscription") // "subscription" | "credit"
+  credits   Int?               // số credit cộng đồng nạp (khi kind="credit")
   paidAt    DateTime?
   expiresAt DateTime           // payment link expires after 2 hours
   createdAt DateTime  @default(now())
@@ -753,6 +755,17 @@ model TalentCredit {
   companyId String   @unique
   balance   Int      @default(0)
   updatedAt DateTime @default(now())
+}
+
+// GĐ2 Đợt 4: chống gửi trùng email "việc phù hợp" cho cựu NV (1 hồ sơ / 1 tin chỉ 1 lần)
+model TalentJobAlert {
+  id        String   @id @default(cuid())
+  profileId String
+  jobId     String
+  sentAt    DateTime @default(now())
+
+  @@unique([profileId, jobId])
+  @@index([jobId])
 }
 
 // Bảng tin nội bộ công ty
