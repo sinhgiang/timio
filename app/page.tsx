@@ -1355,6 +1355,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 <ul className="space-y-2 mb-6">
                   {[
                     "Trợ lý AI hội thoại (chỉ Pro/Business)",
+                    "Trang tuyển dụng + quản lý ứng viên (Pro/Business)",
                     "Chấm công khuôn mặt AI",
                     "Quản lý nghỉ phép",
                     "Telegram / Zalo alert",
@@ -1387,6 +1388,8 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   {[
                     "20 nhân viên · 3 chi nhánh · 3 quản lý",
                     "Trợ lý AI hội thoại (giọng nói) — 100 tin/ngày mỗi người",
+                    "Trang tuyển dụng công khai + form ứng tuyển + QR",
+                    "Quản lý ứng viên (kanban) + tuyển 1-chạm thành nhân viên",
                     "Chấm công khuôn mặt AI + QR code",
                     "GPS xác minh vị trí",
                     "Phản hồi giọng nói tiếng Việt",
@@ -1436,6 +1439,8 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                     "100 nhân viên · 20 chi nhánh · không giới hạn quản lý",
                     "Tất cả tính năng Pro",
                     "Trợ lý AI hội thoại — KHÔNG giới hạn tin nhắn",
+                    "Tuyển dụng AI — viết tin, chấm điểm ứng viên, đăng FB/Zalo",
+                    "Tạo tin tuyển dụng bằng giọng nói qua trợ lý AI",
                     "Phiếu nghỉ phép A4 + chữ ký số + dấu công ty",
                     "Tài sản bàn giao nhân viên",
                     "Lịch sử công tác & thăng chức",

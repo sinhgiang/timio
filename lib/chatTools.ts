@@ -3,6 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { getValidOaToken, sendZaloMessage } from "@/lib/zalo";
 import { sendTelegram } from "@/lib/telegram";
 import { calculateTax } from "@/lib/taxCalculator";
+import { generateJD, generateSocialPost, aiConfigured } from "@/lib/recruitAI";
 import type Anthropic from "@anthropic-ai/sdk";
 
 // ============================================================
@@ -339,8 +340,67 @@ const TOOL_DEFS: ToolDef[] = [
     roles: MANAGE_ROLES,
     tool: {
       name: "get_recruitment",
-      description: "Xem tuyển dụng: các vị trí đang tuyển và số ứng viên theo từng trạng thái (mới/phỏng vấn/offer/đã tuyển). Dùng khi hỏi 'đang tuyển vị trí nào', 'bao nhiêu ứng viên'.",
+      description: "Xem tổng quan tuyển dụng: các vị trí đang tuyển, số ứng viên theo trạng thái, số đơn mới hôm nay/tuần này, điểm AI trung bình. Dùng khi hỏi 'đang tuyển vị trí nào', 'bao nhiêu ứng viên', 'có đơn mới không'.",
       input_schema: { type: "object" as const, properties: {} },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "create_job_posting",
+      description:
+        "Tạo tin tuyển dụng mới bằng AI. QUY TRÌNH 2 BƯỚC: (B1) gọi với 'mo_ta' (mô tả 1 câu, VD 'tuyển 2 phục vụ ca tối 25k/giờ chi nhánh Cầu Giấy') → nhận bản NHÁP (preview), ĐỌC LẠI cho user nghe rồi HỎI xác nhận. (B2) khi user đồng ý ('đăng đi'/'ok') → gọi LẠI với xac_nhan=true VÀ đầy đủ các trường (title, description...) từ bản nháp để thật sự tạo tin. Chỉ gói Business mới soạn được bằng AI.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          mo_ta: { type: "string", description: "Mô tả 1 câu vị trí cần tuyển (bước 1)" },
+          xac_nhan: { type: "boolean", description: "true = user đã đồng ý → tạo tin thật (bước 2)" },
+          title: { type: "string", description: "Tên vị trí (bước 2)" },
+          department: { type: "string" },
+          location: { type: "string" },
+          branchName: { type: "string", description: "Tên chi nhánh nếu tuyển cho 1 chi nhánh cụ thể" },
+          description: { type: "string" },
+          requirements: { type: "string" },
+          benefits: { type: "string" },
+          workTime: { type: "string" },
+          quantity: { type: "number" },
+          salaryMin: { type: "number" },
+          salaryMax: { type: "number" },
+        },
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "get_candidates",
+      description:
+        "Xem danh sách ứng viên, lọc theo vị trí (vi_tri), trạng thái (trang_thai) hoặc tên (ten, tìm gần đúng). Trả kèm điểm AI + tóm tắt. Dùng khi hỏi 'có ứng viên nào mới cho vị trí phục vụ', 'ứng viên đang phỏng vấn', 'ứng viên tên Hùng thế nào'.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          ten: { type: "string", description: "Tên ứng viên cần tìm (tìm gần đúng)" },
+          vi_tri: { type: "string", description: "Lọc theo tên vị trí tuyển" },
+          trang_thai: { type: "string", description: "Lọc trạng thái: mới | đang xem | phỏng vấn | offer | đã tuyển | từ chối" },
+        },
+      },
+    },
+  },
+  {
+    roles: MANAGE_ROLES,
+    tool: {
+      name: "update_candidate_status",
+      description:
+        "Chuyển trạng thái 1 ứng viên trong quy trình tuyển. VD 'chuyển bạn Hùng sang phỏng vấn', 'cho bạn Lan qua vòng offer', 'từ chối ứng viên Nam'. Tìm tên gần đúng — nếu mơ hồ (nhiều người) sẽ hỏi lại xác nhận.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          ten: { type: "string", description: "Tên ứng viên" },
+          trang_thai: { type: "string", description: "Trạng thái mới: mới | đang xem | phỏng vấn | offer | đã tuyển | từ chối" },
+          candidateId: { type: "string", description: "ID ứng viên (dùng khi đã xác nhận đúng người từ danh sách gợi ý)" },
+        },
+        required: ["trang_thai"],
+      },
     },
   },
   {
@@ -1108,17 +1168,182 @@ export async function executeChatTool(
       }
 
       case "get_recruitment": {
+        const b = (ctx.role === "manager") && ctx.branchId ? ctx.branchId : null;
+        const jobScope = b ? { OR: [{ branchId: b }, { branchId: null }] } : {};
+        const candScope = b ? { job: { OR: [{ branchId: b }, { branchId: null }] } } : {};
         const [jobs, candidates] = await Promise.all([
-          prisma.jobPosting.findMany({ where: { companyId: ctx.companyId }, select: { id: true, title: true, department: true, status: true, salaryMin: true, salaryMax: true }, orderBy: { createdAt: "desc" }, take: 30 }),
-          prisma.candidate.findMany({ where: { companyId: ctx.companyId }, select: { status: true, jobId: true } }),
+          prisma.jobPosting.findMany({ where: { companyId: ctx.companyId, ...jobScope }, select: { id: true, title: true, department: true, status: true, salaryMin: true, salaryMax: true }, orderBy: { createdAt: "desc" }, take: 30 }),
+          prisma.candidate.findMany({ where: { companyId: ctx.companyId, ...candScope }, select: { status: true, jobId: true, aiScore: true, appliedAt: true } }),
         ]);
         const byStatus: Record<string, number> = {};
         for (const c of candidates) byStatus[c.status] = (byStatus[c.status] ?? 0) + 1;
+        const today = todayVN();
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 86400000);
+        const donMoiHomNay = candidates.filter((c) => c.appliedAt.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }) === today).length;
+        const donTuanNay = candidates.filter((c) => c.appliedAt >= weekAgo).length;
+        const scored = candidates.filter((c) => typeof c.aiScore === "number");
+        const diemAiTrungBinh = scored.length ? Math.round(scored.reduce((s, c) => s + (c.aiScore as number), 0) / scored.length) : null;
         return {
           viTri: jobs.map((j) => ({ tieuDe: j.title, phongBan: j.department, trangThai: j.status, luongMin: j.salaryMin, luongMax: j.salaryMax, soUngVien: candidates.filter((c) => c.jobId === j.id).length })),
           tongUngVien: candidates.length,
           ungVienTheoTrangThai: byStatus,
+          donMoiHomNay,
+          donTuanNay,
+          diemAiTrungBinh,
         };
+      }
+
+      case "create_job_posting": {
+        const company = await prisma.company.findUnique({ where: { id: ctx.companyId }, select: { name: true, slug: true, plan: true, customOptions: true } });
+        const b = (ctx.role === "manager") && ctx.branchId ? ctx.branchId : null;
+
+        // BƯỚC 1: chưa xác nhận → soạn nháp bằng AI (chỉ Business)
+        if (input.xac_nhan !== true) {
+          const moTa = String(input.mo_ta ?? input.title ?? "").trim();
+          if (!moTa) return { error: "Cần mô tả vị trí cần tuyển (VD: tuyển 2 phục vụ ca tối 25k/giờ)." };
+          if (company?.plan !== "business") {
+            return { error: "AI soạn tin tuyển dụng chỉ có ở gói Business. Anh/chị có thể tạo tin thủ công tại trang Tuyển dụng, hoặc nâng cấp lên Business." };
+          }
+          if (!aiConfigured()) return { error: "Trợ lý AI chưa được cấu hình để soạn tin." };
+          const opts = company.customOptions ? (JSON.parse(company.customOptions) as { departments?: string[]; positions?: string[] }) : {};
+          const branchRows = await prisma.branch.findMany({ where: { companyId: ctx.companyId, ...(b ? { id: b } : {}) }, select: { name: true } });
+          try {
+            const jd = await generateJD(moTa, {
+              name: company.name,
+              departments: opts.departments ?? [],
+              positions: opts.positions ?? [],
+              branches: branchRows.map((x) => x.name),
+            });
+            return {
+              needsConfirm: true,
+              preview: jd,
+              message: "Đây là bản nháp tin tuyển dụng. Đọc lại cho user nghe (tên vị trí, lương, mô tả, yêu cầu, quyền lợi) rồi HỎI xác nhận. Khi user đồng ý, gọi lại create_job_posting với xac_nhan=true và ĐẦY ĐỦ các trường từ bản nháp này.",
+            };
+          } catch {
+            return { error: "AI đang bận, chưa soạn được tin. Thử lại sau ít phút giúp em nhé." };
+          }
+        }
+
+        // BƯỚC 2: xác nhận → tạo tin thật
+        const title = String(input.title ?? "").trim();
+        if (!title) return { createdOk: false, error: "Thiếu tên vị trí để tạo tin." };
+        // Khớp chi nhánh
+        let branchId: string | null = b;
+        if (!branchId && typeof input.branchName === "string" && input.branchName.trim()) {
+          const bn = stripAccents(input.branchName);
+          const branch = (await prisma.branch.findMany({ where: { companyId: ctx.companyId }, select: { id: true, name: true } }))
+            .find((x) => stripAccents(x.name) === bn || stripAccents(x.name).includes(bn) || bn.includes(stripAccents(x.name)));
+          branchId = branch?.id ?? null;
+        }
+        const num = (v: unknown) => (typeof v === "number" && !Number.isNaN(v) ? Math.round(v) : null);
+        const job = await prisma.jobPosting.create({
+          data: {
+            companyId: ctx.companyId,
+            title,
+            department: (input.department as string) || null,
+            location: (input.location as string) || null,
+            description: (input.description as string) || null,
+            requirements: (input.requirements as string) || null,
+            benefits: (input.benefits as string) || null,
+            workTime: (input.workTime as string) || null,
+            quantity: num(input.quantity),
+            salaryMin: num(input.salaryMin),
+            salaryMax: num(input.salaryMax),
+            branchId,
+            isPublic: true,
+            status: "open",
+          },
+          select: { id: true, title: true },
+        });
+        const publicUrl = `https://timio.vn/tuyendung/${company?.slug ?? ""}`;
+        // Soạn luôn content Facebook/Zalo (Business)
+        let socialContent: string | null = null;
+        if (company?.plan === "business" && aiConfigured()) {
+          try {
+            socialContent = await generateSocialPost(
+              { title: job.title, department: (input.department as string) || null, description: (input.description as string) || null, requirements: (input.requirements as string) || null, benefits: (input.benefits as string) || null, salaryMin: num(input.salaryMin), salaryMax: num(input.salaryMax), location: (input.location as string) || null, workTime: (input.workTime as string) || null, quantity: num(input.quantity) },
+              publicUrl,
+              company.name
+            );
+          } catch { /* bỏ qua nếu lỗi */ }
+        }
+        return {
+          createdOk: true,
+          jobId: job.id,
+          title: job.title,
+          publicUrl,
+          socialContent,
+          message: "ĐÃ TẠO tin và đăng lên trang tuyển dụng công khai. Báo cho user link ứng tuyển. Nếu có socialContent, đưa nội dung đó trong khối ``` để hiện nút Chép cho user đăng Facebook/Zalo.",
+        };
+      }
+
+      case "get_candidates": {
+        const b = (ctx.role === "manager") && ctx.branchId ? ctx.branchId : null;
+        const candScope = b ? { job: { OR: [{ branchId: b }, { branchId: null }] } } : {};
+        const status = normStatus(typeof input.trang_thai === "string" ? input.trang_thai : undefined);
+        const viTri = typeof input.vi_tri === "string" ? input.vi_tri.trim() : "";
+        const ten = typeof input.ten === "string" ? input.ten.trim() : "";
+
+        let list = await prisma.candidate.findMany({
+          where: { companyId: ctx.companyId, ...candScope, ...(status ? { status } : {}) },
+          select: { id: true, name: true, phone: true, status: true, aiScore: true, aiSummary: true, experience: true, appliedAt: true, job: { select: { title: true } } },
+          orderBy: [{ aiScore: { sort: "desc", nulls: "last" } }, { appliedAt: "desc" }],
+          take: 100,
+        });
+        if (viTri) {
+          const v = stripAccents(viTri);
+          list = list.filter((c) => stripAccents(c.job?.title ?? "").includes(v));
+        }
+        if (ten) {
+          const matched = list.filter((c) => nameSimilarity(ten, c.name) >= 0.6);
+          if (matched.length === 0) {
+            const sug = list.map((c) => ({ id: c.id, name: c.name, score: nameSimilarity(ten, c.name) })).filter((s) => s.score >= 0.4).sort((a, z) => z.score - a.score).slice(0, 5);
+            return { needsConfirm: sug.length > 0, suggestions: sug.map((s) => s.name), soUngVien: 0, message: sug.length ? "Không có ứng viên khớp đúng tên. Gợi ý tên gần giống — hỏi lại user xem có phải không." : "Không tìm thấy ứng viên nào khớp." };
+          }
+          list = matched;
+        }
+        return {
+          soUngVien: list.length,
+          ungVien: list.slice(0, 40).map((c) => ({
+            ten: c.name, dienThoai: c.phone, viTri: c.job?.title, trangThai: c.status,
+            diemAI: c.aiScore, tomTatAI: c.aiSummary,
+            kinhNghiem: c.experience ? c.experience.slice(0, 200) : null,
+            ngayNop: c.appliedAt.toLocaleDateString("vi-VN"),
+          })),
+        };
+      }
+
+      case "update_candidate_status": {
+        const b = (ctx.role === "manager") && ctx.branchId ? ctx.branchId : null;
+        const candScope = b ? { job: { OR: [{ branchId: b }, { branchId: null }] } } : {};
+        const newStatus = normStatus(typeof input.trang_thai === "string" ? input.trang_thai : undefined);
+        if (!newStatus) return { updatedOk: false, error: "Trạng thái không hợp lệ. Dùng: mới | đang xem | phỏng vấn | offer | đã tuyển | từ chối." };
+
+        // Nếu đã có candidateId (từ bước xác nhận) → cập nhật luôn
+        const candId = typeof input.candidateId === "string" ? input.candidateId : "";
+        if (candId) {
+          const c = await prisma.candidate.findFirst({ where: { id: candId, companyId: ctx.companyId, ...candScope }, select: { id: true, name: true } });
+          if (!c) return { updatedOk: false, error: "Không tìm thấy ứng viên (hoặc ngoài phạm vi chi nhánh)." };
+          await prisma.candidate.update({ where: { id: c.id }, data: { status: newStatus } });
+          return { updatedOk: true, ten: c.name, trangThaiMoi: newStatus };
+        }
+
+        const ten = typeof input.ten === "string" ? input.ten.trim() : "";
+        if (!ten) return { updatedOk: false, error: "Cần tên ứng viên cần chuyển trạng thái." };
+        const all = await prisma.candidate.findMany({ where: { companyId: ctx.companyId, ...candScope }, select: { id: true, name: true, status: true, job: { select: { title: true } } } });
+        const matches = all.map((c) => ({ ...c, score: nameSimilarity(ten, c.name) })).filter((c) => c.score >= 0.6).sort((a, z) => z.score - a.score);
+        if (matches.length === 0) {
+          const sug = all.map((c) => ({ id: c.id, name: c.name, score: nameSimilarity(ten, c.name) })).filter((s) => s.score >= 0.4).sort((a, z) => z.score - a.score).slice(0, 5);
+          return { updatedOk: false, needsConfirm: sug.length > 0, suggestions: sug.map((s) => s.name), message: sug.length ? "Không khớp đúng tên. Gợi ý tên gần giống — hỏi lại user." : "Không tìm thấy ứng viên nào." };
+        }
+        if (matches.length > 1 && matches[0].score - (matches[1]?.score ?? 0) < 0.1) {
+          // Mơ hồ: nhiều người gần giống → hỏi lại kèm id
+          return { updatedOk: false, needsConfirm: true, candidates: matches.slice(0, 5).map((m) => ({ candidateId: m.id, ten: m.name, viTri: m.job?.title, trangThai: m.status })), message: "Có nhiều ứng viên gần giống. Hỏi user chọn đúng người, rồi gọi lại với candidateId." };
+        }
+        const target = matches[0];
+        await prisma.candidate.update({ where: { id: target.id }, data: { status: newStatus } });
+        return { updatedOk: true, ten: target.name, viTri: target.job?.title, trangThaiMoi: newStatus };
       }
 
       case "get_admin_data": {
@@ -1191,6 +1416,19 @@ async function resolveReminderRecipients(
 /** Bỏ dấu tiếng Việt + về chữ thường để so tên không phụ thuộc dấu/hoa-thường */
 function stripAccents(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
+}
+
+/** Chuẩn hóa từ tiếng Việt → mã trạng thái ứng viên nội bộ */
+function normStatus(s?: string): string | null {
+  if (!s) return null;
+  const x = stripAccents(s);
+  if (/(phong van|interview)/.test(x)) return "interview";
+  if (/(offer|nhan viec|de nghi)/.test(x)) return "offer";
+  if (/(da tuyen|tuyen dung|hired)/.test(x)) return "hired";
+  if (/(tu choi|loai bo|reject)/.test(x)) return "rejected";
+  if (/(dang xem|xem xet|review)/.test(x)) return "reviewing";
+  if (/(moi|new)/.test(x)) return "new";
+  return null;
 }
 
 /** Khoảng cách Levenshtein (số ký tự khác nhau) — để bắt lỗi gõ sai chính tả */
@@ -1455,9 +1693,19 @@ CÁCH HOẠT ĐỘNG CỦA TỪNG KÊNH (nói thật với user, đừng hứa q
 - Hồ sơ nhân sự: get_hr_records — loai 'discipline'/'asset'/'certificate'/'contract'/'work_history'/'performance'/'onboarding'; đặt expiringSoon=true để lọc hợp đồng/chứng chỉ SẮP HẾT HẠN (admin & quản lý).
 - Tài chính: get_finance_records — loai 'salary_payments'/'salary_history'/'sales'/'expenses' (CHỈ admin & kế toán).
 - Thông báo nội bộ: get_announcements. Ngày lễ: get_holidays. (mọi vai trò)
-- Tuyển dụng: get_recruitment (admin & quản lý).
 - Nhật ký hoạt động + lịch sử thanh toán gói: get_admin_data — loai 'audit_log'/'billing' (CHỈ admin).
 Nguyên tắc: user hỏi bất kỳ dữ liệu nào của công ty → tìm tool phù hợp và gọi. Nếu vai trò không có quyền, tool trả "KHÔNG CÓ QUYỀN" → từ chối lịch sự. Quản lý chỉ thấy dữ liệu chi nhánh mình.
+
+## Tuyển dụng (ADMIN & QUẢN LÝ)
+- Tổng quan tuyển dụng (vị trí đang tuyển, số ứng viên, đơn mới hôm nay/tuần, điểm AI trung bình): get_recruitment.
+- Xem/tìm ứng viên: get_candidates (lọc theo vi_tri / trang_thai / ten). VD "có ứng viên nào mới cho vị trí phục vụ không" → get_candidates(vi_tri="phục vụ", trang_thai="mới"). Trả kèm điểm AI + tóm tắt — nêu cho user biết ai điểm cao.
+- Chuyển trạng thái ứng viên: update_candidate_status. VD "chuyển bạn Hùng sang phỏng vấn" → update_candidate_status(ten="Hùng", trang_thai="phỏng vấn"). Nếu tool trả needsConfirm (nhiều người gần giống) → HỎI LẠI user chọn đúng người rồi gọi lại kèm candidateId. Chỉ báo "đã chuyển" khi tool trả updatedOk=true.
+- TẠO TIN TUYỂN DỤNG bằng lời nói/chat: create_job_posting — QUY TRÌNH 2 BƯỚC BẮT BUỘC:
+  1) User nói "tuyển 2 phục vụ ca tối 25k/giờ ở Cầu Giấy" → gọi create_job_posting(mo_ta="..."). Tool trả preview (bản nháp). ĐỌC LẠI bản nháp cho user (tên vị trí, lương, ca làm, tóm tắt mô tả/quyền lợi) rồi HỎI: "Em soạn tin thế này, anh/chị duyệt đăng luôn không ạ?". TUYỆT ĐỐI CHƯA tạo ở bước này.
+  2) User đồng ý ("đăng đi", "ok", "được") → gọi LẠI create_job_posting(xac_nhan=true, title=..., description=..., requirements=..., benefits=..., workTime=..., quantity=..., salaryMin=..., salaryMax=..., department=..., branchName=...) với ĐẦY ĐỦ dữ liệu từ bản nháp.
+  - TRUNG THỰC: chỉ nói "đã đăng tin" khi tool trả createdOk=true. Khi đó báo link ứng tuyển (publicUrl). Nếu tool trả socialContent, in nội dung đó trong khối \`\`\` để user bấm Chép đăng Facebook/Zalo, kèm 1 câu hướng dẫn.
+  - Nếu tool trả 'error' (vd chưa phải gói Business) → nói thật lý do, đừng bịa là đã tạo.
+- Quản lý chi nhánh chỉ thấy/tạo tin & ứng viên của chi nhánh mình; kế toán KHÔNG có quyền tuyển dụng.
 
 ## Hướng dẫn sử dụng Timio (trả lời được không cần tool)
 - Chấm công: nhân viên quét mặt tại kiosk /checkin/[mã công ty] trên điện thoại/tablet văn phòng
