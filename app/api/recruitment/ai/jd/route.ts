@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (user?.role === "accountant") return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
 
-  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { name: true, plan: true } });
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { name: true, plan: true, customOptions: true } });
   if (company?.plan !== "business") {
     return NextResponse.json({ error: "Tính năng AI tuyển dụng chỉ có ở gói Business. Vui lòng nâng cấp để dùng." }, { status: 403 });
   }
@@ -27,8 +27,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Vui lòng mô tả vị trí cần tuyển (VD: tuyển 2 phục vụ ca tối, 25k/giờ)." }, { status: 400 });
   }
 
+  // Dữ liệu công ty để AI viết cho nhất quán
+  const opts = company.customOptions
+    ? (JSON.parse(company.customOptions) as { departments?: string[]; positions?: string[] })
+    : {};
+  const [jobTitles, empDepts] = await Promise.all([
+    prisma.jobPosting.findMany({ where: { companyId }, select: { title: true }, take: 20, orderBy: { createdAt: "desc" } }),
+    prisma.employee.findMany({ where: { companyId }, select: { department: true, position: true }, take: 100 }),
+  ]);
+  const departments = Array.from(new Set([...(opts.departments ?? []), ...empDepts.map((e) => e.department).filter((d): d is string => !!d)]));
+  const positions = Array.from(new Set([...(opts.positions ?? []), ...empDepts.map((e) => e.position).filter((p): p is string => !!p)]));
+  const existingTitles = Array.from(new Set(jobTitles.map((j) => j.title)));
+
   try {
-    const jd = await generateJD(String(hint).trim(), company.name);
+    const jd = await generateJD(String(hint).trim(), {
+      name: company.name,
+      departments,
+      positions,
+      existingTitles,
+    });
     return NextResponse.json({ ok: true, jd });
   } catch (e) {
     console.error("[ai/jd] lỗi:", e);

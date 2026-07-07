@@ -48,22 +48,50 @@ export interface GeneratedJD {
   salaryMax: number | null;
 }
 
-export async function generateJD(hint: string, companyName: string): Promise<GeneratedJD> {
-  const system = `Bạn là chuyên viên tuyển dụng cho doanh nghiệp vừa và nhỏ ở Việt Nam. Nhiệm vụ: từ mô tả ngắn của chủ doanh nghiệp, soạn một tin tuyển dụng đầy đủ, tiếng Việt, giọng thân thiện, thực tế (phù hợp quán ăn, cửa hàng, xưởng nhỏ...). KHÔNG bịa quyền lợi quá mức. Trả về DUY NHẤT một JSON hợp lệ, không thêm chữ nào ngoài JSON, theo schema:
+export interface CompanyContext {
+  name: string;
+  departments?: string[]; // phòng ban công ty đang có
+  positions?: string[]; // chức vụ công ty đang có
+  existingTitles?: string[]; // các vị trí đang/đã tuyển
+  branchName?: string | null;
+}
+
+export async function generateJD(hint: string, ctx: CompanyContext): Promise<GeneratedJD> {
+  const contextLines: string[] = [`Tên công ty: ${ctx.name}`];
+  if (ctx.branchName) contextLines.push(`Chi nhánh tuyển: ${ctx.branchName}`);
+  if (ctx.departments?.length) contextLines.push(`Các phòng ban hiện có: ${ctx.departments.slice(0, 20).join(", ")}`);
+  if (ctx.positions?.length) contextLines.push(`Các chức vụ hiện có: ${ctx.positions.slice(0, 20).join(", ")}`);
+  if (ctx.existingTitles?.length) contextLines.push(`Vị trí công ty đã đăng tuyển: ${ctx.existingTitles.slice(0, 15).join(", ")}`);
+
+  const system = `Bạn là CHUYÊN GIA TUYỂN DỤNG & EMPLOYER BRANDING với 15 NĂM kinh nghiệm, từng viết hàng nghìn tin tuyển dụng chuyển đổi cao cho doanh nghiệp Việt Nam (từ quán ăn, cửa hàng, xưởng nhỏ đến chuỗi lớn). Nhiệm vụ: từ vài từ gợi ý của chủ doanh nghiệp, soạn một BÀI TUYỂN DỤNG HOÀN CHỈNH, CHUYÊN NGHIỆP, thuyết phục — như một chuyên gia thực thụ.
+
+NGUYÊN TẮC CHUYÊN GIA:
+- Bám sát cơ cấu công ty đã cho (phòng ban, chức vụ, các vị trí đã tuyển) để đặt tên vị trí & mô tả cho NHẤT QUÁN với công ty. Nếu gợi ý khớp một chức vụ có sẵn, ưu tiên dùng đúng tên đó.
+- Mô tả công việc: 4-7 gạch đầu dòng cụ thể, dùng ĐỘNG TỪ hành động, rõ đầu việc hằng ngày — không chung chung.
+- Yêu cầu: 3-6 ý, tách "Bắt buộc" và "Ưu tiên" nếu hợp lý; thực tế với thị trường lao động Việt Nam, không đòi hỏi quá mức cho vị trí phổ thông.
+- Quyền lợi: 3-6 ý hấp dẫn nhưng TRUNG THỰC (lương thưởng, chế độ, môi trường, cơ hội) — KHÔNG bịa phúc lợi không có căn cứ.
+- Giọng văn: chuyên nghiệp, tích cực, thân thiện, "chuẩn nhà tuyển dụng"; tiếng Việt chuẩn, có dấu đầy đủ; mỗi ý một dòng (\\n). Có thể mở đầu mô tả bằng 1 câu giới thiệu ngắn hấp dẫn.
+- Suy luận thông minh: nếu chỉ có lương theo giờ, quy đổi khoảng lương tháng hợp lý (~26 ngày, ca 8h) khi đủ căn cứ; suy ra ca làm, số lượng nếu gợi ý có nêu.
+
+CHỈ trả về DUY NHẤT một JSON hợp lệ (không markdown, không giải thích), schema:
 {
-  "title": "tên vị trí ngắn gọn",
-  "description": "mô tả công việc, mỗi ý một dòng (dùng \\n)",
+  "title": "tên vị trí ngắn gọn, đúng chuẩn",
+  "description": "mô tả công việc, mỗi ý một dòng",
   "requirements": "yêu cầu, mỗi ý một dòng",
   "benefits": "quyền lợi, mỗi ý một dòng",
-  "workTime": "ca/giờ làm nếu suy ra được, không thì để rỗng",
-  "quantity": số lượng cần tuyển (number) hoặc null,
-  "salaryMin": lương tối thiểu VND (number) hoặc null,
-  "salaryMax": lương tối đa VND (number) hoặc null
-}
-Nếu mô tả có mức lương theo giờ, quy đổi hợp lý ra khoảng lương tháng (giả định ~26 ngày, ca 8h) chỉ khi chắc chắn, không thì để null.`;
+  "workTime": "ca/giờ làm nếu suy ra được, không thì rỗng",
+  "quantity": number hoặc null,
+  "salaryMin": number VND hoặc null,
+  "salaryMax": number VND hoặc null
+}`;
 
-  const user = `Công ty: ${companyName}\nMô tả của chủ: "${hint}"\n\nSoạn tin tuyển dụng (chỉ trả JSON).`;
-  const text = await complete(system, user, 1200);
+  const user = `THÔNG TIN CÔNG TY:
+${contextLines.join("\n")}
+
+GỢI Ý CỦA CHỦ DOANH NGHIỆP (có thể chỉ vài từ): "${hint}"
+
+Hãy soạn bài tuyển dụng hoàn chỉnh, chuyên nghiệp như chuyên gia 15 năm kinh nghiệm. Chỉ trả JSON.`;
+  const text = await complete(system, user, 1600);
   const parsed = extractJson<Partial<GeneratedJD>>(text);
   return {
     title: (parsed?.title || "").toString().trim() || hint.slice(0, 60),

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2 } from "lucide-react";
 import ComboField from "@/components/ui/ComboField";
+import VoiceInput from "@/components/ui/VoiceInput";
 
 type Branch = { id: string; name: string };
 
@@ -221,13 +222,15 @@ export default function RecruitmentClient({
   const [aiHint, setAiHint] = useState("");
   const [aiJdLoading, setAiJdLoading] = useState(false);
   const [aiJdError, setAiJdError] = useState<string | null>(null);
-  async function aiWriteJD() {
-    if (!aiHint.trim()) return;
+  async function aiWriteJD(hintArg?: string) {
+    const hint = (hintArg ?? aiHint).trim();
+    if (!hint) return;
+    if (hintArg) setAiHint(hintArg);
     setAiJdLoading(true); setAiJdError(null);
     try {
       const res = await fetch("/api/recruitment/ai/jd", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hint: aiHint.trim() }),
+        body: JSON.stringify({ hint }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setAiJdError(data?.error || "AI viết không thành công."); setAiJdLoading(false); return; }
@@ -816,18 +819,24 @@ export default function RecruitmentClient({
                 <div className="flex items-center gap-1.5 mb-2">
                   <Sparkles size={15} className="text-purple-600" />
                   <span className="text-sm font-semibold text-purple-700">AI viết giúp</span>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">Chuyên gia 15 năm</span>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">Gõ 1 câu, AI điền sẵn cả tin — bạn xem lại rồi sửa trước khi lưu.</p>
+                <p className="text-xs text-gray-500 mb-2">Gõ hoặc <b>bấm micro nói</b> vài từ — AI viết thành bài tuyển dụng chuyên nghiệp. Bạn xem lại rồi sửa trước khi lưu.</p>
                 <div className="flex gap-2">
                   <input
                     value={aiHint}
                     onChange={(e) => setAiHint(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aiWriteJD(); } }}
                     placeholder="VD: tuyển 2 phục vụ ca tối, 25k/giờ, gần Cầu Giấy"
-                    className="flex-1 border border-purple-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-300 outline-none"
+                    className="flex-1 min-w-0 border border-purple-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-300 outline-none"
+                  />
+                  <VoiceInput
+                    title="Nhấn để nói yêu cầu tuyển dụng"
+                    onInterim={(t) => setAiHint(t)}
+                    onFinal={(t) => { setAiHint(t); aiWriteJD(t); }}
                   />
                   <button
-                    onClick={aiWriteJD}
+                    onClick={() => aiWriteJD()}
                     disabled={aiJdLoading || !aiHint.trim()}
                     className="shrink-0 flex items-center gap-1.5 bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
                   >
@@ -835,6 +844,7 @@ export default function RecruitmentClient({
                     {aiJdLoading ? "Đang viết..." : "Viết"}
                   </button>
                 </div>
+                {aiJdLoading && <p className="text-xs text-purple-600 mt-1.5 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Chuyên gia AI đang soạn bài tuyển dụng...</p>}
                 {aiJdError && <p className="text-xs text-red-600 mt-1.5">{aiJdError}</p>}
               </div>
             )}
