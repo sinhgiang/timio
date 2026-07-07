@@ -8,19 +8,14 @@ interface EmployeeNode {
   id: string;
   name: string;
   code: string;
-  department: string;
+  department: string | null;
   position: string | null;
-}
-
-interface DepartmentNode {
-  name: string;
-  employees: EmployeeNode[];
 }
 
 interface BranchNode {
   id: string;
   name: string;
-  departments: DepartmentNode[];
+  employees: EmployeeNode[];
 }
 
 export default async function OrgChartPage() {
@@ -39,30 +34,13 @@ export default async function OrgChartPage() {
     }),
   ]);
 
-  // Group by branch → department
-  const branchNodes: BranchNode[] = branches.map((branch) => {
-    const branchEmps = employees.filter((e) => e.branchId === branch.id);
-
-    // Group by department within this branch
-    const deptMap = new Map<string, EmployeeNode[]>();
-    for (const emp of branchEmps) {
-      const dept = emp.department ?? "(Chưa phân bổ)";
-      if (!deptMap.has(dept)) deptMap.set(dept, []);
-      deptMap.get(dept)!.push({
-        id: emp.id,
-        name: emp.name,
-        code: emp.code,
-        department: emp.department ?? "(Chưa phân bổ)",
-        position: emp.position,
-      });
-    }
-
-    const departments: DepartmentNode[] = Array.from(deptMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, emps]) => ({ name, employees: emps }));
-
-    return { id: branch.id, name: branch.name, departments };
-  });
+  const branchNodes: BranchNode[] = branches.map((branch) => ({
+    id: branch.id,
+    name: branch.name,
+    employees: employees
+      .filter((e) => e.branchId === branch.id)
+      .map((e) => ({ id: e.id, name: e.name, code: e.code, department: e.department, position: e.position })),
+  }));
 
   return (
     <OrgChartClient
