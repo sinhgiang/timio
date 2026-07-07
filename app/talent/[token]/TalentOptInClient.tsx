@@ -1,16 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Loader2, CheckCircle2, AlertTriangle, Award, Sparkles } from "lucide-react";
+import { ShieldCheck, Loader2, CheckCircle2, AlertTriangle, Award, Sparkles, TrendingUp } from "lucide-react";
 
 interface Stats { vScore: number | null; vAttendance: number | null; vPunctuality: number | null; vTenureMonths: number | null; }
+interface Dev { vDevScore: number | null; vDevTrend: "up" | "flat" | "down" | null; vPromotions: number; vReviewCount: number; timeline: { period: string; score: number }[]; }
 interface Initial { desiredTitle: string; desiredArea: string; desiredSalaryMin: number | null; desiredSalaryMax: number | null; skills: string; bio: string; showAvatar: boolean; }
 
+interface Interest { id: string; companyName: string; jobTitle: string | null; message: string | null; }
+
 export default function TalentOptInClient({
-  token, name, companyName, stats, alreadyIn, initial,
+  token, name, companyName, stats, dev, interests, alreadyIn, initial,
 }: {
-  token: string; name: string; companyName: string; stats: Stats; alreadyIn: boolean; initial: Initial;
+  token: string; name: string; companyName: string; stats: Stats; dev: Dev; interests: Interest[]; alreadyIn: boolean; initial: Initial;
 }) {
+  const [interestList, setInterestList] = useState<Interest[]>(interests);
+  const [respondBusy, setRespondBusy] = useState<string | null>(null);
+  const [respondMsg, setRespondMsg] = useState<Record<string, string>>({});
+
+  async function respondInterest(id: string, action: "accept" | "decline") {
+    setRespondBusy(id);
+    try {
+      const res = await fetch("/api/talent/interest-respond", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, interestId: id, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.ok) {
+        setRespondMsg((m) => ({ ...m, [id]: action === "accept" ? "accepted" : "declined" }));
+        setTimeout(() => setInterestList((l) => l.filter((x) => x.id !== id)), 1600);
+      }
+    } catch { /* noop */ }
+    setRespondBusy(null);
+  }
   const [f, setF] = useState({
     desiredTitle: initial.desiredTitle, desiredArea: initial.desiredArea,
     desiredSalaryMin: initial.desiredSalaryMin ? String(initial.desiredSalaryMin) : "",
@@ -100,6 +122,32 @@ export default function TalentOptInClient({
           <p className="text-sm text-gray-600 mt-1">Cảm ơn bạn đã đồng hành cùng {companyName}. Hoàn thiện hồ sơ để Timio giới thiệu công việc tốt cho bạn — <b>miễn phí</b>.</p>
         </div>
 
+        {/* Nhà tuyển dụng quan tâm — double opt-in */}
+        {interestList.length > 0 && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p className="text-sm font-bold text-amber-800 mb-2">🔔 {interestList.length} nhà tuyển dụng đang quan tâm bạn</p>
+            <div className="space-y-2">
+              {interestList.map((it) => (
+                <div key={it.id} className="bg-white rounded-xl border border-amber-100 p-3">
+                  <p className="text-sm font-semibold text-gray-800">{it.companyName}{it.jobTitle ? <span className="font-normal text-gray-500"> · {it.jobTitle}</span> : null}</p>
+                  {it.message && <p className="text-xs text-gray-600 mt-1">“{it.message}”</p>}
+                  {respondMsg[it.id] ? (
+                    <p className={`text-xs mt-2 font-medium ${respondMsg[it.id] === "accepted" ? "text-green-600" : "text-gray-500"}`}>
+                      {respondMsg[it.id] === "accepted" ? "✓ Đã đồng ý — nhà tuyển dụng sẽ liên hệ bạn." : "Đã từ chối."}
+                    </p>
+                  ) : (
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => respondInterest(it.id, "accept")} disabled={respondBusy === it.id} className="flex-1 bg-green-600 text-white text-sm font-medium rounded-lg py-2 hover:bg-green-700 disabled:opacity-60">Đồng ý liên hệ</button>
+                      <button onClick={() => respondInterest(it.id, "decline")} disabled={respondBusy === it.id} className="flex-1 border border-gray-300 text-gray-600 text-sm rounded-lg py-2 hover:bg-gray-50 disabled:opacity-60">Từ chối</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-amber-700 mt-2">Chỉ khi bạn <b>Đồng ý</b>, nhà tuyển dụng mới thấy tên + liên hệ của bạn.</p>
+          </div>
+        )}
+
         {/* Huy hiệu xác thực */}
         {hasStats && (
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 text-white mb-4">
@@ -116,6 +164,39 @@ export default function TalentOptInClient({
               </div>
             </div>
             <p className="text-[11px] text-blue-100 mt-2 flex items-center gap-1"><Award size={12} /> Số liệu thật từ dữ liệu chấm công — nhà tuyển dụng tin tưởng hơn CV tự khai.</p>
+          </div>
+        )}
+
+        {/* Điểm phát triển */}
+        {dev.vDevScore != null && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={18} className="text-emerald-600" />
+                <span className="text-sm font-semibold text-gray-800">Điểm phát triển</span>
+              </div>
+              <span className={`text-lg font-extrabold ${dev.vDevScore >= 70 ? "text-emerald-600" : dev.vDevScore >= 40 ? "text-amber-600" : "text-gray-500"}`}>{dev.vDevScore}/100</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+              {dev.vDevTrend && (
+                <span className={`inline-flex items-center gap-1 font-medium ${dev.vDevTrend === "up" ? "text-emerald-600" : dev.vDevTrend === "down" ? "text-red-500" : "text-gray-500"}`}>
+                  {dev.vDevTrend === "up" ? "📈 Đang đi lên" : dev.vDevTrend === "down" ? "📉 Đi xuống" : "➡️ Ổn định"}
+                </span>
+              )}
+              {dev.vPromotions > 0 && <span className="text-emerald-600 font-medium">🏅 Thăng chức {dev.vPromotions} lần</span>}
+              {dev.vReviewCount > 0 && <span>{dev.vReviewCount} kỳ đánh giá</span>}
+            </div>
+            {/* Lộ trình bậc thang */}
+            {dev.timeline.length > 1 && (
+              <div className="flex items-end gap-1 mt-3 h-14">
+                {dev.timeline.slice(-8).map((t, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center justify-end" title={`${t.period}: ${t.score}/100`}>
+                    <div className="w-full rounded-t bg-emerald-400" style={{ height: `${Math.max(8, t.score)}%` }} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-gray-400 mt-2">Tổng hợp từ đánh giá hàng tháng của quản lý + thăng tiến tại công ty cũ (ẩn danh — không nêu tên công ty).</p>
           </div>
         )}
 

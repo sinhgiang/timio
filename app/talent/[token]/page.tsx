@@ -1,5 +1,6 @@
 import { verifyTalentToken } from "@/lib/talentToken";
 import { prisma } from "@/lib/prisma";
+import { computeTalentDevStats } from "@/lib/talentDevStats";
 import TalentOptInClient from "./TalentOptInClient";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +21,32 @@ export default async function TalentPage({ params }: { params: { token: string }
     );
   }
 
-  const [emp, invite, profile, company] = await Promise.all([
+  const [emp, invite, profile, company, dev] = await Promise.all([
     prisma.employee.findFirst({ where: { id: payload.employeeId, companyId: payload.companyId }, select: { name: true } }),
     prisma.talentInvite.findUnique({ where: { employeeId: payload.employeeId }, select: { vScore: true, vAttendance: true, vPunctuality: true, vTenureMonths: true } }),
-    prisma.talentProfile.findUnique({ where: { employeeId: payload.employeeId }, select: { isOpen: true, desiredTitle: true, desiredArea: true, desiredSalaryMin: true, desiredSalaryMax: true, skills: true, bio: true, showAvatar: true } }),
+    prisma.talentProfile.findUnique({ where: { employeeId: payload.employeeId }, select: { id: true, isOpen: true, desiredTitle: true, desiredArea: true, desiredSalaryMin: true, desiredSalaryMax: true, skills: true, bio: true, showAvatar: true } }),
     prisma.company.findUnique({ where: { id: payload.companyId }, select: { name: true } }),
+    computeTalentDevStats(payload.employeeId),
   ]);
+
+  // Lời quan tâm đang chờ (double opt-in) — kèm tên công ty tuyển
+  let interests: { id: string; companyName: string; jobTitle: string | null; message: string | null }[] = [];
+  if (profile?.id) {
+    const rows = await prisma.talentInterest.findMany({
+      where: { profileId: profile.id, status: "pending" },
+      select: { id: true, companyId: true, jobId: true, message: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (rows.length) {
+      const [cos, jobs] = await Promise.all([
+        prisma.company.findMany({ where: { id: { in: rows.map((r) => r.companyId) } }, select: { id: true, name: true } }),
+        prisma.jobPosting.findMany({ where: { id: { in: rows.map((r) => r.jobId).filter((x): x is string => !!x) } }, select: { id: true, title: true } }),
+      ]);
+      const coMap = new Map(cos.map((c) => [c.id, c.name]));
+      const jobMap = new Map(jobs.map((j) => [j.id, j.title]));
+      interests = rows.map((r) => ({ id: r.id, companyName: coMap.get(r.companyId) ?? "Nhà tuyển dụng", jobTitle: r.jobId ? (jobMap.get(r.jobId) ?? null) : null, message: r.message }));
+    }
+  }
 
   if (!emp) {
     return (
@@ -46,6 +67,14 @@ export default async function TalentPage({ params }: { params: { token: string }
         vPunctuality: invite?.vPunctuality ?? null,
         vTenureMonths: invite?.vTenureMonths ?? null,
       }}
+      dev={{
+        vDevScore: dev.vDevScore,
+        vDevTrend: dev.vDevTrend,
+        vPromotions: dev.vPromotions,
+        vReviewCount: dev.vReviewCount,
+        timeline: dev.timeline,
+      }}
+      interests={interests}
       alreadyIn={!!profile?.isOpen}
       initial={{
         desiredTitle: profile?.desiredTitle ?? "",

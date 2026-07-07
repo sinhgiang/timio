@@ -690,6 +690,10 @@ model TalentInvite {
   vPunctuality  Int?
   vTenureMonths Int?
   vScore        Int?
+  vDevScore     Int?
+  vDevTrend     String?
+  vPromotions   Int?
+  vReviewCount  Int?
   status        String    @default("invited") // "invited" | "opted_in" | "declined"
   nurtureCount  Int       @default(0)
   lastNurtureAt DateTime?
@@ -716,11 +720,39 @@ model TalentProfile {
   vPunctuality     Int?
   vTenureMonths    Int?
   vScore           Int?
+  vDevScore        Int?
+  vDevTrend        String?
+  vPromotions      Int?
+  vReviewCount     Int?
   vStatsAt         DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([isOpen])
+}
+
+// GĐ2 Đợt 3: nhà tuyển dụng bày tỏ quan tâm tới 1 hồ sơ (double opt-in + tính credit)
+model TalentInterest {
+  id             String    @id @default(cuid())
+  profileId      String
+  companyId      String
+  jobId          String?
+  message        String?
+  status         String    @default("pending") // "pending" | "accepted" | "declined" | "expired"
+  chargedCredits Int       @default(1)
+  createdAt      DateTime  @default(now())
+  respondedAt    DateTime?
+
+  @@index([profileId])
+  @@index([companyId, status])
+}
+
+// GĐ2 Đợt 3: ví credit mở khóa của công ty
+model TalentCredit {
+  id        String   @id @default(cuid())
+  companyId String   @unique
+  balance   Int      @default(0)
+  updatedAt DateTime @default(now())
 }
 
 // Bảng tin nội bộ công ty

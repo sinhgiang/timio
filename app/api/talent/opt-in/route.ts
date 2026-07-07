@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyTalentToken } from "@/lib/talentToken";
 import { computeTalentStats } from "@/lib/talentStats";
+import { computeTalentDevStats } from "@/lib/talentDevStats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,8 +34,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Vui lòng đồng ý điều khoản để tham gia." }, { status: 400 });
   }
 
-  // Snapshot chỉ số (lấy lại lúc opt-in để chắc chắn)
-  const stats = await computeTalentStats(emp.id);
+  // Snapshot chỉ số (lấy lại lúc opt-in để chắc chắn) — cả 2 chiều
+  const [stats, dev] = await Promise.all([computeTalentStats(emp.id), computeTalentDevStats(emp.id)]);
 
   await prisma.talentProfile.upsert({
     where: { employeeId: emp.id },
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       desiredSalaryMin: num(body.desiredSalaryMin), desiredSalaryMax: num(body.desiredSalaryMax),
       skills: str(body.skills), bio: str(body.bio), showAvatar: body.showAvatar === true,
       vAttendance: stats.vAttendance, vPunctuality: stats.vPunctuality, vTenureMonths: stats.vTenureMonths, vScore: stats.vScore, vStatsAt: new Date(),
+      vDevScore: dev.vDevScore, vDevTrend: dev.vDevTrend, vPromotions: dev.vPromotions, vReviewCount: dev.vReviewCount,
     },
     update: {
       isOpen: true,

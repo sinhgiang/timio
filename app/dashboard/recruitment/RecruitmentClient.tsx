@@ -5,6 +5,7 @@ import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, Exte
 import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
 import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
+import TalentBrowse from "@/components/recruitment/TalentBrowse";
 
 type Branch = { id: string; name: string };
 
@@ -110,10 +111,11 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 export default function RecruitmentClient({
-  companySlug, plan, branches, allDepartments, customDepartments, allPositions, customPositions, allLocations,
+  companySlug, plan, role, branches, allDepartments, customDepartments, allPositions, customPositions, allLocations,
 }: {
   companySlug: string;
   plan: string;
+  role: string;
   branches: Branch[];
   allDepartments: string[];
   customDepartments: string[];
@@ -165,7 +167,7 @@ export default function RecruitmentClient({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool">("reports");
+  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool" | "talent">("reports");
   const [showGuide, setShowGuide] = useState(false);
 
   // Báo cáo
@@ -658,6 +660,7 @@ export default function RecruitmentClient({
           { k: "jobs", label: `Vị trí tuyển (${jobs.length})`, Icon: Briefcase },
           { k: "candidates", label: `Ứng viên (${candidates.filter(c => c.status !== "rejected" && c.status !== "hired").length})`, Icon: Users },
           { k: "pool", label: `Kho ứng viên (${candidates.filter(c => c.status === "rejected" || c.status === "hired").length})`, Icon: Archive },
+          ...(isBusiness ? [{ k: "talent", label: "Tìm ứng viên (Cộng đồng)", Icon: Sparkles } as const] : []),
         ] as const).map(tab => (
           <button
             key={tab.k}
@@ -1054,6 +1057,17 @@ export default function RecruitmentClient({
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Tìm ứng viên trong cộng đồng (Business) */}
+      {activeTab === "talent" && isBusiness && (
+        <div>
+          <div className="mb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-3.5 flex items-start gap-2.5">
+            <Sparkles size={18} className="text-blue-600 shrink-0 mt-0.5" strokeWidth={1.5} />
+            <p className="text-sm text-gray-700">Kho ứng viên <b>xác thực bằng dữ liệu chấm công + phát triển</b> — hồ sơ ẩn danh, chỉ lộ liên hệ khi ứng viên đồng ý. Người của công ty bạn không hiện ở đây.</p>
+          </div>
+          <TalentBrowse role={role} />
         </div>
       )}
 

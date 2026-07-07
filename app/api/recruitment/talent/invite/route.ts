@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { signTalentToken } from "@/lib/talentToken";
 import { computeTalentStats } from "@/lib/talentStats";
+import { computeTalentDevStats } from "@/lib/talentDevStats";
 import { scopedBranchId, type ScopeUser } from "@/lib/branchScope";
 
 export const runtime = "nodejs";
@@ -33,17 +34,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chỉ mời được nhân viên ĐÃ NGHỈ (đánh dấu 'Đã nghỉ' trước)." }, { status: 400 });
   }
 
-  const stats = await computeTalentStats(emp.id);
+  const [stats, dev] = await Promise.all([computeTalentStats(emp.id), computeTalentDevStats(emp.id)]);
 
   await prisma.talentInvite.upsert({
     where: { employeeId: emp.id },
     create: {
       employeeId: emp.id, companyId, reason: reason === "inactive" ? "inactive" : "resigned",
       vAttendance: stats.vAttendance, vPunctuality: stats.vPunctuality, vTenureMonths: stats.vTenureMonths, vScore: stats.vScore,
+      vDevScore: dev.vDevScore, vDevTrend: dev.vDevTrend, vPromotions: dev.vPromotions, vReviewCount: dev.vReviewCount,
       status: "invited",
     },
     update: {
       vAttendance: stats.vAttendance, vPunctuality: stats.vPunctuality, vTenureMonths: stats.vTenureMonths, vScore: stats.vScore,
+      vDevScore: dev.vDevScore, vDevTrend: dev.vDevTrend, vPromotions: dev.vPromotions, vReviewCount: dev.vReviewCount,
     },
   });
 
@@ -88,6 +91,6 @@ export async function POST(req: NextRequest) {
     emailed,
     hasEmail: !!emp.email,
     inviteLink: link,
-    stats: { vScore: stats.vScore, vAttendance: stats.vAttendance, vPunctuality: stats.vPunctuality, vTenureMonths: stats.vTenureMonths, enough: stats.enough },
+    stats: { vScore: stats.vScore, vAttendance: stats.vAttendance, vPunctuality: stats.vPunctuality, vTenureMonths: stats.vTenureMonths, enough: stats.enough, vDevScore: dev.vDevScore, vDevTrend: dev.vDevTrend, vPromotions: dev.vPromotions },
   });
 }

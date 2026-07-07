@@ -40,6 +40,7 @@ export default async function RecruitmentPage() {
     <RecruitmentClient
       companySlug={company?.slug ?? ""}
       plan={company?.plan ?? "starter"}
+      role={u?.role ?? "owner"}
       branches={branches}
       allDepartments={allDepartments}
       customDepartments={savedOpts.departments ?? []}
