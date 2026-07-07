@@ -54,6 +54,27 @@ Một nhân viên rời công ty theo 1 trong 2 cách → xử lý khác nhau:
 
 ---
 
+## 3b. CHIỀU THỨ HAI: Điểm PHÁT TRIỂN (bổ sung 7/7/2026 — ý tưởng của chủ DN)
+
+> Ngoài "chấm công" (kỷ luật/chuyên cần), hồ sơ có thêm chiều **"Tốc độ phát triển"** — nhân viên đó ở công ty cũ **tiến bộ, thăng tiến, được đánh giá tốt** thế nào. Đây là tín hiệu nhà tuyển dụng THÈM nhất (không sàn nào có). **Hồ sơ = 2 điểm hiển thị trực diện: [Chấm công] + [Phát triển].**
+
+**Tin tốt:** Timio ĐÃ CÓ sẵn dữ liệu — chỉ cần gom + nhắc + hiển thị:
+- `PerformanceReview` (đánh giá hàng tháng/quý: điểm 1–5 do quản lý chấm, điểm mạnh/cải thiện) → **xu hướng điểm đi lên = phát triển tốt**.
+- `WorkHistory` (thăng chức, đổi chức danh, tăng lương) → **có thăng tiến = cộng điểm**.
+- `DisciplineRecord` (kỷ luật) → **trừ điểm**.
+
+**Điểm phát triển (0–100)** = xu hướng điểm đánh giá (đi lên/đứng yên/đi xuống) + số lần thăng chức/đổi chức danh − kỷ luật. Kèm **"Lộ trình phát triển"** hình bậc thang đi lên (giống pipeline tuyển dụng): tháng 1 → tháng 2 → tháng 3… mỗi mốc 1 điểm/1 mức, cho thấy người này **leo lên hay đứng yên**.
+
+**Vòng nhắc đánh giá hàng tháng (để có dữ liệu):**
+- Công ty mua tính năng (Business/Talent+) → mỗi tháng Timio **gửi email nhắc admin/quản lý/HR**: "Đánh giá nhân viên tháng này: chuyên cần (tự động), thái độ, chất lượng công việc, sáng tạo, tiến bộ, có thăng chức không?" → 1 form nhanh → lưu vào `PerformanceReview` (type=monthly).
+- Giá trị NGAY cho công ty (kể cả không dùng cộng đồng): **lưu lịch sử phát triển từng nhân viên** → biết ai đáng thăng chức, ai đi xuống, quản lý nhân sự tốt hơn. (Đây cũng là lý do công ty sẵn lòng mua + chịu điền hàng tháng.)
+
+**Khi cựu NV vào cộng đồng:** hồ sơ hiện **2 điểm** — Chấm công + Phát triển — kèm lộ trình bậc thang. Nhà tuyển dụng đánh giá "trực diện nhất" 1 người: vừa chuyên cần, vừa đang lên.
+
+**RIÊNG TƯ:** Điểm phát triển hiển thị ẨN DANH — **KHÔNG nêu người đó từng làm công ty nào** (tên công ty cũ do chính nhân viên tự khai trong CV nếu muốn). Chỉ hiện "ở công ty cũ (ẩn danh): lộ trình đi lên, từng thăng chức, đánh giá tốt".
+
+---
+
 ## 4. Kiến trúc dữ liệu (raw SQL Neon — KHÔNG prisma migrate)
 
 ```sql
@@ -80,6 +101,11 @@ CREATE TABLE IF NOT EXISTS "TalentProfile" (
   "desiredTitle"  TEXT, "desiredArea" TEXT, "desiredSalaryMin" INTEGER, "desiredSalaryMax" INTEGER,
   "skills"        TEXT, "bio" TEXT, "showAvatar" BOOLEAN DEFAULT false,
   "vAttendance"   INTEGER, "vPunctuality" INTEGER, "vTenureMonths" INTEGER, "vScore" INTEGER, "vStatsAt" TIMESTAMP(3),
+  -- Chiều PHÁT TRIỂN (từ PerformanceReview + WorkHistory + Discipline):
+  "vDevScore"     INTEGER,  -- điểm phát triển 0-100
+  "vDevTrend"     TEXT,     -- "up" | "flat" | "down"
+  "vPromotions"   INTEGER,  -- số lần thăng chức/đổi chức danh
+  "vReviewCount"  INTEGER,  -- số kỳ đánh giá đã có
   "createdAt"     TIMESTAMP(3) DEFAULT now(), "updatedAt" TIMESTAMP(3) DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS "TalentProfile_open_idx" ON "TalentProfile" ("isOpen");
@@ -100,7 +126,14 @@ CREATE INDEX IF NOT EXISTS "TalentProfile_open_idx" ON "TalentProfile" ("isOpen"
 - **Email chăm sóc (nurture)** cho ai chưa opt-in: cron gửi lại sau N ngày (tối đa vài lần).
 - *Test: tính điểm đúng; mời → email token; opt-in → tạo hồ sơ; nurture đếm đúng.*
 
-### Đợt 2 — Nhà tuyển dụng duyệt kho ẩn danh
+### Đợt 1b — Chiều Phát triển (đánh giá hàng tháng) — *chèn ngay sau Đợt 1*
+- `lib/talentDevStats.ts`: tính **điểm phát triển** từ `PerformanceReview` (xu hướng điểm) + `WorkHistory` (thăng chức) − `DisciplineRecord`.
+- **Cron nhắc đánh giá hàng tháng**: email admin/quản lý → form đánh giá nhanh (chuyên cần tự động + thái độ + chất lượng + sáng tạo + tiến bộ + thăng chức) → lưu `PerformanceReview` type=monthly. (Tận dụng trang `/dashboard/performance-reviews` sẵn có.)
+- Snapshot `vDevScore/vDevTrend/vPromotions` vào TalentInvite/TalentProfile khi cựu NV nghỉ/opt-in.
+- Trang cựu NV + (sau) hồ sơ nhà tuyển dụng: hiện **2 điểm [Chấm công] + [Phát triển] + lộ trình bậc thang**.
+- *Test: điểm phát triển tính đúng theo xu hướng review + thăng chức; nhắc email hàng tháng chạy.*
+
+### Đợt 2 — Nhà tuyển dụng duyệt kho ẩn danh (hiện CẢ 2 điểm)
 - Dashboard tuyển dụng → mục "Tìm ứng viên": danh sách hồ sơ **ẩn danh** (mã + điểm tin cậy + chỉ số + mong muốn + kỹ năng), lọc theo vị trí/khu vực/điểm.
 - **Loại** hồ sơ của cựu NV nếu họ đang làm ở chính công ty đang xem (theo Employee.status + companyId hiện tại).
 
