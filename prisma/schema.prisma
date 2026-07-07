@@ -661,7 +661,9 @@ model Candidate {
   notes      String?
   source     String?   // "website" | "referral" | "linkedin" | "facebook" | "other"
   experience String?   // kinh nghiệm/giới thiệu (từ form ứng tuyển online)
-  cvUrl      String?   // link CV (Drive/website) — không upload file GĐ1
+  cvUrl      String?   // link CV (Drive/website)
+  cvFile     String?   // CV tải lên (data URI base64 — PDF/ảnh)
+  cvFileName String?   // tên file CV gốc
   aiScore    Int?      // 0-100 điểm AI chấm (GĐ3)
   aiSummary  String?   // AI tóm tắt + lý do điểm (GĐ3)
   hiredEmpId String?   // employeeId nếu được tuyển vào làm

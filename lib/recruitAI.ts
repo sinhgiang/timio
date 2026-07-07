@@ -138,26 +138,64 @@ export interface CandidateScore {
   summary: string;
 }
 
+export interface CvInput {
+  // CV tải lên dạng file (PDF hoặc ảnh) — AI đọc trực tiếp
+  file?: { data: string; mediaType: string }; // data = base64 thuần (không có tiền tố data:)
+  link?: string | null; // link CV (Drive/FB...) — tín hiệu uy tín, AI KHÔNG tự mở được
+}
+
 export async function scoreCandidate(
   candidate: { name: string; experience?: string | null; phone?: string | null; notes?: string | null },
-  job: { title: string; requirements?: string | null; description?: string | null }
+  job: { title: string; requirements?: string | null; description?: string | null },
+  cv?: CvInput
 ): Promise<CandidateScore> {
-  const system = `Bạn là chuyên viên tuyển dụng TRUNG THỰC. Chấm mức độ phù hợp của ứng viên với vị trí, thang 0-100. QUY TẮC:
-- Nếu thiếu dữ liệu (ứng viên không ghi kinh nghiệm gì) → cho điểm TRUNG TÍNH 50 và ghi rõ "chưa đủ thông tin", KHÔNG suy diễn.
-- Không thiên vị, không bịa. Điểm cao chỉ khi kinh nghiệm/kỹ năng thực sự khớp yêu cầu.
-Trả về DUY NHẤT JSON: {"score": number 0-100, "summary": "tóm tắt ≤ 3 câu tiếng Việt, nêu điểm mạnh/yếu và lý do điểm"}`;
+  const hasFile = !!cv?.file?.data;
+  const hasLink = !!cv?.link;
 
-  const user = `VỊ TRÍ: ${job.title}
+  const system = `Bạn là chuyên viên tuyển dụng TRUNG THỰC. Chấm mức độ phù hợp của ứng viên với vị trí, thang 0-100. QUY TẮC:
+- Nếu thiếu dữ liệu (ứng viên không ghi kinh nghiệm gì, không có CV) → cho điểm TRUNG TÍNH 50 và ghi rõ "chưa đủ thông tin", KHÔNG suy diễn.
+- Không thiên vị, không bịa. Điểm cao chỉ khi kinh nghiệm/kỹ năng thực sự khớp yêu cầu.
+- HỒ SƠ CV: ứng viên có ĐÍNH KÈM CV (file hoặc link) thể hiện sự chuyên nghiệp, chuẩn bị kỹ → cộng thêm khoảng 5-10 điểm uy tín (so với người chỉ gõ vài dòng), MIỄN LÀ nội dung CV thật sự hợp lý.
+- Nếu có FILE CV đính kèm: ĐỌC KỸ nội dung CV (kinh nghiệm, kỹ năng, học vấn, nơi từng làm) và dùng nó làm căn cứ CHÍNH để chấm; tóm tắt điểm nổi bật trong CV.
+- Nếu chỉ có LINK CV (không có file): coi là tín hiệu tích cực (có chuẩn bị CV) nhưng bạn KHÔNG mở được link ngoài — ghi chú "ứng viên có gửi link CV, cần xem thêm" và chấm dựa trên thông tin đã có + cộng nhẹ uy tín.
+Trả về DUY NHẤT JSON: {"score": number 0-100, "summary": "tóm tắt 2-4 câu tiếng Việt: điểm mạnh/yếu, điểm nổi bật trong CV (nếu có), và lý do điểm"}`;
+
+  const userText = `VỊ TRÍ: ${job.title}
 Yêu cầu: ${job.requirements || "(không ghi)"}
 Mô tả: ${job.description || "(không ghi)"}
 
 ỨNG VIÊN: ${candidate.name}
-Kinh nghiệm/giới thiệu: ${candidate.experience || "(không ghi)"}
+Kinh nghiệm/giới thiệu tự khai: ${candidate.experience || "(không ghi)"}
 Ghi chú: ${candidate.notes || "(không có)"}
+${hasFile ? "CV: có FILE đính kèm bên dưới — hãy đọc kỹ." : ""}${hasLink ? `\nLink CV ứng viên gửi (bạn không tự mở được): ${cv!.link}` : ""}
 
 Chấm điểm (chỉ trả JSON).`;
 
-  const text = await complete(system, user, 400);
+  let text = "";
+  try {
+    if (hasFile) {
+      // Gửi kèm CV để Claude đọc trực tiếp (PDF qua document block, ảnh qua image block)
+      const mt = cv!.file!.mediaType;
+      const block =
+        mt === "application/pdf"
+          ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: cv!.file!.data } }
+          : { type: "image" as const, source: { type: "base64" as const, media_type: (mt as "image/jpeg" | "image/png" | "image/webp"), data: cv!.file!.data } };
+      const msg = await client().messages.create({
+        model: MODEL,
+        max_tokens: 600,
+        system,
+        messages: [{ role: "user", content: [block, { type: "text", text: userText }] }],
+      });
+      const b = msg.content.find((x) => x.type === "text");
+      text = b && b.type === "text" ? b.text : "";
+    } else {
+      text = await complete(system, userText, 500);
+    }
+  } catch {
+    // Nếu đọc file lỗi (định dạng lạ) → chấm theo text, vẫn coi là có CV
+    text = await complete(system, userText, 500);
+  }
+
   const parsed = extractJson<Partial<CandidateScore>>(text);
   let score = typeof parsed?.score === "number" ? Math.round(parsed!.score) : 50;
   if (score < 0) score = 0;

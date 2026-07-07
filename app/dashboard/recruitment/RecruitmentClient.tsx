@@ -37,6 +37,7 @@ type Candidate = {
   source: string | null;
   experience: string | null;
   cvUrl: string | null;
+  cvFileName: string | null;
   aiScore: number | null;
   aiSummary: string | null;
   hiredEmpId: string | null;
@@ -731,7 +732,12 @@ export default function RecruitmentClient({
                           >
                             <div className="flex items-start justify-between gap-2">
                               <button onClick={() => setViewCand(cand)} className="min-w-0 text-left flex-1">
-                                <p className="font-semibold text-gray-800 text-sm truncate">{cand.name}</p>
+                                <p className="font-semibold text-gray-800 text-sm truncate flex items-center gap-1.5">
+                                  <span className="truncate">{cand.name}</span>
+                                  {(cand.cvFileName || cand.cvUrl) && (
+                                    <span title="Có đính kèm CV" className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1 py-0.5 rounded"><FileText size={9} /> CV</span>
+                                  )}
+                                </p>
                                 <p className="text-[11px] text-gray-400 truncate">
                                   {cand.job?.title || "—"}
                                   {cand.source ? ` · ${SOURCE_LABELS[cand.source] || cand.source}` : ""}
@@ -1070,7 +1076,15 @@ export default function RecruitmentClient({
                   <p className="text-gray-700 whitespace-pre-line bg-gray-50 rounded-xl p-3 text-sm">{viewCand.experience}</p>
                 </div>
               )}
-              {viewCand.cvUrl && <p><span className="text-gray-400">CV: </span><a href={viewCand.cvUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{viewCand.cvUrl}</a></p>}
+              {viewCand.cvFileName && (
+                <a href={`/api/recruitment/candidates/${viewCand.id}/cv`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 hover:bg-blue-100 transition-colors">
+                  <FileText size={18} className="text-blue-600 shrink-0" strokeWidth={1.5} />
+                  <span className="text-sm text-blue-700 font-medium truncate flex-1">{viewCand.cvFileName}</span>
+                  <ExternalLink size={14} className="text-blue-500 shrink-0" />
+                </a>
+              )}
+              {viewCand.cvUrl && <p><span className="text-gray-400">Link CV: </span><a href={viewCand.cvUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">{viewCand.cvUrl}</a></p>}
               {viewCand.notes && <p><span className="text-gray-400">Ghi chú: </span>{viewCand.notes}</p>}
             </div>
             <div className="flex gap-2 mt-5">

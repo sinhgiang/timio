@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Send, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { Send, CheckCircle2, AlertTriangle, Loader2, Link2, Upload, FileText, X } from "lucide-react";
+
+const MAX_CV_BYTES = 4 * 1024 * 1024; // 4MB
+const CV_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 interface Props {
   slug: string;
@@ -15,8 +18,28 @@ export default function ApplyForm({ slug, jobId, jobTitle }: Props) {
   const [email, setEmail] = useState("");
   const [birthYear, setBirthYear] = useState("");
   const [experience, setExperience] = useState("");
+  const [cvMode, setCvMode] = useState<"link" | "file">("link");
   const [cvUrl, setCvUrl] = useState("");
+  const [cvFile, setCvFile] = useState<string>(""); // data URI
+  const [cvFileName, setCvFileName] = useState("");
   const [company, setCompany] = useState(""); // honeypot — người thật để trống
+
+  function onPickCv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    if (!CV_TYPES.includes(file.type)) {
+      setError("Chỉ nhận file PDF hoặc ảnh (JPG/PNG).");
+      return;
+    }
+    if (file.size > MAX_CV_BYTES) {
+      setError("File quá lớn (tối đa 4MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => { setCvFile(String(reader.result)); setCvFileName(file.name); };
+    reader.readAsDataURL(file);
+  }
 
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -48,7 +71,9 @@ export default function ApplyForm({ slug, jobId, jobTitle }: Props) {
           email: email.trim() || null,
           birthYear: birthYear.trim() || null,
           experience: experience.trim() || null,
-          cvUrl: cvUrl.trim() || null,
+          cvUrl: cvMode === "link" ? (cvUrl.trim() || null) : null,
+          cvFile: cvMode === "file" ? (cvFile || null) : null,
+          cvFileName: cvMode === "file" ? (cvFileName || null) : null,
           company, // honeypot
         }),
       });
@@ -162,16 +187,44 @@ export default function ApplyForm({ slug, jobId, jobTitle }: Props) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Link CV (nếu có)
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            CV / Hồ sơ (nếu có) <span className="text-gray-400 font-normal">— giúp bạn nổi bật hơn</span>
           </label>
-          <input
-            type="url"
-            value={cvUrl}
-            onChange={(e) => setCvUrl(e.target.value)}
-            className={inputCls}
-            placeholder="Link Google Drive, Facebook... (không bắt buộc)"
-          />
+          {/* 2 chế độ: dán link hoặc tải file */}
+          <div className="flex gap-1 mb-2 bg-gray-100 p-1 rounded-lg w-fit">
+            <button type="button" onClick={() => setCvMode("link")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${cvMode === "link" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+              <Link2 size={13} /> Dán link
+            </button>
+            <button type="button" onClick={() => setCvMode("file")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${cvMode === "file" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+              <Upload size={13} /> Tải file lên
+            </button>
+          </div>
+
+          {cvMode === "link" ? (
+            <input
+              type="url"
+              value={cvUrl}
+              onChange={(e) => setCvUrl(e.target.value)}
+              className={inputCls}
+              placeholder="Link Google Drive, Facebook... (không bắt buộc)"
+            />
+          ) : cvFileName ? (
+            <div className="flex items-center gap-2 border border-gray-300 rounded-xl px-3.5 py-2.5">
+              <FileText size={18} className="text-blue-600 shrink-0" strokeWidth={1.5} />
+              <span className="text-sm text-gray-700 truncate flex-1">{cvFileName}</span>
+              <button type="button" onClick={() => { setCvFile(""); setCvFileName(""); }} className="p-1 text-gray-400 hover:text-red-500">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl px-3.5 py-4 text-sm text-gray-500 cursor-pointer hover:border-blue-400 hover:text-blue-600 transition-colors">
+              <Upload size={17} strokeWidth={1.5} /> Chọn file CV (PDF hoặc ảnh, tối đa 4MB)
+              <input type="file" accept=".pdf,image/*" onChange={onPickCv} className="hidden" />
+            </label>
+          )}
+          <p className="text-xs text-gray-400 mt-1">Có CV, công ty đánh giá hồ sơ của bạn kỹ hơn.</p>
         </div>
 
         {/* Honeypot — ẩn với người thật, bot sẽ điền */}

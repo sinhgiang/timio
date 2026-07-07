@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
   const birthYear = body.birthYear ? String(body.birthYear).trim() : null;
   const experience = body.experience ? String(body.experience).trim() : null;
   const cvUrl = body.cvUrl ? String(body.cvUrl).trim() : null;
+  const cvFile = typeof body.cvFile === "string" ? body.cvFile : null; // data URI
+  const cvFileName = body.cvFileName ? String(body.cvFileName).trim().slice(0, 200) : null;
   const honeypot = String(body.company || "").trim();
 
   // Honeypot: bot điền field ẩn → giả vờ thành công, không lưu
@@ -78,6 +80,23 @@ export async function POST(req: NextRequest) {
   }
   if (experience && experience.length > 3000) {
     return NextResponse.json({ error: "Phần giới thiệu quá dài." }, { status: 400 });
+  }
+
+  // Kiểm tra file CV (data URI PDF/ảnh, tối đa ~4MB → base64 ~5.6MB)
+  let cvMediaType: string | null = null;
+  let cvBase64: string | null = null;
+  if (cvFile) {
+    const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(cvFile);
+    if (!m) return NextResponse.json({ error: "File CV không hợp lệ." }, { status: 400 });
+    cvMediaType = m[1];
+    cvBase64 = m[2];
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(cvMediaType)) {
+      return NextResponse.json({ error: "CV chỉ nhận PDF hoặc ảnh (JPG/PNG)." }, { status: 400 });
+    }
+    if (cvFile.length > 5_800_000) {
+      return NextResponse.json({ error: "File CV quá lớn (tối đa 4MB)." }, { status: 400 });
+    }
   }
 
   // Rate limit theo IP + công ty
@@ -131,6 +150,8 @@ export async function POST(req: NextRequest) {
         email: email || null,
         experience: experience || null,
         cvUrl: cvUrl || null,
+        cvFile: cvFile || null,
+        cvFileName: cvFileName || null,
         notes,
         source: "website",
         status: "new",
@@ -148,7 +169,11 @@ export async function POST(req: NextRequest) {
     try {
       const scored = await scoreCandidate(
         { name, experience, phone, notes },
-        { title: job.title, requirements: job.requirements, description: job.description }
+        { title: job.title, requirements: job.requirements, description: job.description },
+        {
+          file: cvBase64 && cvMediaType ? { data: cvBase64, mediaType: cvMediaType } : undefined,
+          link: cvUrl,
+        }
       );
       aiScore = scored.score;
       await prisma.candidate.update({

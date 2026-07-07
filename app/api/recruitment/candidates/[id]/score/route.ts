@@ -27,16 +27,24 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const cand = await prisma.candidate.findFirst({
     where: { id: params.id, companyId, ...(b ? { job: { OR: [{ branchId: b }, { branchId: null }] } } : {}) },
     select: {
-      id: true, name: true, experience: true, phone: true, notes: true,
+      id: true, name: true, experience: true, phone: true, notes: true, cvUrl: true, cvFile: true,
       job: { select: { title: true, requirements: true, description: true } },
     },
   });
   if (!cand) return NextResponse.json({ error: "Không tìm thấy ứng viên" }, { status: 404 });
 
+  // Tách CV file (data URI) thành base64 + mediaType để AI đọc
+  let cvFilePart: { data: string; mediaType: string } | undefined;
+  if (cand.cvFile) {
+    const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(cand.cvFile);
+    if (m) cvFilePart = { data: m[2], mediaType: m[1] };
+  }
+
   try {
     const result = await scoreCandidate(
       { name: cand.name, experience: cand.experience, phone: cand.phone, notes: cand.notes },
-      { title: cand.job.title, requirements: cand.job.requirements, description: cand.job.description }
+      { title: cand.job.title, requirements: cand.job.requirements, description: cand.job.description },
+      { file: cvFilePart, link: cand.cvUrl }
     );
     await prisma.candidate.update({
       where: { id: cand.id },

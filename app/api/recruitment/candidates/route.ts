@@ -28,7 +28,13 @@ export async function GET(req: NextRequest) {
       ...(status ? { status } : {}),
       ...candidateBranchFilter(user!),
     },
-    include: { job: { select: { id: true, title: true, department: true, branchId: true } } },
+    // KHÔNG lấy cvFile (base64 nặng) trong danh sách — chỉ báo có file qua cvFileName
+    select: {
+      id: true, jobId: true, name: true, email: true, phone: true, status: true, notes: true,
+      source: true, experience: true, cvUrl: true, cvFileName: true, aiScore: true, aiSummary: true,
+      hiredEmpId: true, appliedAt: true,
+      job: { select: { id: true, title: true, department: true, branchId: true } },
+    },
     orderBy: { appliedAt: "desc" },
   });
 
