@@ -859,6 +859,7 @@ model EmployeeChecklist {
   tasks      String   // JSON: [{title: string, done: boolean, doneAt: string | null}]
   status     String   @default("in_progress") // "in_progress" | "done"
   dueDate    String?  // YYYY-MM-DD
+  confirmedAt DateTime? // Nhân viên tự quét mặt xác nhận đã nhận bàn giao (kiosk /checklist/[slug])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

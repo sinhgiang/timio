@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { ClipboardCheck, Plus, CheckSquare, Square, Trash2, Pencil, ChevronDown, ChevronUp, UserPlus, UserMinus, X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ClipboardCheck, Plus, CheckSquare, Square, Trash2, Pencil, ChevronDown, ChevronUp, UserPlus, UserMinus, X, ScanFace, ExternalLink, Copy, Check, Download, HelpCircle } from "lucide-react";
 
 type Employee = { id: string; name: string; code: string; department: string | null; status: string };
 type ChecklistTask = { title: string; done: boolean; doneAt: string | null };
@@ -12,6 +12,7 @@ type Checklist = {
   tasks: string;
   status: string;
   dueDate: string | null;
+  confirmedAt: string | null;
   createdAt: string;
   template: Template;
   employee: Employee;
@@ -38,12 +39,49 @@ const DEFAULT_OFFBOARDING = [
   "Hoàn tất thủ tục BHXH",
 ];
 
-export default function OnboardingClient({ employees }: { employees: Employee[] }) {
+export default function OnboardingClient({ employees, companySlug }: { employees: Employee[]; companySlug: string }) {
   const [activeTab, setActiveTab] = useState<"onboarding" | "offboarding">("onboarding");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [showHelp, setShowHelp] = useState(false);
+
+  // Kiosk quét mặt nhận bàn giao
+  const [kioskUrl, setKioskUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && companySlug) {
+      setKioskUrl(`${window.location.origin}/checklist/${companySlug}`);
+    }
+  }, [companySlug]);
+
+  useEffect(() => {
+    if (!kioskUrl || !qrCanvasRef.current) return;
+    import("qrcode").then(({ toCanvas }) => {
+      if (qrCanvasRef.current) {
+        toCanvas(qrCanvasRef.current, kioskUrl, { width: 150, margin: 1 }).catch(() => {});
+      }
+    });
+  }, [kioskUrl]);
+
+  const copyKioskUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(kioskUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  const downloadQr = () => {
+    if (!qrCanvasRef.current) return;
+    const link = document.createElement("a");
+    link.download = `qr-ban-giao-${companySlug}.png`;
+    link.href = qrCanvasRef.current.toDataURL("image/png");
+    link.click();
+  };
 
   // Template form
   const [tplForm, setTplForm] = useState<{ id?: string; name: string; tasks: string[] } | null>(null);
@@ -125,13 +163,71 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
-          <ClipboardCheck size={20} className="text-teal-600" strokeWidth={1.5} />
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center shrink-0">
+            <ClipboardCheck size={20} className="text-teal-600" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">Bàn giao nhân viên</h1>
+            <p className="text-sm text-gray-500">Danh sách việc cần làm khi nhân viên <strong>mới vào</strong> hoặc <strong>nghỉ việc</strong></p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Onboarding / Offboarding</h1>
-          <p className="text-sm text-gray-500">Checklist bàn giao khi nhân viên mới vào / nghỉ việc</p>
+        <button onClick={() => setShowHelp(v => !v)}
+          className="flex items-center gap-1.5 text-sm text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+          <HelpCircle size={15} /> Hướng dẫn
+        </button>
+      </div>
+
+      {/* Hướng dẫn 3 bước */}
+      {showHelp && (
+        <div className="bg-teal-50 border border-teal-100 rounded-2xl p-5 mb-6">
+          <p className="text-sm font-semibold text-teal-800 mb-3">Trang này hoạt động thế nào?</p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {[
+              { n: "1", t: "Tạo mẫu", d: "Liệt kê các việc/tài sản cần bàn giao (VD: nhận laptop, ký hợp đồng...). Làm 1 lần, dùng lại nhiều lần." },
+              { n: "2", t: "Giao cho nhân viên", d: "Chọn mẫu → gán cho một nhân viên cụ thể. Nhân viên đó sẽ có một danh sách cần xác nhận." },
+              { n: "3", t: "Nhân viên quét mặt xác nhận", d: "Nhân viên ra máy quét mặt (hoặc mở link trên điện thoại), tự tích từng món đã nhận, rồi bấm Xác nhận. Xong sẽ hiện “Đã xác nhận”." },
+            ].map(s => (
+              <div key={s.n} className="bg-white rounded-xl p-3.5 border border-teal-100">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{s.n}</span>
+                  <p className="font-semibold text-gray-800 text-sm">{s.t}</p>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">{s.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Màn hình quét mặt nhận bàn giao */}
+      <div className="bg-white rounded-2xl border border-gray-200 mb-6 p-5 flex flex-col sm:flex-row items-center gap-5">
+        <div className="bg-gray-50 rounded-xl p-2 border border-gray-100 shrink-0">
+          <canvas ref={qrCanvasRef} className="block" />
+        </div>
+        <div className="flex-1 text-center sm:text-left">
+          <div className="flex items-center gap-2 justify-center sm:justify-start mb-1">
+            <ScanFace size={18} className="text-teal-600" />
+            <h2 className="font-semibold text-gray-800">Màn hình quét mặt nhận bàn giao</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-3">
+            Đặt màn hình này ở văn phòng, hoặc gửi link cho nhân viên. Họ quét mặt → tự tích các món đã nhận → xác nhận.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+            <a href={kioskUrl || "#"} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-teal-700 transition-colors">
+              <ExternalLink size={14} /> Mở màn hình
+            </a>
+            <button onClick={copyKioskUrl}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+              {copied ? <><Check size={14} className="text-green-600" /> Đã chép</> : <><Copy size={14} /> Chép link</>}
+            </button>
+            <button onClick={downloadQr}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+              <Download size={14} /> Tải mã QR
+            </button>
+          </div>
         </div>
       </div>
 
@@ -140,7 +236,7 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
         {(["onboarding", "offboarding"] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${activeTab === t ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
             {t === "onboarding" ? <UserPlus size={14} /> : <UserMinus size={14} />}
-            {t === "onboarding" ? "Onboarding" : "Offboarding"}
+            {t === "onboarding" ? "Nhân viên mới vào" : "Nhân viên nghỉ việc"}
           </button>
         ))}
       </div>
@@ -148,7 +244,10 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
       {/* Templates section */}
       <div className="bg-white rounded-2xl border border-gray-200 mb-6 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-700">Mẫu checklist ({tabTemplates.length})</h2>
+          <div>
+            <h2 className="font-semibold text-gray-700">Mẫu danh sách bàn giao ({tabTemplates.length})</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Danh sách các việc/tài sản cần bàn giao. Bấm "Giao cho NV" để gán cho một nhân viên.</p>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setTplForm({
@@ -221,6 +320,11 @@ export default function OnboardingClient({ employees }: { employees: Employee[] 
                         <p className="font-semibold text-gray-800">{cl.employee?.name}</p>
                         <span className="text-xs text-gray-400">{cl.template?.name}</span>
                         {cl.status === "done" && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Hoàn thành</span>}
+                        {cl.confirmedAt && (
+                          <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <ScanFace size={11} /> NV đã quét mặt xác nhận · {new Date(cl.confirmedAt).toLocaleDateString("vi-VN")}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex-1 bg-gray-100 rounded-full h-1.5">

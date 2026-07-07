@@ -10,11 +10,14 @@ export default async function OnboardingPage() {
   const companyId = user?.companyId;
   if (!companyId) return null;
 
-  const employees = await prisma.employee.findMany({
-    where: { companyId, ...branchWhere(user) },
-    select: { id: true, name: true, code: true, department: true, status: true },
-    orderBy: { name: "asc" },
-  });
+  const [company, employees] = await Promise.all([
+    prisma.company.findUnique({ where: { id: companyId }, select: { slug: true } }),
+    prisma.employee.findMany({
+      where: { companyId, ...branchWhere(user) },
+      select: { id: true, name: true, code: true, department: true, status: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  return <OnboardingClient employees={employees} />;
+  return <OnboardingClient employees={employees} companySlug={company?.slug ?? ""} />;
 }
