@@ -39,6 +39,9 @@ async function complete(system: string, user: string, maxTokens = 1024): Promise
 
 export interface GeneratedJD {
   title: string;
+  department: string;
+  location: string;
+  branchName: string; // tên chi nhánh nếu người dùng nói rõ (khớp danh sách chi nhánh công ty), không thì rỗng
   description: string;
   requirements: string;
   benefits: string;
@@ -53,12 +56,12 @@ export interface CompanyContext {
   departments?: string[]; // phòng ban công ty đang có
   positions?: string[]; // chức vụ công ty đang có
   existingTitles?: string[]; // các vị trí đang/đã tuyển
-  branchName?: string | null;
+  branches?: string[]; // danh sách chi nhánh của công ty
 }
 
 export async function generateJD(hint: string, ctx: CompanyContext): Promise<GeneratedJD> {
   const contextLines: string[] = [`Tên công ty: ${ctx.name}`];
-  if (ctx.branchName) contextLines.push(`Chi nhánh tuyển: ${ctx.branchName}`);
+  if (ctx.branches?.length) contextLines.push(`Các chi nhánh của công ty: ${ctx.branches.slice(0, 30).join(", ")}`);
   if (ctx.departments?.length) contextLines.push(`Các phòng ban hiện có: ${ctx.departments.slice(0, 20).join(", ")}`);
   if (ctx.positions?.length) contextLines.push(`Các chức vụ hiện có: ${ctx.positions.slice(0, 20).join(", ")}`);
   if (ctx.existingTitles?.length) contextLines.push(`Vị trí công ty đã đăng tuyển: ${ctx.existingTitles.slice(0, 15).join(", ")}`);
@@ -67,15 +70,19 @@ export async function generateJD(hint: string, ctx: CompanyContext): Promise<Gen
 
 NGUYÊN TẮC CHUYÊN GIA:
 - Bám sát cơ cấu công ty đã cho (phòng ban, chức vụ, các vị trí đã tuyển) để đặt tên vị trí & mô tả cho NHẤT QUÁN với công ty. Nếu gợi ý khớp một chức vụ có sẵn, ưu tiên dùng đúng tên đó.
-- Mô tả công việc: 4-7 gạch đầu dòng cụ thể, dùng ĐỘNG TỪ hành động, rõ đầu việc hằng ngày — không chung chung.
-- Yêu cầu: 3-6 ý, tách "Bắt buộc" và "Ưu tiên" nếu hợp lý; thực tế với thị trường lao động Việt Nam, không đòi hỏi quá mức cho vị trí phổ thông.
-- Quyền lợi: 3-6 ý hấp dẫn nhưng TRUNG THỰC (lương thưởng, chế độ, môi trường, cơ hội) — KHÔNG bịa phúc lợi không có căn cứ.
+- ĐIỀN ĐẦY ĐỦ CÁC TRƯỜNG: nếu người dùng có NÓI RÕ phòng ban → điền "department" (khớp phòng ban công ty nếu có, không thì dùng đúng từ họ nói). Nếu nói rõ ĐỊA ĐIỂM/khu vực → điền "location". Nếu nói rõ CHI NHÁNH và tên đó KHỚP một chi nhánh công ty → điền "branchName" đúng y tên chi nhánh đó (không khớp thì để rỗng và ghi địa điểm vào "location").
+- Mô tả công việc: 5-8 gạch đầu dòng cụ thể, dùng ĐỘNG TỪ hành động, rõ đầu việc hằng ngày — không chung chung.
+- Yêu cầu: 4-6 ý, tách "Bắt buộc" và "Ưu tiên" nếu hợp lý; thực tế với thị trường lao động Việt Nam, không đòi hỏi quá mức cho vị trí phổ thông.
+- Quyền lợi: 4-6 ý hấp dẫn nhưng TRUNG THỰC (lương thưởng, chế độ, môi trường, cơ hội) — KHÔNG bịa phúc lợi không có căn cứ.
 - Giọng văn: chuyên nghiệp, tích cực, thân thiện, "chuẩn nhà tuyển dụng"; tiếng Việt chuẩn, có dấu đầy đủ; mỗi ý một dòng (\\n). Có thể mở đầu mô tả bằng 1 câu giới thiệu ngắn hấp dẫn.
 - Suy luận thông minh: nếu chỉ có lương theo giờ, quy đổi khoảng lương tháng hợp lý (~26 ngày, ca 8h) khi đủ căn cứ; suy ra ca làm, số lượng nếu gợi ý có nêu.
 
 CHỈ trả về DUY NHẤT một JSON hợp lệ (không markdown, không giải thích), schema:
 {
   "title": "tên vị trí ngắn gọn, đúng chuẩn",
+  "department": "phòng ban nếu người dùng nói rõ, không thì rỗng",
+  "location": "địa điểm/khu vực nếu người dùng nói rõ, không thì rỗng",
+  "branchName": "tên chi nhánh KHỚP danh sách chi nhánh công ty nếu người dùng nói rõ, không thì rỗng",
   "description": "mô tả công việc, mỗi ý một dòng",
   "requirements": "yêu cầu, mỗi ý một dòng",
   "benefits": "quyền lợi, mỗi ý một dòng",
@@ -95,6 +102,9 @@ Hãy soạn bài tuyển dụng hoàn chỉnh, chuyên nghiệp như chuyên gia
   const parsed = extractJson<Partial<GeneratedJD>>(text);
   return {
     title: (parsed?.title || "").toString().trim() || hint.slice(0, 60),
+    department: (parsed?.department || "").toString().trim(),
+    location: (parsed?.location || "").toString().trim(),
+    branchName: (parsed?.branchName || "").toString().trim(),
     description: (parsed?.description || "").toString().trim(),
     requirements: (parsed?.requirements || "").toString().trim(),
     benefits: (parsed?.benefits || "").toString().trim(),

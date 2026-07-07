@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2 } from "lucide-react";
 import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
+import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
 
 type Branch = { id: string; name: string };
 
@@ -235,9 +236,20 @@ export default function RecruitmentClient({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setAiJdError(data?.error || "AI viết không thành công."); setAiJdLoading(false); return; }
       const jd = data.jd;
+      // Khớp tên chi nhánh AI trả về với chi nhánh công ty (không phân biệt hoa/thường)
+      const norm = (s: string) => s.trim().toLowerCase();
+      const matchedBranch = jd.branchName
+        ? branches.find((b) => norm(b.name) === norm(jd.branchName)) || branches.find((b) => norm(b.name).includes(norm(jd.branchName)) || norm(jd.branchName).includes(norm(b.name)))
+        : null;
+      // Nếu AI điền phòng ban/địa điểm mới → thêm vào danh sách gợi ý
+      if (jd.department && !localDepts.includes(jd.department)) setLocalDepts((p) => [jd.department, ...p]);
+      if (jd.location && !localLocations.includes(jd.location)) setLocalLocations((p) => [jd.location, ...p]);
       setJobForm((f) => ({
         ...(f || {}),
         title: jd.title || f?.title || "",
+        department: jd.department || f?.department || null,
+        location: (matchedBranch ? matchedBranch.name : jd.location) || f?.location || null,
+        branchId: matchedBranch ? matchedBranch.id : (f?.branchId ?? null),
         description: jd.description || null,
         requirements: jd.requirements || null,
         benefits: jd.benefits || null,
@@ -809,8 +821,8 @@ export default function RecruitmentClient({
 
       {/* Job form modal */}
       {jobForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 flex items-start md:items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-6 max-h-[95vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-800 mb-4">{jobForm.id ? "Chỉnh sửa vị trí" : "Thêm vị trí tuyển dụng"}</h3>
 
             {/* AI viết giúp — chỉ gói Business */}
@@ -896,15 +908,15 @@ export default function RecruitmentClient({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả công việc</label>
-                <textarea rows={3} value={jobForm.description || ""} onChange={e => setJobForm({ ...jobForm, description: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="Mô tả ngắn về công việc..." />
+                <AutoGrowTextarea minHeight={130} value={jobForm.description || ""} onChange={e => setJobForm({ ...jobForm, description: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3.5 py-3 text-sm leading-relaxed focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Mô tả công việc — mỗi ý một dòng..." />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Yêu cầu</label>
-                <textarea rows={3} value={jobForm.requirements || ""} onChange={e => setJobForm({ ...jobForm, requirements: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="Kinh nghiệm, kỹ năng yêu cầu..." />
+                <AutoGrowTextarea minHeight={110} value={jobForm.requirements || ""} onChange={e => setJobForm({ ...jobForm, requirements: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3.5 py-3 text-sm leading-relaxed focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Kinh nghiệm, kỹ năng yêu cầu — mỗi ý một dòng..." />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quyền lợi</label>
-                <textarea rows={2} value={jobForm.benefits || ""} onChange={e => setJobForm({ ...jobForm, benefits: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none" placeholder="VD: Bao ăn ca, thưởng chuyên cần, môi trường trẻ trung..." />
+                <AutoGrowTextarea minHeight={100} value={jobForm.benefits || ""} onChange={e => setJobForm({ ...jobForm, benefits: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3.5 py-3 text-sm leading-relaxed focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Bao ăn ca, thưởng chuyên cần, môi trường trẻ trung..." />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

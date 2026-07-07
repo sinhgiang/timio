@@ -31,13 +31,15 @@ export async function POST(req: NextRequest) {
   const opts = company.customOptions
     ? (JSON.parse(company.customOptions) as { departments?: string[]; positions?: string[] })
     : {};
-  const [jobTitles, empDepts] = await Promise.all([
+  const [jobTitles, empDepts, branchRows] = await Promise.all([
     prisma.jobPosting.findMany({ where: { companyId }, select: { title: true }, take: 20, orderBy: { createdAt: "desc" } }),
     prisma.employee.findMany({ where: { companyId }, select: { department: true, position: true }, take: 100 }),
+    prisma.branch.findMany({ where: { companyId }, select: { name: true } }),
   ]);
   const departments = Array.from(new Set([...(opts.departments ?? []), ...empDepts.map((e) => e.department).filter((d): d is string => !!d)]));
   const positions = Array.from(new Set([...(opts.positions ?? []), ...empDepts.map((e) => e.position).filter((p): p is string => !!p)]));
   const existingTitles = Array.from(new Set(jobTitles.map((j) => j.title)));
+  const branches = branchRows.map((b) => b.name);
 
   try {
     const jd = await generateJD(String(hint).trim(), {
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest) {
       departments,
       positions,
       existingTitles,
+      branches,
     });
     return NextResponse.json({ ok: true, jd });
   } catch (e) {
