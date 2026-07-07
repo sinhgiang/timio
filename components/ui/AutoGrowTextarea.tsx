@@ -10,12 +10,14 @@ export default function AutoGrowTextarea({
   value,
   onChange,
   minHeight = 120,
+  maxHeight,
   className = "",
   ...rest
 }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   minHeight?: number;
+  maxHeight?: number; // nếu đặt: giãn tới ngưỡng rồi cuộn, luôn hiện dòng mới nhất (như ô chat)
 } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "style">) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -23,8 +25,16 @@ export default function AutoGrowTextarea({
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`;
-  }, [minHeight]);
+    const target = Math.max(el.scrollHeight, minHeight);
+    if (maxHeight && el.scrollHeight > maxHeight) {
+      el.style.height = `${maxHeight}px`;
+      el.style.overflowY = "auto";
+      el.scrollTop = el.scrollHeight; // luôn thấy chữ mới nhất
+    } else {
+      el.style.height = `${target}px`;
+      el.style.overflowY = "hidden";
+    }
+  }, [minHeight, maxHeight]);
 
   useEffect(() => { resize(); }, [value, resize]);
 

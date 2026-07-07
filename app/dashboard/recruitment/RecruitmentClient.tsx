@@ -833,16 +833,19 @@ export default function RecruitmentClient({
                   <span className="text-sm font-semibold text-purple-700">AI viết giúp</span>
                   <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">Chuyên gia 15 năm</span>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">Gõ hoặc <b>bấm micro nói</b> vài từ — AI viết thành bài tuyển dụng chuyên nghiệp. Bạn xem lại rồi sửa trước khi lưu.</p>
-                <div className="flex gap-2">
-                  <input
-                    value={aiHint}
-                    onChange={(e) => setAiHint(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aiWriteJD(); } }}
-                    placeholder="VD: tuyển 2 phục vụ ca tối, 25k/giờ, gần Cầu Giấy"
-                    className="flex-1 min-w-0 border border-purple-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-300 outline-none"
-                  />
+                <p className="text-xs text-gray-500 mb-2">Gõ hoặc <b>bấm micro nói</b> thoải mái (ngập ngừng cũng không sao) — <b>nói xong bấm “Dừng”</b> là AI viết thành bài tuyển dụng chuyên nghiệp. Bạn xem lại rồi sửa trước khi lưu.</p>
+                <AutoGrowTextarea
+                  value={aiHint}
+                  onChange={(e) => setAiHint(e.target.value)}
+                  minHeight={46}
+                  maxHeight={160}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); aiWriteJD(); } }}
+                  placeholder="VD: tuyển 2 phục vụ ca tối, 25k/giờ, gần Cầu Giấy — hoặc bấm micro nói"
+                  className="w-full border border-purple-200 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed focus:ring-2 focus:ring-purple-300 outline-none"
+                />
+                <div className="flex items-center justify-between gap-2 mt-2">
                   <VoiceInput
+                    manualStop
                     title="Nhấn để nói yêu cầu tuyển dụng"
                     onInterim={(t) => setAiHint(t)}
                     onFinal={(t) => { setAiHint(t); aiWriteJD(t); }}
@@ -850,10 +853,10 @@ export default function RecruitmentClient({
                   <button
                     onClick={() => aiWriteJD()}
                     disabled={aiJdLoading || !aiHint.trim()}
-                    className="shrink-0 flex items-center gap-1.5 bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
+                    className="flex items-center gap-1.5 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
                   >
                     {aiJdLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                    {aiJdLoading ? "Đang viết..." : "Viết"}
+                    {aiJdLoading ? "Đang viết..." : "Viết bài tuyển dụng"}
                   </button>
                 </div>
                 {aiJdLoading && <p className="text-xs text-purple-600 mt-1.5 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Chuyên gia AI đang soạn bài tuyển dụng...</p>}
