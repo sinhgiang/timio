@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { scopedBranchId, type ScopeUser } from "@/lib/branchScope";
-import { signFaceToken } from "@/lib/faceToken";
+import { signOnboardingToken } from "@/lib/faceToken";
 
 // Tuyển-1-chạm: biến ứng viên thành nhân viên chấm công + trả link đăng ký khuôn mặt
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -32,11 +32,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Manager chi nhánh: ép chi nhánh của họ
   const finalBranchId = b ?? (branchId || null);
   if (!finalBranchId) return NextResponse.json({ error: "Vui lòng chọn chi nhánh cho nhân viên." }, { status: 400 });
-  if (!code || !String(code).trim()) return NextResponse.json({ error: "Vui lòng nhập mã nhân viên." }, { status: 400 });
 
   // Chi nhánh phải thuộc công ty
   const branch = await prisma.branch.findFirst({ where: { id: finalBranchId, companyId }, select: { id: true } });
   if (!branch) return NextResponse.json({ error: "Chi nhánh không hợp lệ." }, { status: 400 });
+
+  // Mã nhân viên: dùng mã sếp nhập, hoặc tự sinh (NV + số thứ tự)
+  async function genCode(): Promise<string> {
+    const count = await prisma.employee.count({ where: { companyId } });
+    for (let i = 0; i < 20; i++) {
+      const candidateCode = `NV${String(count + 1 + i).padStart(3, "0")}`;
+      const exists = await prisma.employee.findFirst({ where: { companyId, code: candidateCode }, select: { id: true } });
+      if (!exists) return candidateCode;
+    }
+    return `NV${Date.now().toString().slice(-6)}`;
+  }
+  const finalCode = code && String(code).trim() ? String(code).trim() : await genCode();
 
   const plainPin = pin && /^\d{4}$/.test(String(pin)) ? String(pin) : "0000";
 
@@ -45,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     employee = await prisma.employee.create({
       data: {
         name: candidate.name,
-        code: String(code).trim(),
+        code: finalCode,
         pin: plainPin,
         department: department || null,
         position: position || null,
@@ -73,13 +84,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     data: { status: "hired", hiredEmpId: employee.id },
   });
 
-  // Link đăng ký khuôn mặt (hiệu lực 20 phút)
-  const token = signFaceToken(employee.id, companyId, employee.name);
+  // Link onboarding: nhân viên tự điền hồ sơ + quét mặt (hiệu lực 7 ngày)
+  const token = signOnboardingToken(employee.id, companyId, employee.name);
 
   return NextResponse.json({
     ok: true,
     employee,
-    faceToken: token,
-    faceRegisterPath: `/register-face/${encodeURIComponent(token)}`,
+    onboardingToken: token,
+    onboardingPath: `/onboarding/${encodeURIComponent(token)}`,
   });
 }

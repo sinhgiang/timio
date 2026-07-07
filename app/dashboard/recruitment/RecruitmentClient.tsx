@@ -201,7 +201,7 @@ export default function RecruitmentClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setHireError(data?.error || "Không tạo được hồ sơ nhân viên."); setHiring(false); return; }
-      const faceUrl = typeof window !== "undefined" ? `${window.location.origin}${data.faceRegisterPath}` : data.faceRegisterPath;
+      const faceUrl = typeof window !== "undefined" ? `${window.location.origin}${data.onboardingPath}` : data.onboardingPath;
       setHireResult({ empName: data.employee.name, empCode: data.employee.code, faceUrl });
       fetchCandidates(selectedJob?.id);
       fetchJobs();
@@ -1092,10 +1092,10 @@ export default function RecruitmentClient({
             {!hireResult ? (
               <>
                 <h3 className="text-lg font-bold text-gray-800 mb-1">Tuyển {hireCand.name}</h3>
-                <p className="text-xs text-gray-500 mb-4">Tạo hồ sơ nhân viên chấm công từ ứng viên này. Tên/SĐT/email được chuyển tự động.</p>
+                <p className="text-xs text-gray-500 mb-4">Chọn chi nhánh rồi tạo <b>link mời</b> — nhân viên tự điền hồ sơ đầy đủ và quét khuôn mặt. Bạn không phải nhập thay.</p>
                 <div className="space-y-3.5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chi nhánh *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Chi nhánh làm việc <span className="text-red-500">*</span></label>
                     <select value={hireForm.branchId} onChange={(e) => setHireForm({ ...hireForm, branchId: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white">
                       <option value="">-- Chọn chi nhánh --</option>
                       {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -1103,34 +1103,19 @@ export default function RecruitmentClient({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mã nhân viên *</label>
-                      <input type="text" value={hireForm.code} onChange={(e) => setHireForm({ ...hireForm, code: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: NV015" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mã PIN (4 số)</label>
-                      <input type="text" inputMode="numeric" maxLength={4} value={hireForm.pin} onChange={(e) => setHireForm({ ...hireForm, pin: e.target.value.replace(/\D/g, "") })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Mặc định 0000" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
-                      <input type="text" value={hireForm.department} onChange={(e) => setHireForm({ ...hireForm, department: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Vận hành" />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mã nhân viên</label>
+                      <input type="text" value={hireForm.code} onChange={(e) => setHireForm({ ...hireForm, code: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Để trống = tự tạo" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Chức vụ</label>
                       <input type="text" value={hireForm.position} onChange={(e) => setHireForm({ ...hireForm, position: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Phục vụ" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Lương cơ bản (₫)</label>
-                      <input type="number" min="0" value={hireForm.baseSalary} onChange={(e) => setHireForm({ ...hireForm, baseSalary: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: 6000000" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ngày vào làm</label>
-                      <input type="date" value={hireForm.joinDate} onChange={(e) => setHireForm({ ...hireForm, joinDate: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
+                    <input type="text" value={hireForm.department} onChange={(e) => setHireForm({ ...hireForm, department: e.target.value })} className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Vận hành" />
                   </div>
+                  <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">Thông tin cá nhân, ảnh, ngân hàng và khuôn mặt do nhân viên tự điền qua link. Mã PIN chấm công bạn cấp sau trong mục Nhân viên.</p>
                   {hireError && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{hireError}</p>
                   )}
@@ -1138,7 +1123,7 @@ export default function RecruitmentClient({
                 <div className="flex gap-3 mt-6">
                   <button onClick={() => setHireCand(null)} className="flex-1 border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Hủy</button>
                   <button onClick={submitHire} disabled={hiring} className="flex-1 bg-green-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-60">
-                    {hiring ? "Đang tạo..." : "Tạo hồ sơ nhân viên"}
+                    {hiring ? "Đang tạo..." : "Tạo link mời nhân viên"}
                   </button>
                 </div>
               </>
@@ -1148,12 +1133,12 @@ export default function RecruitmentClient({
                   <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
                     <Check size={26} className="text-green-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-800">Đã tạo hồ sơ nhân viên!</h3>
+                  <h3 className="text-lg font-bold text-gray-800">Đã tạo hồ sơ — gửi link cho nhân viên!</h3>
                   <p className="text-sm text-gray-500 mt-1">{hireResult.empName} · Mã {hireResult.empCode}</p>
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3.5">
-                  <p className="text-sm font-medium text-gray-800 mb-1">Gửi link đăng ký khuôn mặt cho nhân viên mới</p>
-                  <p className="text-xs text-gray-500 mb-2">Nhân viên mở link trên điện thoại, quét mặt là xong — sẵn sàng chấm công. Link hiệu lực 20 phút.</p>
+                  <p className="text-sm font-medium text-gray-800 mb-1">Gửi link này cho nhân viên mới</p>
+                  <p className="text-xs text-gray-500 mb-2">Nhân viên mở link trên điện thoại → <b>bước 1</b> điền hồ sơ (ảnh, ngân hàng...) → <b>bước 2</b> quét khuôn mặt. Xong tự lưu về hệ thống. Link hiệu lực 7 ngày.</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-[11px] bg-white border border-blue-100 px-2 py-1.5 rounded text-blue-700 break-all">{hireResult.faceUrl}</code>
                     <button onClick={copyFaceUrl} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium border ${copiedFace ? "bg-green-50 border-green-200 text-green-600" : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700"}`}>
@@ -1162,7 +1147,7 @@ export default function RecruitmentClient({
                   </div>
                 </div>
                 <div className="flex gap-2 mt-5">
-                  <a href={hireResult.faceUrl} target="_blank" rel="noopener noreferrer" className="flex-1 text-center border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Mở link đăng ký</a>
+                  <a href={hireResult.faceUrl} target="_blank" rel="noopener noreferrer" className="flex-1 text-center border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Xem thử link</a>
                   <button onClick={() => setHireCand(null)} className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm hover:bg-blue-700">Xong</button>
                 </div>
               </>
