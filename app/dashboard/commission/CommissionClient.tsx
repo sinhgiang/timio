@@ -87,6 +87,8 @@ export default function CommissionClient({ employees }: { employees: Employee[] 
 
   const commissionEmployees = employees.filter(e => e.salaryType !== "fixed");
   const allEmployees = employees;
+  // Bảng doanh số tháng: hiện NV có lương biến đổi HOẶC đã có nhập liệu tháng này
+  const displayEmployees = allEmployees.filter(e => e.salaryType !== "fixed" || recordByEmp.has(e.id));
 
   async function saveRecord() {
     if (!recordForm) return;
@@ -210,8 +212,9 @@ export default function CommissionClient({ employees }: { employees: Employee[] 
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-700">Doanh số & KPI tháng {month}</h2>
           <button
-            onClick={() => setRecordForm({ empId: commissionEmployees[0]?.id || "", salesAmount: "", kpiScore: "", note: "" })}
-            className="flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors"
+            onClick={() => setRecordForm({ empId: commissionEmployees[0]?.id || allEmployees[0]?.id || "", salesAmount: "", kpiScore: "", note: "" })}
+            disabled={allEmployees.length === 0}
+            className="flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={14} /> Nhập dữ liệu
           </button>
@@ -219,11 +222,11 @@ export default function CommissionClient({ employees }: { employees: Employee[] 
 
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Đang tải...</div>
-        ) : commissionEmployees.length === 0 ? (
+        ) : displayEmployees.length === 0 ? (
           <div className="p-8 text-center">
             <Target size={32} className="text-gray-300 mx-auto mb-2" strokeWidth={1.5} />
             <p className="text-gray-500 text-sm">Chưa có nhân viên nào có lương biến đổi.</p>
-            <p className="text-gray-400 text-xs mt-1">Bấm chỉnh sửa nhân viên để đặt loại lương Hoa hồng hoặc KPI.</p>
+            <p className="text-gray-400 text-xs mt-1">Bấm biểu tượng ✏️ ở bảng “Cấu hình loại lương nhân viên” bên trên để đặt Hoa hồng / KPI cho nhân viên, hoặc bấm “Nhập dữ liệu” để nhập doanh số cho bất kỳ ai.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -239,7 +242,7 @@ export default function CommissionClient({ employees }: { employees: Employee[] 
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {commissionEmployees.map(emp => {
+                {displayEmployees.map(emp => {
                   const rec = recordByEmp.get(emp.id);
                   const bonus = rec ? calcBonus(emp, rec) : 0;
                   const isExpanded = expanded.has(emp.id);
@@ -287,7 +290,7 @@ export default function CommissionClient({ employees }: { employees: Employee[] 
                 <tr className="bg-purple-50">
                   <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-purple-800">Tổng thưởng tháng {month}</td>
                   <td className="px-4 py-3 text-right text-sm font-bold text-purple-700">
-                    {commissionEmployees.reduce((sum, emp) => {
+                    {displayEmployees.reduce((sum, emp) => {
                       const rec = recordByEmp.get(emp.id);
                       return sum + (rec ? calcBonus(emp, rec) : 0);
                     }, 0).toLocaleString("vi-VN")} ₫
@@ -393,10 +396,22 @@ export default function CommissionClient({ employees }: { employees: Employee[] 
                   onChange={e => setRecordForm({ ...recordForm, empId: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 outline-none"
                 >
-                  {commissionEmployees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name} ({SALARY_TYPE_LABELS[emp.salaryType]})</option>
+                  {allEmployees.length === 0 && <option value="">Chưa có nhân viên</option>}
+                  {allEmployees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({SALARY_TYPE_LABELS[emp.salaryType] || emp.salaryType})</option>
                   ))}
                 </select>
+                {(() => {
+                  const sel = allEmployees.find(e => e.id === recordForm.empId);
+                  if (sel && sel.salaryType === "fixed") {
+                    return (
+                      <p className="text-xs text-amber-600 mt-1.5 leading-snug">
+                        Nhân viên này đang để <b>Lương cố định</b> nên thưởng sẽ = 0₫. Đặt loại lương <b>Hoa hồng</b> hoặc <b>KPI</b> ở bảng “Cấu hình loại lương” bên trên để tính thưởng.
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Doanh số thực tế (₫)</label>
