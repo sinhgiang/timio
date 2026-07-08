@@ -17,6 +17,7 @@ export default function TalentOptInClient({
   const [interestList, setInterestList] = useState<Interest[]>(interests);
   const [respondBusy, setRespondBusy] = useState<string | null>(null);
   const [respondMsg, setRespondMsg] = useState<Record<string, string>>({});
+  const [copiedShare, setCopiedShare] = useState(false);
 
   async function respondInterest(id: string, action: "accept" | "decline") {
     setRespondBusy(id);
@@ -99,6 +100,17 @@ export default function TalentOptInClient({
           <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3"><CheckCircle2 size={30} className="text-green-600" /></div>
           <h1 className="text-xl font-bold text-gray-800">Hoàn tất! 🎉</h1>
           <p className="text-sm text-gray-600 mt-2">Hồ sơ của bạn đã vào cộng đồng ứng viên Timio. Khi có công việc tốt phù hợp, Timio sẽ giới thiệu cho bạn — và nhà tuyển dụng chỉ liên hệ được khi <b>bạn đồng ý</b>.</p>
+
+          {/* Chia sẻ hồ sơ xác thực */}
+          <div className="mt-5 bg-blue-50 border border-blue-100 rounded-xl p-3.5 text-left">
+            <p className="text-sm font-semibold text-blue-800 mb-1 flex items-center gap-1.5"><Sparkles size={14} /> Hồ sơ xác thực của bạn</p>
+            <p className="text-xs text-gray-600 mb-2">Chia sẻ link này khi xin việc — nó chứng minh bạn đi làm đúng giờ, chuyên cần bằng dữ liệu thật (không phải tự khai).</p>
+            <div className="flex gap-2">
+              <a href={`/hoso/${token}`} target="_blank" rel="noreferrer" className="flex-1 text-center bg-blue-600 text-white text-sm rounded-lg py-2 hover:bg-blue-700">Xem hồ sơ</a>
+              <button onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/hoso/${token}`).catch(() => {}); setCopiedShare(true); setTimeout(() => setCopiedShare(false), 2000); }} className="flex-1 border border-blue-200 text-blue-700 text-sm rounded-lg py-2 hover:bg-blue-100">{copiedShare ? "Đã chép ✓" : "Chép link"}</button>
+            </div>
+          </div>
+
           <button onClick={optOut} className="mt-5 text-xs text-gray-400 underline">Gỡ hồ sơ khỏi cộng đồng</button>
         </div>
       </div>

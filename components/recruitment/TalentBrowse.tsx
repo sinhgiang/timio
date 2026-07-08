@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ShieldCheck, TrendingUp, Search, Loader2, Coins, Heart, CheckCircle2, Phone, Mail, Sparkles, X } from "lucide-react";
+import { ShieldCheck, Search, Loader2, Coins, Heart, CheckCircle2, Phone, Mail, Sparkles, X } from "lucide-react";
+import VerifiedBadge from "@/components/recruitment/VerifiedBadge";
 
 type Cand = {
   id: string; maskedName: string; desiredTitle: string | null; desiredArea: string | null;
@@ -22,12 +23,6 @@ const CREDIT_PACKS: Pack[] = [
   { id: "c100", credits: 100, price: 1600000, label: "100 lượt" },
 ];
 
-function scoreCls(s: number | null) {
-  if (s == null) return "bg-gray-100 text-gray-500";
-  if (s >= 70) return "bg-green-100 text-green-700";
-  if (s >= 40) return "bg-amber-100 text-amber-700";
-  return "bg-gray-200 text-gray-600";
-}
 const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
 function CandCard({ c, onInterest }: { c: Cand; onInterest: (c: Cand) => void }) {
@@ -45,18 +40,10 @@ function CandCard({ c, onInterest }: { c: Cand; onInterest: (c: Cand) => void })
         )}
       </div>
       {c.matchReason && <p className="text-[11px] text-purple-700 bg-purple-50 rounded-md px-2 py-1 mb-2 flex items-start gap-1"><Sparkles size={11} className="mt-0.5 shrink-0" /> {c.matchReason}</p>}
-      <div className="flex gap-2 mb-2">
-        <div className={`flex-1 rounded-lg px-2.5 py-1.5 text-center ${scoreCls(c.vScore)}`}>
-          <p className="text-sm font-bold">{c.vScore ?? "—"}</p><p className="text-[10px]">Chấm công</p>
-        </div>
-        <div className={`flex-1 rounded-lg px-2.5 py-1.5 text-center ${scoreCls(c.vDevScore)}`}>
-          <p className="text-sm font-bold flex items-center justify-center gap-0.5">{c.vDevScore ?? "—"} {c.vDevTrend === "up" && <TrendingUp size={11} />}</p><p className="text-[10px]">Phát triển</p>
-        </div>
+      <div className="mb-2">
+        <VerifiedBadge stats={c} mode="compact" />
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500 mb-2">
-        {c.vAttendance != null && <span>Chuyên cần {c.vAttendance}%</span>}
-        {c.vTenureMonths != null && <span>Thâm niên {c.vTenureMonths}th</span>}
-        {(c.vPromotions ?? 0) > 0 && <span className="text-emerald-600">Thăng chức {c.vPromotions}×</span>}
         {(c.desiredSalaryMin || c.desiredSalaryMax) && <span>Mong muốn {c.desiredSalaryMin ? (c.desiredSalaryMin / 1_000_000) : "?"}–{c.desiredSalaryMax ? (c.desiredSalaryMax / 1_000_000) : "?"}tr</span>}
       </div>
       {c.skills && <p className="text-xs text-gray-600 line-clamp-2 mb-2">{c.skills}</p>}
