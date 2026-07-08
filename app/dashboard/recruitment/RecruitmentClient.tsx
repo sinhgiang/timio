@@ -65,6 +65,8 @@ type Stats = {
   avgAiScore: number | null;
   perJob: { title: string; status: string; total: number; hired: number; interview: number; new: number }[];
   upcomingInterviews: number;
+  bySource?: { source: string; total: number; hired: number; hireRate: number }[];
+  insights?: string[];
 };
 
 // Thứ tự các cột pipeline (rejected để cuối, tách riêng)
@@ -1035,6 +1037,42 @@ export default function RecruitmentClient({
                   </div>
                 </div>
               </div>
+
+              {/* KH5 — Gợi ý hành động (insight) */}
+              {stats.insights && stats.insights.length > 0 && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 rounded-2xl p-4">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 mb-2"><Sparkles size={15} /> Gợi ý cho bạn</p>
+                  <ul className="space-y-1.5">
+                    {stats.insights.map((s, i) => (
+                      <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-amber-500 shrink-0">•</span> {s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* KH5 — Nguồn ứng viên (source of hire) */}
+              {stats.bySource && stats.bySource.length > 0 && (() => {
+                const maxTotal = Math.max(...stats.bySource!.map((s) => s.total), 1);
+                return (
+                  <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                    <h3 className="font-semibold text-gray-800 text-sm mb-3">Nguồn ứng viên</h3>
+                    <div className="space-y-2.5">
+                      {stats.bySource!.map((s) => (
+                        <div key={s.source}>
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-700 font-medium">{SOURCE_LABELS[s.source] || s.source}</span>
+                            <span className="text-gray-400">{s.total} đơn · <span className="text-green-600 font-semibold">{s.hired} tuyển</span> {s.total > 0 && `(${s.hireRate}%)`}</span>
+                          </div>
+                          <div className="h-3 rounded-full bg-gray-100 overflow-hidden flex">
+                            <div className="h-full bg-blue-400" style={{ width: `${(s.total / maxTotal) * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-3">Thanh dài = nhiều đơn. Số "tuyển" cho biết nguồn nào ra kết quả thật.</p>
+                  </div>
+                );
+              })()}
 
               {/* Theo vị trí */}
               {stats.perJob.length > 0 && (

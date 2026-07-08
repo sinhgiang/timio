@@ -21,7 +21,7 @@ export async function GET() {
   const [candidates, jobs] = await Promise.all([
     prisma.candidate.findMany({
       where: candWhere,
-      select: { status: true, appliedAt: true, hiredAt: true, aiScore: true, jobId: true, interviewAt: true },
+      select: { status: true, appliedAt: true, hiredAt: true, aiScore: true, jobId: true, interviewAt: true, source: true },
     }),
     prisma.jobPosting.findMany({
       where: jobWhere,
@@ -86,6 +86,34 @@ export async function GET() {
   // Phỏng vấn sắp tới
   const upcomingInterviews = candidates.filter((c) => c.interviewAt && c.interviewAt.getTime() >= now - day).length;
 
+  // KH5 — Nguồn ứng viên (source of hire): tổng + đã tuyển + tỷ lệ chốt theo nguồn
+  const srcMap = new Map<string, { total: number; hired: number }>();
+  for (const c of candidates) {
+    const key = c.source || "other";
+    const cur = srcMap.get(key) ?? { total: 0, hired: 0 };
+    cur.total++;
+    if (c.status === "hired") cur.hired++;
+    srcMap.set(key, cur);
+  }
+  const bySource = Array.from(srcMap.entries())
+    .map(([source, v]) => ({ source, total: v.total, hired: v.hired, hireRate: pct(v.hired, v.total) }))
+    .sort((a, z) => z.total - a.total);
+
+  // KH5 — Insight (quy tắc, không cần AI)
+  const insights: string[] = [];
+  const bestByHire = [...bySource].filter((s) => s.total >= 3).sort((a, z) => z.hired - a.hired || z.hireRate - a.hireRate)[0];
+  const SRC_VI: Record<string, string> = { website: "Trang tuyển dụng", referral: "Giới thiệu", linkedin: "LinkedIn", facebook: "Facebook", other: "Nguồn khác" };
+  if (bestByHire && bestByHire.hired > 0) {
+    insights.push(`Nguồn "${SRC_VI[bestByHire.source] ?? bestByHire.source}" hiệu quả nhất — chốt ${bestByHire.hired} người (${bestByHire.hireRate}%). Nên đẩy mạnh nguồn này.`);
+  }
+  if (conversions.applyToHire > 0 && conversions.applyToHire < 10 && total >= 10) {
+    insights.push(`Tỷ lệ chốt chỉ ${conversions.applyToHire}% — cân nhắc siết tiêu chí sàng lọc hoặc cải thiện tin tuyển dụng.`);
+  }
+  const slowJobs = perJob.filter((j) => j.status === "open" && j.total >= 3 && j.hired === 0);
+  if (slowJobs.length > 0) {
+    insights.push(`${slowJobs.length} vị trí có ứng viên nhưng chưa tuyển được ai (VD "${slowJobs[0].title}") — cân nhắc tăng lương hoặc mở thêm kênh.`);
+  }
+
   return NextResponse.json({
     total,
     openJobs: jobs.filter((j) => j.status === "open").length,
@@ -96,5 +124,7 @@ export async function GET() {
     avgAiScore,
     perJob,
     upcomingInterviews,
+    bySource,
+    insights,
   });
 }
