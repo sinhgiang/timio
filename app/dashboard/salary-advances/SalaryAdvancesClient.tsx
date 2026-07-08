@@ -395,12 +395,12 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
                       )}
                       {adv.status === "approved" && !adv.disbursedAt && (
                         <button
-                          onClick={() => handleDisburse(adv.id)}
+                          onClick={() => { if (confirm(`Xác nhận: bạn ĐÃ chuyển ${fmt(adv.amount)} cho ${adv.employee.name}?\n\nBấm OK sau khi đã chuyển khoản thật. Nhân viên sẽ thấy "Đã nhận".`)) handleDisburse(adv.id); }}
                           disabled={acting[adv.id]}
-                          title="Đánh dấu đã chuyển tiền cho nhân viên"
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 disabled:opacity-40 transition-colors"
+                          title="Bấm sau khi đã chuyển tiền thật cho nhân viên"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-colors"
                         >
-                          <Banknote size={13} /> Đã chi
+                          <Banknote size={13} /> Xác nhận đã chi
                         </button>
                       )}
                       <button
