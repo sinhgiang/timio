@@ -100,66 +100,70 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-50">
-      {/* ── Sidebar trái (desktop, chính chủ) ── */}
-      {data.isOwner && (
-        <aside className="hidden md:flex w-60 flex-col bg-white border-r border-gray-100 fixed inset-y-0 left-0 z-20">
-          <div className="flex items-center gap-2.5 px-4 h-16 border-b border-gray-50">
-            <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">{firstInitial}</div>
-            <div className="min-w-0"><p className="font-semibold text-gray-800 text-sm truncate">{data.name}</p><p className="text-[11px] text-gray-400 truncate">{data.role}</p></div>
-          </div>
-          <nav className="flex-1 p-2 space-y-1">
-            {tabs.map((t) => {
-              const active = tab === t.key;
-              return (
-                <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
-                  <t.Icon size={17} strokeWidth={active ? 2.4 : 2} /> {t.label}
-                </button>
-              );
-            })}
-          </nav>
-          <div className="p-2 border-t border-gray-50">
-            <button onClick={logout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50"><LogOut size={17} /> Đăng xuất</button>
-          </div>
-        </aside>
-      )}
-
-      <div className={data.isOwner ? "md:pl-60" : ""}>
-        {/* Top bar */}
-        <div className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
-          <div className={`max-w-3xl px-4 h-14 flex items-center justify-between ${data.isOwner ? "mx-auto md:mx-0 md:pl-8" : "mx-auto"}`}>
-            <div className="flex items-center gap-2 min-w-0 md:hidden">
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{firstInitial}</div>
-              <span className="font-semibold text-gray-800 text-sm truncate">{data.name}</span>
+      {/* Cả khối (menu + hồ sơ) canh giữa màn hình như Facebook/LinkedIn */}
+      <div className="mx-auto max-w-6xl md:flex md:items-start">
+        {/* ── Sidebar trái (desktop, chính chủ) ── */}
+        {data.isOwner && (
+          <aside className="hidden md:flex md:flex-col w-56 shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-100">
+            <div className="flex items-center gap-2.5 px-4 h-16 border-b border-gray-50">
+              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">{firstInitial}</div>
+              <div className="min-w-0"><p className="font-semibold text-gray-800 text-sm truncate">{data.name}</p><p className="text-[11px] text-gray-400 truncate">{data.role}</p></div>
             </div>
-            <span className="hidden md:block font-semibold text-gray-700 text-sm">{tabs.find((t) => t.key === tab)?.label}</span>
-            <div className="flex items-center gap-2">
-              <button onClick={share} className="flex items-center gap-1.5 text-xs bg-blue-600 text-white rounded-full px-3 py-1.5 hover:bg-blue-700 transition-colors"><Share2 size={13} /> {copied ? "Đã chép" : "Chia sẻ"}</button>
-              {data.isOwner && <button onClick={logout} title="Đăng xuất" className="md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-100"><LogOut size={17} /></button>}
-            </div>
-          </div>
-          {/* Tab ngang (mobile, chính chủ) */}
-          {data.isOwner && (
-            <div className="md:hidden max-w-3xl mx-auto px-2 flex gap-1 overflow-x-auto">
+            <nav className="flex-1 p-2 space-y-1">
               {tabs.map((t) => {
                 const active = tab === t.key;
                 return (
                   <button key={t.key} onClick={() => setTab(t.key)}
-                    className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${active ? "border-blue-600 text-blue-700" : "border-transparent text-gray-400"}`}>
-                    <t.Icon size={15} /> {t.label}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
+                    <t.Icon size={17} strokeWidth={active ? 2.4 : 2} /> {t.label}
                   </button>
                 );
               })}
+            </nav>
+            <div className="p-2 border-t border-gray-50">
+              <button onClick={logout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50"><LogOut size={17} /> Đăng xuất</button>
             </div>
-          )}
-        </div>
+          </aside>
+        )}
 
-        <div className={`max-w-3xl px-4 py-4 ${data.isOwner ? "mx-auto md:mx-0 md:pl-8" : "mx-auto"}`}>
-          {tab === "profile" && <ProfileTab data={data} onChange={setData} />}
-          {tab === "income" && data.isOwner && <IncomeTab />}
-          {tab === "attendance" && data.isOwner && <AttendanceTab />}
-          {tab === "leave" && data.isOwner && <LeaveTab />}
-        </div>
+        {/* ── Nội dung chính ── */}
+        <main className="flex-1 min-w-0">
+          {/* Top bar */}
+          <div className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
+            <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0 md:hidden">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{firstInitial}</div>
+                <span className="font-semibold text-gray-800 text-sm truncate">{data.name}</span>
+              </div>
+              <span className="hidden md:block font-semibold text-gray-700 text-sm">{tabs.find((t) => t.key === tab)?.label}</span>
+              <div className="flex items-center gap-2">
+                <button onClick={share} className="flex items-center gap-1.5 text-xs bg-blue-600 text-white rounded-full px-3 py-1.5 hover:bg-blue-700 transition-colors"><Share2 size={13} /> {copied ? "Đã chép" : "Chia sẻ"}</button>
+                {data.isOwner && <button onClick={logout} title="Đăng xuất" className="md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-100"><LogOut size={17} /></button>}
+              </div>
+            </div>
+            {/* Tab ngang (mobile, chính chủ) */}
+            {data.isOwner && (
+              <div className="md:hidden max-w-2xl mx-auto px-2 flex gap-1 overflow-x-auto">
+                {tabs.map((t) => {
+                  const active = tab === t.key;
+                  return (
+                    <button key={t.key} onClick={() => setTab(t.key)}
+                      className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${active ? "border-blue-600 text-blue-700" : "border-transparent text-gray-400"}`}>
+                      <t.Icon size={15} /> {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="max-w-2xl mx-auto px-4 py-5">
+            {tab === "profile" && <ProfileTab data={data} onChange={setData} />}
+            {tab === "income" && data.isOwner && <IncomeTab />}
+            {tab === "attendance" && data.isOwner && <AttendanceTab />}
+            {tab === "leave" && data.isOwner && <LeaveTab />}
+          </div>
+        </main>
       </div>
     </div>
   );
