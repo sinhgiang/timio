@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Clock, Loader2, Eye, EyeOff, Wallet, CalendarDays, Building2, LogOut, Briefcase, TrendingUp, Sparkles, ChevronRight } from "lucide-react";
+import { Clock, Loader2, Eye, EyeOff, Wallet, CalendarDays, Building2, LogOut, Briefcase, Sparkles, ChevronRight } from "lucide-react";
+import AdvanceCard from "@/components/worker/AdvanceCard";
 
 type Me = {
   name: string; phone: string; email: string | null; avatarUrl: string | null; consentFinance: boolean;
@@ -149,15 +150,8 @@ export default function NhanVienPage() {
           )}
         </div>
 
-        {/* Ứng lương (Phần 3 — sắp có) */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 opacity-90">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><TrendingUp size={19} className="text-amber-600" /></div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-800 text-sm">Ứng lương sớm</p>
-            <p className="text-xs text-gray-400">Rút trước phần lương đã kiếm — <b>sắp ra mắt</b></p>
-          </div>
-          <span className="text-[11px] text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Sắp có</span>
-        </div>
+        {/* Ứng lương (Phần 3) */}
+        <AdvanceCard />
 
         {/* Công ty của tôi */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4">

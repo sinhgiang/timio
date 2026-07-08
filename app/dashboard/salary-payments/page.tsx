@@ -28,11 +28,11 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
   const month = parseInt(monStr);
 
   // salaryAdvance table may not exist yet on Neon — safe fallback
-  let advancesRaw: { employeeId: string; amount: number }[] = [];
+  let advancesRaw: { employeeId: string; amount: number; fee: number }[] = [];
   try {
     advancesRaw = await prisma.salaryAdvance.findMany({
       where: { companyId: user.companyId, year, month, status: "approved" },
-      select: { employeeId: true, amount: true },
+      select: { employeeId: true, amount: true, fee: true },
     });
   } catch { /* table not migrated yet */ }
 
@@ -73,8 +73,10 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
   );
 
   const advanceMap = new Map<string, number>();
+  const feeMap = new Map<string, number>();
   for (const a of advancesRaw) {
     advanceMap.set(a.employeeId, (advanceMap.get(a.employeeId) ?? 0) + a.amount);
+    feeMap.set(a.employeeId, (feeMap.get(a.employeeId) ?? 0) + a.fee);
   }
 
   const rows = employees.map((e) => {
@@ -86,6 +88,7 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
     const gross     = base - penalty + reward + overtime;
     const tax       = calculateTax({ baseSalary: base, grossIncome: gross, dependents: e.dependents ?? 0 });
     const advanceAmount = advanceMap.get(e.id) ?? 0;
+    const feeAmount     = feeMap.get(e.id) ?? 0;
     return {
       id:              e.id,
       name:            e.name,
@@ -95,7 +98,8 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
       baseSalary:      base,
       netSalary:       tax.netTakeHome,
       advanceAmount,
-      netAfterAdvance: Math.max(0, tax.netTakeHome - advanceAmount),
+      feeAmount,
+      netAfterAdvance: Math.max(0, tax.netTakeHome - advanceAmount - feeAmount),
     };
   });
 

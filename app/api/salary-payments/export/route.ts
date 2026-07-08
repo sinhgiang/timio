@@ -22,11 +22,11 @@ export async function GET(req: NextRequest) {
   // Owner + tổng kế toán → toàn công ty (null); kế toán chi nhánh → chỉ chi nhánh mình
   const scopedBranchId = scopedBranchIdFn(user);
 
-  let advances: { employeeId: string; amount: number }[] = [];
+  let advances: { employeeId: string; amount: number; fee: number }[] = [];
   try {
     advances = await prisma.salaryAdvance.findMany({
       where: { companyId: user.companyId, year, month, status: "approved" },
-      select: { employeeId: true, amount: true },
+      select: { employeeId: true, amount: true, fee: true },
     });
   } catch { /* table not migrated yet */ }
 
@@ -56,8 +56,10 @@ export async function GET(req: NextRequest) {
   ]);
 
   const advanceMap = new Map<string, number>();
+  const feeMap = new Map<string, number>();
   for (const a of advances) {
     advanceMap.set(a.employeeId, (advanceMap.get(a.employeeId) ?? 0) + a.amount);
+    feeMap.set(a.employeeId, (feeMap.get(a.employeeId) ?? 0) + a.fee);
   }
   const paidSet = new Set(payments.filter((p) => p.status === "paid").map((p) => p.employeeId));
 
@@ -72,7 +74,8 @@ export async function GET(req: NextRequest) {
       const gross   = base - penalty + reward + overtime;
       const tax     = calculateTax({ baseSalary: base, grossIncome: gross, dependents: e.dependents ?? 0 });
       const advance = advanceMap.get(e.id) ?? 0;
-      const netAfterAdvance = Math.max(0, tax.netTakeHome - advance);
+      const fee = feeMap.get(e.id) ?? 0;
+      const netAfterAdvance = Math.max(0, tax.netTakeHome - advance - fee);
 
       return {
         "Mã NV":           e.code,
@@ -84,6 +87,7 @@ export async function GET(req: NextRequest) {
         "Chi nhánh NH":    e.bankBranch ?? "",
         "Lương cơ bản":    base,
         "Tạm ứng":         advance,
+        "Phí ứng lương":   fee,
         "Thực nhận (CK)":  netAfterAdvance,
         "Nội dung CK":     `TRALG T${month}/${year} ${e.code}`,
       };
@@ -95,7 +99,7 @@ export async function GET(req: NextRequest) {
   ws["!cols"] = [
     { wch: 8 }, { wch: 24 }, { wch: 16 }, { wch: 16 },
     { wch: 16 }, { wch: 18 }, { wch: 16 },
-    { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 28 },
+    { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 28 },
   ];
 
   const wb = XLSX.utils.book_new();

@@ -35,6 +35,13 @@ model Company {
   referredBy      String? // slug của công ty đã giới thiệu mình
   affiliateCode   String? // code của affiliate partner đã giới thiệu
   paydayOfMonth   Int     @default(5) // ngày phát lương hàng tháng (1-31)
+  // Ứng lương sớm (EWA) — employer-funded, Timio chỉ làm công nghệ + phí (Điều 101 BLLĐ 2019)
+  ewaEnabled      Boolean @default(false) // bật tính năng ứng lương cho nhân viên
+  ewaApprovalMode String  @default("manual") // "manual" = công ty duyệt tay | "auto" = tự duyệt trong hạn mức
+  ewaMaxPercent   Int     @default(50) // ứng tối đa % của lương đã kiếm trong kỳ
+  ewaFeeType      String  @default("fixed") // "fixed" = phí cố định/lần | "percent" = % số tiền ứng
+  ewaFeeValue     Int     @default(10000) // giá trị phí (đồng nếu fixed; phần nghìn nếu percent, vd 15 = 1.5%)
+  ewaMaxPerMonth  Int     @default(4) // số lần ứng tối đa mỗi tháng
   trialEndsAt     DateTime? // null = không dùng thử / đã trả tiền
   autoReminderConfig String? // JSON: nhắc chấm công tự động { enabled, channels{email,telegram,zalo}, times[hour], days[0-6], target, subject, message }
   lateReminderConfig String? // JSON: nhắc trễ theo ca { enabled, channels, delayMinutes, target, message }
@@ -428,6 +435,10 @@ model SalaryAdvance {
   amount      Int
   note        String?
   status      String    @default("pending") // "pending" | "approved" | "rejected"
+  source      String    @default("admin") // "admin" = admin tạo tay | "worker" = NV tự ứng qua app (EWA)
+  fee         Int       @default(0) // phí dịch vụ NV trả (chỉ EWA); trừ vào lương cùng khoản ứng
+  disbursedAt DateTime? // thời điểm công ty đã thật sự chi tiền cho NV
+  disburseRef String?   // mã lệnh chi / mã giao dịch (khi nối cổng payout)
   requestedAt DateTime  @default(now())
   approvedAt  DateTime?
   createdAt   DateTime  @default(now())

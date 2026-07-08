@@ -13,6 +13,7 @@ interface Row {
   baseSalary: number;
   netSalary: number;
   advanceAmount: number;
+  feeAmount: number;
   netAfterAdvance: number;
 }
 
@@ -222,7 +223,10 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
                     </p>
                   </td>
                   <td className="px-4 py-3 text-right text-gray-600">{fmt(row.netSalary)}</td>
-                  <td className="px-4 py-3 text-right text-orange-600 text-xs">{row.advanceAmount > 0 ? `-${fmt(row.advanceAmount)}` : "—"}</td>
+                  <td className="px-4 py-3 text-right text-orange-600 text-xs">
+                    {row.advanceAmount > 0 ? `-${fmt(row.advanceAmount)}` : "—"}
+                    {row.feeAmount > 0 && <div className="text-[10px] text-gray-400">phí -{fmt(row.feeAmount)}</div>}
+                  </td>
                   <td className="px-4 py-3 text-right font-bold text-gray-800">{fmt(row.netAfterAdvance)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
@@ -256,6 +260,7 @@ export default function SalaryPaymentsClient({ rows, companyName, currentMonth, 
               </td>
               <td className="px-4 py-3 text-right text-orange-600 text-xs font-medium">
                 {rows.some((r) => r.advanceAmount > 0) ? `-${fmt(rows.reduce((s, r) => s + r.advanceAmount, 0))}` : "—"}
+                {rows.some((r) => r.feeAmount > 0) && <div className="text-[10px] text-gray-400">phí -{fmt(rows.reduce((s, r) => s + r.feeAmount, 0))}</div>}
               </td>
               <td className="px-4 py-3 text-right font-bold text-blue-700">{fmt(totalNet)}</td>
               <td className="px-4 py-3 text-center text-xs text-gray-500">

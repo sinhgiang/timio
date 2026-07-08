@@ -9,10 +9,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = session?.user as { companyId?: string; role?: string; branchId?: string | null } | undefined;
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { status } = await req.json();
-  if (!["approved", "rejected", "pending"].includes(status)) {
-    return NextResponse.json({ error: "Trạng thái không hợp lệ" }, { status: 400 });
-  }
+  const body = await req.json();
+  const { status, disbursed } = body as { status?: string; disbursed?: boolean };
 
   const existing = await prisma.salaryAdvance.findFirst({
     where: { id: params.id, companyId: user.companyId },
@@ -22,11 +20,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!(await employeeInScope(user, existing.employeeId)))
     return NextResponse.json({ error: "Bạn chỉ được thao tác dữ liệu nhân viên chi nhánh mình." }, { status: 403 });
 
+  // Xác nhận đã chi tiền (EWA) — công ty đã chuyển khoản cho NV
+  if (disbursed === true) {
+    if (existing.status !== "approved")
+      return NextResponse.json({ error: "Chỉ đánh dấu đã chi sau khi đã duyệt." }, { status: 400 });
+    const paid = await prisma.salaryAdvance.update({
+      where: { id: params.id },
+      data: { disbursedAt: new Date() },
+      include: { employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } } },
+    });
+    return NextResponse.json(paid);
+  }
+
+  if (!status || !["approved", "rejected", "pending"].includes(status)) {
+    return NextResponse.json({ error: "Trạng thái không hợp lệ" }, { status: 400 });
+  }
+
   const updated = await prisma.salaryAdvance.update({
     where: { id: params.id },
     data: {
       status,
       approvedAt: status === "approved" ? new Date() : null,
+      // Huỷ duyệt / từ chối thì xoá dấu đã chi cho nhất quán
+      disbursedAt: status === "approved" ? existing.disbursedAt : null,
     },
     include: {
       employee: { select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } } },

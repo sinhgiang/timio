@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Plus, CheckCircle2, XCircle, Trash2, Wallet,
+  Smartphone, Banknote, Settings2, Info,
 } from "lucide-react";
 
 interface EmployeeRef {
@@ -22,6 +23,9 @@ export interface AdvanceRow {
   amount: number;
   note: string | null;
   status: string;
+  source: string;
+  fee: number;
+  disbursedAt: string | null;
   requestedAt: string;
   approvedAt: string | null;
   employee: EmployeeRef;
@@ -29,10 +33,21 @@ export interface AdvanceRow {
 
 type Advance = AdvanceRow;
 
+export interface EwaConfig {
+  ewaEnabled: boolean;
+  ewaApprovalMode: string;
+  ewaMaxPercent: number;
+  ewaFeeType: string;
+  ewaFeeValue: number;
+  ewaMaxPerMonth: number;
+}
+
 interface Props {
   advances: Advance[];
   employees: EmployeeRef[];
   currentMonth: string;
+  ewaConfig: EwaConfig;
+  isOwner: boolean;
 }
 
 function fmt(n: number) {
@@ -50,13 +65,42 @@ const STATUS_COLOR: Record<string, string> = {
   rejected: "bg-red-50 text-red-600 border-red-200",
 };
 
-export default function SalaryAdvancesClient({ advances: init, employees, currentMonth }: Props) {
+export default function SalaryAdvancesClient({ advances: init, employees, currentMonth, ewaConfig, isOwner }: Props) {
   const router = useRouter();
   const [advances, setAdvances] = useState<Advance[]>(init);
   const [acting, setActing] = useState<Record<string, boolean>>({});
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ employeeId: "", amount: "", note: "" });
   const [submitting, setSubmitting] = useState(false);
+
+  // ─── Cấu hình EWA ───
+  const [cfg, setCfg] = useState<EwaConfig>(ewaConfig);
+  const [showCfg, setShowCfg] = useState(false);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [cfgSaved, setCfgSaved] = useState(false);
+
+  const saveCfg = async () => {
+    setSavingCfg(true); setCfgSaved(false);
+    const res = await fetch("/api/company/ewa-config", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cfg),
+    });
+    if (res.ok) { setCfg(await res.json()); setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
+    setSavingCfg(false);
+  };
+
+  const handleDisburse = async (id: string) => {
+    setActing((p) => ({ ...p, [id]: true }));
+    const res = await fetch(`/api/salary-advances/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disbursed: true }),
+    });
+    if (res.ok) {
+      const updated = await res.json() as Advance;
+      setAdvances((prev) => prev.map((a) => a.id === id ? updated : a));
+    }
+    setActing((p) => ({ ...p, [id]: false }));
+  };
 
   const [yearStr, monStr] = currentMonth.split("-");
   const year  = parseInt(yearStr);
@@ -151,6 +195,70 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
         </div>
       </div>
 
+      {/* Cấu hình Ứng lương sớm (EWA) */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4 overflow-hidden">
+        <button onClick={() => setShowCfg((v) => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center"><Smartphone size={18} className="text-amber-600" strokeWidth={1.5} /></div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-800">Ứng lương sớm qua app nhân viên</p>
+              <p className="text-xs text-gray-400">{cfg.ewaEnabled ? `Đang bật · duyệt ${cfg.ewaApprovalMode === "auto" ? "tự động" : "thủ công"} · tối đa ${cfg.ewaMaxPercent}% lương đã kiếm` : "Đang tắt — nhân viên chưa ứng được"}</p>
+            </div>
+          </div>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${cfg.ewaEnabled ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"}`}>{cfg.ewaEnabled ? "BẬT" : "TẮT"}</span>
+        </button>
+
+        {showCfg && (
+          <div className="px-4 pb-4 pt-1 border-t border-gray-50 space-y-3">
+            {!isOwner ? (
+              <p className="text-xs text-gray-500 flex items-center gap-1.5 bg-gray-50 rounded-lg px-3 py-2"><Info size={13} /> Chỉ chủ công ty được thay đổi cấu hình ứng lương.</p>
+            ) : (
+              <>
+                <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={cfg.ewaEnabled} onChange={(e) => setCfg({ ...cfg, ewaEnabled: e.target.checked })} className="w-4 h-4 accent-amber-600" />
+                  Cho phép nhân viên ứng lương sớm trong app
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cách duyệt</label>
+                    <select value={cfg.ewaApprovalMode} onChange={(e) => setCfg({ ...cfg, ewaApprovalMode: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="manual">Công ty duyệt tay</option>
+                      <option value="auto">Tự động duyệt trong hạn mức</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ứng tối đa (% lương đã kiếm)</label>
+                    <input type="number" min={1} max={100} value={cfg.ewaMaxPercent} onChange={(e) => setCfg({ ...cfg, ewaMaxPercent: Math.floor(Number(e.target.value)) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Loại phí (nhân viên trả)</label>
+                    <select value={cfg.ewaFeeType} onChange={(e) => setCfg({ ...cfg, ewaFeeType: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="fixed">Cố định (đồng/lần)</option>
+                      <option value="percent">Theo % số tiền ứng</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{cfg.ewaFeeType === "percent" ? "Phí (phần nghìn, vd 15 = 1.5%)" : "Phí mỗi lần (đồng)"}</label>
+                    <input type="number" min={0} step={cfg.ewaFeeType === "percent" ? 1 : 1000} value={cfg.ewaFeeValue} onChange={(e) => setCfg({ ...cfg, ewaFeeValue: Math.floor(Number(e.target.value)) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Số lần ứng tối đa/tháng</label>
+                    <input type="number" min={1} max={31} value={cfg.ewaMaxPerMonth} onChange={(e) => setCfg({ ...cfg, ewaMaxPerMonth: Math.floor(Number(e.target.value)) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-400 flex items-start gap-1.5"><Info size={12} className="mt-0.5 shrink-0" /> Tiền ứng là <b>tiền công ty ứng trước</b> phần lương nhân viên đã đi làm — đến kỳ lương sẽ tự trừ lại. Timio chỉ tính toán, không giữ tiền.</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={saveCfg} disabled={savingCfg} className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50">
+                    <Settings2 size={14} /> {savingCfg ? "Đang lưu..." : "Lưu cấu hình"}
+                  </button>
+                  {cfgSaved && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle2 size={13} /> Đã lưu</span>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Add button */}
       <div className="flex justify-end mb-3">
         <button
@@ -238,19 +346,30 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
               {advances.map((adv) => (
                 <tr key={adv.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">{adv.employee.name}</p>
+                    <p className="font-medium text-gray-800 flex items-center gap-1.5">
+                      {adv.employee.name}
+                      {adv.source === "worker" && <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-normal"><Smartphone size={9} /> NV tự ứng</span>}
+                    </p>
                     <p className="text-xs text-gray-400">
                       {adv.employee.code}
                       {adv.employee.department && ` · ${adv.employee.department}`}
                       {` · ${adv.employee.branch.name}`}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-right font-bold text-gray-800">{fmt(adv.amount)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-gray-800">
+                    {fmt(adv.amount)}
+                    {adv.fee > 0 && <div className="text-[10px] text-gray-400 font-normal">phí {fmt(adv.fee)}</div>}
+                  </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{adv.note ?? "—"}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[adv.status] ?? ""}`}>
                       {STATUS_LABEL[adv.status] ?? adv.status}
                     </span>
+                    {adv.status === "approved" && (
+                      adv.disbursedAt
+                        ? <div className="text-[10px] text-green-600 mt-1 flex items-center justify-center gap-0.5"><CheckCircle2 size={10} /> Đã chi</div>
+                        : <div className="text-[10px] text-blue-500 mt-1">Chờ chi tiền</div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1.5">
@@ -273,6 +392,16 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
                             <XCircle size={16} strokeWidth={2} />
                           </button>
                         </>
+                      )}
+                      {adv.status === "approved" && !adv.disbursedAt && (
+                        <button
+                          onClick={() => handleDisburse(adv.id)}
+                          disabled={acting[adv.id]}
+                          title="Đánh dấu đã chuyển tiền cho nhân viên"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 disabled:opacity-40 transition-colors"
+                        >
+                          <Banknote size={13} /> Đã chi
+                        </button>
                       )}
                       <button
                         onClick={() => handleDelete(adv.id)}

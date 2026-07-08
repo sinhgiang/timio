@@ -51,11 +51,18 @@ export default async function SalaryAdvancesPage({ searchParams }: Props) {
     select: { id: true, name: true, code: true, department: true, branch: { select: { name: true } } },
   });
 
+  const company = await prisma.company.findUnique({
+    where: { id: user.companyId },
+    select: { ewaEnabled: true, ewaApprovalMode: true, ewaMaxPercent: true, ewaFeeType: true, ewaFeeValue: true, ewaMaxPerMonth: true },
+  });
+
   return (
     <SalaryAdvancesClient
       advances={advances}
       employees={JSON.parse(JSON.stringify(employees))}
       currentMonth={monthStr}
+      ewaConfig={company ?? { ewaEnabled: false, ewaApprovalMode: "manual", ewaMaxPercent: 50, ewaFeeType: "fixed", ewaFeeValue: 10000, ewaMaxPerMonth: 4 }}
+      isOwner={user.role === "owner"}
     />
   );
 }
