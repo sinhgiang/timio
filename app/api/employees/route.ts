@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureWorkerAccount } from "@/lib/workerAccount";
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -45,6 +47,9 @@ export async function POST(req: NextRequest) {
         dependents: dependents != null ? Number(dependents) : 0,
       },
     });
+
+    // Tạo/nối tài khoản nhân viên (app cá nhân) nếu có SĐT
+    await ensureWorkerAccount(employee.id, employee.name, employee.phone, employee.email).catch(() => {});
 
     return NextResponse.json(employee, { status: 201 });
   } catch (error: unknown) {

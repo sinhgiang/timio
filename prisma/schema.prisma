@@ -164,6 +164,7 @@ model Employee {
   kpiTarget           Float?    // Mục tiêu KPI/tháng (điểm hoặc doanh số)
   kpiBonus            Float?    // Thưởng cố định khi đạt 100% KPI
   pushToken           String?   // Expo push token (thông báo đẩy trên app mobile)
+  workerAccountId     String?   // App nhân viên: nối tới tài khoản cá nhân (1 người = 1 tài khoản theo SĐT)
   createdAt           DateTime  @default(now())
 
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -847,6 +848,21 @@ model Referral {
 
   @@index([companyId])
   @@index([code])
+}
+
+// ─── App Nhân Viên: tài khoản cá nhân (1 người = 1 tài khoản theo SĐT, gắn nhiều công ty) ───
+model WorkerAccount {
+  id               String    @id @default(cuid())
+  phone            String    @unique              // định danh chính
+  name             String
+  email            String?
+  passwordHash     String?                        // bcrypt; null = chưa kích hoạt
+  avatarUrl        String?
+  activationToken  String?   @unique              // link kích hoạt (xoá sau khi kích hoạt)
+  activatedAt      DateTime?
+  consentAppAt     DateTime?                       // đồng ý dùng app (Luật 91/2025)
+  consentFinanceAt DateTime?                       // đồng ý tính năng tài chính (ứng lương)
+  createdAt        DateTime  @default(now())
 }
 
 // Bảng tin nội bộ công ty

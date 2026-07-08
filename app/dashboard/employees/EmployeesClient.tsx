@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound, QrCode, RefreshCw } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound, QrCode, RefreshCw, Smartphone } from "lucide-react";
 import PlanGate from "@/components/ui/PlanGate";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
@@ -163,6 +163,23 @@ export default function EmployeesClient({
   const [qrTarget, setQrTarget] = useState<{ id: string; name: string } | null>(null);
   const [qrTokenData, setQrTokenData] = useState<{ token: string; qrUrl: string } | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
+
+  // ─── Mời dùng app nhân viên (link kích hoạt) ──────────────────────────────────
+  const [workerInvite, setWorkerInvite] = useState<{ name: string; loading: boolean; error?: string; link?: string; qrUrl?: string; activated?: boolean; phone?: string; copied?: boolean } | null>(null);
+
+  const openWorkerInvite = async (emp: { id: string; name: string }) => {
+    setWorkerInvite({ name: emp.name, loading: true });
+    try {
+      const res = await fetch(`/api/employees/${emp.id}/worker-link`);
+      const data = await res.json();
+      if (!res.ok) { setWorkerInvite({ name: emp.name, loading: false, error: data?.error || "Không tạo được link." }); return; }
+      if (data.activated) { setWorkerInvite({ name: emp.name, loading: false, activated: true, phone: data.phone }); return; }
+      const link = `${window.location.origin}/kich-hoat/${data.activationToken}`;
+      let qrUrl: string | undefined;
+      try { const QRCode = await import("qrcode"); qrUrl = await QRCode.toDataURL(link, { width: 240, margin: 2 }); } catch { /* ignore */ }
+      setWorkerInvite({ name: emp.name, loading: false, link, qrUrl, phone: data.phone });
+    } catch { setWorkerInvite({ name: emp.name, loading: false, error: "Lỗi kết nối." }); }
+  };
   const [localBranches, setLocalBranches] = useState<Branch[]>(branches);
   const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
   const [localPositions, setLocalPositions] = useState<string[]>(allPositions);
@@ -601,6 +618,44 @@ export default function EmployeesClient({
               </button>
             </div>
             <button onClick={() => setTalentResult(null)} className="mt-5 w-full border border-gray-300 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Xong</button>
+          </div>
+        </div>
+      )}
+      {/* Mời dùng app nhân viên */}
+      {workerInvite && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setWorkerInvite(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2"><Smartphone size={18} className="text-emerald-600" /> Mời dùng app</h3>
+              <button onClick={() => setWorkerInvite(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">{workerInvite.name}</p>
+            {workerInvite.loading ? (
+              <div className="flex items-center justify-center py-12 text-gray-400">Đang tạo link...</div>
+            ) : workerInvite.error ? (
+              <p className="text-center text-red-500 py-6 text-sm">{workerInvite.error}</p>
+            ) : workerInvite.activated ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3"><CheckCircle2 size={24} className="text-green-600" /></div>
+                <p className="text-sm text-gray-700 font-medium">Nhân viên đã kích hoạt app rồi.</p>
+                <p className="text-xs text-gray-400 mt-1">Họ đăng nhập tại <b>timio.vn/nhanvien</b> bằng SĐT {workerInvite.phone}.</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                {workerInvite.qrUrl && <img src={workerInvite.qrUrl} alt="QR kích hoạt" className="mx-auto mb-3 border border-gray-200 rounded-xl" />}
+                <p className="text-xs text-gray-500 mb-3">Gửi link này cho nhân viên (Zalo/SMS) hoặc cho họ quét QR để kích hoạt app:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-[11px] bg-gray-100 px-2 py-1.5 rounded text-emerald-700 break-all text-left">{workerInvite.link}</code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(workerInvite.link || "").catch(() => {}); setWorkerInvite((w) => w ? { ...w, copied: true } : w); }}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium border ${workerInvite.copied ? "bg-green-50 border-green-200 text-green-600" : "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700"}`}
+                  >
+                    {workerInvite.copied ? "Đã chép" : "Chép"}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-3">Nhân viên đặt mật khẩu 1 lần, sau đó đăng nhập bằng SĐT + mật khẩu.</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1566,6 +1621,19 @@ export default function EmployeesClient({
                           title="Xem / tải mã QR check-in"
                         >
                           <QrCode size={11} strokeWidth={1.5} /> Xem QR
+                        </button>
+                      </div>
+                      {/* Divider */}
+                      <div className="w-px h-8 bg-gray-100" />
+                      {/* App nhân viên */}
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 mb-0.5">App</p>
+                        <button
+                          onClick={() => openWorkerInvite({ id: emp.id, name: emp.name })}
+                          className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-medium hover:bg-emerald-100 border border-emerald-100 transition-colors"
+                          title="Mời nhân viên dùng app: xem lương đã kiếm, lịch làm"
+                        >
+                          <Smartphone size={11} strokeWidth={1.5} /> Mời
                         </button>
                       </div>
                     </div>
