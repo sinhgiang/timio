@@ -40,9 +40,11 @@ export default async function DashboardLayout({
   const canRecruit = userRole === "owner" || userRole === "manager";
   // Quản lý/kế toán chỉ đếm việc chờ trong chi nhánh của mình
   const empBranch = userBranchId ? { employee: { branchId: userBranchId } } : {};
+  const isFinanceRole = userRole === "owner" || userRole === "accountant";
   const [
     pendingLeaveCount, pendingCorrectionCount, pendingCandidateCount,
     pendingOvertimeCount, pendingEarlyLeaveCount, pendingShiftSwapCount,
+    pendingAdvanceCount,
     company, companyPlan,
   ] = await Promise.all([
     companyId ? prisma.leaveRequest.count({ where: { companyId, status: "pending", ...empBranch } }).catch(() => 0) : Promise.resolve(0),
@@ -61,6 +63,10 @@ export default async function DashboardLayout({
     companyId ? prisma.overtimeRequest.count({ where: { companyId, status: "pending", ...empBranch } }).catch(() => 0) : Promise.resolve(0),
     companyId ? prisma.earlyLeaveRequest.count({ where: { companyId, status: "pending", ...empBranch } }).catch(() => 0) : Promise.resolve(0),
     companyId ? prisma.shiftSwapRequest.count({ where: { companyId, status: "pending", ...(userBranchId ? { requester: { branchId: userBranchId } } : {}) } }).catch(() => 0) : Promise.resolve(0),
+    // Ứng lương cần xử lý: chờ duyệt HOẶC (NV tự ứng đã duyệt nhưng chưa chi tiền)
+    companyId && isFinanceRole
+      ? prisma.salaryAdvance.count({ where: { companyId, ...(userBranchId ? { employee: { branchId: userBranchId } } : {}), OR: [{ status: "pending" }, { status: "approved", source: "worker", disbursedAt: null }] } }).catch(() => 0)
+      : Promise.resolve(0),
     companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { name: true, slug: true } }) : Promise.resolve(null),
     companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, planExpires: true, trialEndsAt: true } }) : Promise.resolve(null),
   ]);
@@ -104,6 +110,7 @@ export default async function DashboardLayout({
             overtime: pendingOvertimeCount,
             earlyleave: pendingEarlyLeaveCount,
             shiftswap: pendingShiftSwapCount,
+            advances: pendingAdvanceCount,
           }}
           role={userRole}
           plan={currentPlan}

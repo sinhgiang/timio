@@ -68,7 +68,7 @@ const navStructure: NavEntry[] = [
     children: [
       { href: "/dashboard/payslip",         label: "Phiếu lương",         Icon: FileText },
       { href: "/dashboard/salary-payments", label: "Thanh toán lương",    Icon: Banknote },
-      { href: "/dashboard/salary-advances", label: "Tạm ứng lương",       Icon: Wallet },
+      { href: "/dashboard/salary-advances", label: "Tạm ứng lương",       Icon: Wallet, badgeKey: "advances" },
       { href: "/dashboard/salary-history",  label: "Lịch sử lương",       Icon: TrendingUp },
       { href: "/dashboard/commission",      label: "Lương Doanh Số / KPI", Icon: Target },
       { href: "/dashboard/expenses",        label: "Chi phí công tác",    Icon: Receipt },

@@ -48,8 +48,12 @@ export async function GET() {
   }
 
   if (isFinance) {
-    push("advances", "đơn tạm ứng lương", "/dashboard/salary-advances",
-      prisma.salaryAdvance.count({ where: { companyId, status: "pending", ...(branchId ? { employee: { branchId } } : {}) } }));
+    const advBranch = branchId ? { employee: { branchId } } : {};
+    push("advances", "đơn ứng lương chờ duyệt", "/dashboard/salary-advances",
+      prisma.salaryAdvance.count({ where: { companyId, status: "pending", ...advBranch } }));
+    // Ứng lương đã duyệt (kể cả tự động) nhưng chưa chi tiền cho nhân viên
+    push("advances_disburse", "ứng lương chờ chi tiền", "/dashboard/salary-advances",
+      prisma.salaryAdvance.count({ where: { companyId, status: "approved", source: "worker", disbursedAt: null, ...advBranch } }));
     push("expenses", "chi phí công tác chờ duyệt", "/dashboard/expenses",
       prisma.expenseClaim.count({ where: { companyId, status: "pending", ...(branchId ? { employee: { branchId } } : {}) } }));
   }
