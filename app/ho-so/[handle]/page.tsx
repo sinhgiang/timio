@@ -127,7 +127,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
       <div className={data.isOwner ? "md:pl-60" : ""}>
         {/* Top bar */}
         <div className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
-          <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className={`max-w-3xl px-4 h-14 flex items-center justify-between ${data.isOwner ? "mx-auto md:mx-0 md:pl-8" : "mx-auto"}`}>
             <div className="flex items-center gap-2 min-w-0 md:hidden">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{firstInitial}</div>
               <span className="font-semibold text-gray-800 text-sm truncate">{data.name}</span>
@@ -154,7 +154,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
           )}
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 py-4">
+        <div className={`max-w-3xl px-4 py-4 ${data.isOwner ? "mx-auto md:mx-0 md:pl-8" : "mx-auto"}`}>
           {tab === "profile" && <ProfileTab data={data} onChange={setData} />}
           {tab === "income" && data.isOwner && <IncomeTab />}
           {tab === "attendance" && data.isOwner && <AttendanceTab />}
