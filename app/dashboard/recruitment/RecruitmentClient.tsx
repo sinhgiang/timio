@@ -720,6 +720,15 @@ export default function RecruitmentClient({
         ))}
       </div>
 
+      {/* KH6 — Upsell mềm: user chưa Business */}
+      {!isBusiness && (
+        <a href="/gia" target="_blank" rel="noreferrer" className="flex items-center gap-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-2.5 mb-4 hover:border-blue-300 transition-colors group">
+          <Sparkles size={16} className="text-blue-600 shrink-0" />
+          <p className="text-sm text-gray-700 flex-1">Mở khóa <b>Tuyển dụng AI</b> + <b>kho ứng viên xác thực bằng chấm công</b> với gói Business.</p>
+          <span className="text-sm text-blue-600 font-medium group-hover:underline shrink-0">Xem bảng giá →</span>
+        </a>
+      )}
+
       {/* Jobs tab */}
       {activeTab === "jobs" && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
