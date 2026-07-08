@@ -1445,7 +1445,14 @@ export default function RecruitmentClient({
               {isBusiness && (() => {
                 const vJob = jobs.find((j) => j.id === viewCand.jobId);
                 const jobCriteria = parseCriteria(vJob?.criteria);
-                if (jobCriteria.length === 0) return null;
+                if (jobCriteria.length === 0) return (
+                  <div className="bg-gray-50 rounded-xl p-3 flex items-start gap-2">
+                    <ListChecks size={15} className="text-gray-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-gray-500">
+                      <b className="text-gray-600">Đánh giá theo tiêu chí</b> — vị trí này chưa có tiêu chí. Vào tab <b>Vị trí tuyển → Sửa</b> vị trí, thêm tiêu chí (có nút <b>AI gợi ý</b>), lưu lại. Sau đó mở lại ứng viên để AI chấm Đạt/Không/Chưa rõ.
+                    </p>
+                  </div>
+                );
                 let results: { criterion: string; verdict: string; evidence: string }[] = [];
                 try { results = viewCand.criteriaResult ? JSON.parse(viewCand.criteriaResult) : []; } catch { results = []; }
                 const passN = results.filter((r) => r.verdict === "pass").length;
