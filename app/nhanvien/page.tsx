@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Clock, Loader2, Eye, EyeOff, Wallet, CalendarDays, Building2, LogOut, Briefcase, Sparkles, ChevronRight } from "lucide-react";
+import { Clock, Loader2, Eye, EyeOff, Wallet, CalendarDays, Building2, LogOut, Briefcase, Sparkles, ChevronRight, IdCard } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 
 type Me = {
@@ -177,7 +177,14 @@ export default function NhanVienPage() {
           <ChevronRight size={18} className="text-gray-300" />
         </a>
 
-        {/* Hồ sơ */}
+        {/* Hồ sơ nghề nghiệp */}
+        <a href="/nhanvien/ho-so" className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 hover:border-blue-200 transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0"><IdCard size={19} className="text-indigo-600" /></div>
+          <div className="flex-1"><p className="font-semibold text-gray-800 text-sm">Hồ sơ nghề nghiệp của tôi</p><p className="text-xs text-gray-400">Trang hồ sơ đẹp, xác thực bằng chấm công — để chia sẻ</p></div>
+          <ChevronRight size={18} className="text-gray-300" />
+        </a>
+
+        {/* Liên hệ */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 text-sm">
           <p className="text-gray-500 flex items-center gap-1.5 mb-1"><CalendarDays size={14} /> {me.phone}{me.email ? ` · ${me.email}` : ""}</p>
         </div>
