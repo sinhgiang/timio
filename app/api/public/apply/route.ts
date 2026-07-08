@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { scoreCandidate, aiConfigured } from "@/lib/recruitAI";
+import { makeApplicationToken } from "@/lib/applicationToken";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -286,6 +287,7 @@ export async function POST(req: NextRequest) {
         <p style="font-size:15px;line-height:1.6;margin:0 0 12px">Chào ${esc(name)},</p>
         <p style="font-size:15px;line-height:1.6;margin:0 0 12px"><b>${esc(company.name)}</b> đã nhận được hồ sơ ứng tuyển vị trí <b>${esc(job.title)}</b> của bạn.</p>
         <p style="font-size:15px;line-height:1.6;margin:0 0 12px">Chúng tôi sẽ xem xét và liên hệ lại với bạn qua số điện thoại sớm nhất. Cảm ơn bạn đã quan tâm!</p>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 12px"><a href="${(process.env.NEXTAUTH_URL || "https://timio.vn")}/ung-tuyen/${makeApplicationToken(candidate.id)}" style="color:#2563eb;font-weight:600">Theo dõi trạng thái hồ sơ của bạn →</a></p>
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0">
         <p style="font-size:12px;color:#9ca3af;margin:0">Email tự động từ ${esc(company.name)} qua hệ thống tuyển dụng Timio.</p>
       </div>`;

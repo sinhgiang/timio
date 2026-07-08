@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { scopedBranchId, type ScopeUser } from "@/lib/branchScope";
+import { makeApplicationToken } from "@/lib/applicationToken";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
     ${header}
     ${bodyLines.map((l) => `<p style="font-size:15px;line-height:1.6;margin:0 0 12px">${l}</p>`).join("")}
+    <p style="font-size:14px;line-height:1.6;margin:0 0 12px"><a href="${(process.env.NEXTAUTH_URL || "https://timio.vn")}/ung-tuyen/${makeApplicationToken(cand.id)}" style="color:#2563eb;font-weight:600">Theo dõi hồ sơ của bạn →</a></p>
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:22px 0">
     <p style="font-size:12px;color:#9ca3af;margin:0">Email gửi từ ${esc(companyName)} qua hệ thống tuyển dụng Timio.</p>
   </div>`;
