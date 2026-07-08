@@ -483,6 +483,102 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
         </div>
       </section>
 
+      {/* ── TUYỂN DỤNG AI + HỒ SƠ XÁC THỰC (sản phẩm thứ 2, ngang tầm) ── */}
+      <section id="tuyen-dung" className="py-20 px-4 bg-gradient-to-b from-white to-blue-50/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold px-3 py-1 rounded-full mb-4">
+              <Sparkles size={13} /> SẢN PHẨM MỚI · TUYỂN DỤNG AI
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+              Tuyển người ngay trong phần mềm chấm công
+            </h2>
+            <p className="text-gray-500 text-lg">
+              Không chỉ chấm công — Timio giúp bạn <strong className="text-gray-700">đăng tin, sàng lọc bằng AI</strong>, và tuyển đúng người nhờ <strong className="text-gray-700">hồ sơ xác thực bằng dữ liệu chấm công thật</strong>. Điều mà mọi trang tuyển dụng khác không có.
+            </p>
+          </div>
+
+          {/* 2 cột: text + mock hồ sơ xác thực */}
+          <div className="grid lg:grid-cols-2 gap-10 items-center mb-12">
+            <div>
+              <ul className="space-y-4">
+                {[
+                  [BadgeCheck, "Hồ sơ ứng viên XÁC THỰC bằng chấm công", "Đúng giờ, chuyên cần, thâm niên — ghi bằng máy, không phải CV tự khai. Nhà tuyển dụng tin ngay lập tức."],
+                  [Sparkles, "AI viết tin · chấm điểm · đánh giá theo tiêu chí", "AI soạn tin tuyển dụng, chấm ứng viên, và đánh giá Đạt/Không đạt theo từng tiêu chí bạn đặt — bạn vẫn là người quyết định."],
+                  [Users, "Quản lý ứng viên + tuyển 1 chạm", "Kéo-thả ứng viên qua các bước, tuyển xong 1 chạm biến thành nhân viên chấm công bằng khuôn mặt."],
+                  [Megaphone, "Liên hệ chủ động + giới thiệu có thưởng", "AI tìm cựu NV phù hợp, soạn tin, bạn bấm gửi. Nhân viên giới thiệu bạn bè — theo dõi ai được tuyển."],
+                  [Shield, "Đúng luật, không spam", "Con người bấm gửi, có nút từ chối, chỉ liên hệ người đã đồng ý — tuân thủ Luật Bảo vệ Dữ liệu Cá nhân 2025."],
+                ].map(([Icon, t, d]) => {
+                  const IconC = Icon as React.ElementType;
+                  return (
+                    <li key={t as string} className="flex gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm shadow-blue-200"><IconC size={18} className="text-white" /></div>
+                      <div><p className="font-bold text-gray-900 text-sm">{t as string}</p><p className="text-gray-500 text-sm leading-relaxed mt-0.5">{d as string}</p></div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="flex flex-wrap gap-3 mt-7">
+                <Link href="/register" className="inline-flex items-center gap-2 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors text-sm">Dùng thử miễn phí <ArrowRight size={16} /></Link>
+                <a href="/viec-lam" className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors text-sm">Xem trang việc làm</a>
+              </div>
+            </div>
+
+            {/* Mock: thẻ hồ sơ xác thực */}
+            <div className="relative">
+              <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 max-w-sm mx-auto">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold">NV</div>
+                  <div className="flex-1"><p className="font-bold text-gray-900">Nguyễn Văn A</p><p className="text-xs text-gray-500">Nhân viên bán hàng · TP.HCM</p></div>
+                  <span className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded-lg">Khớp 92%</span>
+                </div>
+                <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3.5">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700"><BadgeCheck size={13} /> HỒ SƠ XÁC THỰC</span>
+                    <span className="text-2xl font-extrabold text-green-600 leading-none">92<span className="text-xs text-gray-400">/100</span></span>
+                  </div>
+                  {[
+                    { l: "Đúng giờ", pct: 96 },
+                    { l: "Chuyên cần", pct: 91 },
+                    { l: "Phát triển", pct: 84 },
+                  ].map((s) => (
+                    <div key={s.l} className="flex items-center gap-2 text-xs mb-1.5">
+                      <span className="text-gray-600 w-16 shrink-0">{s.l}</span>
+                      <div className="flex-1 h-2 rounded-full bg-white overflow-hidden"><div className="h-full rounded-full bg-green-500" style={{ width: `${s.pct}%` }} /></div>
+                      <span className="w-8 text-right font-semibold text-gray-700">{s.pct}%</span>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-gray-400 mt-2">Thâm niên 2 năm · Không vi phạm kỷ luật · Từ dữ liệu chấm công thật</p>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <span className="text-center text-xs font-medium text-white bg-blue-600 rounded-lg py-2">Liên hệ ứng viên</span>
+                  <span className="text-center text-xs font-medium text-gray-600 border border-gray-200 rounded-lg py-2">Xem hồ sơ</span>
+                </div>
+              </div>
+              <div className="absolute -z-10 -top-4 -right-4 w-40 h-40 rounded-full bg-blue-200/40 blur-2xl" aria-hidden />
+            </div>
+          </div>
+
+          {/* Sub-grid: các mảng tuyển dụng */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { icon: Briefcase, t: "Trang tuyển dụng + sàn việc làm", d: "Mỗi công ty có trang tuyển dụng riêng (ảnh bìa, phúc lợi) + đăng lên sàn việc làm chung của Timio. Đăng tin miễn phí." },
+              { icon: Target, t: "Sàng lọc theo tiêu chí (kiểu Ashby)", d: "Đặt tiêu chí cho vị trí, AI chấm từng ứng viên Đạt/Không/Chưa rõ kèm bằng chứng. Minh bạch, không hộp đen." },
+              { icon: BadgeCheck, t: "Kho ứng viên xác thực", d: "Cựu nhân viên opt-in tạo hồ sơ có điểm tin cậy từ chấm công. Nhà tuyển dụng mở khóa liên hệ khi họ đồng ý." },
+              { icon: Megaphone, t: "Liên hệ chủ động (human-in-the-loop)", d: "AI tìm người phù hợp + soạn chuỗi tin, bạn duyệt và bấm gửi. Có dashboard phễu: gửi → trả lời → phỏng vấn → chốt." },
+              { icon: Star, t: "Giới thiệu có thưởng", d: "Nhân viên/cựu NV có link giới thiệu riêng. Ai được tuyển thì thưởng cho người giới thiệu — bảng vàng minh bạch." },
+              { icon: ClipboardCheck, t: "Ứng viên theo dõi hồ sơ", d: "Ứng viên xem trạng thái hồ sơ của mình (đã nhận → phỏng vấn → kết quả) qua link — trải nghiệm chuyên nghiệp." },
+            ].map((c) => (
+              <div key={c.t} className="bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-md transition-shadow">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-3"><c.icon size={19} className="text-blue-600" strokeWidth={1.5} /></div>
+                <h3 className="font-bold text-gray-900 text-sm mb-1.5">{c.t}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed">{c.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── ADDITIONAL FEATURES ── */}
       <section className="py-16 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
@@ -602,8 +698,8 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
               },
               {
                 icon: Briefcase,
-                title: "Tuyển dụng",
-                desc: "Đăng tin tuyển dụng, theo dõi ứng viên qua pipeline: tiếp nhận → phỏng vấn → offer → nhận việc. Quản lý có hệ thống từng ứng viên.",
+                title: "Tuyển dụng AI + Hồ sơ xác thực",
+                desc: "Đăng tin, sàng lọc bằng AI theo tiêu chí, tuyển 1 chạm thành nhân viên. Kho ứng viên xác thực bằng dữ liệu chấm công. Xem chi tiết ở khối Tuyển dụng phía trên.",
                 tag: "Business",
               },
             ].map((f) => (
