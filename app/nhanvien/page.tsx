@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Clock, Loader2, Eye, EyeOff, Wallet, CalendarDays, Building2, LogOut, Briefcase, Sparkles, ChevronRight, IdCard } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
+import WorkerNav from "@/components/worker/WorkerNav";
 
 type Me = {
   name: string; phone: string; email: string | null; avatarUrl: string | null; consentFinance: boolean;
@@ -102,7 +103,7 @@ export default function NhanVienPage() {
   const minDaysToPay = earn?.companies.length ? Math.min(...earn.companies.map((c) => c.daysToPayday)) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <div className="bg-gradient-to-br from-blue-700 to-indigo-700 text-white px-4 pt-6 pb-8 rounded-b-3xl">
         <div className="flex items-center justify-between">
@@ -189,6 +190,8 @@ export default function NhanVienPage() {
           <p className="text-gray-500 flex items-center gap-1.5 mb-1"><CalendarDays size={14} /> {me.phone}{me.email ? ` · ${me.email}` : ""}</p>
         </div>
       </div>
+
+      <WorkerNav />
     </div>
   );
 }
