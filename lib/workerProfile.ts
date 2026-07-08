@@ -8,12 +8,14 @@ export interface WorkerProfile {
   handle: string | null;
   name: string;
   avatarUrl: string | null;
+  coverUrl: string | null;
+  bio: string | null;
   role: string;
   department: string | null;
   companyName: string | null;
   location: string;
   tags: string[];
-  socials: { phone: string | null; email: string | null; zalo: string | null; facebook: string | null };
+  socials: { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
   verified: { experienceMonths: number; totalDaysWorked: number; punctualityRate: number | null; companiesCount: number };
   experiences: { companyName: string; position: string; department: string | null; branchName: string | null; joinDate: string | null; active: boolean; monthsHere: number | null }[];
 }
@@ -22,7 +24,10 @@ export interface WorkerProfile {
 export async function computeWorkerProfile(workerAccountId: string): Promise<WorkerProfile | null> {
   const wa = await prisma.workerAccount.findUnique({
     where: { id: workerAccountId },
-    select: { name: true, phone: true, email: true, avatarUrl: true, handle: true },
+    select: {
+      name: true, phone: true, email: true, avatarUrl: true, handle: true,
+      coverUrl: true, bio: true, zalo: true, website: true, facebook: true,
+    },
   });
   if (!wa) return null;
 
@@ -82,17 +87,21 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
   return {
     handle: wa.handle,
     name: wa.name,
+    // Ưu tiên field cá nhân (nhân viên tự đặt); nếu trống thì lấy field công ty điền sẵn
     avatarUrl: wa.avatarUrl || primary?.avatarUrl || null,
+    coverUrl: wa.coverUrl || null,
+    bio: wa.bio || null,
     role: primary?.position || "Nhân viên",
     department: primary?.department || null,
     companyName: primary?.company?.name ?? null,
     location: primary?.branch?.name || primary?.company?.name || "Việt Nam",
     tags: Array.from(tagSet).slice(0, 6),
     socials: {
-      phone: primary?.phone || wa.phone || null,
-      email: primary?.email || wa.email || null,
-      zalo: primary?.zalo || null,
-      facebook: primary?.facebook || null,
+      phone: wa.phone || primary?.phone || null,
+      email: wa.email || primary?.email || null,
+      zalo: wa.zalo || primary?.zalo || null,
+      website: wa.website || null,
+      facebook: wa.facebook || primary?.facebook || null,
     },
     verified: {
       experienceMonths, totalDaysWorked, punctualityRate,

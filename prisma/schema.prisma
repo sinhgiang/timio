@@ -870,6 +870,11 @@ model WorkerAccount {
   email            String?
   passwordHash     String?                        // bcrypt; null = chưa kích hoạt
   avatarUrl        String?
+  coverUrl         String?                        // ảnh bìa hồ sơ (base64) — kiểu Facebook
+  bio              String?                        // giới thiệu ngắn / headline
+  zalo             String?                        // cá nhân tự thêm (ưu tiên hơn field công ty)
+  website          String?
+  facebook         String?
   activationToken  String?   @unique              // link kích hoạt (xoá sau khi kích hoạt)
   activatedAt      DateTime?
   consentAppAt     DateTime?                       // đồng ý dùng app (Luật 91/2025)
