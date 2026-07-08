@@ -98,7 +98,6 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
   const [modelsReady, setModelsReady] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [matchCount, setMatchCount] = useState(0);
-  const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
 
   const [matchedEmployee, setMatchedEmployee] = useState<EmployeeData | null>(null);
   const [fromDate, setFromDate] = useState(todayStr());
@@ -139,7 +138,6 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
     setErrorMsg("");
     setFaceDetected(false);
     setMatchCount(0);
-    setZoomStyle({ scale: 1, tx: 0, ty: 0 });
     autoCheckingRef.current = false;
     matchCountRef.current = 0;
     lastMatchIdRef.current = null;
@@ -176,10 +174,6 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
         const box = await detectFaceBox(video);
         if (alive) {
           if (box) {
-            const vW = video.videoWidth || 640, vH = video.videoHeight || 480;
-            const fcX = box.x + box.width / 2, fcY = box.y + box.height / 2;
-            const scale = Math.max(1, Math.min(3.0, (vH * 0.55) / box.height));
-            setZoomStyle({ scale, tx: (0.5 - fcX / vW) * scale * 100, ty: (0.5 - fcY / vH) * scale * 100 });
             setFaceDetected(true);
             const registered = employees.filter((e) => e.descriptors.length > 0);
             if (registered.length > 0 && !autoCheckingRef.current) {
@@ -187,26 +181,23 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
               const descriptor = await extractDescriptor(frame);
               if (alive && !autoCheckingRef.current && descriptor) {
                 const match = findBestMatch(descriptor, registered.map((e) => ({ id: e.id, name: e.name, descriptors: e.descriptors })));
-                if (match) {
-                  if (match.id === lastMatchIdRef.current) matchCountRef.current++;
-                  else { matchCountRef.current = 1; lastMatchIdRef.current = match.id; }
-                  setMatchCount(matchCountRef.current);
-                  if (matchCountRef.current >= 2 && !autoCheckingRef.current) {
-                    autoCheckingRef.current = true;
-                    const emp = employees.find((e) => e.id === match.id) ?? null;
-                    stopCamera();
-                    setMatchedEmployee(emp);
-                    setPhase("form");
-                    return;
-                  }
-                } else {
-                  matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
+                if (match && !autoCheckingRef.current) {
+                  // Nhận diện đúng người → vào form NGAY (một phát là xong)
+                  setMatchCount(1);
+                  autoCheckingRef.current = true;
+                  const emp = employees.find((e) => e.id === match.id) ?? null;
+                  stopCamera();
+                  setMatchedEmployee(emp);
+                  setPhase("form");
+                  return;
+                } else if (!match) {
+                  setMatchCount(0);
                 }
               }
             }
           } else {
-            setZoomStyle({ scale: 1, tx: 0, ty: 0 }); setFaceDetected(false);
-            matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
+            setFaceDetected(false);
+            setMatchCount(0);
           }
         }
       } catch { /* ignore */ } finally {
@@ -219,7 +210,7 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
       alive = false;
       if (loopRef.current) clearTimeout(loopRef.current);
       detectingRef.current = false; autoCheckingRef.current = false;
-      setZoomStyle({ scale: 1, tx: 0, ty: 0 }); setFaceDetected(false);
+      setFaceDetected(false);
       matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
     };
   }, [phase, stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -373,14 +364,14 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
               <p className={`font-medium text-base transition-colors duration-300 ${
                 matchCount > 0 ? "text-yellow-300" :
                 faceDetected ? "text-blue-300" : "text-white/80"}`}>
-                {faceDetected ? (matchCount > 0 ? `Đang xác nhận... (${matchCount}/2)` : "Đang xác nhận danh tính...") : "Đưa mặt vào khung hình"}
+                {faceDetected ? "Đang nhận diện..." : "Đưa mặt vào khung hình"}
               </p>
             </div>
             <div className="relative flex-1 overflow-hidden md:flex-none md:rounded-2xl md:shadow-2xl md:border-4 md:transition-colors"
               style={{ borderColor: faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#4ade80" }}>
               <video ref={videoRef}
                 className="w-full h-full object-cover block md:h-auto md:aspect-[4/3]"
-                style={{ transform: `scaleX(-1) translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`, transition: "transform 0.5s ease", transformOrigin: "50% 50%" }}
+                style={{ transform: "scaleX(-1)", transformOrigin: "50% 50%" }}
                 muted playsInline autoPlay />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${

@@ -67,7 +67,6 @@ export default function HandoverKiosk({ company, leaveRequest, handoverEmployee 
   const [modelsReady, setModelsReady] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [matchCount, setMatchCount] = useState(0);
-  const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
@@ -116,34 +115,27 @@ export default function HandoverKiosk({ company, leaveRequest, handoverEmployee 
         const box = await detectFaceBox(video);
         if (alive) {
           if (box) {
-            const vW = video.videoWidth || 640, vH = video.videoHeight || 480;
-            const fcX = box.x + box.width / 2, fcY = box.y + box.height / 2;
-            const scale = Math.max(1, Math.min(3.0, (vH * 0.55) / box.height));
-            setZoomStyle({ scale, tx: (0.5 - fcX / vW) * scale * 100, ty: (0.5 - fcY / vH) * scale * 100 });
             setFaceDetected(true);
             if (!autoCheckingRef.current) {
               const frame = captureFrame(video);
               const descriptor = await extractDescriptor(frame);
               if (alive && !autoCheckingRef.current && descriptor) {
                 const match = findBestMatch(descriptor, [handoverEmployee]);
-                if (match) {
-                  if (match.id === lastMatchIdRef.current) matchCountRef.current++;
-                  else { matchCountRef.current = 1; lastMatchIdRef.current = match.id; }
-                  setMatchCount(matchCountRef.current);
-                  if (matchCountRef.current >= 2 && !autoCheckingRef.current) {
-                    autoCheckingRef.current = true;
-                    stopCamera();
-                    confirmHandover();
-                    return;
-                  }
-                } else {
-                  matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
+                if (match && !autoCheckingRef.current) {
+                  // Nhận diện đúng người → xác nhận NGAY (một phát là xong)
+                  setMatchCount(1);
+                  autoCheckingRef.current = true;
+                  stopCamera();
+                  confirmHandover();
+                  return;
+                } else if (!match) {
+                  setMatchCount(0);
                 }
               }
             }
           } else {
-            setZoomStyle({ scale: 1, tx: 0, ty: 0 }); setFaceDetected(false);
-            matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
+            setFaceDetected(false);
+            setMatchCount(0);
           }
         }
       } catch { /* ignore */ } finally {
@@ -156,7 +148,7 @@ export default function HandoverKiosk({ company, leaveRequest, handoverEmployee 
       alive = false;
       if (loopRef.current) clearTimeout(loopRef.current);
       detectingRef.current = false; autoCheckingRef.current = false;
-      setZoomStyle({ scale: 1, tx: 0, ty: 0 }); setFaceDetected(false);
+      setFaceDetected(false);
       matchCountRef.current = 0; lastMatchIdRef.current = null; setMatchCount(0);
     };
   }, [phase, handoverEmployee, stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -311,14 +303,14 @@ export default function HandoverKiosk({ company, leaveRequest, handoverEmployee 
               <p className={`font-medium text-base transition-colors duration-300 ${
                 matchCount > 0 ? "text-yellow-300"
                 : faceDetected ? "text-blue-300" : "text-white/80"}`}>
-                {faceDetected ? (matchCount > 0 ? `Đang xác nhận... (${matchCount}/2)` : "Đang nhận diện khuôn mặt...") : "Đưa mặt vào khung hình"}
+                {faceDetected ? "Đang nhận diện..." : "Đưa mặt vào khung hình"}
               </p>
             </div>
             <div className="relative flex-1 overflow-hidden md:flex-none md:rounded-2xl md:shadow-2xl md:border-4 md:transition-colors"
               style={{ borderColor: faceDetected ? (matchCount > 0 ? "#facc15" : "#22c55e") : "#4ade80" }}>
               <video ref={videoRef}
                 className="w-full h-full object-cover block md:h-auto md:aspect-[4/3]"
-                style={{ transform: `scaleX(-1) translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale})`, transition: "transform 0.5s ease", transformOrigin: "50% 50%" }}
+                style={{ transform: "scaleX(-1)", transformOrigin: "50% 50%" }}
                 muted playsInline autoPlay />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-44 h-56 border-4 rounded-full transition-all duration-300 ${

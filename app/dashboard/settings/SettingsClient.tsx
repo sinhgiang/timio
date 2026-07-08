@@ -53,7 +53,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null; faceLiveness?: boolean };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -186,6 +186,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     setKioskSaveMsg(res.ok ? "✅ Đã lưu!" : "❌ Lỗi lưu");
     setKioskSaving(false);
     if (res.ok) setTimeout(() => setKioskSaveMsg(""), 3000);
+  };
+
+  // Chế độ quét mặt: nhanh (mặc định) vs chống ảnh giả (chớp mắt)
+  const [faceLiveness, setFaceLiveness] = useState(company.faceLiveness ?? false);
+  const [faceSaving, setFaceSaving] = useState(false);
+  const saveFaceLiveness = async (val: boolean) => {
+    setFaceLiveness(val);
+    setFaceSaving(true);
+    await fetch("/api/company/face-liveness", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ faceLiveness: val }),
+    }).catch(() => {});
+    setFaceSaving(false);
   };
 
   // Payday setting
@@ -1698,6 +1711,45 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </div>
       </div>
       </PlanGate>
+
+      {/* ── Chế độ quét mặt ── */}
+      <div className="border-t border-gray-100 pt-6 mt-8">
+        <div className="flex items-center gap-2 mb-1">
+          <Monitor size={20} className="text-indigo-500" />
+          <h2 className="text-base font-bold text-gray-800">Tốc độ quét khuôn mặt</h2>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          Áp dụng cho mọi màn hình quét mặt (chấm công, nghỉ phép, bàn giao).
+        </p>
+        <div className="space-y-2.5 max-w-xl">
+          <button
+            onClick={() => saveFaceLiveness(false)}
+            disabled={faceSaving}
+            className={`w-full text-left p-3.5 rounded-xl border-2 transition-colors ${!faceLiveness ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:bg-gray-50"}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${!faceLiveness ? "border-indigo-500" : "border-gray-300"}`}>
+                {!faceLiveness && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
+              </span>
+              <span className="font-semibold text-gray-800 text-sm">⚡ Nhanh (khuyên dùng)</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1 ml-6">Thấy mặt là nhận ngay, một phát là xong. Vẫn chống người khác chấm hộ (nhận diện đúng người).</p>
+          </button>
+          <button
+            onClick={() => saveFaceLiveness(true)}
+            disabled={faceSaving}
+            className={`w-full text-left p-3.5 rounded-xl border-2 transition-colors ${faceLiveness ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:bg-gray-50"}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${faceLiveness ? "border-indigo-500" : "border-gray-300"}`}>
+                {faceLiveness && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
+              </span>
+              <span className="font-semibold text-gray-800 text-sm">🛡️ An toàn (chống ảnh giả)</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1 ml-6">Yêu cầu <b>chớp mắt</b> trước khi chấm công — chặn người dùng ảnh chụp để gian lận. Chậm hơn một chút.</p>
+          </button>
+        </div>
+      </div>
       </>}
 
       {activeSection === "signature" && <>

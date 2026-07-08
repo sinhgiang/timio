@@ -55,6 +55,7 @@ export default async function CheckInPage({ params, searchParams }: PageProps) {
       employees={employeeFaceData}
       messages={messages}
       branchName={branchName}
+      liveness={company.faceLiveness}
     />
   );
 }

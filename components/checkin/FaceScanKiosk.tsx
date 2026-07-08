@@ -39,6 +39,7 @@ interface Props {
   employees: EmployeeFaceData[];
   messages?: KioskMessages;
   branchName?: string;
+  liveness?: boolean; // true = bật chớp mắt chống ảnh giả; false = quét nhanh 1 phát (mặc định)
 }
 
 function getGPS(): Promise<{ lat: number; lng: number } | null> {
@@ -52,7 +53,7 @@ function getGPS(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
-export default function FaceScanKiosk({ company, employees, messages, branchName }: Props) {
+export default function FaceScanKiosk({ company, employees, messages, branchName, liveness = false }: Props) {
   const msg = {
     welcome: messages?.welcome ?? `Chào mừng đến với ${company.name}! Vui lòng quét khuôn mặt để điểm danh.`,
     checkinOntime: messages?.checkinOntime ?? `Cảm ơn {name}! Chúc bạn có một ngày làm việc tràn đầy năng lượng!`,
@@ -76,7 +77,6 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
   const [modelsReady, setModelsReady] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [faceDetected, setFaceDetected] = useState(false);
-  const [zoomStyle, setZoomStyle] = useState({ scale: 1, tx: 0, ty: 0 });
   const [matchCount, setMatchCount] = useState(0);
   // Blink challenge state
   const [blinkState, setBlinkState] = useState<"waiting" | "eyes_open" | "blinking" | "done">("waiting");
@@ -179,14 +179,6 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
 
         if (alive) {
           if (box) {
-            const vW = video.videoWidth || 640;
-            const vH = video.videoHeight || 480;
-            const fcX = box.x + box.width / 2;
-            const fcY = box.y + box.height / 2;
-            const scale = Math.max(1, Math.min(3.0, (vH * 0.55) / box.height));
-            const tx = (0.5 - fcX / vW) * scale * 100;
-            const ty = (0.5 - fcY / vH) * scale * 100;
-            setZoomStyle({ scale, tx, ty });
             setFaceDetected(true);
 
             const registered = employees.filter(e => e.descriptors.length > 0);
@@ -198,37 +190,23 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
                 if (descriptor) {
                   const match = findBestMatch(descriptor, registered);
                   if (match) {
-                    if (match.id === lastMatchIdRef.current) {
-                      matchCountRef.current++;
-                    } else {
-                      matchCountRef.current = 1;
-                      lastMatchIdRef.current = match.id;
-                    }
-                    setMatchCount(matchCountRef.current);
-
-                    // 2 lần khớp liên tiếp → check-in luôn, không cần head turn
-                    if (matchCountRef.current >= 2 && !autoCheckingRef.current) {
+                    setMatchCount(1);
+                    // Nhận diện đúng người → check-in NGAY (một phát là xong)
+                    if (!autoCheckingRef.current) {
                       autoCheckingRef.current = true;
                       void doCheckIn(match.id, match.name);
                       return;
                     }
                   } else {
-                    matchCountRef.current = 0;
-                    lastMatchIdRef.current = null;
                     setMatchCount(0);
                   }
                 } else {
-                  matchCountRef.current = 0;
-                  lastMatchIdRef.current = null;
                   setMatchCount(0);
                 }
               }
             }
           } else {
-            setZoomStyle({ scale: 1, tx: 0, ty: 0 });
             setFaceDetected(false);
-            matchCountRef.current = 0;
-            lastMatchIdRef.current = null;
             setMatchCount(0);
           }
         }
@@ -244,7 +222,6 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
       alive = false;
       if (loopRef.current) clearTimeout(loopRef.current);
       detectingRef.current = false;
-      setZoomStyle({ scale: 1, tx: 0, ty: 0 });
       setFaceDetected(false);
       matchCountRef.current = 0;
       lastMatchIdRef.current = null;
@@ -427,8 +404,12 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
         video: { facingMode: "user", width: 640, height: 480 },
       });
       streamRef.current = stream;
-      setBlinkState("waiting");
-      setPhase("blink"); // Bắt đầu bằng thử thách chớp mắt trước khi nhận diện khuôn mặt
+      if (liveness) {
+        setBlinkState("waiting");
+        setPhase("blink"); // Chế độ an toàn: thử thách chớp mắt trước khi nhận diện
+      } else {
+        setPhase("camera"); // Chế độ nhanh: nhận diện ngay, một phát là xong
+      }
     } catch (e) {
       setErrorMsg(`Không mở được camera: ${e instanceof Error ? e.message : String(e)}`);
       setPhase("error");
@@ -468,9 +449,7 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
   });
 
   const cameraStatusText = faceDetected
-    ? matchCount === 0
-      ? "Đang xác nhận danh tính..."
-      : `Đang xác nhận... (${matchCount}/2)`
+    ? "Đang nhận diện..."
     : "Đưa mặt vào khung hình";
 
   const isVideoPhase = phase === "camera" || phase === "blink" || phase === "qr_scan";
@@ -597,8 +576,7 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
                   transformOrigin: "50% 50%",
                   transform: phase === "qr_scan"
                     ? "scaleX(1)" // QR scan: không mirror
-                    : `translate(${-zoomStyle.tx}%, ${zoomStyle.ty}%) scale(${zoomStyle.scale}) scaleX(-1)`,
-                  transition: "transform 0.5s ease",
+                    : "scaleX(-1)", // Quét mặt: chỉ soi gương, KHÔNG zoom (nhanh, đỡ chóng mặt)
                 }}
                 muted
                 playsInline
@@ -634,11 +612,9 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
                   </div>
                   <div className="absolute top-3 right-3 pointer-events-none">
                     <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shadow ${
-                      matchCount > 0 ? "bg-yellow-500 text-white" :
                       faceDetected ? "bg-green-500 text-white" : "bg-black/60 text-white/80"
                     }`}>
-                      {matchCount > 0 ? `⟳ Xác nhận ${matchCount}/2` :
-                       faceDetected ? "✓ Đã nhận diện mặt" : "Đang tìm mặt..."}
+                      {faceDetected ? "✓ Đang nhận diện" : "Đang tìm mặt..."}
                     </span>
                   </div>
                 </>

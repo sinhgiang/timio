@@ -51,6 +51,7 @@ export default async function SettingsPage() {
         zaloRefreshToken: (company as { zaloRefreshToken?: string | null })?.zaloRefreshToken ?? null,
         kioskMessages: company?.kioskMessages ?? null,
         paydayOfMonth: (company as { paydayOfMonth?: number })?.paydayOfMonth ?? 5,
+        faceLiveness: (company as { faceLiveness?: boolean })?.faceLiveness ?? false,
       }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}

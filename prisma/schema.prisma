@@ -26,6 +26,7 @@ model Company {
   zaloTokenExpiresAt DateTime? // access token hết hạn lúc nào
   overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
   logoUrl         String? // base64 logo công ty (chèn vào email thông báo)
+  faceLiveness    Boolean @default(false) // true = bật chớp mắt chống ảnh giả (chậm hơn); false = quét nhanh 1 phát
   careerIntro     String? // Giới thiệu công ty trên trang tuyển dụng công khai (GĐ2 inbound)
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
