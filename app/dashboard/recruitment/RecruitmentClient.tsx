@@ -6,6 +6,7 @@ import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
 import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
 import TalentBrowse from "@/components/recruitment/TalentBrowse";
+import OutreachPanel from "@/components/recruitment/OutreachPanel";
 
 type Branch = { id: string; name: string };
 
@@ -167,7 +168,7 @@ export default function RecruitmentClient({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool" | "talent">("reports");
+  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool" | "talent" | "outreach">("reports");
   const [showGuide, setShowGuide] = useState(false);
 
   // Báo cáo
@@ -661,6 +662,7 @@ export default function RecruitmentClient({
           { k: "candidates", label: `Ứng viên (${candidates.filter(c => c.status !== "rejected" && c.status !== "hired").length})`, Icon: Users },
           { k: "pool", label: `Kho ứng viên (${candidates.filter(c => c.status === "rejected" || c.status === "hired").length})`, Icon: Archive },
           ...(isBusiness ? [{ k: "talent", label: "Tìm ứng viên (Cộng đồng)", Icon: Sparkles } as const] : []),
+          ...(isBusiness ? [{ k: "outreach", label: "Liên hệ chủ động", Icon: Send } as const] : []),
         ] as const).map(tab => (
           <button
             key={tab.k}
@@ -1069,6 +1071,11 @@ export default function RecruitmentClient({
           </div>
           <TalentBrowse role={role} />
         </div>
+      )}
+
+      {/* Liên hệ chủ động (Business) */}
+      {activeTab === "outreach" && isBusiness && (
+        <OutreachPanel jobs={jobs.map(j => ({ id: j.id, title: j.title, status: j.status }))} />
       )}
 
       {/* Job form modal */}

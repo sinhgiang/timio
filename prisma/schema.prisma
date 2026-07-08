@@ -768,6 +768,60 @@ model TalentJobAlert {
   @@index([jobId])
 }
 
+// ─── Sourcing GĐ1: Liên hệ chủ động (Outreach Assistant) ────────────────────────
+// Chiến dịch liên hệ ứng viên cho 1 vị trí. Chỉ liên hệ người CÓ cơ sở đồng ý
+// (cựu NV công ty / ứng viên đã nộp / cựu NV cộng đồng opt-in). AI soạn, admin bấm gửi.
+model OutreachCampaign {
+  id        String   @id @default(cuid())
+  companyId String
+  jobId     String
+  name      String
+  status    String   @default("active") // "active" | "done" | "archived"
+  branchId  String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+}
+
+// Mỗi người được liên hệ trong 1 chiến dịch (1 dòng = 1 ứng viên)
+model OutreachContact {
+  id           String    @id @default(cuid())
+  campaignId   String
+  companyId    String
+  kind         String // "ex_employee" | "candidate" | "talent"
+  refId        String? // employeeId / candidateId / talentProfileId
+  name         String
+  email        String?
+  phone        String?
+  position     String?
+  matchScore   Int?
+  matchReason  String?
+  step         Int       @default(0) // số bước đã gửi (0..4)
+  status       String    @default("pending") // pending|drafted|sent|opened|replied|interested|interviewed|hired|declined|opted_out
+  draftSubject String?
+  draftBody    String?
+  messages     String? // JSON: [{step, channel, subject, body, sentAt}]
+  lastSentAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([companyId, status])
+}
+
+// Sổ từ chối nhận tin (NĐ 91/2020) — không liên hệ lại người đã từ chối
+model OutreachOptOut {
+  id        String   @id @default(cuid())
+  companyId String
+  contact   String // email hoặc phone (chuẩn hóa lowercase)
+  token     String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, contact])
+}
+
 // Bảng tin nội bộ công ty
 model Announcement {
   id          String    @id @default(cuid())
