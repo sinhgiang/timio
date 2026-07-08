@@ -28,6 +28,8 @@ model Company {
   logoUrl         String? // base64 logo công ty (chèn vào email thông báo)
   faceLiveness    Boolean @default(false) // true = bật chớp mắt chống ảnh giả (chậm hơn); false = quét nhanh 1 phát
   careerIntro     String? // Giới thiệu công ty trên trang tuyển dụng công khai (GĐ2 inbound)
+  careerCoverUrl  String? // Ảnh bìa trang tuyển dụng (base64) — KH3
+  careerPerks     String? // JSON [{icon,label}]: "Vì sao làm ở đây" — KH3
   signatureUrl    String? // base64 ảnh chữ ký admin
   stampUrl        String? // base64 ảnh dấu công ty
   referredBy      String? // slug của công ty đã giới thiệu mình
