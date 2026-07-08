@@ -238,7 +238,7 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
           <div className="mt-3">
             <div className="flex items-center gap-2">
               <h1 className="font-serif text-2xl sm:text-3xl text-gray-900 leading-tight">{data.name}</h1>
-              <BadgeCheck size={20} className="text-blue-600" />
+              <VerifiedBadge name={data.name} verified={v} />
             </div>
             <p className="text-gray-500 text-sm mt-0.5">{data.role}{data.companyName ? <> · {data.companyName}</> : null}</p>
             {data.bio && <p className="text-sm text-gray-600 mt-2">{data.bio}</p>}
@@ -304,6 +304,33 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
 
       {editOpen && <EditModal data={data} onClose={() => setEditOpen(false)} onSaved={(p) => { onChange({ ...p, isOwner: true }); setEditOpen(false); }} />}
     </div>
+  );
+}
+
+// Dấu tích xác thực (nổi bật kiểu Facebook/YouTube) + tooltip giải thích khi rê chuột / bấm vào
+function VerifiedBadge({ name, verified }: { name: string; verified: Profile["verified"] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex items-center" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Hồ sơ đã xác thực" className="inline-flex focus:outline-none">
+        <BadgeCheck size={26} className="fill-blue-500 text-white drop-shadow-[0_1px_3px_rgba(37,99,235,0.5)]" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-3.5 z-30 text-left">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <BadgeCheck size={17} className="fill-blue-500 text-white" />
+            <p className="text-sm font-bold text-gray-800">Hồ sơ đã xác thực</p>
+          </div>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            Danh tính và kinh nghiệm làm việc của <b>{name}</b> được <b className="text-blue-600">Timio</b> chứng thực bằng <b>dữ liệu chấm công thật</b> — không phải thông tin tự khai.
+          </p>
+          <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-1.5 text-[11px] text-gray-500">
+            <ShieldCheck size={12} className="text-blue-500 shrink-0" />
+            <span>{verified.totalDaysWorked} ngày công{verified.punctualityRate != null ? ` · ${verified.punctualityRate}% đúng giờ` : ""} được hệ thống ghi nhận.</span>
+          </div>
+        </div>
+      )}
+    </span>
   );
 }
 
