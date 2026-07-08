@@ -192,9 +192,9 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
         {/* Banner */}
-        <div className="relative h-36 sm:h-52 bg-gradient-to-r from-blue-600 to-indigo-600">
+        <div className="relative h-36 sm:h-52 rounded-t-2xl overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600">
           {data.coverUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.coverUrl} alt="Ảnh bìa" className="w-full h-full object-cover" />
