@@ -463,7 +463,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                 </div>
                 <div className="flex justify-start">
                   <div className="bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-bl-md px-4 py-2.5 text-sm max-w-[85%] shadow-sm">
-                    Dạ anh, hôm nay có <strong>5 nhân viên</strong> chưa chấm công ạ: Giàng A Kỳ, Hầu Thị Chinh, Thầu A Chinh…
+                    Dạ anh, hôm nay có <strong>5 nhân viên</strong> chưa chấm công ạ: Nguyễn Văn Hùng, Trần Thị Mai, Lê Minh Tuấn…
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-1">
