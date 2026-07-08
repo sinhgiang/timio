@@ -644,6 +644,7 @@ model JobPosting {
   quantity     Int?        // số lượng cần tuyển
   workTime     String?     // ca/giờ làm (vd "Ca tối 17h-22h")
   benefits     String?     // quyền lợi
+  criteria     String?     // JSON string[]: tiêu chí đánh giá ứng viên (KH2 — kiểu Ashby)
   isPublic     Boolean     @default(true) // hiện trên trang tuyển dụng công khai
   createdAt    DateTime    @default(now())
 
@@ -670,6 +671,7 @@ model Candidate {
   cvFileName String?   // tên file CV gốc
   aiScore    Int?      // 0-100 điểm AI chấm (GĐ3)
   aiSummary  String?   // AI tóm tắt + lý do điểm (GĐ3)
+  criteriaResult String? // JSON [{criterion, verdict:"pass|fail|unknown", evidence}] (KH2)
   interviewAt DateTime? // lịch phỏng vấn
   hiredAt    DateTime? // thời điểm được tuyển (để tính time-to-hire)
   hiredEmpId String?   // employeeId nếu được tuyển vào làm

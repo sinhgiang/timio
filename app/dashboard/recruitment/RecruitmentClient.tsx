@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2, Calendar, Mail, BarChart3, Archive, Send, TrendingUp } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2, Calendar, Mail, BarChart3, Archive, Send, TrendingUp, ListChecks } from "lucide-react";
 import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
 import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
@@ -25,10 +25,14 @@ type Job = {
   quantity: number | null;
   workTime: string | null;
   benefits: string | null;
+  criteria: string | null;
   isPublic: boolean;
   createdAt: string;
   _count: { candidates: number };
 };
+
+// Bản làm việc của form vị trí — criteria xử lý dưới dạng mảng (criteriaList)
+type JobForm = Partial<Job> & { criteriaList?: string[] };
 
 type Candidate = {
   id: string;
@@ -44,6 +48,7 @@ type Candidate = {
   cvFileName: string | null;
   aiScore: number | null;
   aiSummary: string | null;
+  criteriaResult: string | null;
   interviewAt: string | null;
   hiredEmpId: string | null;
   appliedAt: string;
@@ -187,7 +192,9 @@ export default function RecruitmentClient({
   const [emailResult, setEmailResult] = useState<string | null>(null);
 
   // Job form
-  const [jobForm, setJobForm] = useState<Partial<Job> | null>(null);
+  const [jobForm, setJobForm] = useState<JobForm | null>(null);
+  const [suggestingCriteria, setSuggestingCriteria] = useState(false);
+  const parseCriteria = (s: string | null | undefined): string[] => { try { return s ? JSON.parse(s) : []; } catch { return []; } };
   const [savingJob, setSavingJob] = useState(false);
 
   // Candidate form
@@ -338,6 +345,24 @@ export default function RecruitmentClient({
     setScoringId(null);
   }
 
+  // KH2 — đánh giá ứng viên theo tiêu chí của vị trí
+  const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+  async function evaluateCriteria(cand: Candidate) {
+    setEvaluatingId(cand.id);
+    try {
+      const res = await fetch(`/api/recruitment/candidates/${cand.id}/evaluate`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const cr = JSON.stringify(data.results);
+        setCandidates((prev) => prev.map((c) => (c.id === cand.id ? { ...c, criteriaResult: cr } : c)));
+        setViewCand((v) => (v && v.id === cand.id ? { ...v, criteriaResult: cr } : v));
+      } else {
+        alert(data?.error || "Đánh giá không thành công.");
+      }
+    } catch { /* noop */ }
+    setEvaluatingId(null);
+  }
+
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/recruitment/jobs");
@@ -369,7 +394,7 @@ export default function RecruitmentClient({
     const editId = searchParams.get("edit");
     if (editId && !editHandled && jobs.length > 0) {
       const j = jobs.find((x) => x.id === editId);
-      if (j) { setActiveTab("jobs"); setJobForm({ ...j }); setEditHandled(true); }
+      if (j) { setActiveTab("jobs"); setJobForm({ ...j, criteriaList: parseCriteria(j.criteria) }); setEditHandled(true); }
     }
   }, [searchParams, jobs, editHandled]);
 
@@ -441,11 +466,27 @@ export default function RecruitmentClient({
     await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(jobForm),
+      body: JSON.stringify({ ...jobForm, criteria: jobForm?.criteriaList ?? undefined }),
     });
     setSavingJob(false);
     setJobForm(null);
     fetchJobs();
+  }
+
+  // KH2 — AI gợi ý tiêu chí đánh giá từ tin tuyển dụng
+  async function aiSuggestCriteria() {
+    if (!jobForm?.title) return;
+    setSuggestingCriteria(true);
+    try {
+      const r = await fetch("/api/recruitment/ai/criteria", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: jobForm.title, requirements: jobForm.requirements, description: jobForm.description, workTime: jobForm.workTime }),
+      });
+      const d = await r.json();
+      if (r.ok && Array.isArray(d.criteria)) setJobForm((f) => f ? { ...f, criteriaList: d.criteria } : f);
+      else if (d.error) alert(d.error);
+    } catch { alert("Lỗi kết nối"); }
+    setSuggestingCriteria(false);
   }
 
   async function deleteJob(id: string) {
@@ -754,7 +795,7 @@ export default function RecruitmentClient({
                         <option value="closed">Đóng tuyển</option>
                         <option value="filled">Đã tuyển được</option>
                       </select>
-                      <button onClick={() => setJobForm({ ...job })} className="p-1.5 hover:bg-blue-50 rounded-lg text-gray-400 hover:text-blue-600 transition-colors">
+                      <button onClick={() => setJobForm({ ...job, criteriaList: parseCriteria(job.criteria) })} className="p-1.5 hover:bg-blue-50 rounded-lg text-gray-400 hover:text-blue-600 transition-colors">
                         <Pencil size={14} />
                       </button>
                       <button onClick={() => deleteJob(job.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors">
@@ -1193,6 +1234,30 @@ export default function RecruitmentClient({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quyền lợi</label>
                 <AutoGrowTextarea minHeight={100} value={jobForm.benefits || ""} onChange={e => setJobForm({ ...jobForm, benefits: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3.5 py-3 text-sm leading-relaxed focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Bao ăn ca, thưởng chuyên cần, môi trường trẻ trung..." />
               </div>
+
+              {/* KH2 — Tiêu chí đánh giá ứng viên */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Tiêu chí đánh giá ứng viên</label>
+                  {isBusiness && (
+                    <button type="button" onClick={aiSuggestCriteria} disabled={suggestingCriteria || !jobForm.title} className="flex items-center gap-1 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded-lg disabled:opacity-50">
+                      {suggestingCriteria ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI gợi ý
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mb-2">AI sẽ chấm ứng viên Đạt/Không đạt theo từng tiêu chí này (kèm bằng chứng).</p>
+                <div className="space-y-2">
+                  {(jobForm.criteriaList ?? []).map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}.</span>
+                      <input type="text" value={c} onChange={(e) => setJobForm((f) => { if (!f) return f; const list = [...(f.criteriaList ?? [])]; list[i] = e.target.value; return { ...f, criteriaList: list }; })} className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Có kinh nghiệm bán hàng ≥ 1 năm" />
+                      <button type="button" onClick={() => setJobForm((f) => f ? { ...f, criteriaList: (f.criteriaList ?? []).filter((_, j) => j !== i) } : f)} className="text-gray-400 hover:text-red-500"><X size={15} /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setJobForm((f) => f ? { ...f, criteriaList: [...(f.criteriaList ?? []), ""] } : f)} className="text-xs text-blue-600 hover:text-blue-700">+ Thêm tiêu chí</button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ca / Giờ làm</label>
@@ -1328,6 +1393,44 @@ export default function RecruitmentClient({
                   {scoringId === viewCand.id ? "Đang chấm..." : "Chấm điểm AI ứng viên này"}
                 </button>
               ) : null}
+
+              {/* KH2 — Đánh giá theo TIÊU CHÍ (Đạt / Không / Chưa rõ) */}
+              {isBusiness && (() => {
+                const vJob = jobs.find((j) => j.id === viewCand.jobId);
+                const jobCriteria = parseCriteria(vJob?.criteria);
+                if (jobCriteria.length === 0) return null;
+                let results: { criterion: string; verdict: string; evidence: string }[] = [];
+                try { results = viewCand.criteriaResult ? JSON.parse(viewCand.criteriaResult) : []; } catch { results = []; }
+                const passN = results.filter((r) => r.verdict === "pass").length;
+                return (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ListChecks size={15} className="text-blue-600" />
+                      <span className="text-xs font-semibold text-gray-600">Đánh giá theo tiêu chí{results.length > 0 ? ` · Đạt ${passN}/${results.length}` : ""}</span>
+                      <button onClick={() => evaluateCriteria(viewCand)} disabled={evaluatingId === viewCand.id} className="ml-auto flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 disabled:opacity-50">
+                        {evaluatingId === viewCand.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} {results.length > 0 ? "Đánh giá lại" : "Đánh giá"}
+                      </button>
+                    </div>
+                    {results.length === 0 ? (
+                      <p className="text-xs text-gray-400">Bấm "Đánh giá" để AI chấm ứng viên theo {jobCriteria.length} tiêu chí của vị trí này.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {results.map((r, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs">
+                            <span className="shrink-0 mt-0.5">
+                              {r.verdict === "pass" ? <Check size={14} className="text-green-600" /> : r.verdict === "fail" ? <X size={14} className="text-red-500" /> : <HelpCircle size={14} className="text-gray-400" />}
+                            </span>
+                            <div className="min-w-0">
+                              <p className={`font-medium ${r.verdict === "pass" ? "text-gray-800" : r.verdict === "fail" ? "text-red-600" : "text-gray-500"}`}>{r.criterion}</p>
+                              {r.evidence && <p className="text-gray-400">{r.evidence}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {viewCand.phone && <p><span className="text-gray-400">Điện thoại: </span><a href={`tel:${viewCand.phone}`} className="text-blue-600">{viewCand.phone}</a></p>}
               {viewCand.email && <p><span className="text-gray-400">Email: </span>{viewCand.email}</p>}
               {viewCand.experience && (

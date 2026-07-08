@@ -23,7 +23,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!(await jobInScope(user!, params.id))) return NextResponse.json({ error: "Không tìm thấy hoặc không có quyền" }, { status: 404 });
 
   const { title, department, location, description, requirements, salaryMin, salaryMax, status,
-    branchId, quantity, workTime, benefits, isPublic } = await req.json();
+    branchId, quantity, workTime, benefits, isPublic, criteria } = await req.json();
+  const criteriaJson = criteria !== undefined
+    ? (Array.isArray(criteria) ? JSON.stringify(criteria.map((c: unknown) => String(c).trim()).filter(Boolean).slice(0, 8)) : null)
+    : undefined;
 
   // Manager chi nhánh không được chuyển job sang chi nhánh khác
   const scoped = scopedBranchId(user!);
@@ -43,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(quantity !== undefined && { quantity: quantity ? Number(quantity) : null }),
       ...(workTime !== undefined && { workTime: workTime || null }),
       ...(benefits !== undefined && { benefits: benefits || null }),
+      ...(criteriaJson !== undefined && { criteria: criteriaJson }),
       ...(isPublic !== undefined && { isPublic: !!isPublic }),
     },
   });

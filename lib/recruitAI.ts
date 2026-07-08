@@ -207,6 +207,89 @@ Chấm điểm (chỉ trả JSON).`;
   };
 }
 
+// ─── 2c. Tiêu chí đánh giá (KH2 — kiểu Ashby) ────────────────────────────────────
+export async function suggestCriteria(job: {
+  title: string; requirements?: string | null; description?: string | null; workTime?: string | null;
+}): Promise<string[]> {
+  const generic = [
+    `Có kinh nghiệm liên quan đến vị trí ${job.title}`,
+    "Ở gần khu vực làm việc",
+    job.workTime ? `Sắp xếp được thời gian làm việc (${job.workTime})` : "Có thể bắt đầu sớm",
+    "Thái độ / giao tiếp tốt",
+  ];
+  if (!aiConfigured()) return generic;
+  const system = `Bạn là chuyên gia tuyển dụng. Từ tin tuyển dụng, đề xuất 3-5 TIÊU CHÍ đánh giá ứng viên NGẮN GỌN, RÕ RÀNG, có thể kiểm chứng (mỗi tiêu chí là 1 cụm ngắn, không phải câu hỏi). Tiếng Việt chuẩn. CHỈ trả JSON: {"criteria":["...","..."]}`;
+  const user = `VỊ TRÍ: ${job.title}\nYêu cầu: ${job.requirements || "(không ghi)"}\nMô tả: ${(job.description || "").slice(0, 400)}\nCa/giờ: ${job.workTime || "(không nêu)"}\n\nĐề xuất tiêu chí. Chỉ trả JSON.`;
+  try {
+    const text = await complete(system, user, 400);
+    const parsed = extractJson<{ criteria?: string[] }>(text);
+    const cs = (parsed?.criteria || []).map((c) => String(c).trim()).filter(Boolean).slice(0, 5);
+    return cs.length ? cs : generic;
+  } catch { return generic; }
+}
+
+export interface CriterionVerdict { criterion: string; verdict: "pass" | "fail" | "unknown"; evidence: string }
+
+export async function evaluateAgainstCriteria(
+  candidate: { name: string; experience?: string | null; notes?: string | null },
+  job: { title: string },
+  criteria: string[],
+  cv?: CvInput
+): Promise<CriterionVerdict[]> {
+  const list = criteria.slice(0, 8);
+  if (list.length === 0) return [];
+  // Không có key → trả "chưa rõ" hết (trung thực, không bịa)
+  if (!aiConfigured()) return list.map((c) => ({ criterion: c, verdict: "unknown" as const, evidence: "Chưa bật AI để đánh giá." }));
+
+  const system = `Bạn là chuyên viên tuyển dụng TRUNG THỰC. Với TỪNG tiêu chí, đánh giá ứng viên dựa CHỈ trên thông tin đã cho:
+- verdict = "pass" nếu có bằng chứng RÕ RÀNG đạt tiêu chí.
+- verdict = "fail" nếu có bằng chứng KHÔNG đạt.
+- verdict = "unknown" nếu THIẾU thông tin (đừng suy diễn, đừng bịa).
+- "evidence" = 1 câu ngắn trích/giải thích lý do (tiếng Việt). Nếu unknown thì ghi "chưa có thông tin".
+CHỈ trả JSON: {"results":[{"criterion":"<y nguyên>","verdict":"pass|fail|unknown","evidence":"<1 câu>"}]}`;
+
+  const hasFile = !!cv?.file?.data;
+  const userText = `VỊ TRÍ: ${job.title}
+ỨNG VIÊN: ${candidate.name}
+Kinh nghiệm/giới thiệu: ${candidate.experience || "(không ghi)"}
+Ghi chú: ${candidate.notes || "(không có)"}
+${hasFile ? "CV: có file đính kèm — đọc kỹ." : ""}
+
+CÁC TIÊU CHÍ CẦN ĐÁNH GIÁ:
+${list.map((c, i) => `${i + 1}. ${c}`).join("\n")}
+
+Đánh giá từng tiêu chí. Chỉ trả JSON.`;
+
+  try {
+    let text = "";
+    if (hasFile) {
+      const mt = cv!.file!.mediaType;
+      const block = mt === "application/pdf"
+        ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: cv!.file!.data } }
+        : { type: "image" as const, source: { type: "base64" as const, media_type: (mt as "image/jpeg" | "image/png" | "image/webp"), data: cv!.file!.data } };
+      const msg = await client().messages.create({ model: MODEL, max_tokens: 900, system, messages: [{ role: "user", content: [block, { type: "text", text: userText }] }] });
+      const b = msg.content.find((x) => x.type === "text");
+      text = b && b.type === "text" ? b.text : "";
+    } else {
+      text = await complete(system, userText, 800);
+    }
+    const parsed = extractJson<{ results?: CriterionVerdict[] }>(text);
+    const results = parsed?.results || [];
+    // Bảo đảm đủ tiêu chí (thiếu → unknown), khớp đúng tên
+    return list.map((c) => {
+      const found = results.find((r) => String(r.criterion || "").trim().toLowerCase() === c.trim().toLowerCase());
+      const v = found?.verdict;
+      return {
+        criterion: c,
+        verdict: v === "pass" || v === "fail" ? v : "unknown",
+        evidence: (found?.evidence || "").toString().trim() || "Chưa có thông tin.",
+      };
+    });
+  } catch {
+    return list.map((c) => ({ criterion: c, verdict: "unknown" as const, evidence: "Lỗi đánh giá." }));
+  }
+}
+
 // ─── 2b. Sinh câu hỏi sàng lọc ứng viên (GĐ2 inbound) ────────────────────────────
 export async function generateScreeningQuestions(job: {
   title: string; requirements?: string | null; description?: string | null; workTime?: string | null;

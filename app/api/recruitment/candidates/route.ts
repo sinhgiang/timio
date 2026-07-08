@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true, jobId: true, name: true, email: true, phone: true, status: true, notes: true,
       source: true, experience: true, cvUrl: true, cvFileName: true, aiScore: true, aiSummary: true,
+      criteriaResult: true,
       interviewAt: true, hiredEmpId: true, appliedAt: true,
       job: { select: { id: true, title: true, department: true, branchId: true } },
     },

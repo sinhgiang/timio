@@ -38,8 +38,12 @@ export async function POST(req: NextRequest) {
   if (user?.role === "accountant") return NextResponse.json({ error: "Không có quyền truy cập tuyển dụng" }, { status: 403 });
 
   const { title, department, location, description, requirements, salaryMin, salaryMax,
-    branchId, quantity, workTime, benefits, isPublic } = await req.json();
+    branchId, quantity, workTime, benefits, isPublic, criteria } = await req.json();
   if (!title) return NextResponse.json({ error: "Thiếu tiêu đề vị trí" }, { status: 400 });
+
+  const criteriaJson = Array.isArray(criteria)
+    ? JSON.stringify(criteria.map((c: unknown) => String(c).trim()).filter(Boolean).slice(0, 8))
+    : null;
 
   // Manager chi nhánh: job luôn gắn vào chi nhánh của họ (không cho tạo cho chi nhánh khác)
   const scoped = scopedBranchId(user!);
@@ -59,6 +63,7 @@ export async function POST(req: NextRequest) {
       quantity: quantity ? Number(quantity) : null,
       workTime: workTime || null,
       benefits: benefits || null,
+      criteria: criteriaJson,
       isPublic: isPublic === undefined ? true : !!isPublic,
     },
   });
