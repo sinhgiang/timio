@@ -12,7 +12,7 @@ export async function GET() {
 
   const wa = await prisma.workerAccount.findUnique({
     where: { id },
-    select: { id: true, name: true, phone: true, email: true, avatarUrl: true, consentFinanceAt: true },
+    select: { id: true, name: true, phone: true, email: true, avatarUrl: true, consentFinanceAt: true, handle: true },
   });
   if (!wa) return NextResponse.json({ error: "Không tìm thấy tài khoản" }, { status: 404 });
 
@@ -27,6 +27,7 @@ export async function GET() {
     phone: wa.phone,
     email: wa.email,
     avatarUrl: wa.avatarUrl,
+    handle: wa.handle,
     consentFinance: !!wa.consentFinanceAt,
     companies: employees.map((e) => ({
       companyName: e.company?.name ?? "Công ty",

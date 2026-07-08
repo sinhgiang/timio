@@ -865,6 +865,7 @@ model Referral {
 model WorkerAccount {
   id               String    @id @default(cuid())
   phone            String    @unique              // định danh chính
+  handle           String?   @unique              // slug hồ sơ công khai: /ho-so/{handle} (vd giang-a-ky)
   name             String
   email            String?
   passwordHash     String?                        // bcrypt; null = chưa kích hoạt
