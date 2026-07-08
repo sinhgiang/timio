@@ -84,6 +84,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     data: { status: "hired", hiredEmpId: employee.id, hiredAt: new Date() },
   });
 
+  // Nếu ứng viên đến từ giới thiệu → đánh dấu referral đã tuyển (để tính thưởng)
+  await prisma.referral
+    .updateMany({ where: { companyId, candidateId: candidate.id, status: { not: "rewarded" } }, data: { status: "hired" } })
+    .catch(() => {});
+
   // Link onboarding: nhân viên tự điền hồ sơ + quét mặt (hiệu lực 7 ngày)
   const token = signOnboardingToken(employee.id, companyId, employee.name);
 

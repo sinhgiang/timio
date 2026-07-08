@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { MapPin, Clock, Users, Briefcase } from "lucide-react";
 import type { Metadata } from "next";
+import CareerIntroEditor from "@/components/recruitment/CareerIntroEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +52,13 @@ export default async function PublicCareersPage({
 }) {
   const company = await prisma.company.findUnique({
     where: { slug: params.slug },
-    select: { id: true, name: true, slug: true, logoUrl: true },
+    select: { id: true, name: true, slug: true, logoUrl: true, careerIntro: true },
   });
   if (!company) notFound();
+
+  const session = await getServerSession(authOptions);
+  const viewer = session?.user as { companyId?: string; role?: string } | undefined;
+  const isOwner = viewer?.companyId === company.id && viewer?.role === "owner";
 
   const jobs = await prisma.jobPosting.findMany({
     where: { companyId: company.id, status: "open", isPublic: true },
@@ -106,6 +113,16 @@ export default async function PublicCareersPage({
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
+        {/* Giới thiệu công ty — owner sửa được inline, ứng viên chỉ xem */}
+        {isOwner ? (
+          <CareerIntroEditor initial={company.careerIntro ?? ""} />
+        ) : company.careerIntro ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4 flex items-start gap-2.5">
+            <Briefcase size={18} className="text-blue-600 shrink-0 mt-0.5" strokeWidth={1.5} />
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{company.careerIntro}</p>
+          </div>
+        ) : null}
+
         <div className="mb-5">
           <h2 className="text-xl font-bold text-gray-800">
             {jobs.length > 0 ? `${jobs.length} vị trí đang tuyển` : "Cơ hội việc làm"}

@@ -57,7 +57,17 @@ export async function POST(req: NextRequest) {
   const phoneRaw = String(body.phone || "").trim();
   const email = body.email ? String(body.email).trim() : null;
   const birthYear = body.birthYear ? String(body.birthYear).trim() : null;
-  const experience = body.experience ? String(body.experience).trim() : null;
+  let experience = body.experience ? String(body.experience).trim() : null;
+  // Câu trả lời sàng lọc (nếu có) → gộp vào phần giới thiệu để AI chấm + admin xem
+  if (Array.isArray(body.screening) && body.screening.length) {
+    const qa = (body.screening as { q?: unknown; a?: unknown }[])
+      .map((x) => ({ q: String(x?.q ?? "").trim(), a: String(x?.a ?? "").trim() }))
+      .filter((x) => x.q && x.a)
+      .slice(0, 5)
+      .map((x) => `• ${x.q}\n  → ${x.a}`)
+      .join("\n");
+    if (qa) experience = `${experience ? experience + "\n\n" : ""}[Trả lời sàng lọc]\n${qa}`.slice(0, 3000);
+  }
   const cvUrl = body.cvUrl ? String(body.cvUrl).trim() : null;
   const cvFile = typeof body.cvFile === "string" ? body.cvFile : null; // data URI
   const cvFileName = body.cvFileName ? String(body.cvFileName).trim().slice(0, 200) : null;
@@ -136,6 +146,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
+  // Mã giới thiệu (referral): "emp_<employeeId>" | "talent_<profileId>"
+  const refRaw = body.ref ? String(body.ref).trim() : "";
+  let refInfo: { type: string; id: string; name: string } | null = null;
+  if (refRaw) {
+    const [pfx, rid] = refRaw.split("_");
+    if (pfx === "emp" && rid) {
+      const emp = await prisma.employee.findFirst({ where: { id: rid, companyId: company.id }, select: { id: true, name: true } });
+      if (emp) refInfo = { type: "employee", id: emp.id, name: emp.name };
+    } else if (pfx === "talent" && rid) {
+      const tp = await prisma.talentProfile.findFirst({ where: { id: rid }, select: { id: true } });
+      if (tp) refInfo = { type: "talent", id: tp.id, name: "Cựu nhân viên" };
+    }
+  }
+
   // Gộp năm sinh vào notes để không cần thêm cột
   const notes = birthYear ? `Năm sinh: ${birthYear}` : null;
 
@@ -153,7 +177,7 @@ export async function POST(req: NextRequest) {
         cvFile: cvFile || null,
         cvFileName: cvFileName || null,
         notes,
-        source: "website",
+        source: refInfo ? "referral" : "website",
         status: "new",
       },
       select: { id: true },
@@ -161,6 +185,27 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("[apply] Lỗi tạo ứng viên:", e);
     return NextResponse.json({ error: "Không lưu được đơn. Vui lòng thử lại." }, { status: 500 });
+  }
+
+  // Ghi nhận giới thiệu (referral) — 1 dòng / 1 ứng viên được giới thiệu
+  if (refInfo) {
+    try {
+      await prisma.referral.create({
+        data: {
+          companyId: company.id,
+          jobId: job.id,
+          referrerType: refInfo.type,
+          referrerId: refInfo.id,
+          referrerName: refInfo.name,
+          code: `${candidate.id}`,
+          candidateId: candidate.id,
+          candidateName: name,
+          status: "applied",
+        },
+      });
+    } catch (e) {
+      console.error("[apply] Lỗi ghi referral (bỏ qua):", e);
+    }
   }
 
   // Chấm điểm AI ngay (chỉ gói Business + có API key) — lỗi AI KHÔNG ảnh hưởng việc lưu đơn

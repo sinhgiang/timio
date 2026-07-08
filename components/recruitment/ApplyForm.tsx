@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Send, CheckCircle2, AlertTriangle, Loader2, Link2, Upload, FileText, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, CheckCircle2, AlertTriangle, Loader2, Link2, Upload, FileText, X, MessageCircleQuestion } from "lucide-react";
 
 const MAX_CV_BYTES = 4 * 1024 * 1024; // 4MB
 const CV_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
@@ -23,6 +23,24 @@ export default function ApplyForm({ slug, jobId, jobTitle }: Props) {
   const [cvFile, setCvFile] = useState<string>(""); // data URI
   const [cvFileName, setCvFileName] = useState("");
   const [company, setCompany] = useState(""); // honeypot — người thật để trống
+
+  // Mã giới thiệu (referral) từ URL ?ref=
+  const [ref, setRef] = useState("");
+  useEffect(() => {
+    try { setRef(new URLSearchParams(window.location.search).get("ref") || ""); } catch { /* ignore */ }
+  }, []);
+
+  // Câu hỏi sàng lọc (AI, chỉ công ty Business)
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/public/screening?slug=${encodeURIComponent(slug)}&jobId=${encodeURIComponent(jobId)}`)
+      .then((r) => r.json())
+      .then((d) => { if (alive && Array.isArray(d.questions)) setQuestions(d.questions); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [slug, jobId]);
 
   function onPickCv(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -74,6 +92,8 @@ export default function ApplyForm({ slug, jobId, jobTitle }: Props) {
           cvUrl: cvMode === "link" ? (cvUrl.trim() || null) : null,
           cvFile: cvMode === "file" ? (cvFile || null) : null,
           cvFileName: cvMode === "file" ? (cvFileName || null) : null,
+          screening: questions.map((q, i) => ({ q, a: (answers[i] || "").trim() })).filter((x) => x.a),
+          ref: ref || null,
           company, // honeypot
         }),
       });
@@ -185,6 +205,27 @@ export default function ApplyForm({ slug, jobId, jobTitle }: Props) {
             placeholder="VD: Đã làm phục vụ 1 năm, chăm chỉ, ở gần chỗ làm, có thể làm ca tối..."
           />
         </div>
+
+        {/* Câu hỏi sàng lọc AI */}
+        {questions.length > 0 && (
+          <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3.5 space-y-3">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-blue-800">
+              <MessageCircleQuestion size={16} strokeWidth={1.5} /> Vài câu hỏi nhanh (không bắt buộc)
+            </p>
+            {questions.map((q, i) => (
+              <div key={i}>
+                <label className="block text-sm text-gray-700 mb-1">{q}</label>
+                <textarea
+                  rows={2}
+                  value={answers[i] || ""}
+                  onChange={(e) => setAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
+                  className={`${inputCls} resize-none`}
+                  placeholder="Trả lời ngắn gọn..."
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">

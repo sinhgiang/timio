@@ -207,6 +207,29 @@ Chấm điểm (chỉ trả JSON).`;
   };
 }
 
+// ─── 2b. Sinh câu hỏi sàng lọc ứng viên (GĐ2 inbound) ────────────────────────────
+export async function generateScreeningQuestions(job: {
+  title: string; requirements?: string | null; description?: string | null; workTime?: string | null;
+}): Promise<string[]> {
+  const generic = [
+    `Bạn đã có kinh nghiệm liên quan đến vị trí ${job.title} chưa? Mô tả ngắn gọn.`,
+    "Bạn có thể bắt đầu làm việc từ khi nào?",
+    job.workTime ? `Bạn có sắp xếp được thời gian làm việc (${job.workTime}) không?` : "Bạn mong muốn mức lương khoảng bao nhiêu?",
+  ];
+  if (!aiConfigured()) return generic;
+
+  const system = `Bạn là chuyên viên tuyển dụng. Sinh ĐÚNG 3 câu hỏi sàng lọc NGẮN GỌN, thiết thực để hỏi ứng viên ngay khi họ nộp đơn cho vị trí này — giúp lọc nhanh mức độ phù hợp. Câu hỏi dễ trả lời (1-2 câu), tiếng Việt chuẩn, KHÔNG hỏi thông tin đã có (tên/SĐT). CHỈ trả về JSON: {"questions":["...","...","..."]}`;
+  const user = `VỊ TRÍ: ${job.title}\nYêu cầu: ${job.requirements || "(không ghi)"}\nMô tả: ${(job.description || "").slice(0, 400) || "(không ghi)"}\nCa/giờ làm: ${job.workTime || "(không nêu)"}\n\nSinh 3 câu hỏi sàng lọc. Chỉ trả JSON.`;
+  try {
+    const text = await complete(system, user, 500);
+    const parsed = extractJson<{ questions?: string[] }>(text);
+    const qs = (parsed?.questions || []).map((q) => String(q).trim()).filter(Boolean).slice(0, 3);
+    return qs.length ? qs : generic;
+  } catch {
+    return generic;
+  }
+}
+
 // ─── 3. Soạn bài đăng Facebook/Zalo ──────────────────────────────────────────────
 
 export async function generateSocialPost(

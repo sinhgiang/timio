@@ -89,6 +89,7 @@ export default async function JobDetailPage({
       status: true,
       isPublic: true,
       branchId: true,
+      createdAt: true,
     },
   });
   if (!job) notFound();
@@ -111,8 +112,45 @@ export default async function JobDetailPage({
 
   const salary = fmtSalary(job.salaryMin, job.salaryMax);
 
+  // ── JSON-LD JobPosting (Google for Jobs) — chỉ khi tin còn mở & công khai ──
+  const origin = process.env.NEXTAUTH_URL || "https://timio.vn";
+  const descParts = [job.description, job.requirements ? `Yêu cầu:\n${job.requirements}` : "", job.benefits ? `Quyền lợi:\n${job.benefits}` : ""].filter(Boolean);
+  const jobLd = isOpen
+    ? {
+        "@context": "https://schema.org/",
+        "@type": "JobPosting",
+        title: job.title,
+        description: (descParts.join("\n\n") || job.title).replace(/\n/g, "<br>"),
+        datePosted: new Date(job.createdAt).toISOString().slice(0, 10),
+        employmentType: job.workTime && /part|bán thời|ca /i.test(job.workTime) ? "PART_TIME" : "FULL_TIME",
+        hiringOrganization: {
+          "@type": "Organization",
+          name: company.name,
+          sameAs: `${origin}/tuyendung/${company.slug}`,
+          ...(company.logoUrl ? { logo: company.logoUrl } : {}),
+        },
+        jobLocation: {
+          "@type": "Place",
+          address: { "@type": "PostalAddress", addressLocality: place || "Việt Nam", addressCountry: "VN" },
+        },
+        ...(job.salaryMin || job.salaryMax
+          ? {
+              baseSalary: {
+                "@type": "MonetaryAmount",
+                currency: "VND",
+                value: { "@type": "QuantitativeValue", ...(job.salaryMin ? { minValue: job.salaryMin } : {}), ...(job.salaryMax ? { maxValue: job.salaryMax } : {}), unitText: "MONTH" },
+              },
+            }
+          : {}),
+        directApply: true,
+      }
+    : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      {jobLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jobLd) }} />
+      )}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
           <Link
