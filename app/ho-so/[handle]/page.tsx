@@ -5,6 +5,7 @@ import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
+  CalendarDays, Receipt, GraduationCap, Package, Megaphone, Settings,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
@@ -64,7 +65,31 @@ function fileToDataUrl(file: File, maxW: number, square = false, quality = 0.82)
   });
 }
 
-type TabKey = "profile" | "requests" | "income" | "attendance" | "leave";
+type TabKey = "profile" | "attendance" | "shifts" | "requests" | "leave" | "payslip" | "income" | "certificates" | "assets" | "reviews" | "announcements" | "trust" | "settings";
+
+const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
+  { key: "profile", label: "Hồ sơ của tôi", Icon: IdCard },
+  { key: "attendance", label: "Chấm công", Icon: Clock },
+  { key: "shifts", label: "Lịch ca", Icon: CalendarDays },
+  { key: "requests", label: "Đơn từ", Icon: FileText },
+  { key: "leave", label: "Nghỉ phép", Icon: Umbrella },
+  { key: "payslip", label: "Phiếu lương", Icon: Receipt },
+  { key: "income", label: "Tạm ứng lương (EWA)", Icon: Wallet },
+  { key: "certificates", label: "Chứng chỉ & đào tạo", Icon: GraduationCap },
+  { key: "assets", label: "Tài sản được giao", Icon: Package },
+  { key: "reviews", label: "Đánh giá của tôi", Icon: Star },
+  { key: "announcements", label: "Bảng tin công ty", Icon: Megaphone },
+  { key: "trust", label: "Điểm tin cậy & tìm việc", Icon: ShieldCheck },
+  { key: "settings", label: "Cài đặt & riêng tư", Icon: Settings },
+];
+const NAV_GROUPS: { section: string | null; keys: TabKey[] }[] = [
+  { section: null, keys: ["profile"] },
+  { section: "Chấm công của tôi", keys: ["attendance", "shifts", "requests", "leave"] },
+  { section: "Lương của tôi", keys: ["payslip", "income"] },
+  { section: "Công việc", keys: ["certificates", "assets", "reviews", "announcements"] },
+  { section: "Định danh & nghề nghiệp", keys: ["trust", "settings"] },
+];
+const navItem = (k: TabKey) => NAV_ITEMS.find((i) => i.key === k)!;
 
 export default function HoSoPage({ params }: { params: { handle: string } }) {
   const router = useRouter();
@@ -107,16 +132,6 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
     </div>
   );
 
-  const firstInitial = data.name.trim().split(/\s+/).pop()?.[0] ?? "?";
-  const TABS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
-    { key: "profile", label: "Hồ sơ", Icon: IdCard },
-    { key: "requests", label: "Đơn từ", Icon: FileText },
-    { key: "income", label: "Thu nhập", Icon: Wallet },
-    { key: "attendance", label: "Chấm công", Icon: Clock },
-    { key: "leave", label: "Nghỉ phép", Icon: Umbrella },
-  ];
-  const tabs = data.isOwner ? TABS : TABS.slice(0, 1);
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-50">
       {/* Cả khối (menu + hồ sơ) canh giữa màn hình như Facebook/LinkedIn */}
@@ -131,16 +146,22 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
                 <p className="text-[11px] text-gray-500 truncate">{data.name} · {data.role}</p>
               </div>
             </div>
-            <nav className="flex-1 p-2 space-y-1">
-              {tabs.map((t) => {
-                const active = tab === t.key;
-                return (
-                  <button key={t.key} onClick={() => setTab(t.key)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
-                    <t.Icon size={17} strokeWidth={active ? 2.4 : 2} /> {t.label}
-                  </button>
-                );
-              })}
+            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+              {NAV_GROUPS.map((g) => (
+                <div key={g.section ?? "top"}>
+                  {g.section && <p className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">{g.section}</p>}
+                  {g.keys.map((k) => {
+                    const it = navItem(k); const active = tab === k;
+                    return (
+                      <button key={k} onClick={() => setTab(k)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
+                        <it.Icon size={16} strokeWidth={active ? 2.4 : 2} className="shrink-0" /> <span className="truncate">{it.label}</span>
+                        {k === "trust" && <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">MỚI</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
             <div className="p-2 border-t border-gray-50">
               <button onClick={logout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50"><LogOut size={17} /> Đăng xuất</button>
@@ -157,7 +178,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0"><Building2 size={16} /></div>
                 <span className="font-semibold text-gray-800 text-sm truncate">{data.companyName || data.name}</span>
               </div>
-              <span className="hidden md:block font-semibold text-gray-700 text-sm">{tabs.find((t) => t.key === tab)?.label}</span>
+              <span className="hidden md:block font-semibold text-gray-700 text-sm">{navItem(tab).label}</span>
               <div className="flex items-center gap-2">
                 {data.isOwner && <NotificationBell onNavigate={setTab} />}
                 <button onClick={share} className="flex items-center gap-1.5 text-xs bg-blue-600 text-white rounded-full px-3 py-1.5 hover:bg-blue-700 transition-colors"><Share2 size={13} /> {copied ? "Đã chép" : "Chia sẻ"}</button>
@@ -167,7 +188,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
             {/* Tab ngang (mobile, chính chủ) */}
             {data.isOwner && (
               <div className="md:hidden max-w-2xl mx-auto px-2 flex gap-1 overflow-x-auto">
-                {tabs.map((t) => {
+                {NAV_ITEMS.map((t) => {
                   const active = tab === t.key;
                   return (
                     <button key={t.key} onClick={() => setTab(t.key)}
@@ -183,9 +204,17 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
           <div className="max-w-2xl mx-auto px-4 py-5">
             {tab === "profile" && <ProfileTab data={data} onChange={setData} />}
             {tab === "requests" && data.isOwner && <RequestsTab />}
+            {tab === "shifts" && data.isOwner && <ShiftsTab />}
+            {tab === "payslip" && data.isOwner && <PayslipTab />}
             {tab === "income" && data.isOwner && <IncomeTab />}
             {tab === "attendance" && data.isOwner && <AttendanceTab onNew={() => setTab("requests")} />}
             {tab === "leave" && data.isOwner && <LeaveTab onNew={() => setTab("requests")} />}
+            {tab === "certificates" && data.isOwner && <CertificatesTab />}
+            {tab === "assets" && data.isOwner && <AssetsTab />}
+            {tab === "reviews" && data.isOwner && <ReviewsTab />}
+            {tab === "announcements" && data.isOwner && <AnnouncementsTab />}
+            {tab === "trust" && data.isOwner && <TrustTab data={data} onChange={setData} />}
+            {tab === "settings" && data.isOwner && <SettingsTab data={data} onChange={setData} />}
           </div>
         </main>
       </div>
@@ -294,11 +323,8 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
         </div>
       </div>
 
-      {/* Điểm tin cậy (GĐ1 — trung tâm của wedge) */}
-      {(data.isOwner || !data.hideTrust) && <TrustCard trust={data.trust} verified={v} isOwner={!!data.isOwner} />}
-
-      {/* Nhà tuyển dụng quan tâm (GĐ2, chính chủ) */}
-      {data.isOwner && data.settings && <ConnectionsCard data={data} onChange={onChange} />}
+      {/* Điểm tin cậy — người NGOÀI xem thấy ở đây; chính chủ xem/chỉnh ở tab "Điểm tin cậy & tìm việc" */}
+      {!data.isOwner && !data.hideTrust && <TrustCard trust={data.trust} verified={v} isOwner={false} />}
 
       {/* Được Timio xác thực */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-5 text-white">
@@ -332,8 +358,6 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
         </div>
       )}
 
-      {/* Cài đặt quyền riêng tư & tìm việc (GĐ1/GĐ2, chính chủ) */}
-      {data.isOwner && data.settings && <SettingsCard data={data} onChange={onChange} />}
 
       {editOpen && <EditModal data={data} onClose={() => setEditOpen(false)} onSaved={(p) => { onChange({ ...p, isOwner: true }); setEditOpen(false); }} />}
     </div>
@@ -1017,6 +1041,198 @@ function RequestsTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────── TAB ĐIỂM TIN CẬY & TÌM VIỆC (chính chủ) ───────────
+function TrustTab({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
+  return (
+    <div className="space-y-4">
+      <TrustCard trust={data.trust} verified={data.verified} isOwner={true} />
+      {data.settings && <ConnectionsCard data={data} onChange={onChange} />}
+    </div>
+  );
+}
+
+// ─────────── TAB CÀI ĐẶT & RIÊNG TƯ (chính chủ) ───────────
+function SettingsTab({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
+  if (!data.settings) return null;
+  return <div className="space-y-4"><SettingsCard data={data} onChange={onChange} /></div>;
+}
+
+function TabLoading() { return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>; }
+function TabEmpty({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">{icon}<p className="text-gray-500 text-sm mt-2">{text}</p></div>;
+}
+const dmy = (s: string) => { try { return new Date(s).toLocaleDateString("vi-VN"); } catch { return s; } };
+
+// ─────────── TAB LỊCH CA ───────────
+function ShiftsTab() {
+  const [d, setD] = useState<{ shifts: { date: string; shiftLabel: string; checkIn: string; checkOut: string; companyName: string }[] } | null>(null);
+  useEffect(() => { fetch("/api/worker/shifts").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  if (!d) return <TabLoading />;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  return d.shifts.length === 0 ? <TabEmpty icon={<CalendarDays size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có lịch ca nào được phân." /> : (
+    <div className="bg-white rounded-2xl border border-gray-100 p-2">
+      <div className="divide-y divide-gray-50">
+        {d.shifts.map((s, i) => {
+          const rest = /nghỉ/i.test(s.shiftLabel);
+          return (
+            <div key={i} className={`flex items-center gap-3 px-3 py-3 ${s.date === todayStr ? "bg-blue-50/50 rounded-lg" : ""}`}>
+              <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 ${rest ? "bg-gray-100 text-gray-400" : "bg-blue-50 text-blue-600"}`}>
+                <span className="text-sm font-bold leading-none">{s.date.slice(8, 10)}</span><span className="text-[9px]">Th{parseInt(s.date.slice(5, 7))}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">{new Date(s.date).toLocaleDateString("vi-VN", { weekday: "long" })} {s.date === todayStr && <span className="text-[10px] text-blue-600">· Hôm nay</span>}</p>
+                <p className="text-xs text-gray-500">{s.companyName}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className={`text-sm font-semibold ${rest ? "text-gray-400" : "text-gray-800"}`}>{s.shiftLabel}</p>
+                {!rest && <p className="text-[11px] text-gray-500">{s.checkIn} – {s.checkOut}</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────── TAB PHIẾU LƯƠNG ───────────
+function PayslipTab() {
+  const [month, setMonth] = useState(() => { const n = new Date(Date.now() + 7 * 3600e3); return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, "0")}`; });
+  const [companyId, setCompanyId] = useState("");
+  const [d, setD] = useState<{ payslip: PaySlip | null; companies: { companyId: string; companyName: string }[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  type PaySlip = { companyName: string; position: string; department: string; year: number; month: number; baseSalary: number; earnedBase: number; standardWorkDays: number; daysPresent: number; daysLate: number; daysAbsent: number; totalPenalty: number; totalReward: number; totalOvertimeAmount: number; allowances: { label: string; amount: number }[]; totalAllowances: number; grossIncome: number; bhxhEmployee: number; tncn: number; netTakeHome: number; hasData: boolean };
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/worker/payslip?month=${month}${companyId ? `&companyId=${companyId}` : ""}`).then((r) => r.ok ? r.json() : null).then((j) => { setD(j); if (j && !companyId && j.companies?.[0]) setCompanyId(j.companies[0].companyId); }).catch(() => {}).finally(() => setLoading(false));
+  }, [month, companyId]);
+  const p = d?.payslip;
+  const Row = ({ l, v, strong, minus }: { l: string; v: number; strong?: boolean; minus?: boolean }) => (
+    <div className={`flex justify-between py-1.5 text-sm ${strong ? "font-bold text-gray-900" : "text-gray-600"}`}><span>{l}</span><span className={minus ? "text-red-500" : strong ? "text-green-600" : ""}>{minus ? "−" : ""}{vnd(Math.abs(v))} đ</span></div>
+  );
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 flex-wrap">
+        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+        {d && d.companies.length > 1 && <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1">{d.companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.companyName}</option>)}</select>}
+      </div>
+      {loading ? <TabLoading /> : !p ? <TabEmpty icon={<Receipt size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có dữ liệu." /> : !p.hasData ? <TabEmpty icon={<Receipt size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text={`Chưa có phiếu lương tháng ${p.month}/${p.year}.`} /> : (
+        <>
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
+            <p className="text-sm text-blue-100">Thực nhận · tháng {p.month}/{p.year}</p>
+            <p className="text-3xl font-extrabold mt-1">{vnd(p.netTakeHome)}<span className="text-base font-semibold text-blue-200"> đ</span></p>
+            <p className="text-xs text-blue-100 mt-1">{p.companyName}{p.position ? ` · ${p.position}` : ""}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+            <p className="text-sm font-semibold text-gray-700 mb-1">Chi tiết</p>
+            <Row l={`Lương theo ngày công (${p.daysPresent}/${p.standardWorkDays})`} v={p.earnedBase} />
+            {p.allowances.map((a, i) => <Row key={i} l={`Phụ cấp: ${a.label}`} v={a.amount} />)}
+            {p.totalOvertimeAmount > 0 && <Row l="Tăng ca (đã duyệt)" v={p.totalOvertimeAmount} />}
+            {p.totalReward > 0 && <Row l="Thưởng" v={p.totalReward} />}
+            {p.totalPenalty > 0 && <Row l={`Phạt (đi trễ ${p.daysLate} lần)`} v={p.totalPenalty} minus />}
+            <div className="border-t border-gray-100 my-1" />
+            <Row l="Tổng thu nhập" v={p.grossIncome} />
+            {p.bhxhEmployee > 0 && <Row l="BHXH (NV đóng)" v={p.bhxhEmployee} minus />}
+            {p.tncn > 0 && <Row l="Thuế TNCN" v={p.tncn} minus />}
+            <div className="border-t border-gray-100 my-1" />
+            <Row l="Thực nhận" v={p.netTakeHome} strong />
+          </div>
+          <p className="text-[11px] text-gray-400 text-center">Số liệu do công ty chốt. Thấy sai? Tạo đơn ở tab “Đơn từ”.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────── TAB CHỨNG CHỈ & ĐÀO TẠO ───────────
+function CertificatesTab() {
+  const [d, setD] = useState<{ items: { id: string; name: string; issuer: string | null; issueDate: string | null; expiryDate: string | null; note: string | null; companyName: string }[] } | null>(null);
+  useEffect(() => { fetch("/api/worker/certificates").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  if (!d) return <TabLoading />;
+  return d.items.length === 0 ? <TabEmpty icon={<GraduationCap size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có chứng chỉ / khóa đào tạo nào." /> : (
+    <div className="space-y-2.5">
+      {d.items.map((c) => (
+        <div key={c.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0"><GraduationCap size={18} className="text-indigo-600" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-800">{c.name}</p>
+            {c.issuer && <p className="text-xs text-gray-500">{c.issuer}</p>}
+            <p className="text-[11px] text-gray-400 mt-0.5">{c.issueDate ? `Cấp ${dmy(c.issueDate)}` : ""}{c.expiryDate ? ` · Hết hạn ${dmy(c.expiryDate)}` : ""} · {c.companyName}</p>
+            {c.note && <p className="text-xs text-gray-500 mt-1">{c.note}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────── TAB TÀI SẢN ĐƯỢC GIAO ───────────
+function AssetsTab() {
+  const [d, setD] = useState<{ items: { id: string; code: string; name: string; category: string | null; status: string; note: string | null; assignedAt: string | null; companyName: string }[] } | null>(null);
+  useEffect(() => { fetch("/api/worker/assets").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  if (!d) return <TabLoading />;
+  return d.items.length === 0 ? <TabEmpty icon={<Package size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Bạn chưa được giao tài sản nào." /> : (
+    <div className="space-y-2.5">
+      {d.items.map((a) => (
+        <div key={a.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><Package size={18} className="text-amber-600" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-800">{a.name} <span className="text-xs text-gray-400 font-mono">{a.code}</span></p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{a.assignedAt ? `Nhận ${dmy(a.assignedAt)}` : ""} · {a.companyName}</p>
+            {a.note && <p className="text-xs text-gray-500 mt-1">{a.note}</p>}
+          </div>
+          <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full h-fit">Đang giữ</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────── TAB ĐÁNH GIÁ CỦA TÔI ───────────
+function ReviewsTab() {
+  const [d, setD] = useState<{ items: { id: string; period: string; type: string; overallScore: number | null; selfScore: number | null; strengths: string | null; improvements: string | null; goals: string | null; status: string; companyName: string }[] } | null>(null);
+  useEffect(() => { fetch("/api/worker/reviews").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  if (!d) return <TabLoading />;
+  return d.items.length === 0 ? <TabEmpty icon={<Star size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có kỳ đánh giá nào." /> : (
+    <div className="space-y-2.5">
+      {d.items.map((r) => (
+        <div key={r.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-800">Kỳ {r.period}</p>
+            {r.overallScore != null && <span className="inline-flex items-center gap-1 text-sm font-bold text-amber-600"><Star size={14} className="fill-current" /> {r.overallScore}/5</span>}
+          </div>
+          <p className="text-[11px] text-gray-400">{r.companyName}{r.selfScore != null ? ` · Tự chấm: ${r.selfScore}/5` : ""}</p>
+          {r.strengths && <p className="text-xs text-gray-600 mt-1.5"><b className="text-green-600">Điểm mạnh:</b> {r.strengths}</p>}
+          {r.improvements && <p className="text-xs text-gray-600 mt-1"><b className="text-amber-600">Cần cải thiện:</b> {r.improvements}</p>}
+          {r.goals && <p className="text-xs text-gray-600 mt-1"><b className="text-blue-600">Mục tiêu:</b> {r.goals}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────── TAB BẢNG TIN CÔNG TY ───────────
+function AnnouncementsTab() {
+  const [d, setD] = useState<{ items: { id: string; title: string; content: string; type: string; pinned: boolean; publishedAt: string; companyName: string }[] } | null>(null);
+  useEffect(() => { fetch("/api/worker/announcements").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  if (!d) return <TabLoading />;
+  const cls = (t: string) => t === "urgent" ? "border-red-200 bg-red-50" : t === "warning" ? "border-amber-200 bg-amber-50" : "border-gray-100 bg-white";
+  return d.items.length === 0 ? <TabEmpty icon={<Megaphone size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có tin nội bộ nào." /> : (
+    <div className="space-y-2.5">
+      {d.items.map((a) => (
+        <div key={a.id} className={`border rounded-xl p-4 shadow-sm ${cls(a.type)}`}>
+          <div className="flex items-center gap-2">
+            {a.pinned && <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">GHIM</span>}
+            <p className="text-sm font-semibold text-gray-800">{a.title}</p>
+          </div>
+          <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{a.content}</p>
+          <p className="text-[11px] text-gray-400 mt-2">{dmy(a.publishedAt)} · {a.companyName}</p>
+        </div>
+      ))}
     </div>
   );
 }
