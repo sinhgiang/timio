@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
+import { WORKER_TAG_SUGGESTIONS } from "@/lib/tagSuggestions";
 import { VN_REGIONS, AREA_REMOTE, AREA_ANYWHERE } from "@/lib/vnLocations";
 
 const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
@@ -682,7 +683,7 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
                 {s.keywords && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {s.keywords.split(",").map((k) => k.trim()).filter(Boolean).map((k, i) => (
-                      <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">#{k}</span>
+                      <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{k}</span>
                     ))}
                   </div>
                 )}
@@ -709,17 +710,28 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] text-gray-500 mb-1">Từ khóa (giúp nhà tuyển dụng tìm thấy bạn dễ hơn)</label>
+                <label className="block text-[11px] text-gray-500 mb-1">Thẻ kỹ năng (giúp nhà tuyển dụng tìm thấy bạn dễ hơn)</label>
                 <div className="flex flex-wrap gap-1.5 mb-1.5">
                   {dkw.map((k, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-full">#{k}<button onClick={() => setDkw(dkw.filter((_, j) => j !== i))} className="text-blue-400 hover:text-blue-600"><X size={11} /></button></span>
+                    <span key={i} className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">{k}<button onClick={() => setDkw(dkw.filter((_, j) => j !== i))} className="text-blue-400 hover:text-blue-600"><X size={11} /></button></span>
                   ))}
                 </div>
                 <div className="flex gap-1.5">
                   <input value={kwInput} onChange={(e) => setKwInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addKw(); } }} placeholder="VD: chăm chỉ, biết tiếng Anh, chạy xe..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
                   <button onClick={addKw} className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-3 hover:bg-blue-50">Thêm</button>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Tối đa 10 từ khóa. Gắn kỹ năng/mong muốn để nhà tuyển dụng dễ tìm ra bạn.</p>
+                {/* Gợi ý thẻ — bấm để thêm nhanh */}
+                {dkw.length < 10 && (
+                  <div className="mt-2">
+                    <p className="text-[10px] text-gray-400 mb-1">Gợi ý — bấm để thêm:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WORKER_TAG_SUGGESTIONS.filter((t) => !dkw.includes(t)).slice(0, 14).map((t) => (
+                        <button key={t} onClick={() => { if (dkw.length < 10 && !dkw.includes(t)) setDkw([...dkw, t]); }} className="text-[11px] text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 hover:border-blue-300 hover:text-blue-600 transition-colors">+ {t}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 mt-1.5">Tối đa 10 thẻ. Gắn kỹ năng/mong muốn để nhà tuyển dụng dễ tìm ra bạn.</p>
               </div>
               <div className="flex gap-2 justify-end pt-1">
                 <button onClick={() => setEditDesired(false)} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">Hủy</button>

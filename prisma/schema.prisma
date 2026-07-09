@@ -659,6 +659,7 @@ model JobPosting {
   workTime     String?     // ca/giờ làm (vd "Ca tối 17h-22h")
   benefits     String?     // quyền lợi
   criteria     String?     // JSON string[]: tiêu chí đánh giá ứng viên (KH2 — kiểu Ashby)
+  tags         String?     // thẻ (phân tách bởi dấu phẩy) — giúp người tìm việc tìm thấy tin
   isPublic     Boolean     @default(true) // hiện trên trang tuyển dụng công khai
   createdAt    DateTime    @default(now())
 

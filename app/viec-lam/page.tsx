@@ -84,6 +84,7 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
       { title: { contains: q, mode: "insensitive" as const } },
       { department: { contains: q, mode: "insensitive" as const } },
       { description: { contains: q, mode: "insensitive" as const } },
+      { tags: { contains: q, mode: "insensitive" as const } },
     ] } : {}),
     ...(loc ? { location: { contains: loc, mode: "insensitive" as const } } : {}),
     ...(salMin ? { salaryMin: { gte: salMin } } : {}),
@@ -92,7 +93,7 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
   const [jobs, companyRows, jobCount, companyIds, talentCount] = await Promise.all([
     prisma.jobPosting.findMany({
       where: jobWhere,
-      select: { id: true, title: true, location: true, salaryMin: true, salaryMax: true, workTime: true, company: { select: { name: true, slug: true, logoUrl: true } } },
+      select: { id: true, title: true, location: true, salaryMin: true, salaryMax: true, workTime: true, tags: true, company: { select: { name: true, slug: true, logoUrl: true } } },
       orderBy: { createdAt: "desc" }, take: 12,
     }),
     prisma.jobPosting.findMany({ where: { status: "open", isPublic: true }, select: { company: { select: { name: true, slug: true, logoUrl: true } } }, distinct: ["companyId"], take: 12 }),
@@ -231,6 +232,13 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
                           {j.location && <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><MapPin size={12} /> {j.location}</span>}
                           {j.workTime && <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><Clock size={12} /> {j.workTime}</span>}
                         </div>
+                        {j.tags && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {j.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5).map((t, i) => (
+                              <a key={i} href={`/viec-lam?q=${encodeURIComponent(t)}`} className="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full">{t}</a>
+                            ))}
+                          </div>
+                        )}
                         <Link href={`/tuyendung/${j.company.slug}/${j.id}`} className="mt-auto flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg py-2 hover:bg-blue-700"><Send size={14} /> Ứng tuyển ngay</Link>
                       </div>
                     );

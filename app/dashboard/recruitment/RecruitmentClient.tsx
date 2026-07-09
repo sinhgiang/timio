@@ -6,6 +6,7 @@ import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
 import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
 import OutreachPanel from "@/components/recruitment/OutreachPanel";
+import { JOB_TAG_SUGGESTIONS } from "@/lib/tagSuggestions";
 import ReferralPanel from "@/components/recruitment/ReferralPanel";
 
 type Branch = { id: string; name: string };
@@ -26,6 +27,7 @@ type Job = {
   benefits: string | null;
   criteria: string | null;
   isPublic: boolean;
+  tags: string | null;
   createdAt: string;
   _count: { candidates: number };
 };
@@ -194,6 +196,7 @@ export default function RecruitmentClient({
 
   // Job form
   const [jobForm, setJobForm] = useState<JobForm | null>(null);
+  const [jobTagInput, setJobTagInput] = useState("");
   const [suggestingCriteria, setSuggestingCriteria] = useState(false);
   const parseCriteria = (s: string | null | undefined): string[] => { try { return s ? JSON.parse(s) : []; } catch { return []; } };
   const [savingJob, setSavingJob] = useState(false);
@@ -1275,6 +1278,34 @@ export default function RecruitmentClient({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quyền lợi</label>
                 <AutoGrowTextarea minHeight={100} value={jobForm.benefits || ""} onChange={e => setJobForm({ ...jobForm, benefits: e.target.value || null })} className="w-full border border-gray-300 rounded-lg px-3.5 py-3 text-sm leading-relaxed focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Bao ăn ca, thưởng chuyên cần, môi trường trẻ trung..." />
               </div>
+
+              {/* Thẻ tin tuyển dụng — SEO cho người tìm việc tìm thấy */}
+              {(() => {
+                const jobTags = (jobForm.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+                const addTag = (raw: string) => { const t = raw.trim().replace(/^#+/, "").slice(0, 40); if (t && !jobTags.includes(t) && jobTags.length < 12) setJobForm({ ...jobForm, tags: [...jobTags, t].join(", ") }); setJobTagInput(""); };
+                const rmTag = (t: string) => setJobForm({ ...jobForm, tags: jobTags.filter(x => x !== t).join(", ") });
+                return (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Thẻ tin tuyển dụng <span className="text-gray-400 font-normal">— giúp người tìm việc tìm thấy tin của bạn</span></label>
+                    {jobTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
+                        {jobTags.map((t) => <span key={t} className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">{t}<button type="button" onClick={() => rmTag(t)} className="text-blue-400 hover:text-blue-600"><X size={11} /></button></span>)}
+                      </div>
+                    )}
+                    <div className="flex gap-1.5">
+                      <input value={jobTagInput} onChange={e => setJobTagInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTag(jobTagInput); } }} placeholder="VD: part-time, ca tối, không cần kinh nghiệm..." className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+                      <button type="button" onClick={() => addTag(jobTagInput)} className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-3 hover:bg-blue-50">Thêm</button>
+                    </div>
+                    {jobTags.length < 12 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {JOB_TAG_SUGGESTIONS.filter(t => !jobTags.includes(t)).slice(0, 14).map(t => (
+                          <button key={t} type="button" onClick={() => addTag(t)} className="text-[11px] text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 hover:border-blue-300 hover:text-blue-600 transition-colors">+ {t}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* KH2 — Tiêu chí đánh giá ứng viên */}
               <div>

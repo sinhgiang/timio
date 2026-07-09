@@ -219,7 +219,7 @@ export default function TalentPoolPage() {
 
                 {c.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {c.keywords.slice(0, 6).map((k, i) => <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">#{k}</span>)}
+                    {c.keywords.slice(0, 6).map((k, i) => <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{k}</span>)}
                   </div>
                 )}
 
