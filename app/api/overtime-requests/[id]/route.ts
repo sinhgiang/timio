@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { employeeInScope } from "@/lib/branchScope";
+import { notifyWorkerByEmployee } from "@/lib/workerNotify";
 
 export async function PATCH(
   req: NextRequest,
@@ -64,6 +65,13 @@ export async function PATCH(
         data: { overtimeStatus: "rejected", overtimeAmount: 0 },
       });
     }
+
+    notifyWorkerByEmployee(existing.employeeId, {
+      type: "generic",
+      title: status === "approved" ? "Đơn tăng ca đã được duyệt" : "Đơn tăng ca bị từ chối",
+      body: `Ngày ${existing.date}${note ? " · " + note : ""}`,
+      link: "requests", email: false,
+    });
 
     return NextResponse.json(updated);
   } catch (error) {

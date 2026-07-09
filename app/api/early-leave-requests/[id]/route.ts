@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { employeeInScope } from "@/lib/branchScope";
+import { notifyWorkerByEmployee } from "@/lib/workerNotify";
 
 export async function PATCH(
   req: NextRequest,
@@ -44,6 +45,14 @@ export async function PATCH(
           select: { id: true, name: true, code: true, department: true },
         },
       },
+    });
+
+    // Báo nhân viên (app nhân viên) — đồng bộ 2 chiều
+    notifyWorkerByEmployee(existing.employeeId, {
+      type: "generic",
+      title: status === "approved" ? "Đơn về sớm đã được duyệt" : "Đơn về sớm bị từ chối",
+      body: `Ngày ${existing.date}${note ? " · " + note : ""}`,
+      link: "requests", email: false,
     });
 
     return NextResponse.json(updated);

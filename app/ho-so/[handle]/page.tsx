@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
-  XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell,
+  XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
@@ -64,7 +64,7 @@ function fileToDataUrl(file: File, maxW: number, square = false, quality = 0.82)
   });
 }
 
-type TabKey = "profile" | "income" | "attendance" | "leave";
+type TabKey = "profile" | "requests" | "income" | "attendance" | "leave";
 
 export default function HoSoPage({ params }: { params: { handle: string } }) {
   const router = useRouter();
@@ -110,6 +110,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
   const firstInitial = data.name.trim().split(/\s+/).pop()?.[0] ?? "?";
   const TABS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
     { key: "profile", label: "Hồ sơ", Icon: IdCard },
+    { key: "requests", label: "Đơn từ", Icon: FileText },
     { key: "income", label: "Thu nhập", Icon: Wallet },
     { key: "attendance", label: "Chấm công", Icon: Clock },
     { key: "leave", label: "Nghỉ phép", Icon: Umbrella },
@@ -123,9 +124,12 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
         {/* ── Sidebar trái (desktop, chính chủ) ── */}
         {data.isOwner && (
           <aside className="hidden md:flex md:flex-col w-56 shrink-0 md:sticky md:top-0 md:h-screen bg-white border-r border-gray-100">
-            <div className="flex items-center gap-2.5 px-4 h-16 border-b border-gray-50">
-              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">{firstInitial}</div>
-              <div className="min-w-0"><p className="font-semibold text-gray-800 text-sm truncate">{data.name}</p><p className="text-[11px] text-gray-400 truncate">{data.role}</p></div>
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-50 bg-gradient-to-b from-blue-50/60 to-transparent">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0"><Building2 size={18} /></div>
+              <div className="min-w-0">
+                <p className="font-bold text-gray-800 text-sm truncate leading-tight">{data.companyName || "Chưa có công ty"}</p>
+                <p className="text-[11px] text-gray-500 truncate">{data.name} · {data.role}</p>
+              </div>
             </div>
             <nav className="flex-1 p-2 space-y-1">
               {tabs.map((t) => {
@@ -150,8 +154,8 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
           <div className="bg-white/80 backdrop-blur border-b border-gray-100 sticky top-0 z-10">
             <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0 md:hidden">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">{firstInitial}</div>
-                <span className="font-semibold text-gray-800 text-sm truncate">{data.name}</span>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0"><Building2 size={16} /></div>
+                <span className="font-semibold text-gray-800 text-sm truncate">{data.companyName || data.name}</span>
               </div>
               <span className="hidden md:block font-semibold text-gray-700 text-sm">{tabs.find((t) => t.key === tab)?.label}</span>
               <div className="flex items-center gap-2">
@@ -178,6 +182,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
 
           <div className="max-w-2xl mx-auto px-4 py-5">
             {tab === "profile" && <ProfileTab data={data} onChange={setData} />}
+            {tab === "requests" && data.isOwner && <RequestsTab />}
             {tab === "income" && data.isOwner && <IncomeTab />}
             {tab === "attendance" && data.isOwner && <AttendanceTab />}
             {tab === "leave" && data.isOwner && <LeaveTab />}
@@ -888,6 +893,128 @@ function LeaveTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─────────── TAB ĐƠN TỪ (tạo + theo dõi, đồng bộ với công ty) ───────────
+type WReq = { id: string; kind: string; kindLabel: string; when: string; detail: string; status: string; note: string | null; companyName: string; createdAt: string };
+type WCompany = { companyId: string; companyName: string };
+const REQ_KINDS: { k: string; label: string; Icon: typeof FileText }[] = [
+  { k: "leave", label: "Xin nghỉ phép", Icon: Umbrella },
+  { k: "early_leave", label: "Xin về sớm", Icon: LogOut },
+  { k: "correction", label: "Sửa chấm công", Icon: Clock },
+  { k: "overtime", label: "Xin tăng ca", Icon: CalendarClock },
+];
+const INP = "w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white";
+function Lbl({ t, children }: { t: string; children: React.ReactNode }) {
+  return <label className="block mb-2.5"><span className="text-xs text-gray-500">{t}</span>{children}</label>;
+}
+function reqBadge(s: string) {
+  return s === "approved" ? <span className="inline-flex items-center gap-1 text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full"><CheckCircle2 size={11} /> Đã duyệt</span>
+    : s === "rejected" ? <span className="inline-flex items-center gap-1 text-[11px] text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><XCircle size={11} /> Từ chối</span>
+    : <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"><Clock size={11} /> Chờ duyệt</span>;
+}
+
+function RequestsTab() {
+  const [d, setD] = useState<{ requests: WReq[]; companies: WCompany[] } | null>(null);
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState("leave");
+  const [companyId, setCompanyId] = useState("");
+  const [f, setF] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [toast, setToast] = useState("");
+
+  const load = async () => {
+    try { const r = await fetch("/api/worker/requests"); if (r.ok) { const j = await r.json(); setD(j); setCompanyId((prev) => prev || j.companies?.[0]?.companyId || ""); } } catch { /* */ }
+  };
+  useEffect(() => { load(); }, []);
+
+  const F = (k: string) => f[k] ?? "";
+  const setField = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const corrType = F("type") || "check_in";
+
+  const submit = async () => {
+    setSaving(true); setErr("");
+    try {
+      const r = await fetch("/api/worker/requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, companyId: companyId || undefined, ...f }) });
+      const j = await r.json();
+      if (r.ok && j.ok) { setOpen(false); setF({}); setToast("Đã gửi đơn — công ty sẽ nhận và duyệt."); setTimeout(() => setToast(""), 2800); load(); }
+      else setErr(j.error || "Không gửi được.");
+    } catch { setErr("Lỗi kết nối."); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      {toast && <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-2.5">{toast}</div>}
+      <button onClick={() => { setOpen(true); setErr(""); }} className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-xl py-3 text-sm font-semibold hover:bg-blue-700"><Plus size={16} /> Tạo đơn mới</button>
+
+      {!d ? <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div> : d.requests.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
+          <FileText size={30} className="text-gray-300 mx-auto mb-2" strokeWidth={1.4} />
+          <p className="text-gray-500 text-sm">Bạn chưa có đơn nào.</p>
+          <p className="text-gray-400 text-xs mt-1">Tạo đơn xin nghỉ, về sớm, sửa chấm công hoặc tăng ca — công ty sẽ nhận và duyệt, bạn theo dõi ngay tại đây.</p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {d.requests.map((r) => (
+            <div key={`${r.kind}-${r.id}`} className="bg-white border border-gray-100 rounded-xl p-3.5 shadow-sm">
+              <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-gray-800">{r.kindLabel}</p>{reqBadge(r.status)}</div>
+              <p className="text-xs text-gray-500 mt-0.5">{r.when}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{r.detail}</p>
+              <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-400"><Building2 size={11} /> {r.companyName}</div>
+              {r.note && <p className="text-[11px] text-gray-600 mt-1.5 bg-gray-50 rounded px-2 py-1">Sếp: {r.note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-5 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3"><h3 className="text-base font-bold text-gray-800">Tạo đơn mới</h3><button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button></div>
+
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {REQ_KINDS.map((k) => (
+                <button key={k.k} onClick={() => { setKind(k.k); setErr(""); }} className={`flex items-center gap-2 border rounded-xl px-3 py-2.5 text-sm text-left ${kind === k.k ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}><k.Icon size={16} /> {k.label}</button>
+              ))}
+            </div>
+
+            {d && d.companies.length > 1 && (
+              <Lbl t="Công ty"><select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={INP}>{d.companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.companyName}</option>)}</select></Lbl>
+            )}
+
+            {kind === "leave" && (<>
+              <Lbl t="Loại nghỉ"><select value={F("type") || "annual"} onChange={(e) => setField("type", e.target.value)} className={INP}><option value="annual">Nghỉ phép năm</option><option value="sick">Nghỉ ốm</option><option value="unpaid">Nghỉ không lương</option><option value="other">Khác</option></select></Lbl>
+              <div className="grid grid-cols-2 gap-2"><Lbl t="Từ ngày"><input type="date" value={F("fromDate")} onChange={(e) => setField("fromDate", e.target.value)} className={INP} /></Lbl><Lbl t="Đến ngày"><input type="date" value={F("toDate")} onChange={(e) => setField("toDate", e.target.value)} className={INP} /></Lbl></div>
+              <Lbl t="Lý do (tùy chọn)"><textarea rows={2} value={F("reason")} onChange={(e) => setField("reason", e.target.value)} className={INP} /></Lbl>
+            </>)}
+            {kind === "early_leave" && (<>
+              <div className="grid grid-cols-2 gap-2"><Lbl t="Ngày"><input type="date" value={F("date")} onChange={(e) => setField("date", e.target.value)} className={INP} /></Lbl><Lbl t="Về lúc"><input type="time" value={F("leaveTime")} onChange={(e) => setField("leaveTime", e.target.value)} className={INP} /></Lbl></div>
+              <Lbl t="Lý do (tùy chọn)"><textarea rows={2} value={F("reason")} onChange={(e) => setField("reason", e.target.value)} className={INP} /></Lbl>
+            </>)}
+            {kind === "correction" && (<>
+              <div className="grid grid-cols-2 gap-2"><Lbl t="Ngày"><input type="date" value={F("date")} onChange={(e) => setField("date", e.target.value)} className={INP} /></Lbl><Lbl t="Loại"><select value={corrType} onChange={(e) => setField("type", e.target.value)} className={INP}><option value="check_in">Giờ vào</option><option value="check_out">Giờ ra</option><option value="both">Cả vào &amp; ra</option></select></Lbl></div>
+              {(corrType === "check_in" || corrType === "both") && <Lbl t="Giờ vào đúng"><input type="time" value={F("requestedCheckIn")} onChange={(e) => setField("requestedCheckIn", e.target.value)} className={INP} /></Lbl>}
+              {(corrType === "check_out" || corrType === "both") && <Lbl t="Giờ ra đúng"><input type="time" value={F("requestedCheckOut")} onChange={(e) => setField("requestedCheckOut", e.target.value)} className={INP} /></Lbl>}
+              <Lbl t="Lý do (bắt buộc)"><textarea rows={2} value={F("reason")} onChange={(e) => setField("reason", e.target.value)} className={INP} /></Lbl>
+            </>)}
+            {kind === "overtime" && (<>
+              <Lbl t="Ngày"><input type="date" value={F("date")} onChange={(e) => setField("date", e.target.value)} className={INP} /></Lbl>
+              <div className="grid grid-cols-3 gap-2"><Lbl t="Bắt đầu"><input type="time" value={F("startTime")} onChange={(e) => setField("startTime", e.target.value)} className={INP} /></Lbl><Lbl t="Kết thúc"><input type="time" value={F("endTime")} onChange={(e) => setField("endTime", e.target.value)} className={INP} /></Lbl><Lbl t="Số giờ"><input type="number" step="0.5" min="0" value={F("hours")} onChange={(e) => setField("hours", e.target.value)} className={INP} /></Lbl></div>
+              <Lbl t="Lý do (tùy chọn)"><textarea rows={2} value={F("reason")} onChange={(e) => setField("reason", e.target.value)} className={INP} /></Lbl>
+            </>)}
+
+            {err && <p className="text-xs text-red-600 mt-1">{err}</p>}
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setOpen(false)} className="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm">Hủy</button>
+              <button onClick={submit} disabled={saving} className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-1.5">{saving ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Gửi đơn</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
