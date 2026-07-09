@@ -5,7 +5,7 @@ import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
-  CalendarDays, Receipt, GraduationCap, Package, Megaphone, Settings,
+  CalendarDays, Receipt, GraduationCap, Package, Megaphone,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
@@ -65,7 +65,7 @@ function fileToDataUrl(file: File, maxW: number, square = false, quality = 0.82)
   });
 }
 
-type TabKey = "profile" | "attendance" | "shifts" | "requests" | "leave" | "payslip" | "income" | "certificates" | "assets" | "reviews" | "announcements" | "trust" | "settings";
+type TabKey = "profile" | "attendance" | "shifts" | "requests" | "leave" | "payslip" | "income" | "certificates" | "assets" | "reviews" | "announcements";
 
 const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
   { key: "profile", label: "Hồ sơ của tôi", Icon: IdCard },
@@ -79,15 +79,12 @@ const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
   { key: "assets", label: "Tài sản được giao", Icon: Package },
   { key: "reviews", label: "Đánh giá của tôi", Icon: Star },
   { key: "announcements", label: "Bảng tin công ty", Icon: Megaphone },
-  { key: "trust", label: "Điểm tin cậy & tìm việc", Icon: ShieldCheck },
-  { key: "settings", label: "Cài đặt & riêng tư", Icon: Settings },
 ];
 const NAV_GROUPS: { section: string | null; keys: TabKey[] }[] = [
   { section: null, keys: ["profile"] },
   { section: "Chấm công của tôi", keys: ["attendance", "shifts", "requests", "leave"] },
   { section: "Lương của tôi", keys: ["payslip", "income"] },
   { section: "Công việc", keys: ["certificates", "assets", "reviews", "announcements"] },
-  { section: "Định danh & nghề nghiệp", keys: ["trust", "settings"] },
 ];
 const navItem = (k: TabKey) => NAV_ITEMS.find((i) => i.key === k)!;
 
@@ -156,7 +153,6 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
                       <button key={k} onClick={() => setTab(k)}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
                         <it.Icon size={16} strokeWidth={active ? 2.4 : 2} className="shrink-0" /> <span className="truncate">{it.label}</span>
-                        {k === "trust" && <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">MỚI</span>}
                       </button>
                     );
                   })}
@@ -213,8 +209,6 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
             {tab === "assets" && data.isOwner && <AssetsTab />}
             {tab === "reviews" && data.isOwner && <ReviewsTab />}
             {tab === "announcements" && data.isOwner && <AnnouncementsTab />}
-            {tab === "trust" && data.isOwner && <TrustTab data={data} onChange={setData} />}
-            {tab === "settings" && data.isOwner && <SettingsTab data={data} onChange={setData} />}
           </div>
         </main>
       </div>
@@ -323,8 +317,11 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
         </div>
       </div>
 
-      {/* Điểm tin cậy — người NGOÀI xem thấy ở đây; chính chủ xem/chỉnh ở tab "Điểm tin cậy & tìm việc" */}
-      {!data.isOwner && !data.hideTrust && <TrustCard trust={data.trust} verified={v} isOwner={false} />}
+      {/* Điểm tin cậy (trung tâm của hồ sơ) */}
+      {(data.isOwner || !data.hideTrust) && <TrustCard trust={data.trust} verified={v} isOwner={!!data.isOwner} />}
+
+      {/* Nhà tuyển dụng quan tâm (chính chủ) */}
+      {data.isOwner && data.settings && <ConnectionsCard data={data} onChange={onChange} />}
 
       {/* Được Timio xác thực */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-5 text-white">
@@ -358,6 +355,9 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
         </div>
       )}
 
+
+      {/* Cài đặt quyền riêng tư & tìm việc (chính chủ) */}
+      {data.isOwner && data.settings && <SettingsCard data={data} onChange={onChange} />}
 
       {editOpen && <EditModal data={data} onClose={() => setEditOpen(false)} onSaved={(p) => { onChange({ ...p, isOwner: true }); setEditOpen(false); }} />}
     </div>
@@ -1043,22 +1043,6 @@ function RequestsTab() {
       )}
     </div>
   );
-}
-
-// ─────────── TAB ĐIỂM TIN CẬY & TÌM VIỆC (chính chủ) ───────────
-function TrustTab({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
-  return (
-    <div className="space-y-4">
-      <TrustCard trust={data.trust} verified={data.verified} isOwner={true} />
-      {data.settings && <ConnectionsCard data={data} onChange={onChange} />}
-    </div>
-  );
-}
-
-// ─────────── TAB CÀI ĐẶT & RIÊNG TƯ (chính chủ) ───────────
-function SettingsTab({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
-  if (!data.settings) return null;
-  return <div className="space-y-4"><SettingsCard data={data} onChange={onChange} /></div>;
 }
 
 function TabLoading() { return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>; }
