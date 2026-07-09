@@ -38,3 +38,6 @@ Thumbs.db
 .env*
 
 _expo_temp/
+
+devserver.log
+devserver.pid

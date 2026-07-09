@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkerAccountId } from "@/lib/workerAuth";
 import { computeWorkerProfile } from "@/lib/workerProfile";
+import { slugifyVi } from "@/lib/handle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,8 +41,17 @@ export async function PATCH(req: NextRequest) {
   if ("keywords" in body) data.keywords = clip(body.keywords, 300) || null;
   // Công tắc opt-in (bool) — NV tự quyết chia sẻ (Luật 91/2025)
   const boolData: Record<string, boolean> = {};
-  for (const k of ["profilePublic", "shareTrustScore", "shareContact", "openToWork", "autoAcceptRecruiters"] as const) {
+  for (const k of ["profilePublic", "shareTrustScore", "shareContact", "shareEmail", "shareZalo", "shareWebsite", "shareFacebook", "openToWork", "autoAcceptRecruiters"] as const) {
     if (typeof body[k] === "boolean") boolData[k] = body[k];
+  }
+
+  // Đổi đường dẫn hồ sơ (username) — NV tự chọn, phải duy nhất (kiểu Facebook)
+  if ("handle" in body) {
+    const h = slugifyVi(String(body.handle || ""));
+    if (h.length < 3) return NextResponse.json({ error: "Đường dẫn tối thiểu 3 ký tự (chữ thường, số, dấu gạch)." }, { status: 400 });
+    const taken = await prisma.workerAccount.findFirst({ where: { handle: h, id: { not: id } }, select: { id: true } });
+    if (taken) return NextResponse.json({ error: "Đường dẫn này đã có người dùng, hãy chọn tên khác." }, { status: 409 });
+    data.handle = h;
   }
 
   if (Object.keys(data).length === 0 && Object.keys(boolData).length === 0) return NextResponse.json({ error: "Không có gì để cập nhật." }, { status: 400 });

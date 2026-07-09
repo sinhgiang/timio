@@ -19,7 +19,7 @@ export interface WorkerProfile {
   socials: { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
   verified: { experienceMonths: number; totalDaysWorked: number; punctualityRate: number | null; companiesCount: number };
   trust: TrustScore;
-  settings: { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null; keywords: string | null };
+  settings: { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; shareEmail: boolean; shareZalo: boolean; shareWebsite: boolean; shareFacebook: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null; keywords: string | null };
   experiences: { companyName: string; position: string; department: string | null; branchName: string | null; joinDate: string | null; active: boolean; monthsHere: number | null }[];
 }
 
@@ -31,6 +31,7 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
       name: true, phone: true, email: true, avatarUrl: true, handle: true,
       coverUrl: true, bio: true, zalo: true, website: true, facebook: true,
       profilePublic: true, shareTrustScore: true, shareContact: true,
+      shareEmail: true, shareZalo: true, shareWebsite: true, shareFacebook: true,
       openToWork: true, autoAcceptRecruiters: true, desiredArea: true, desiredPosition: true, keywords: true,
     },
   });
@@ -117,6 +118,10 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
       profilePublic: wa.profilePublic,
       shareTrustScore: wa.shareTrustScore,
       shareContact: wa.shareContact,
+      shareEmail: wa.shareEmail,
+      shareZalo: wa.shareZalo,
+      shareWebsite: wa.shareWebsite,
+      shareFacebook: wa.shareFacebook,
       openToWork: wa.openToWork,
       autoAcceptRecruiters: wa.autoAcceptRecruiters,
       desiredArea: wa.desiredArea,

@@ -882,7 +882,11 @@ model WorkerAccount {
   // Lớp độ tin cậy di động — NV SỞ HỮU, opt-in (Luật 91/2025). Mặc định riêng tư.
   profilePublic    Boolean   @default(false)        // cho phép người khác xem hồ sơ qua link
   shareTrustScore  Boolean   @default(true)         // hiện điểm tin cậy khi công khai
-  shareContact     Boolean   @default(false)        // hiện SĐT/liên hệ khi công khai
+  shareContact     Boolean   @default(false)        // hiện SĐT khi công khai
+  shareEmail       Boolean   @default(false)        // hiện email khi công khai
+  shareZalo        Boolean   @default(false)        // hiện Zalo khi công khai
+  shareWebsite     Boolean   @default(false)        // hiện website khi công khai
+  shareFacebook    Boolean   @default(false)        // hiện Facebook khi công khai
   openToWork       Boolean   @default(false)        // đang tìm việc → vào kho ứng viên xác thực
   desiredArea      String?                          // khu vực mong muốn (tỉnh / Online / Bất kỳ đâu)
   desiredPosition  String?                          // ngành nghề mong muốn (từ danh mục)

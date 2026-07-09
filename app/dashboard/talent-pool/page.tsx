@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Award, Loader2, Handshake, Phone, Search, ShieldCheck, Clock, CheckCircle2, Briefcase, MessageCircle, ExternalLink } from "lucide-react";
-import { JOB_CATEGORIES } from "@/lib/jobTaxonomy";
+import { Award, Loader2, Handshake, Phone, Search, ShieldCheck, Clock, CheckCircle2, Briefcase, MessageCircle, ExternalLink, MapPin } from "lucide-react";
 import { VN_REGIONS, AREA_REMOTE, AREA_ANYWHERE } from "@/lib/vnLocations";
+import JobPicker from "@/components/JobPicker";
 
 type Candidate = {
   workerAccountId: string; name: string; avatarUrl: string | null;
@@ -56,24 +56,20 @@ export default function TalentPoolPage() {
       {/* Bộ lọc */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <select value={occupation} onChange={(e) => setOccupation(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
-            <option value="">🔎 Tất cả ngành nghề</option>
-            {JOB_CATEGORIES.map((cat) => (
-              <optgroup key={cat.label} label={cat.label}>
-                {cat.jobs.map((j) => <option key={j} value={j}>{j}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          <select value={area} onChange={(e) => setArea(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
-            <option value="">📍 Toàn quốc</option>
-            <option value={AREA_ANYWHERE}>{AREA_ANYWHERE}</option>
-            <option value={AREA_REMOTE}>{AREA_REMOTE}</option>
-            {VN_REGIONS.map((r) => (
-              <optgroup key={r.label} label={r.label}>
-                {r.provinces.map((p) => <option key={p} value={p}>{p}</option>)}
-              </optgroup>
-            ))}
-          </select>
+          <JobPicker value={occupation} onChange={setOccupation} allLabel="Tất cả ngành nghề" />
+          <div className="relative">
+            <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+            <select value={area} onChange={(e) => setArea(e.target.value)} className="w-full appearance-none border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
+              <option value="">Toàn quốc</option>
+              <option value={AREA_ANYWHERE}>{AREA_ANYWHERE}</option>
+              <option value={AREA_REMOTE}>{AREA_REMOTE}</option>
+              {VN_REGIONS.map((r) => (
+                <optgroup key={r.label} label={r.label}>
+                  {r.provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2.5 mt-2.5">
           <div className="relative">

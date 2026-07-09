@@ -7,14 +7,14 @@ import {
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
-import { JOB_CATEGORIES } from "@/lib/jobTaxonomy";
+import JobPicker from "@/components/JobPicker";
 import { VN_REGIONS, AREA_REMOTE, AREA_ANYWHERE } from "@/lib/vnLocations";
 
 const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
 type Social = { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
 type Trust = { score: number | null; level: "new" | "bronze" | "silver" | "gold"; levelLabel: string; parts: { punctuality: number; consistency: number; tenure: number } };
-type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null; keywords: string | null };
+type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; shareEmail: boolean; shareZalo: boolean; shareWebsite: boolean; shareFacebook: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null; keywords: string | null };
 type Notif = { id: string; type: string; title: string; body: string | null; link: string | null; read: boolean; createdAt: string };
 type Profile = {
   handle: string | null; isOwner: boolean; private?: boolean; hideTrust?: boolean; hideContact?: boolean;
@@ -580,21 +580,66 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
   const [dkw, setDkw] = useState<string[]>(() => (s.keywords || "").split(",").map((k) => k.trim()).filter(Boolean));
   const [kwInput, setKwInput] = useState("");
   const addKw = () => { const v = kwInput.trim().replace(/^#/, ""); if (v && !dkw.includes(v) && dkw.length < 10) setDkw([...dkw, v]); setKwInput(""); };
+  const [editHandle, setEditHandle] = useState(false);
+  const [handleInput, setHandleInput] = useState(data.handle ?? "");
+  const [handleErr, setHandleErr] = useState("");
+  const [savingHandle, setSavingHandle] = useState(false);
   const patch = async (payload: Record<string, unknown>) => {
     setSaving(true);
     try { const r = await fetch("/api/worker/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) onChange({ ...(await r.json()), isOwner: true }); } catch { /* */ }
     setSaving(false);
   };
+  const saveHandle = async () => {
+    setSavingHandle(true); setHandleErr("");
+    try {
+      const r = await fetch("/api/worker/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ handle: handleInput }) });
+      const d = await r.json();
+      if (!r.ok) { setHandleErr(d.error || "Không đổi được đường dẫn."); setSavingHandle(false); return; }
+      window.location.href = `/ho-so/${d.handle}`; // URL đổi theo handle mới
+    } catch { setHandleErr("Lỗi kết nối."); setSavingHandle(false); }
+  };
+  // Công tắc hiển thị cho từng liên hệ CÓ giá trị (đồng bộ với Thông tin liên hệ)
+  const allContacts: { key: keyof Settings; label: string; icon: React.ReactNode; value: string | null }[] = [
+    { key: "shareContact", label: "Hiện số điện thoại", icon: <Phone size={15} />, value: data.socials.phone },
+    { key: "shareEmail", label: "Hiện email", icon: <Mail size={15} />, value: data.socials.email },
+    { key: "shareZalo", label: "Hiện Zalo", icon: <MessageCircle size={15} />, value: data.socials.zalo },
+    { key: "shareWebsite", label: "Hiện website", icon: <Globe size={15} />, value: data.socials.website },
+    { key: "shareFacebook", label: "Hiện Facebook", icon: <Facebook size={15} />, value: data.socials.facebook },
+  ];
+  const contactToggles = allContacts.filter((c) => c.value);
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       <div className="flex items-center gap-2 mb-1"><Lock size={16} className="text-gray-500" /><p className="text-sm font-semibold text-gray-800">Quyền riêng tư & tìm việc</p></div>
       <p className="text-[11px] text-gray-400 mb-3">Bạn toàn quyền quyết định chia sẻ gì. Mặc định riêng tư.</p>
 
+      {/* Đường dẫn hồ sơ (username) — NV tự chọn kiểu Facebook */}
+      <div className="mb-3 pb-3 border-b border-gray-50">
+        {!editHandle ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-gray-700 truncate min-w-0"><span className="text-gray-400">Đường dẫn: </span>timio.vn/ho-so/<b>{data.handle}</b></p>
+            <button onClick={() => { setHandleInput(data.handle ?? ""); setHandleErr(""); setEditHandle(true); }} className="text-xs text-blue-600 flex items-center gap-1 shrink-0 hover:underline"><Pencil size={12} /> Đổi</button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 shrink-0">.../ho-so/</span>
+              <input value={handleInput} onChange={(e) => setHandleInput(e.target.value)} placeholder="ten-cua-ban" className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+              <button onClick={saveHandle} disabled={savingHandle} className="text-xs font-medium bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50 shrink-0">Lưu</button>
+              <button onClick={() => setEditHandle(false)} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 shrink-0">Hủy</button>
+            </div>
+            {handleErr && <p className="text-[11px] text-red-500 mt-1">{handleErr}</p>}
+            <p className="text-[10px] text-gray-400 mt-1">Chỉ chữ thường, số, dấu gạch. Công ty không sửa được — đây là của riêng bạn.</p>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-1">
         <ToggleRow icon={<Globe size={15} />} title="Công khai hồ sơ" desc="Cho người có link xem hồ sơ của bạn" on={s.profilePublic} saving={saving} onToggle={(v) => patch({ profilePublic: v })} />
         <ToggleRow icon={<Award size={15} />} title="Hiện điểm tin cậy" desc="Cho nhà tuyển dụng thấy điểm tin cậy" on={s.shareTrustScore} saving={saving} disabled={!s.profilePublic} onToggle={(v) => patch({ shareTrustScore: v })} />
-        <ToggleRow icon={<Phone size={15} />} title="Hiện số điện thoại" desc="Cho người xem hồ sơ thấy SĐT (cân nhắc)" on={s.shareContact} saving={saving} disabled={!s.profilePublic} onToggle={(v) => patch({ shareContact: v })} />
+        {contactToggles.map((c) => (
+          <ToggleRow key={c.key} icon={c.icon} title={c.label} desc={c.value ?? ""} on={s[c.key] as boolean} saving={saving} disabled={!s.profilePublic} onToggle={(v) => patch({ [c.key]: v })} />
+        ))}
         <ToggleRow icon={<Sparkles size={15} />} title="Đang tìm việc" desc="Vào kho ứng viên xác thực để được mời" on={s.openToWork} saving={saving} onToggle={(v) => patch({ openToWork: v })} highlight />
       </div>
 
@@ -619,14 +664,7 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
             <div className="space-y-2.5">
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">Ngành nghề mong muốn</label>
-                <select value={dpos} onChange={(e) => setDpos(e.target.value)} className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
-                  <option value="">— Chọn ngành nghề —</option>
-                  {JOB_CATEGORIES.map((cat) => (
-                    <optgroup key={cat.label} label={cat.label}>
-                      {cat.jobs.map((j) => <option key={j} value={j}>{j}</option>)}
-                    </optgroup>
-                  ))}
-                </select>
+                <JobPicker value={dpos} onChange={setDpos} placeholder="Chọn hoặc gõ để tìm nghề" />
               </div>
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">Khu vực mong muốn</label>
