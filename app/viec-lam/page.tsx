@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 import SaveJobButton from "@/components/recruitment/SaveJobButton";
+import PublicHeader from "@/components/public/PublicHeader";
 import {
   Search, MapPin, Clock, Wallet, Briefcase, BadgeCheck, ScanFace, Sparkles,
   Building2, Users, ArrowRight, Check, TrendingUp, Landmark, HardHat, Cpu,
@@ -120,22 +121,8 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ── Header ── */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/viec-lam" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center"><Clock size={17} className="text-white" /></div>
-            <span className="font-extrabold text-gray-800 text-lg">Timio <span className="text-blue-600 font-semibold text-sm">Việc làm</span></span>
-          </Link>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Link href="/viec-lam-hap-dan" className="hidden md:inline text-sm text-gray-600 hover:text-orange-600 px-3 py-1.5">Việc làm hấp dẫn</Link>
-            <Link href="/ung-vien" className="hidden md:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Ứng viên</Link>
-            <a href="#nha-tuyen-dung" className="hidden sm:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Nhà tuyển dụng</a>
-            <Link href="/gia" className="hidden lg:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Bảng giá</Link>
-            <Link href="/login" className="text-sm font-medium text-blue-600 border border-blue-200 rounded-lg px-3.5 py-1.5 hover:bg-blue-50">Đăng nhập</Link>
-          </div>
-        </div>
-      </header>
+      {/* ── Header (dùng chung) ── */}
+      <PublicHeader active="viec-lam" />
 
       {/* ── Hero + tìm việc + bộ lọc + chip địa điểm ── */}
       <section className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 text-white overflow-hidden">
