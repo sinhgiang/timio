@@ -518,19 +518,17 @@ function ConnectionsCard({ data, onChange }: { data: Profile; onChange: (p: Prof
   const pending = conns.filter((c) => c.status === "pending");
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Handshake size={17} className="text-emerald-600" /></div>
-        <p className="text-sm font-semibold text-gray-800">Nhà tuyển dụng quan tâm {pending.length > 0 && <span className="text-emerald-600">· {pending.length} mới</span>}</p>
-      </div>
-
-      {/* Nút gạt: cho phép mọi NTD liên hệ, hay tự chọn từng người */}
-      <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 mb-3 border ${auto ? "bg-emerald-50 border-emerald-100" : "bg-gray-50 border-gray-100"}`}>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">Cho phép mọi nhà tuyển dụng liên hệ</p>
-          <p className="text-[11px] text-gray-500">{auto ? "Bất kỳ ai quan tâm cũng thấy SĐT ngay." : "Đang TẮT — bạn tự chọn từng người được liên hệ."}</p>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0"><Handshake size={17} className="text-emerald-600" /></div>
+          <p className="text-sm font-semibold text-gray-800 truncate">Nhà tuyển dụng quan tâm {pending.length > 0 && <span className="text-emerald-600">· {pending.length} mới</span>}</p>
         </div>
-        <button onClick={() => !savingAuto && toggleAuto(!auto)} disabled={savingAuto} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${auto ? "bg-emerald-500" : "bg-gray-300"}`}>
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${auto ? "translate-x-5" : ""}`} />
+        {/* Nút gạt nhỏ: cho mọi NTD liên hệ */}
+        <button onClick={() => !savingAuto && toggleAuto(!auto)} disabled={savingAuto} title={auto ? "Đang bật: mọi nhà tuyển dụng thấy SĐT ngay. Bấm để tắt (tự chọn từng người)." : "Đang tắt: bạn tự chọn từng người. Bấm để cho mọi nhà tuyển dụng liên hệ."} className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] text-gray-500 hidden sm:inline">Cho mọi NTD</span>
+          <span className={`relative w-9 h-5 rounded-full transition-colors ${auto ? "bg-emerald-500" : "bg-gray-300"}`}>
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${auto ? "translate-x-4" : ""}`} />
+          </span>
         </button>
       </div>
 
