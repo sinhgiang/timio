@@ -90,6 +90,17 @@ export default function OnboardingClient({ employees, companySlug }: { employees
   // Assign form
   const [assignForm, setAssignForm] = useState<{ templateId: string; employeeId: string; dueDate: string } | null>(null);
   const [savingAssign, setSavingAssign] = useState(false);
+  // Bàn giao khi nghỉ việc (offboarding): người kế nhiệm + tài sản
+  const [successorId, setSuccessorId] = useState("");
+  const [empAssets, setEmpAssets] = useState<{ id: string; code: string; name: string; include: boolean; action: "transfer" | "recall" }[]>([]);
+
+  useEffect(() => {
+    if (!assignForm || activeTab !== "offboarding") { setEmpAssets([]); return; }
+    fetch(`/api/assets?employeeId=${assignForm.employeeId}`).then((r) => (r.ok ? r.json() : [])).then((rows) => {
+      const arr = Array.isArray(rows) ? rows : [];
+      setEmpAssets(arr.filter((a: { returnedAt: string | null }) => !a.returnedAt).map((a: { id: string; code: string; name: string }) => ({ id: a.id, code: a.code, name: a.name, include: true, action: "transfer" as const })));
+    }).catch(() => setEmpAssets([]));
+  }, [assignForm, activeTab]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -124,13 +135,16 @@ export default function OnboardingClient({ employees, companySlug }: { employees
   async function assign() {
     if (!assignForm?.templateId || !assignForm.employeeId) return;
     setSavingAssign(true);
-    await fetch("/api/checklists", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId: assignForm.employeeId, templateId: assignForm.templateId, dueDate: assignForm.dueDate || null }),
-    });
+    const body: { employeeId: string; templateId: string; dueDate: string | null; handoverToEmployeeId?: string; assets?: { assetId: string; action: string }[] } = {
+      employeeId: assignForm.employeeId, templateId: assignForm.templateId, dueDate: assignForm.dueDate || null,
+    };
+    if (activeTab === "offboarding" && successorId) {
+      body.handoverToEmployeeId = successorId;
+      body.assets = empAssets.filter((a) => a.include).map((a) => ({ assetId: a.id, action: a.action }));
+    }
+    await fetch("/api/checklists", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setSavingAssign(false);
-    setAssignForm(null);
+    setAssignForm(null); setSuccessorId(""); setEmpAssets([]);
     fetchAll();
   }
 
@@ -410,15 +424,50 @@ export default function OnboardingClient({ employees, companySlug }: { employees
       {/* Assign modal */}
       {assignForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Giao checklist cho nhân viên</h3>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[92vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">{activeTab === "offboarding" ? "Bàn giao khi nghỉ việc" : "Giao checklist cho nhân viên"}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nhân viên</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{activeTab === "offboarding" ? "Người nghỉ việc" : "Nhân viên"}</label>
                 <select value={assignForm.employeeId} onChange={e => setAssignForm({ ...assignForm, employeeId: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-400 outline-none">
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.status === "active" ? "Đang làm" : "Đã nghỉ"})</option>)}
                 </select>
               </div>
+
+              {activeTab === "offboarding" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Người kế nhiệm (nhận bàn giao) <span className="text-gray-400 font-normal">— sẽ quét mặt xác nhận</span></label>
+                    <select value={successorId} onChange={e => setSuccessorId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-400 outline-none">
+                      <option value="">— Không có (chỉ tự xác nhận) —</option>
+                      {employees.filter(e => e.status === "active" && e.id !== assignForm.employeeId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                  </div>
+
+                  {successorId && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tài sản đang giữ — chọn cách xử lý</label>
+                      {empAssets.length === 0 ? (
+                        <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">Nhân viên này không giữ tài sản nào.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {empAssets.map((a, i) => (
+                            <div key={a.id} className="flex items-center gap-2 border border-gray-100 rounded-lg px-2.5 py-2">
+                              <input type="checkbox" checked={a.include} onChange={e => setEmpAssets(prev => prev.map((x, j) => j === i ? { ...x, include: e.target.checked } : x))} className="accent-teal-600" />
+                              <span className="flex-1 text-sm text-gray-700 truncate">{a.name} <span className="text-xs text-gray-400 font-mono">{a.code}</span></span>
+                              <select value={a.action} disabled={!a.include} onChange={e => setEmpAssets(prev => prev.map((x, j) => j === i ? { ...x, action: e.target.value as "transfer" | "recall" } : x))} className="text-xs border border-gray-200 rounded-md px-1.5 py-1 disabled:opacity-40">
+                                <option value="transfer">Chuyển cho người kế nhiệm</option>
+                                <option value="recall">Thu hồi về công ty</option>
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Hạn hoàn thành</label>
                 <input type="date" value={assignForm.dueDate} onChange={e => setAssignForm({ ...assignForm, dueDate: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-400 outline-none" />

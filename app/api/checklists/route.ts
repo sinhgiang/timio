@@ -59,7 +59,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Assign to employee
-  const { employeeId, templateId, dueDate } = body;
+  const { employeeId, templateId, dueDate, handoverToEmployeeId, assets } = body as {
+    employeeId?: string; templateId?: string; dueDate?: string; handoverToEmployeeId?: string;
+    assets?: { assetId: string; action: "transfer" | "recall" }[];
+  };
   if (!employeeId || !templateId) return NextResponse.json({ error: "Thiếu employeeId hoặc templateId" }, { status: 400 });
 
   const tpl = await prisma.checklistTemplate.findFirst({ where: { id: templateId, companyId } });
@@ -68,14 +71,26 @@ export async function POST(req: NextRequest) {
   const rawTasks: string[] = JSON.parse(tpl.tasks);
   const tasks = rawTasks.map((title) => ({ title, done: false, doneAt: null }));
 
+  // Bàn giao 2 chiều (offboarding): người kế nhiệm + snapshot tài sản kèm cách xử lý từng món
+  let assetsJson: string | null = null;
+  let handoverTo: string | null = null;
+  if (handoverToEmployeeId && Array.isArray(assets) && assets.length > 0) {
+    const ids = assets.map((a) => a.assetId);
+    const rows = await prisma.asset.findMany({ where: { id: { in: ids }, companyId, employeeId }, select: { id: true, code: true, name: true } });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const snap = assets.filter((a) => byId.has(a.assetId)).map((a) => ({ assetId: a.assetId, code: byId.get(a.assetId)!.code, name: byId.get(a.assetId)!.name, action: a.action === "recall" ? "recall" : "transfer", done: false }));
+    assetsJson = JSON.stringify(snap);
+    handoverTo = handoverToEmployeeId;
+  } else if (handoverToEmployeeId) {
+    handoverTo = handoverToEmployeeId; // bàn giao chỉ công việc, không tài sản
+    assetsJson = "[]";
+  }
+
   const checklist = await prisma.employeeChecklist.create({
     data: {
-      companyId,
-      employeeId,
-      templateId,
-      type: tpl.type,
-      tasks: JSON.stringify(tasks),
-      dueDate: dueDate || null,
+      companyId, employeeId, templateId, type: tpl.type,
+      tasks: JSON.stringify(tasks), dueDate: dueDate || null,
+      handoverToEmployeeId: handoverTo, assets: assetsJson,
     },
     include: { template: true, employee: { select: { id: true, name: true, code: true } } },
   });

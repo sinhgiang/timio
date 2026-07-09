@@ -1017,7 +1017,12 @@ model EmployeeChecklist {
   tasks      String   // JSON: [{title: string, done: boolean, doneAt: string | null}]
   status     String   @default("in_progress") // "in_progress" | "done"
   dueDate    String?  // YYYY-MM-DD
-  confirmedAt DateTime? // Nhân viên tự quét mặt xác nhận đã nhận bàn giao (kiosk /checklist/[slug])
+  confirmedAt DateTime? // (cũ) nhân viên tự quét mặt xác nhận — onboarding
+  // Bàn giao 2 chiều khi NGHỈ VIỆC: người nghỉ quét mặt "giao", người kế nhiệm quét mặt "nhận"
+  handoverToEmployeeId String?   // người kế nhiệm (nhận bàn giao)
+  giverConfirmedAt     DateTime? // người nghỉ đã quét mặt xác nhận GIAO
+  receiverConfirmedAt  DateTime? // người kế nhiệm đã quét mặt xác nhận NHẬN
+  assets     String?  // JSON: [{assetId, code, name, action:"transfer"|"recall", done}]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

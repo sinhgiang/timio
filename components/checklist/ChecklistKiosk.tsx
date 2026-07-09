@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { unlockAudio, speakVi } from "@/lib/speech";
 import {
   Clock, ScanFace, CheckCircle2, AlertTriangle, ClipboardCheck,
-  CheckSquare, Square, UserPlus, UserMinus, PartyPopper,
+  CheckSquare, Square, UserPlus, UserMinus, PartyPopper, Package, ArrowRight, Undo2, Hourglass,
 } from "lucide-react";
 
 type Phase = "info" | "loading" | "camera" | "list" | "submitting" | "done" | "empty" | "error";
@@ -17,6 +17,7 @@ interface EmployeeFace {
 }
 
 interface Task { title: string; done: boolean; doneAt: string | null }
+interface AssetItem { assetId: string; code: string; name: string; action: "transfer" | "recall"; done?: boolean }
 
 interface KioskChecklist {
   id: string;
@@ -25,6 +26,13 @@ interface KioskChecklist {
   tasks: Task[];
   status: string;
   confirmedAt: string | null;
+  isHandover: boolean;
+  role: "self" | "giver" | "receiver";
+  giverName: string;
+  receiverName: string;
+  giverConfirmedAt: string | null;
+  receiverConfirmedAt: string | null;
+  assets: AssetItem[];
 }
 
 interface Props {
@@ -103,11 +111,12 @@ export default function ChecklistKiosk({ company, employees }: Props) {
         setPhase("error");
         return;
       }
-      const data = await res.json() as { checklists: Array<Omit<KioskChecklist, "tasks"> & { tasks: string }> };
+      const data = await res.json() as { checklists: Array<Omit<KioskChecklist, "tasks" | "assets"> & { tasks: string; assets: string }> };
       const parsed: KioskChecklist[] = data.checklists.map((c) => {
-        let tasks: Task[] = [];
+        let tasks: Task[] = []; let assets: AssetItem[] = [];
         try { tasks = JSON.parse(c.tasks); } catch { tasks = []; }
-        return { ...c, tasks };
+        try { assets = JSON.parse(c.assets); } catch { assets = []; }
+        return { ...c, tasks, assets };
       });
       setChecklists(parsed);
       if (parsed.length === 0) {
@@ -218,10 +227,17 @@ export default function ChecklistKiosk({ company, employees }: Props) {
 
   const confirmAll = async () => {
     if (!matched) return;
+    // Chỉ xác nhận mục có thể thao tác: người kế nhiệm phải đợi người nghỉ xác nhận giao trước
+    const actionable = checklists.filter((cl) => cl.role !== "receiver" || !!cl.giverConfirmedAt);
+    if (actionable.length === 0) {
+      setErrorMsg("Người bàn giao chưa xác nhận GIAO. Vui lòng đợi họ quét mặt trước.");
+      setPhase("error");
+      return;
+    }
     setPhase("submitting");
     try {
       const results = await Promise.all(
-        checklists.map((cl) =>
+        actionable.map((cl) =>
           fetch(`/api/kiosk/checklists/${cl.id}/confirm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -229,16 +245,17 @@ export default function ChecklistKiosk({ company, employees }: Props) {
           }).then((r) => r.json().catch(() => ({ ok: false })))
         )
       );
-      const everyDone = checklists.every((cl) => cl.tasks.length > 0 && cl.tasks.every((t) => t.done));
       const failed = results.some((r) => !r.ok);
       if (failed) {
         setErrorMsg("Một số mục lưu chưa thành công. Vui lòng thử lại.");
         setPhase("error");
         return;
       }
-      setAllDone(everyDone);
-      speakVi(everyDone
-        ? `Cảm ơn ${matched.name}. Bạn đã xác nhận hoàn tất bàn giao.`
+      const asReceiver = actionable.some((cl) => cl.role === "receiver");
+      const asGiver = actionable.some((cl) => cl.role === "giver");
+      setAllDone(asReceiver);
+      speakVi(asReceiver ? `Cảm ơn ${matched.name}. Bạn đã xác nhận nhận bàn giao.`
+        : asGiver ? `Cảm ơn ${matched.name}. Đã xác nhận giao. Chờ người kế nhiệm xác nhận nhận.`
         : `Đã lưu. Cảm ơn ${matched.name}.`);
       setPhase("done");
       resetTimerRef.current = setTimeout(resetAll, 12000);
@@ -254,6 +271,9 @@ export default function ChecklistKiosk({ company, employees }: Props) {
 
   const totalTasks = checklists.reduce((s, c) => s + c.tasks.length, 0);
   const doneTasks = checklists.reduce((s, c) => s + c.tasks.filter((t) => t.done).length, 0);
+  const confirmLabel = checklists.some((c) => c.role === "receiver") ? "Xác nhận đã NHẬN"
+    : checklists.some((c) => c.role === "giver") ? "Xác nhận GIAO"
+    : "Xác nhận đã nhận";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-teal-900 flex flex-col select-none">
@@ -355,17 +375,28 @@ export default function ChecklistKiosk({ company, employees }: Props) {
                 return (
                   <div key={cl.id} className="bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
-                      {cl.type === "onboarding"
-                        ? <UserPlus size={18} className="text-teal-600" />
+                      {cl.role === "receiver" ? <UserPlus size={18} className="text-teal-600" />
+                        : cl.role === "giver" ? <UserMinus size={18} className="text-orange-500" />
+                        : cl.type === "onboarding" ? <UserPlus size={18} className="text-teal-600" />
                         : <UserMinus size={18} className="text-orange-500" />}
                       <div className="flex-1">
                         <p className="font-bold text-gray-800 text-sm">
-                          {cl.type === "onboarding" ? "Nhận việc / Nhận tài sản" : "Nghỉ việc / Trả tài sản"}
+                          {cl.role === "giver" ? <>Bàn giao khi nghỉ → <span className="text-orange-600">{cl.receiverName || "người kế nhiệm"}</span></>
+                            : cl.role === "receiver" ? <><span className="text-teal-700">{cl.giverName}</span> bàn giao cho bạn</>
+                            : cl.type === "onboarding" ? "Nhận việc / Nhận tài sản" : "Nghỉ việc / Trả tài sản"}
                         </p>
                         <p className="text-xs text-gray-400">{cl.templateName}</p>
                       </div>
                       <span className="text-xs font-semibold text-gray-500 shrink-0">{clDone}/{cl.tasks.length}</span>
                     </div>
+
+                    {/* Người kế nhiệm phải đợi người nghỉ xác nhận giao trước */}
+                    {cl.role === "receiver" && !cl.giverConfirmedAt && (
+                      <div className="mx-3 mt-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-700 text-xs">
+                        <Hourglass size={14} className="shrink-0" /> Đợi <b>{cl.giverName}</b> quét mặt xác nhận GIAO trước, rồi bạn mới xác nhận NHẬN.
+                      </div>
+                    )}
+
                     <div className="px-3 py-2 divide-y divide-gray-50">
                       {cl.tasks.map((task, taskIdx) => (
                         <button key={taskIdx} onClick={() => toggleTask(clIdx, taskIdx)}
@@ -377,6 +408,24 @@ export default function ChecklistKiosk({ company, employees }: Props) {
                         </button>
                       ))}
                     </div>
+
+                    {/* Tài sản bàn giao + cách xử lý */}
+                    {cl.assets.length > 0 && (
+                      <div className="px-3 pb-3">
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide px-2 pb-1 flex items-center gap-1"><Package size={12} /> Tài sản bàn giao</p>
+                        <div className="space-y-1">
+                          {cl.assets.map((a) => (
+                            <div key={a.assetId} className="flex items-center gap-2 px-2 py-2 bg-gray-50 rounded-lg text-sm">
+                              <Package size={15} className="text-gray-400 shrink-0" />
+                              <span className="flex-1 text-gray-700 truncate">{a.name} <span className="text-xs text-gray-400 font-mono">{a.code}</span></span>
+                              {a.action === "transfer"
+                                ? <span className="text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-full px-2 py-0.5 inline-flex items-center gap-1"><ArrowRight size={11} /> {cl.role === "giver" ? "Chuyển cho người nhận" : "Chuyển cho bạn"}</span>
+                                : <span className="text-[11px] font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5 inline-flex items-center gap-1"><Undo2 size={11} /> Thu hồi về công ty</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -388,7 +437,7 @@ export default function ChecklistKiosk({ company, employees }: Props) {
               <button onClick={confirmAll}
                 className="flex-1 py-3.5 bg-teal-500 hover:bg-teal-400 text-white rounded-xl font-bold text-base shadow-xl transition-all flex items-center justify-center gap-2">
                 <CheckCircle2 size={20} />
-                Xác nhận đã nhận ({doneTasks}/{totalTasks})
+                {confirmLabel} ({doneTasks}/{totalTasks})
               </button>
             </div>
           </div>
