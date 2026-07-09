@@ -8,13 +8,6 @@ import { notifyWorkerById } from "@/lib/workerNotify";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function anonName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length <= 1) return name;
-  const last = parts.pop()!;
-  return [...parts, last[0] + "."].join(" ");
-}
-
 // GET — kho ứng viên xác thực (NV đang tìm việc, opt-in). Ẩn danh; lộ liên hệ khi NV đã đồng ý kết nối.
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -84,8 +77,8 @@ export async function GET(req: NextRequest) {
     const revealed = connStatus === "accepted";
     return {
       workerAccountId: w.id,
-      name: revealed ? w.name : anonName(w.name),
-      avatarUrl: revealed ? w.avatarUrl : null,
+      name: w.name,                        // họ tên đầy đủ (NV đã bật "đang tìm việc")
+      avatarUrl: w.avatarUrl,
       trustScore: w.shareTrustScore ? trust.score : null,
       trustLevel: w.shareTrustScore ? trust.level : "new",
       trustLabel: w.shareTrustScore ? trust.levelLabel : "",
