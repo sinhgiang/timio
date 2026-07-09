@@ -572,6 +572,9 @@ function ConnectionsCard({ data, onChange }: { data: Profile; onChange: (p: Prof
 function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
   const s = data.settings!;
   const [saving, setSaving] = useState(false);
+  const [editDesired, setEditDesired] = useState(false);
+  const [dpos, setDpos] = useState(s.desiredPosition ?? "");
+  const [darea, setDarea] = useState(s.desiredArea ?? "");
   const patch = async (payload: Record<string, unknown>) => {
     setSaving(true);
     try { const r = await fetch("/api/worker/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -591,9 +594,27 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
       </div>
 
       {s.openToWork && (
-        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-50">
-          <input defaultValue={s.desiredPosition ?? ""} placeholder="Vị trí mong muốn" onBlur={(e) => e.target.value !== (s.desiredPosition ?? "") && patch({ desiredPosition: e.target.value })} className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
-          <input defaultValue={s.desiredArea ?? ""} placeholder="Khu vực mong muốn" onBlur={(e) => e.target.value !== (s.desiredArea ?? "") && patch({ desiredArea: e.target.value })} className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+        <div className="mt-3 pt-3 border-t border-gray-50">
+          {!editDesired ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 text-sm">
+                <p className="text-gray-700 truncate"><span className="text-gray-400">Vị trí mong muốn: </span>{s.desiredPosition || <span className="text-gray-300">Chưa đặt</span>}</p>
+                <p className="text-gray-700 truncate mt-0.5"><span className="text-gray-400">Khu vực: </span>{s.desiredArea || <span className="text-gray-300">Chưa đặt</span>}</p>
+              </div>
+              <button onClick={() => { setDpos(s.desiredPosition ?? ""); setDarea(s.desiredArea ?? ""); setEditDesired(true); }} className="text-xs text-blue-600 flex items-center gap-1 shrink-0 hover:underline"><Pencil size={12} /> Sửa</button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input value={dpos} onChange={(e) => setDpos(e.target.value)} placeholder="Vị trí mong muốn" className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+                <input value={darea} onChange={(e) => setDarea(e.target.value)} placeholder="Khu vực mong muốn" className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+              </div>
+              <div className="flex gap-2 justify-end mt-2">
+                <button onClick={() => setEditDesired(false)} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">Hủy</button>
+                <button onClick={async () => { await patch({ desiredPosition: dpos, desiredArea: darea }); setEditDesired(false); }} disabled={saving} className="text-xs font-medium bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50">Lưu</button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
