@@ -347,7 +347,7 @@ function TrustCard({ trust, verified, isOwner }: { trust: Trust; verified: Profi
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Award size={17} className={st.text} /></div>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-indigo-200"><Award size={16} className="text-white" /></div>
           <div>
             <p className="text-sm font-semibold text-gray-800">Điểm tin cậy Timio</p>
             <p className="text-[11px] text-gray-400">Từ chấm công thật — {isOwner ? "mang đi xin việc, ứng lương tốt hơn" : "không tự khai"}</p>
@@ -361,11 +361,11 @@ function TrustCard({ trust, verified, isOwner }: { trust: Trust; verified: Profi
       ) : (
         <>
           <div className="flex items-end gap-2">
-            <p className="text-4xl font-extrabold text-gray-900 leading-none">{score}</p>
-            <p className="text-sm text-gray-400 font-semibold mb-0.5">/100</p>
+            <p className="text-5xl font-extrabold leading-none bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600 bg-clip-text text-transparent">{score}</p>
+            <p className="text-sm text-gray-300 font-semibold mb-1">/100</p>
           </div>
-          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden mt-3">
-            <div className={`h-full rounded-full bg-gradient-to-r ${st.bar}`} style={{ width: `${pct}%` }} />
+          <div className="h-2.5 bg-blue-50 rounded-full overflow-hidden mt-3">
+            <div className="h-full rounded-full bg-gradient-to-r from-sky-300 via-blue-500 to-indigo-600 shadow-[0_0_12px_rgba(79,70,229,0.45)] transition-all duration-500" style={{ width: `${Math.max(pct, 4)}%` }} />
           </div>
           <div className="grid grid-cols-3 gap-3 mt-4">
             <TrustPart label="Đúng giờ" value={trust.parts.punctuality} max={50} />
@@ -389,7 +389,7 @@ function TrustPart({ label, value, max }: { label: string; value: number; max: n
   return (
     <div>
       <div className="flex items-center justify-between mb-1"><span className="text-[11px] text-gray-500">{label}</span><span className="text-[10px] text-gray-400">{value}/{max}</span></div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full rounded-full bg-blue-400" style={{ width: `${(value / max) * 100}%` }} /></div>
+      <div className="h-1.5 bg-blue-50 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-sky-300 to-blue-500" style={{ width: `${(value / max) * 100}%` }} /></div>
     </div>
   );
 }
@@ -437,7 +437,10 @@ function ConnectionsCard() {
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-gray-400 mt-2.5">Chỉ khi bạn <b>cho phép</b>, nhà tuyển dụng mới thấy số điện thoại của bạn.</p>
+      <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
+        <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+        <p className="text-xs text-emerald-800 font-medium">Riêng tư của bạn: chỉ khi bạn <b>bấm &quot;Cho phép liên hệ&quot;</b>, nhà tuyển dụng mới thấy số điện thoại của bạn.</p>
+      </div>
     </div>
   );
 }
