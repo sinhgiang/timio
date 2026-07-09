@@ -35,16 +35,17 @@ const HIDDEN_FOR_ACCOUNTANT = new Set([
   "/dashboard/branches", "/dashboard/audit-log", "/dashboard/chat-logs", "/dashboard/zalo-connect",
 ]);
 
-type NavLeaf = { href: string; label: string; Icon: LucideIcon; badgeKey?: string };
+type NavLeaf = { href: string; label: string; Icon: LucideIcon; badgeKey?: string; isNew?: boolean };
 type NavItem = NavLeaf & { type: "item" };
 type NavGroup = { type: "group"; key: string; label: string; Icon: LucideIcon; children: NavLeaf[]; badgeKey?: string };
-type NavEntry = NavItem | NavGroup;
+type NavSection = { type: "section"; label: string };
+type NavEntry = NavItem | NavGroup | NavSection;
 
 const navStructure: NavEntry[] = [
-  { type: "item",  href: "/dashboard",          label: "Tổng quan",   Icon: LayoutDashboard },
-  { type: "item",  href: "/dashboard/employees", label: "Nhân viên",   Icon: Users },
-  { type: "item",  href: "/dashboard/recruitment", label: "Tuyển dụng", Icon: Briefcase, badgeKey: "recruitment" },
-  { type: "item",  href: "/dashboard/leave",     label: "Nghỉ phép",   Icon: Umbrella, badgeKey: "leave" },
+  { type: "item", href: "/dashboard", label: "Tổng quan", Icon: LayoutDashboard },
+
+  // ─── KHU 1: Vận hành chấm công hằng ngày ───
+  { type: "section", label: "Hằng ngày · Chấm công" },
   {
     type: "group", key: "chamcong", label: "Chấm công", Icon: ClipboardEdit,
     children: [
@@ -63,6 +64,34 @@ const navStructure: NavEntry[] = [
       { href: "/dashboard/leave-calendar",  label: "Lịch nghỉ nhóm", Icon: CalendarDays },
     ],
   },
+  { type: "item", href: "/dashboard/leave", label: "Nghỉ phép", Icon: Umbrella, badgeKey: "leave" },
+
+  // ─── KHU 2: Nhân sự · người đang làm ───
+  { type: "section", label: "Nhân sự · Người đang làm" },
+  { type: "item", href: "/dashboard/employees",           label: "Nhân viên",                Icon: Users },
+  { type: "item", href: "/dashboard/performance-reviews", label: "Đánh giá nhân viên",       Icon: Star },
+  { type: "item", href: "/dashboard/onboarding",          label: "Onboarding / Offboarding", Icon: ClipboardCheck },
+  {
+    type: "group", key: "tochuc", label: "Tổ chức", Icon: Network,
+    children: [
+      { href: "/dashboard/branches",  label: "Chi nhánh",     Icon: Building2 },
+      { href: "/dashboard/team",      label: "Nhóm & Quyền",  Icon: UsersRound },
+      { href: "/dashboard/org-chart", label: "Sơ đồ tổ chức", Icon: Network },
+    ],
+  },
+  {
+    type: "group", key: "hosolaodong", label: "Hồ sơ lao động", Icon: FileText,
+    children: [
+      { href: "/dashboard/discipline",   label: "Kỷ luật lao động",    Icon: ShieldAlert },
+      { href: "/dashboard/assets",       label: "Tài sản bàn giao",    Icon: Package },
+      { href: "/dashboard/certificates", label: "Chứng chỉ & Đào tạo", Icon: GraduationCap },
+      { href: "/dashboard/work-history", label: "Lịch sử công tác",    Icon: History },
+    ],
+  },
+  { type: "item", href: "/dashboard/announcements", label: "Bảng tin nội bộ", Icon: Megaphone },
+
+  // ─── KHU 3: Lương & Tài chính ───
+  { type: "section", label: "Lương & Tài chính" },
   {
     type: "group", key: "luong", label: "Lương & Tài chính", Icon: Banknote,
     children: [
@@ -74,6 +103,14 @@ const navStructure: NavEntry[] = [
       { href: "/dashboard/expenses",        label: "Chi phí công tác",    Icon: Receipt },
     ],
   },
+
+  // ─── KHU 4: Tuyển dụng & Ứng viên (nghề thứ 2 — tách hẳn cho dễ thấy) ───
+  { type: "section", label: "Tuyển dụng & Ứng viên" },
+  { type: "item", href: "/dashboard/recruitment", label: "Tin tuyển dụng",         Icon: Briefcase, badgeKey: "recruitment" },
+  { type: "item", href: "/dashboard/talent-pool", label: "Kho ứng viên xác thực", Icon: ShieldCheck, isNew: true },
+
+  // ─── KHU 5: Báo cáo & Hệ thống ───
+  { type: "section", label: "Báo cáo & Hệ thống" },
   {
     type: "group", key: "baocao", label: "Báo cáo", Icon: BarChart3,
     children: [
@@ -86,38 +123,22 @@ const navStructure: NavEntry[] = [
     ],
   },
   {
-    type: "group", key: "nhansu", label: "Nhân sự", Icon: UsersRound,
-    children: [
-      { href: "/dashboard/talent-pool",        label: "Kho ứng viên xác thực",    Icon: ShieldCheck },
-      { href: "/dashboard/branches",           label: "Chi nhánh",                Icon: Building2 },
-      { href: "/dashboard/team",               label: "Nhóm & Quyền",             Icon: UsersRound },
-      { href: "/dashboard/org-chart",          label: "Sơ đồ tổ chức",            Icon: Network },
-      { href: "/dashboard/performance-reviews",label: "Đánh giá nhân viên",       Icon: Star },
-      { href: "/dashboard/onboarding",         label: "Onboarding / Offboarding", Icon: ClipboardCheck },
-      { href: "/dashboard/announcements",      label: "Bảng tin nội bộ",          Icon: Megaphone },
-      { href: "/dashboard/discipline",         label: "Kỷ luật lao động",         Icon: ShieldAlert },
-      { href: "/dashboard/assets",             label: "Tài sản bàn giao",         Icon: Package },
-      { href: "/dashboard/work-history",       label: "Lịch sử công tác",         Icon: History },
-      { href: "/dashboard/certificates",       label: "Chứng chỉ & Đào tạo",     Icon: GraduationCap },
-    ],
-  },
-  {
     type: "group", key: "hethong", label: "Hệ thống", Icon: ShieldCheck,
     children: [
-      { href: "/dashboard/export",    label: "Xuất dữ liệu",      Icon: Download },
-      { href: "/dashboard/audit-log", label: "Nhật ký hoạt động", Icon: ShieldCheck },
-      { href: "/dashboard/chat-logs", label: "Lịch sử chat AI",   Icon: MessagesSquare },
-      { href: "/dashboard/zalo-connect", label: "Kết nối Zalo",   Icon: MessageSquare },
-      { href: "/dashboard/billing",   label: "Gói dịch vụ",       Icon: CreditCard },
+      { href: "/dashboard/export",       label: "Xuất dữ liệu",      Icon: Download },
+      { href: "/dashboard/audit-log",    label: "Nhật ký hoạt động", Icon: ShieldCheck },
+      { href: "/dashboard/chat-logs",    label: "Lịch sử chat AI",   Icon: MessagesSquare },
+      { href: "/dashboard/zalo-connect", label: "Kết nối Zalo",      Icon: MessageSquare },
     ],
   },
-  { type: "item", href: "/dashboard/settings", label: "Cài đặt",   Icon: Settings },
-  { type: "item", href: "/dashboard/docs",     label: "Hướng dẫn", Icon: BookOpen },
+  { type: "item", href: "/dashboard/billing",  label: "Gói dịch vụ", Icon: CreditCard },
+  { type: "item", href: "/dashboard/settings", label: "Cài đặt",     Icon: Settings },
+  { type: "item", href: "/dashboard/docs",     label: "Hướng dẫn",   Icon: BookOpen },
 ];
 
 // All leaf hrefs (for isItemActive resolution)
 const allLeafHrefs = navStructure.flatMap(e =>
-  e.type === "item" ? [e.href] : e.children.map(c => c.href)
+  e.type === "item" ? [e.href] : e.type === "group" ? e.children.map(c => c.href) : []
 );
 
 function PlanBadge({ plan, planExpires }: { plan: string; planExpires?: string | null }) {
@@ -271,7 +292,23 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navStructure.map(entry => {
+          {navStructure.map((entry, idx) => {
+            if (entry.type === "section") {
+              // Ẩn tiêu đề khu nếu mọi mục trong khu đều bị ẩn theo quyền
+              let hasVisible = false;
+              for (let j = idx + 1; j < navStructure.length; j++) {
+                const e = navStructure[j];
+                if (e.type === "section") break;
+                if (e.type === "item") { if (!shouldHide(e.href)) { hasVisible = true; break; } }
+                else if (e.children.some(c => !shouldHide(c.href))) { hasVisible = true; break; }
+              }
+              if (!hasVisible) return null;
+              return (
+                <p key={`sec-${idx}`} className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">
+                  {entry.label}
+                </p>
+              );
+            }
             if (entry.type === "item") {
               if (shouldHide(entry.href)) return null;
               const active = isItemActive(entry.href);
@@ -288,6 +325,9 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
                 >
                   <entry.Icon size={17} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
                   <span className="flex-1 whitespace-nowrap">{entry.label}</span>
+                  {entry.isNew && count === 0 && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 leading-none">MỚI</span>
+                  )}
                   {count > 0 && (
                     <span className={cn("min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
                       {count > 99 ? "99+" : count}
