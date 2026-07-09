@@ -2,14 +2,23 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 import SaveJobButton from "@/components/recruitment/SaveJobButton";
-import PublicHeader from "@/components/public/PublicHeader";
 import {
   Search, MapPin, Clock, Wallet, Briefcase, BadgeCheck, ScanFace, Sparkles,
   Building2, Users, ArrowRight, Check, TrendingUp, Landmark, HardHat, Cpu,
   ShoppingBag, Truck, Shield, FlaskConical, Megaphone, Calculator, CircuitBoard,
   Utensils, HeartPulse, GraduationCap, Home, Car, Scissors, Plane, Headphones,
-  Wrench, Smartphone, Star, FileCheck, Zap, ChevronRight, Apple, Play, Crown, Send,
+  Wrench, Smartphone, Star, FileCheck, Zap, ChevronRight, Apple, Play, Crown, Send, Lock,
 } from "lucide-react";
+import PublicHeader from "@/components/public/PublicHeader";
+import AutoCarousel from "@/components/public/AutoCarousel";
+import { getPublicCandidates, type PublicCandidate } from "@/lib/publicCandidates";
+
+const LEVEL: Record<string, string> = {
+  gold: "bg-amber-100 text-amber-700 border-amber-200",
+  silver: "bg-slate-100 text-slate-600 border-slate-200",
+  bronze: "bg-orange-100 text-orange-700 border-orange-200",
+  new: "bg-gray-100 text-gray-500 border-gray-200",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +111,7 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
     prisma.jobPosting.findMany({ where: { status: "open", isPublic: true }, select: { companyId: true }, distinct: ["companyId"] }),
     prisma.talentProfile.count({ where: { isOpen: true } }),
   ]);
+  const candidates = await getPublicCandidates(12);
 
   const realCompanies = companyRows.map((r) => r.company);
   const useSampleJobs = jobs.length === 0;
@@ -118,6 +128,52 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
   const newWeek = Math.round(showJobCount * 0.42);
 
   const inputCls = "w-full bg-white rounded-xl pl-10 pr-3 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 border border-transparent";
+
+  const chunk = <T,>(a: T[], n: number): T[][] => { const out: T[][] = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; };
+
+  const realJobCard = (j: (typeof jobs)[number]) => {
+    const salary = fmtSalary(j.salaryMin, j.salaryMax);
+    return (
+      <div key={j.id} className="bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-md transition-all flex flex-col">
+        <div className="flex items-start gap-3 mb-3">
+          {j.company.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={j.company.logoUrl} alt={j.company.name} className="w-11 h-11 rounded-xl object-cover border border-gray-100 shrink-0" />
+          ) : (
+            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0"><Building2 size={20} className="text-blue-600" strokeWidth={1.5} /></div>
+          )}
+          <Link href={`/tuyendung/${j.company.slug}/${j.id}`} className="min-w-0 flex-1"><h3 className="font-semibold text-gray-800 leading-tight line-clamp-2 hover:text-blue-600">{j.title}</h3><p className="text-xs text-gray-500 truncate mt-0.5">{j.company.name}</p></Link>
+          <SaveJobButton jobKey={j.id} />
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {salary && <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-xs font-medium px-2 py-1 rounded-lg"><Wallet size={12} /> {salary}</span>}
+          {j.location && <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><MapPin size={12} /> {j.location}</span>}
+          {j.workTime && <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><Clock size={12} /> {j.workTime}</span>}
+        </div>
+        {j.tags && <div className="flex flex-wrap gap-1 mb-3">{j.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5).map((t, i) => <a key={i} href={`/viec-lam?q=${encodeURIComponent(t)}`} className="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full">{t}</a>)}</div>}
+        <Link href={`/tuyendung/${j.company.slug}/${j.id}`} className="mt-auto flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg py-2 hover:bg-blue-700"><Send size={14} /> Ứng tuyển ngay</Link>
+      </div>
+    );
+  };
+
+  const candCard = (c: PublicCandidate, key: number) => (
+    <div key={key} className="bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-md transition-all flex flex-col">
+      <div className="flex items-start gap-3 mb-2">
+        <div className="w-11 h-11 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-bold shrink-0">{c.name.charAt(0)}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5"><p className="font-semibold text-gray-800 truncate">{c.name}</p>{c.score != null && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${LEVEL[c.level] ?? LEVEL.new}`}>{c.score}</span>}</div>
+          <p className="text-xs text-gray-500 truncate">{c.position}{c.area ? ` · ${c.area}` : ""}</p>
+        </div>
+      </div>
+      {c.tags.length > 0 && <div className="flex flex-wrap gap-1 mb-3">{c.tags.slice(0, 4).map((t, j) => <span key={j} className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{t}</span>)}</div>}
+      {c.handle
+        ? <Link href={`/ho-so/${c.handle}`} className="mt-auto flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg py-2 hover:bg-blue-700">Xem hồ sơ <ArrowRight size={14} /></Link>
+        : <div className="mt-auto flex items-center justify-center gap-1.5 border border-gray-200 text-gray-500 text-sm rounded-lg py-2"><Lock size={13} /> Đang đi làm</div>}
+    </div>
+  );
+
+  const jobPages = chunk(jobs, 6).map((slice, pi) => <div key={pi} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{slice.map(realJobCard)}</div>);
+  const candPages = chunk(candidates, 6).map((slice, pi) => <div key={pi} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{slice.map((c, i) => candCard(c, pi * 6 + i))}</div>);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -183,56 +239,38 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
               <Briefcase size={36} className="text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
               <p className="text-gray-500">Chưa có việc phù hợp với bộ lọc. Thử từ khoá / khu vực khác nhé.</p>
             </div>
-          ) : (
+          ) : useSampleJobs ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {useSampleJobs
-                ? SAMPLE_JOBS.map((j, i) => (
-                    <div key={i} className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0"><Building2 size={20} className="text-blue-600" strokeWidth={1.5} /></div>
-                        <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-800 leading-tight line-clamp-2">{j.title}</h3><p className="text-xs text-gray-500 truncate mt-0.5">{j.company}</p></div>
-                        <SaveJobButton jobKey={`sample-${i}`} />
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-xs font-medium px-2 py-1 rounded-lg"><Wallet size={12} /> {j.salary}</span>
-                        <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><MapPin size={12} /> {j.location}</span>
-                        <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><Clock size={12} /> {j.workTime}</span>
-                      </div>
-                      <span className="mt-auto text-center text-xs text-blue-600 border border-blue-200 rounded-lg py-1.5">Ứng tuyển ngay</span>
-                    </div>
-                  ))
-                : jobs.map((j) => {
-                    const salary = fmtSalary(j.salaryMin, j.salaryMax);
-                    return (
-                      <div key={j.id} className="bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-md transition-all flex flex-col">
-                        <div className="flex items-start gap-3 mb-3">
-                          {j.company.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={j.company.logoUrl} alt={j.company.name} className="w-11 h-11 rounded-xl object-cover border border-gray-100 shrink-0" />
-                          ) : (
-                            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0"><Building2 size={20} className="text-blue-600" strokeWidth={1.5} /></div>
-                          )}
-                          <Link href={`/tuyendung/${j.company.slug}/${j.id}`} className="min-w-0 flex-1"><h3 className="font-semibold text-gray-800 leading-tight line-clamp-2 hover:text-blue-600">{j.title}</h3><p className="text-xs text-gray-500 truncate mt-0.5">{j.company.name}</p></Link>
-                          <SaveJobButton jobKey={j.id} />
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {salary && <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-xs font-medium px-2 py-1 rounded-lg"><Wallet size={12} /> {salary}</span>}
-                          {j.location && <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><MapPin size={12} /> {j.location}</span>}
-                          {j.workTime && <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><Clock size={12} /> {j.workTime}</span>}
-                        </div>
-                        {j.tags && (
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {j.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5).map((t, i) => (
-                              <a key={i} href={`/viec-lam?q=${encodeURIComponent(t)}`} className="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full">{t}</a>
-                            ))}
-                          </div>
-                        )}
-                        <Link href={`/tuyendung/${j.company.slug}/${j.id}`} className="mt-auto flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg py-2 hover:bg-blue-700"><Send size={14} /> Ứng tuyển ngay</Link>
-                      </div>
-                    );
-                  })}
+              {SAMPLE_JOBS.map((j, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0"><Building2 size={20} className="text-blue-600" strokeWidth={1.5} /></div>
+                    <div className="min-w-0 flex-1"><h3 className="font-semibold text-gray-800 leading-tight line-clamp-2">{j.title}</h3><p className="text-xs text-gray-500 truncate mt-0.5">{j.company}</p></div>
+                    <SaveJobButton jobKey={`sample-${i}`} />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-xs font-medium px-2 py-1 rounded-lg"><Wallet size={12} /> {j.salary}</span>
+                    <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><MapPin size={12} /> {j.location}</span>
+                    <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-600 text-xs px-2 py-1 rounded-lg"><Clock size={12} /> {j.workTime}</span>
+                  </div>
+                  <span className="mt-auto text-center text-xs text-blue-600 border border-blue-200 rounded-lg py-1.5">Ứng tuyển ngay</span>
+                </div>
+              ))}
             </div>
+          ) : (
+            <AutoCarousel pages={jobPages} accent="blue" />
           )}
+        </section>
+
+        {/* ── Ứng viên tiêu biểu (slider tự chạy 50s, dừng khi rê chuột) ── */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Ứng viên tiêu biểu</h2>
+            <Link href="/ung-vien" className="text-sm text-blue-600 hover:underline flex items-center gap-0.5 font-medium">Xem tất cả ứng viên <ChevronRight size={14} /></Link>
+          </div>
+          {candidates.length === 0
+            ? <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-500 text-sm">Đang cập nhật ứng viên. Người lao động bật &quot;đang tìm việc&quot; sẽ xuất hiện ở đây.</div>
+            : <AutoCarousel pages={candPages} accent="blue" />}
         </section>
 
         {/* ── Thương hiệu tuyển dụng + Xem tất cả ── */}

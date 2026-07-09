@@ -15,6 +15,16 @@ const COMPANIES = [
   { name: "Spa Ngọc Lan", job: "Lễ tân spa", dept: "Dịch vụ", loc: "TP.HCM", min: 7e6, max: 10e6, wt: "Ca xoay", tags: "lễ tân, giao tiếp tốt" },
   { name: "Thời Trang Hạ Long", job: "Nhân viên bán hàng", dept: "Bán hàng", loc: "Hà Nội", min: 8e6, max: 12e6, wt: "Ca xoay", tags: "bán hàng, hoa hồng cao" },
   { name: "Media House Sáng Tạo", job: "Nhân viên sản xuất nội dung", dept: "Marketing", loc: "Hà Nội", min: 10e6, max: 18e6, wt: "Giờ hành chính", tags: "marketing, content, tiktok" },
+  { name: "Nhà Hàng Phố Cổ", job: "Phục vụ nhà hàng", dept: "F&B", loc: "Hà Nội", min: 7e6, max: 10e6, wt: "Ca tối", tags: "phục vụ, ca tối" },
+  { name: "Xây Dựng Hoàng Gia", job: "Giám sát công trình", dept: "Xây dựng", loc: "TP.HCM", min: 12e6, max: 18e6, wt: "Giờ hành chính", tags: "xây dựng, có kinh nghiệm" },
+  { name: "Điện Máy Thành Đô", job: "Nhân viên tư vấn bán hàng", dept: "Bán hàng", loc: "Đà Nẵng", min: 8e6, max: 12e6, wt: "Ca xoay", tags: "bán hàng, hoa hồng cao" },
+  { name: "Dược Phẩm An Khang", job: "Dược sĩ bán thuốc", dept: "Y tế", loc: "Hà Nội", min: 9e6, max: 13e6, wt: "Ca xoay", tags: "dược, chăm sóc khách hàng" },
+  { name: "Trung Tâm Anh Ngữ Bright", job: "Trợ giảng tiếng Anh", dept: "Giáo dục", loc: "TP.HCM", min: 8e6, max: 12e6, wt: "Ca tối", tags: "biết tiếng Anh, giáo dục" },
+  { name: "Khách Sạn Biển Xanh", job: "Lễ tân khách sạn", dept: "Du lịch", loc: "Đà Nẵng", min: 8e6, max: 11e6, wt: "Ca xoay", tags: "du lịch, lễ tân, biết tiếng Anh" },
+  { name: "Nội Thất Mộc Phát", job: "Thợ mộc", dept: "Sản xuất", loc: "Bình Dương", min: 10e6, max: 15e6, wt: "Giờ hành chính", tags: "thợ mộc, chịu khó" },
+  { name: "Bảo Hiểm Nhân Thọ Việt", job: "Tư vấn tài chính", dept: "Tài chính", loc: "Hà Nội", min: 10e6, max: 30e6, wt: "Linh hoạt", tags: "tư vấn, hoa hồng cao, có đào tạo" },
+  { name: "Chuỗi Nhà Thuốc Long Châu", job: "Nhân viên kho dược", dept: "Kho vận", loc: "Cần Thơ", min: 8e6, max: 11e6, wt: "Ca xoay", tags: "kho vận, cẩn thận" },
+  { name: "Nông Trại Hữu Cơ Đà Lạt", job: "Kỹ thuật nông nghiệp", dept: "Nông nghiệp", loc: "Lâm Đồng", min: 9e6, max: 13e6, wt: "Giờ hành chính", tags: "nông nghiệp, chịu khó" },
 ];
 
 // 10 ứng viên (active → che nửa tên; resigned → hiện đầy đủ)
@@ -29,6 +39,16 @@ const CANDIDATES = [
   { name: "Bùi Thị Hà", pos: "Lễ tân", area: "TP.HCM", kw: "biết tiếng Anh, giao tiếp tốt", active: false },
   { name: "Ngô Văn Dũng", pos: "Phục vụ", area: "TP.HCM", kw: "chăm chỉ, làm cuối tuần", active: true },
   { name: "Đỗ Thị Ngọc", pos: "Marketing online", area: "Hà Nội", kw: "marketing, content, tiktok", active: false },
+  { name: "Trịnh Văn Bình", pos: "Phục vụ nhà hàng", area: "Hà Nội", kw: "phục vụ, ca tối, nhanh nhẹn", active: true },
+  { name: "Lý Thị Thu", pos: "Tư vấn bán hàng", area: "Đà Nẵng", kw: "bán hàng, giao tiếp tốt", active: false },
+  { name: "Cao Minh Hoàng", pos: "Giám sát công trình", area: "TP.HCM", kw: "xây dựng, có kinh nghiệm", active: true },
+  { name: "Dương Thị Nga", pos: "Dược sĩ", area: "Hà Nội", kw: "dược, cẩn thận", active: false },
+  { name: "Phan Văn Lộc", pos: "Thợ mộc", area: "Bình Dương", kw: "thợ mộc, chịu khó", active: true },
+  { name: "Tạ Thị Hương", pos: "Lễ tân khách sạn", area: "Đà Nẵng", kw: "biết tiếng Anh, lễ tân", active: false },
+  { name: "Võ Quang Huy", pos: "Kỹ thuật nông nghiệp", area: "Lâm Đồng", kw: "nông nghiệp, chịu khó", active: true },
+  { name: "Hồ Thị Vân", pos: "Trợ giảng tiếng Anh", area: "TP.HCM", kw: "biết tiếng Anh, kiên nhẫn", active: false },
+  { name: "Đinh Văn Phúc", pos: "Tư vấn tài chính", area: "Hà Nội", kw: "tư vấn, giao tiếp tốt", active: true },
+  { name: "Mai Thị Lý", pos: "Nhân viên kho dược", area: "Cần Thơ", kw: "kho vận, trung thực", active: false },
 ];
 
 async function main() {

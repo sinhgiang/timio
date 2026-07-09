@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
-import { computeTrustScore } from "@/lib/trustScore";
-import { candidateDisplayName } from "@/lib/candidateVisibility";
+import { getPublicCandidates } from "@/lib/publicCandidates";
 import PublicHeader from "@/components/public/PublicHeader";
 import {
   Search, MapPin, ShieldCheck, BadgeCheck, Award, Briefcase, Lock,
@@ -41,53 +39,10 @@ export default async function CandidatesPage({ searchParams }: { searchParams?: 
   const q = (searchParams?.q ?? "").toLowerCase().trim();
   const area = (searchParams?.area ?? "").trim();
 
-  const workers = await prisma.workerAccount.findMany({
-    where: { openToWork: true, profilePublic: true, activatedAt: { not: null } },
-    select: { id: true, name: true, handle: true, desiredArea: true, desiredPosition: true, keywords: true, shareTrustScore: true },
-    take: 36,
-  });
-
-  const ids = workers.map((w) => w.id);
-  const emps = ids.length ? await prisma.employee.findMany({ where: { workerAccountId: { in: ids } }, select: { id: true, workerAccountId: true, status: true, position: true, joinDate: true } }) : [];
-  const activeSet = new Set(emps.filter((e) => e.status === "active").map((e) => e.workerAccountId!));
-  const empIds = emps.map((e) => e.id);
-  const empToW = new Map(emps.map((e) => [e.id, e.workerAccountId!]));
-
-  const [totalG, onTimeG] = empIds.length ? await Promise.all([
-    prisma.attendanceLog.groupBy({ by: ["employeeId"], where: { employeeId: { in: empIds }, checkInAt: { not: null } }, _count: { _all: true } }),
-    prisma.attendanceLog.groupBy({ by: ["employeeId"], where: { employeeId: { in: empIds }, checkInAt: { not: null }, minutesLate: 0 }, _count: { _all: true } }),
-  ]) : [[], []];
-
-  const now = Date.now();
-  const totalByW = new Map<string, number>(), onTimeByW = new Map<string, number>(), earliestByW = new Map<string, number>(), posByW = new Map<string, string>();
-  for (const g of totalG as { employeeId: string; _count: { _all: number } }[]) { const w = empToW.get(g.employeeId); if (w) totalByW.set(w, (totalByW.get(w) ?? 0) + g._count._all); }
-  for (const g of onTimeG as { employeeId: string; _count: { _all: number } }[]) { const w = empToW.get(g.employeeId); if (w) onTimeByW.set(w, (onTimeByW.get(w) ?? 0) + g._count._all); }
-  for (const e of emps) { if (e.joinDate) { const t = e.joinDate.getTime(); const c = earliestByW.get(e.workerAccountId!); if (c === undefined || t < c) earliestByW.set(e.workerAccountId!, t); } if (e.position && !posByW.has(e.workerAccountId!)) posByW.set(e.workerAccountId!, e.position); }
-
-  let candidates = workers.map((w) => {
-    const total = totalByW.get(w.id) ?? 0;
-    const onTime = onTimeByW.get(w.id) ?? 0;
-    const rate = total > 0 ? Math.round((onTime / total) * 100) : null;
-    const earliest = earliestByW.get(w.id);
-    const exp = earliest ? Math.max(0, Math.round((now - earliest) / (30 * 86400000))) : 0;
-    const trust = computeTrustScore({ punctualityRate: rate, totalDaysWorked: total, experienceMonths: exp });
-    const employed = activeSet.has(w.id);
-    return {
-      name: candidateDisplayName(w.name, employed),
-      employed,
-      // Chỉ cho xem hồ sơ đầy đủ khi KHÔNG đang đi làm (bảo vệ người đang có việc)
-      handle: !employed ? w.handle : null,
-      position: w.desiredPosition || posByW.get(w.id) || "Chưa ghi vị trí",
-      area: w.desiredArea || "",
-      score: w.shareTrustScore ? trust.score : null,
-      level: w.shareTrustScore ? trust.level : "new",
-      exp,
-      tags: (w.keywords || "").split(",").map((k) => k.trim()).filter(Boolean),
-    };
-  })
+  const all = await getPublicCandidates(48);
+  const candidates = all
     .filter((c) => !area || c.area === area)
-    .filter((c) => !q || c.position.toLowerCase().includes(q) || c.area.toLowerCase().includes(q) || c.tags.some((t) => t.toLowerCase().includes(q)))
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    .filter((c) => !q || c.position.toLowerCase().includes(q) || c.area.toLowerCase().includes(q) || c.tags.some((t) => t.toLowerCase().includes(q)));
 
   const useSample = candidates.length === 0;
   const hasFilter = !!(q || area);
