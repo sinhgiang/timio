@@ -24,13 +24,6 @@ type Profile = {
   experiences: { companyName: string; position: string; department: string | null; branchName: string | null; joinDate: string | null; active: boolean; monthsHere: number | null }[];
 };
 
-const LEVEL_STYLE: Record<string, { badge: string; ring: string; text: string; bar: string }> = {
-  gold:   { badge: "bg-amber-100 text-amber-700 border-amber-200", ring: "text-amber-500", text: "text-amber-600", bar: "from-amber-400 to-yellow-500" },
-  silver: { badge: "bg-slate-100 text-slate-600 border-slate-200", ring: "text-slate-400", text: "text-slate-500", bar: "from-slate-300 to-slate-400" },
-  bronze: { badge: "bg-orange-100 text-orange-700 border-orange-200", ring: "text-orange-500", text: "text-orange-600", bar: "from-orange-300 to-amber-500" },
-  new:    { badge: "bg-gray-100 text-gray-500 border-gray-200", ring: "text-gray-300", text: "text-gray-400", bar: "from-gray-300 to-gray-400" },
-};
-
 function expLabel(months: number): string {
   if (months <= 0) return "Mới bắt đầu";
   const y = Math.floor(months / 12), m = months % 12;
@@ -340,7 +333,6 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
 
 // ─────────── Điểm tin cậy (trung tâm) ───────────
 function TrustCard({ trust, verified, isOwner }: { trust: Trust; verified: Profile["verified"]; isOwner: boolean }) {
-  const st = LEVEL_STYLE[trust.level] ?? LEVEL_STYLE.new;
   const score = trust.score;
   const pct = score ?? 0;
   return (
@@ -353,7 +345,7 @@ function TrustCard({ trust, verified, isOwner }: { trust: Trust; verified: Profi
             <p className="text-[11px] text-gray-400">Từ chấm công thật — {isOwner ? "mang đi xin việc, ứng lương tốt hơn" : "không tự khai"}</p>
           </div>
         </div>
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${st.badge}`}>{trust.levelLabel}</span>
+        <LevelBadge level={trust.level} label={trust.levelLabel} />
       </div>
 
       {score === null ? (
@@ -383,6 +375,22 @@ function TrustCard({ trust, verified, isOwner }: { trust: Trust; verified: Profi
         </>
       )}
     </div>
+  );
+}
+// Huy hiệu hạng nổi bật: gradient + sao (Đồng 1★ · Bạc 2★ · Vàng 3★)
+const LEVEL_BADGE: Record<string, { grad: string; glow: string; stars: number }> = {
+  gold:   { grad: "from-amber-400 to-yellow-500",  glow: "shadow-amber-300/60",  stars: 3 },
+  silver: { grad: "from-sky-400 to-indigo-500",    glow: "shadow-indigo-200/60", stars: 2 },
+  bronze: { grad: "from-orange-400 to-amber-500",  glow: "shadow-orange-200/60", stars: 1 },
+  new:    { grad: "from-gray-300 to-gray-400",     glow: "shadow-gray-200/50",   stars: 0 },
+};
+function LevelBadge({ level, label }: { level: string; label: string }) {
+  const b = LEVEL_BADGE[level] ?? LEVEL_BADGE.new;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-bold text-white px-2.5 py-1 rounded-full bg-gradient-to-r ${b.grad} shadow-md ${b.glow}`}>
+      {Array.from({ length: b.stars }).map((_, i) => <Star key={i} size={10} className="fill-white text-white" />)}
+      {label}
+    </span>
   );
 }
 function TrustPart({ label, value, max }: { label: string; value: number; max: number }) {
