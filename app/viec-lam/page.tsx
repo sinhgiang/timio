@@ -128,9 +128,10 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
             <span className="font-extrabold text-gray-800 text-lg">Timio <span className="text-blue-600 font-semibold text-sm">Việc làm</span></span>
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
-            <a href="#nganh-nghe" className="hidden md:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Ngành nghề</a>
+            <Link href="/viec-lam-hap-dan" className="hidden md:inline text-sm text-gray-600 hover:text-orange-600 px-3 py-1.5">Việc làm hấp dẫn</Link>
+            <Link href="/ung-vien" className="hidden md:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Ứng viên</Link>
             <a href="#nha-tuyen-dung" className="hidden sm:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Nhà tuyển dụng</a>
-            <Link href="/gia" className="hidden sm:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Bảng giá</Link>
+            <Link href="/gia" className="hidden lg:inline text-sm text-gray-600 hover:text-blue-600 px-3 py-1.5">Bảng giá</Link>
             <Link href="/login" className="text-sm font-medium text-blue-600 border border-blue-200 rounded-lg px-3.5 py-1.5 hover:bg-blue-50">Đăng nhập</Link>
           </div>
         </div>
@@ -188,7 +189,7 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-800">{hasFilter ? "Kết quả tìm việc" : "Việc làm tốt nhất"}</h2>
-            {useSampleJobs && !hasFilter && <span className="text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Đang cập nhật tin thật</span>}
+            <Link href="/viec-lam-hap-dan" className="text-sm text-orange-600 hover:underline flex items-center gap-0.5 font-medium">🔥 Việc làm hấp dẫn <ChevronRight size={14} /></Link>
           </div>
           {useSampleJobs && hasFilter ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
