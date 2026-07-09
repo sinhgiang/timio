@@ -879,7 +879,30 @@ model WorkerAccount {
   activatedAt      DateTime?
   consentAppAt     DateTime?                       // đồng ý dùng app (Luật 91/2025)
   consentFinanceAt DateTime?                       // đồng ý tính năng tài chính (ứng lương)
+  // Lớp độ tin cậy di động — NV SỞ HỮU, opt-in (Luật 91/2025). Mặc định riêng tư.
+  profilePublic    Boolean   @default(false)        // cho phép người khác xem hồ sơ qua link
+  shareTrustScore  Boolean   @default(true)         // hiện điểm tin cậy khi công khai
+  shareContact     Boolean   @default(false)        // hiện SĐT/liên hệ khi công khai
+  openToWork       Boolean   @default(false)        // đang tìm việc → vào kho ứng viên xác thực
+  desiredArea      String?                          // khu vực mong muốn (lọc tái tuyển)
+  desiredPosition  String?                          // vị trí mong muốn
   createdAt        DateTime  @default(now())
+}
+
+// GĐ2 wedge: nhà tuyển dụng bày tỏ QUAN TÂM tới 1 WorkerAccount đang tìm việc (double opt-in).
+// Chỉ lộ liên hệ khi NV đồng ý → hợp Luật 91/2025 (NV sở hữu, tự quyết chia sẻ).
+model WorkerConnection {
+  id              String    @id @default(cuid())
+  workerAccountId String
+  companyId       String
+  companyName     String
+  note            String?
+  status          String    @default("pending")     // pending | accepted | declined
+  createdAt       DateTime  @default(now())
+  respondedAt     DateTime?
+
+  @@index([workerAccountId, status])
+  @@index([companyId, status])
 }
 
 // Bảng tin nội bộ công ty

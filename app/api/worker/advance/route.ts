@@ -14,7 +14,7 @@ export async function GET() {
   const wa = await prisma.workerAccount.findUnique({ where: { id }, select: { consentFinanceAt: true } });
   const consentFinance = !!wa?.consentFinanceAt;
 
-  const { month, monthLabel, options } = await getEwaOptions(id);
+  const { month, monthLabel, options, trustLevel, trustBoost } = await getEwaOptions(id);
 
   const now = new Date();
   const empIds = options.map((o) => o.employeeId);
@@ -29,7 +29,7 @@ export async function GET() {
 
   return NextResponse.json({
     consentFinance,
-    month, monthLabel,
+    month, monthLabel, trustLevel, trustBoost,
     options,
     history: history.map((h) => ({
       id: h.id, amount: h.amount, fee: h.fee, status: h.status,

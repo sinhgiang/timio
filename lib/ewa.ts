@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeTrustScore, ewaBoostPercent, type TrustLevel } from "@/lib/trustScore";
 
 // Ứng lương sớm (EWA) — employer-funded. Timio KHÔNG bỏ vốn, chỉ tính toán + thu phí dịch vụ.
 // Trần được ứng luôn ≤ lương ĐÃ KIẾM trong kỳ → không bao giờ thành khoản vay (Điều 101 BLLĐ 2019).
@@ -29,11 +30,15 @@ export interface EwaOption {
   feeType: string;
   feeValue: number;
   reason: string | null;     // vì sao chưa ứng được (nếu available = 0)
+  baseMaxPercent: number;    // trần gốc của công ty (trước khi cộng thưởng tin cậy)
+  trustBoost: number;        // % cộng thêm nhờ điểm tin cậy
 }
 
 export interface EwaOptionsResult {
   month: string;             // "YYYY-MM"
   monthLabel: string;
+  trustLevel: TrustLevel;
+  trustBoost: number;        // % ứng thêm nhờ tin cậy (áp cho mọi công ty)
   options: EwaOption[];
 }
 
@@ -57,6 +62,23 @@ export async function getEwaOptions(workerAccountId: string): Promise<EwaOptions
     },
   });
 
+  // ── Điểm tin cậy (toàn thời gian) → thưởng hạn mức ứng lương (GĐ3) ──
+  const empIds = employees.map((e) => e.id);
+  let trustLevel: TrustLevel = "new";
+  let trustBoost = 0;
+  if (empIds.length) {
+    const [allTotal, allOnTime, firstLog] = await Promise.all([
+      prisma.attendanceLog.count({ where: { employeeId: { in: empIds }, checkInAt: { not: null } } }),
+      prisma.attendanceLog.count({ where: { employeeId: { in: empIds }, checkInAt: { not: null }, minutesLate: 0 } }),
+      prisma.attendanceLog.findFirst({ where: { employeeId: { in: empIds }, checkInAt: { not: null } }, orderBy: { date: "asc" }, select: { date: true } }),
+    ]);
+    const punctualityRate = allTotal > 0 ? Math.round((allOnTime / allTotal) * 100) : null;
+    const expMonths = firstLog?.date ? Math.max(0, Math.round((now.getTime() - new Date(firstLog.date).getTime()) / (30 * 86400000))) : 0;
+    const ts = computeTrustScore({ punctualityRate, totalDaysWorked: allTotal, experienceMonths: expMonths });
+    trustLevel = ts.level;
+    trustBoost = ewaBoostPercent(ts.level);
+  }
+
   const options: EwaOption[] = [];
   for (const e of employees) {
     const c = e.company;
@@ -65,7 +87,8 @@ export async function getEwaOptions(workerAccountId: string): Promise<EwaOptions
     });
     const base = e.baseSalary ?? 0;
     const earnedSoFar = base > 0 ? Math.round(daysWorked * (base / STANDARD_WORKDAYS)) : 0;
-    const maxPercent = c?.ewaMaxPercent ?? 50;
+    const baseMaxPercent = c?.ewaMaxPercent ?? 50;
+    const maxPercent = Math.min(100, baseMaxPercent + trustBoost); // điểm cao → ứng nhiều hơn
     const advanceCap = Math.floor((earnedSoFar * maxPercent) / 100);
 
     const agg = await prisma.salaryAdvance.aggregate({
@@ -95,8 +118,9 @@ export async function getEwaOptions(workerAccountId: string): Promise<EwaOptions
       feeType: c?.ewaFeeType ?? "fixed",
       feeValue: c?.ewaFeeValue ?? 10000,
       reason,
+      baseMaxPercent, trustBoost,
     });
   }
 
-  return { month: monthPrefix, monthLabel: `tháng ${month}/${year}`, options };
+  return { month: monthPrefix, monthLabel: `tháng ${month}/${year}`, trustLevel, trustBoost, options };
 }

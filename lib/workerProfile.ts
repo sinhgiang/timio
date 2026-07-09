@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeTrustScore, type TrustScore } from "@/lib/trustScore";
 
 function monthsBetween(from: Date, to: Date): number {
   return Math.max(0, (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()));
@@ -17,6 +18,8 @@ export interface WorkerProfile {
   tags: string[];
   socials: { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
   verified: { experienceMonths: number; totalDaysWorked: number; punctualityRate: number | null; companiesCount: number };
+  trust: TrustScore;
+  settings: { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; desiredArea: string | null; desiredPosition: string | null };
   experiences: { companyName: string; position: string; department: string | null; branchName: string | null; joinDate: string | null; active: boolean; monthsHere: number | null }[];
 }
 
@@ -27,6 +30,8 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
     select: {
       name: true, phone: true, email: true, avatarUrl: true, handle: true,
       coverUrl: true, bio: true, zalo: true, website: true, facebook: true,
+      profilePublic: true, shareTrustScore: true, shareContact: true,
+      openToWork: true, desiredArea: true, desiredPosition: true,
     },
   });
   if (!wa) return null;
@@ -106,6 +111,15 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
     verified: {
       experienceMonths, totalDaysWorked, punctualityRate,
       companiesCount: new Set(employees.map((e) => e.company?.name)).size,
+    },
+    trust: computeTrustScore({ punctualityRate, totalDaysWorked, experienceMonths }),
+    settings: {
+      profilePublic: wa.profilePublic,
+      shareTrustScore: wa.shareTrustScore,
+      shareContact: wa.shareContact,
+      openToWork: wa.openToWork,
+      desiredArea: wa.desiredArea,
+      desiredPosition: wa.desiredPosition,
     },
     experiences,
   };

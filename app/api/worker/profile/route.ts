@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const data: Record<string, string | null> = {};
+  const data: Record<string, string | null | boolean> = {};
   // Ảnh: base64 data URL (client đã resize) hoặc null để xoá
   for (const key of ["avatarUrl", "coverUrl"] as const) {
     if (key in body) {
@@ -35,8 +35,16 @@ export async function PATCH(req: NextRequest) {
   if ("zalo" in body) data.zalo = clip(body.zalo, 120) || null;
   if ("website" in body) data.website = clip(body.website, 200) || null;
   if ("facebook" in body) data.facebook = clip(body.facebook, 200) || null;
+  if ("desiredArea" in body) data.desiredArea = clip(body.desiredArea, 100) || null;
+  if ("desiredPosition" in body) data.desiredPosition = clip(body.desiredPosition, 100) || null;
+  // Công tắc opt-in (bool) — NV tự quyết chia sẻ (Luật 91/2025)
+  const boolData: Record<string, boolean> = {};
+  for (const k of ["profilePublic", "shareTrustScore", "shareContact", "openToWork"] as const) {
+    if (typeof body[k] === "boolean") boolData[k] = body[k];
+  }
 
-  if (Object.keys(data).length === 0) return NextResponse.json({ error: "Không có gì để cập nhật." }, { status: 400 });
+  if (Object.keys(data).length === 0 && Object.keys(boolData).length === 0) return NextResponse.json({ error: "Không có gì để cập nhật." }, { status: 400 });
+  Object.assign(data, boolData);
 
   await prisma.workerAccount.update({ where: { id }, data });
   const profile = await computeWorkerProfile(id);

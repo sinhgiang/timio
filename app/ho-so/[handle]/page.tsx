@@ -4,20 +4,31 @@ import { useRouter } from "next/navigation";
 import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
-  XCircle, Camera, Pencil, Plus, X,
+  XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 
 const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
 type Social = { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
+type Trust = { score: number | null; level: "new" | "bronze" | "silver" | "gold"; levelLabel: string; parts: { punctuality: number; consistency: number; tenure: number } };
+type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; desiredArea: string | null; desiredPosition: string | null };
 type Profile = {
-  handle: string | null; isOwner: boolean;
+  handle: string | null; isOwner: boolean; private?: boolean; hideTrust?: boolean; hideContact?: boolean;
   name: string; avatarUrl: string | null; coverUrl: string | null; bio: string | null;
   role: string; department: string | null; companyName: string | null; location: string; tags: string[];
   socials: Social;
   verified: { experienceMonths: number; totalDaysWorked: number; punctualityRate: number | null; companiesCount: number };
+  trust: Trust;
+  settings?: Settings;
   experiences: { companyName: string; position: string; department: string | null; branchName: string | null; joinDate: string | null; active: boolean; monthsHere: number | null }[];
+};
+
+const LEVEL_STYLE: Record<string, { badge: string; ring: string; text: string; bar: string }> = {
+  gold:   { badge: "bg-amber-100 text-amber-700 border-amber-200", ring: "text-amber-500", text: "text-amber-600", bar: "from-amber-400 to-yellow-500" },
+  silver: { badge: "bg-slate-100 text-slate-600 border-slate-200", ring: "text-slate-400", text: "text-slate-500", bar: "from-slate-300 to-slate-400" },
+  bronze: { badge: "bg-orange-100 text-orange-700 border-orange-200", ring: "text-orange-500", text: "text-orange-600", bar: "from-orange-300 to-amber-500" },
+  new:    { badge: "bg-gray-100 text-gray-500 border-gray-200", ring: "text-gray-300", text: "text-gray-400", bar: "from-gray-300 to-gray-400" },
 };
 
 function expLabel(months: number): string {
@@ -86,6 +97,17 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
       <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3"><IdCard size={26} className="text-gray-400" /></div>
       <p className="text-gray-700 font-semibold">Không tìm thấy hồ sơ này</p>
       <p className="text-sm text-gray-400 mt-1">Liên kết có thể sai hoặc đã đổi.</p>
+    </div>
+  );
+
+  // Hồ sơ riêng tư (người khác xem, NV chưa bật công khai)
+  if (data.private) return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center px-6 bg-gradient-to-b from-blue-50 to-gray-50">
+      <div className="w-20 h-20 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center mb-4">
+        {data.avatarUrl ? <img src={data.avatarUrl} alt={data.name} className="w-full h-full rounded-full object-cover" /> : <Lock size={26} className="text-gray-400" />}
+      </div>
+      <p className="text-gray-800 font-semibold text-lg">{data.name}</p>
+      <p className="text-sm text-gray-400 mt-1 flex items-center gap-1.5"><Lock size={13} /> Hồ sơ này đang ở chế độ riêng tư.</p>
     </div>
   );
 
@@ -270,6 +292,12 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
         </div>
       </div>
 
+      {/* Điểm tin cậy (GĐ1 — trung tâm của wedge) */}
+      {(data.isOwner || !data.hideTrust) && <TrustCard trust={data.trust} verified={v} isOwner={!!data.isOwner} />}
+
+      {/* Nhà tuyển dụng quan tâm (GĐ2, chính chủ) */}
+      {data.isOwner && <ConnectionsCard />}
+
       {/* Được Timio xác thực */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-5 text-white">
         <div className="flex items-center gap-2 mb-4"><ShieldCheck size={18} /><p className="text-sm font-semibold">Được Timio xác thực</p><span className="text-[11px] text-blue-200">· từ dữ liệu chấm công thật</span></div>
@@ -302,7 +330,157 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
         </div>
       )}
 
+      {/* Cài đặt quyền riêng tư & tìm việc (GĐ1/GĐ2, chính chủ) */}
+      {data.isOwner && data.settings && <SettingsCard data={data} onChange={onChange} />}
+
       {editOpen && <EditModal data={data} onClose={() => setEditOpen(false)} onSaved={(p) => { onChange({ ...p, isOwner: true }); setEditOpen(false); }} />}
+    </div>
+  );
+}
+
+// ─────────── Điểm tin cậy (trung tâm) ───────────
+function TrustCard({ trust, verified, isOwner }: { trust: Trust; verified: Profile["verified"]; isOwner: boolean }) {
+  const st = LEVEL_STYLE[trust.level] ?? LEVEL_STYLE.new;
+  const score = trust.score;
+  const pct = score ?? 0;
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Award size={17} className={st.text} /></div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Điểm tin cậy Timio</p>
+            <p className="text-[11px] text-gray-400">Từ chấm công thật — {isOwner ? "mang đi xin việc, ứng lương tốt hơn" : "không tự khai"}</p>
+          </div>
+        </div>
+        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${st.badge}`}>{trust.levelLabel}</span>
+      </div>
+
+      {score === null ? (
+        <p className="text-sm text-gray-400 py-2">Chưa đủ dữ liệu chấm công. Đi làm đều để bắt đầu xây điểm tin cậy.</p>
+      ) : (
+        <>
+          <div className="flex items-end gap-2">
+            <p className="text-4xl font-extrabold text-gray-900 leading-none">{score}</p>
+            <p className="text-sm text-gray-400 font-semibold mb-0.5">/100</p>
+          </div>
+          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden mt-3">
+            <div className={`h-full rounded-full bg-gradient-to-r ${st.bar}`} style={{ width: `${pct}%` }} />
+          </div>
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <TrustPart label="Đúng giờ" value={trust.parts.punctuality} max={50} />
+            <TrustPart label="Chuyên cần" value={trust.parts.consistency} max={25} />
+            <TrustPart label="Gắn bó" value={trust.parts.tenure} max={25} />
+          </div>
+          {isOwner && (
+            <div className="mt-4 pt-3 border-t border-gray-50 flex items-start gap-2">
+              <Sparkles size={14} className="text-indigo-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-gray-500">
+                {(verified.punctualityRate ?? 0) >= 95 ? "Tuyệt vời! Giữ phong độ để duy trì hạng cao." : "Đi làm đúng giờ để tăng phần điểm lớn nhất."} Điểm cao giúp bạn được <b className="text-gray-700">ưu tiên tuyển</b> và <b className="text-gray-700">ứng lương nhiều hơn</b>.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+function TrustPart({ label, value, max }: { label: string; value: number; max: number }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1"><span className="text-[11px] text-gray-500">{label}</span><span className="text-[10px] text-gray-400">{value}/{max}</span></div>
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full rounded-full bg-blue-400" style={{ width: `${(value / max) * 100}%` }} /></div>
+    </div>
+  );
+}
+
+// ─────────── Nhà tuyển dụng quan tâm (GĐ2 inbox) ───────────
+function ConnectionsCard() {
+  const [conns, setConns] = useState<{ id: string; companyName: string; note: string | null; status: string }[]>([]);
+  const [acting, setActing] = useState<Record<string, boolean>>({});
+  const load = useCallback(async () => {
+    try { const r = await fetch("/api/worker/connections"); if (r.ok) { const d = await r.json(); setConns(d.connections || []); } } catch { /* */ }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const respond = async (id: string, action: "accept" | "decline") => {
+    setActing((p) => ({ ...p, [id]: true }));
+    await fetch(`/api/worker/connections/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }).catch(() => {});
+    await load();
+    setActing((p) => ({ ...p, [id]: false }));
+  };
+  if (conns.length === 0) return null;
+  const pending = conns.filter((c) => c.status === "pending");
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Handshake size={17} className="text-emerald-600" /></div>
+        <p className="text-sm font-semibold text-gray-800">Nhà tuyển dụng quan tâm {pending.length > 0 && <span className="text-emerald-600">· {pending.length} mới</span>}</p>
+      </div>
+      <div className="space-y-2.5">
+        {conns.map((c) => (
+          <div key={c.id} className="flex items-center gap-3 border border-gray-100 rounded-xl p-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0"><Building2 size={17} className="text-blue-600" /></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800 truncate">{c.companyName}</p>
+              <p className="text-[11px] text-gray-400 truncate">{c.note || "Muốn kết nối với bạn"}</p>
+            </div>
+            {c.status === "pending" ? (
+              <div className="flex gap-1.5 shrink-0">
+                <button onClick={() => respond(c.id, "accept")} disabled={acting[c.id]} className="px-2.5 py-1.5 text-[11px] font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">Cho phép liên hệ</button>
+                <button onClick={() => respond(c.id, "decline")} disabled={acting[c.id]} className="px-2.5 py-1.5 text-[11px] text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Bỏ qua</button>
+              </div>
+            ) : c.status === "accepted" ? (
+              <span className="text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">Đã cho phép</span>
+            ) : (
+              <span className="text-[11px] text-gray-400 shrink-0">Đã bỏ qua</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-gray-400 mt-2.5">Chỉ khi bạn <b>cho phép</b>, nhà tuyển dụng mới thấy số điện thoại của bạn.</p>
+    </div>
+  );
+}
+
+// ─────────── Cài đặt quyền riêng tư & tìm việc (opt-in, NV sở hữu) ───────────
+function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
+  const s = data.settings!;
+  const [saving, setSaving] = useState(false);
+  const patch = async (payload: Record<string, unknown>) => {
+    setSaving(true);
+    try { const r = await fetch("/api/worker/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (r.ok) onChange({ ...(await r.json()), isOwner: true }); } catch { /* */ }
+    setSaving(false);
+  };
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-center gap-2 mb-1"><Lock size={16} className="text-gray-500" /><p className="text-sm font-semibold text-gray-800">Quyền riêng tư & tìm việc</p></div>
+      <p className="text-[11px] text-gray-400 mb-3">Bạn toàn quyền quyết định chia sẻ gì. Mặc định riêng tư.</p>
+
+      <div className="space-y-1">
+        <ToggleRow icon={<Globe size={15} />} title="Công khai hồ sơ" desc="Cho người có link xem hồ sơ của bạn" on={s.profilePublic} saving={saving} onToggle={(v) => patch({ profilePublic: v })} />
+        <ToggleRow icon={<Award size={15} />} title="Hiện điểm tin cậy" desc="Cho nhà tuyển dụng thấy điểm tin cậy" on={s.shareTrustScore} saving={saving} disabled={!s.profilePublic} onToggle={(v) => patch({ shareTrustScore: v })} />
+        <ToggleRow icon={<Phone size={15} />} title="Hiện số điện thoại" desc="Cho người xem hồ sơ thấy SĐT (cân nhắc)" on={s.shareContact} saving={saving} disabled={!s.profilePublic} onToggle={(v) => patch({ shareContact: v })} />
+        <ToggleRow icon={<Sparkles size={15} />} title="Đang tìm việc" desc="Vào kho ứng viên xác thực để được mời" on={s.openToWork} saving={saving} onToggle={(v) => patch({ openToWork: v })} highlight />
+      </div>
+
+      {s.openToWork && (
+        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-50">
+          <input defaultValue={s.desiredPosition ?? ""} placeholder="Vị trí mong muốn" onBlur={(e) => e.target.value !== (s.desiredPosition ?? "") && patch({ desiredPosition: e.target.value })} className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+          <input defaultValue={s.desiredArea ?? ""} placeholder="Khu vực mong muốn" onBlur={(e) => e.target.value !== (s.desiredArea ?? "") && patch({ desiredArea: e.target.value })} className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+        </div>
+      )}
+    </div>
+  );
+}
+function ToggleRow({ icon, title, desc, on, onToggle, saving, disabled, highlight }: { icon: React.ReactNode; title: string; desc: string; on: boolean; onToggle: (v: boolean) => void; saving: boolean; disabled?: boolean; highlight?: boolean }) {
+  return (
+    <div className={`flex items-center gap-3 py-2 ${disabled ? "opacity-50" : ""}`}>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${highlight ? "bg-emerald-50 text-emerald-600" : "bg-gray-50 text-gray-500"}`}>{icon}</div>
+      <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-800">{title}</p><p className="text-[11px] text-gray-400">{desc}</p></div>
+      <button onClick={() => !disabled && !saving && onToggle(!on)} disabled={disabled || saving} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${on ? (highlight ? "bg-emerald-500" : "bg-blue-600") : "bg-gray-200"}`}>
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-5" : ""}`} />
+      </button>
     </div>
   );
 }

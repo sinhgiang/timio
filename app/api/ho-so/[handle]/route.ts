@@ -21,5 +21,20 @@ export async function GET(_req: NextRequest, { params }: { params: { handle: str
   const viewerId = getWorkerAccountId();
   const isOwner = viewerId === account.id;
 
-  return NextResponse.json({ ...profile, isOwner });
+  // Chính chủ → xem đầy đủ (kèm settings). Người khác → tôn trọng opt-in (Luật 91/2025).
+  if (isOwner) return NextResponse.json({ ...profile, isOwner: true });
+
+  if (!profile.settings.profilePublic) {
+    return NextResponse.json({ private: true, isOwner: false, name: profile.name, avatarUrl: profile.avatarUrl, handle: profile.handle });
+  }
+  // Công khai nhưng lọc theo công tắc; KHÔNG lộ settings cho người ngoài.
+  const { settings, ...pub } = profile;
+  return NextResponse.json({
+    ...pub,
+    isOwner: false,
+    trust: settings.shareTrustScore ? profile.trust : { score: null, level: "new", levelLabel: "", parts: { punctuality: 0, consistency: 0, tenure: 0 } },
+    hideTrust: !settings.shareTrustScore,
+    socials: settings.shareContact ? profile.socials : { phone: null, email: null, zalo: null, website: null, facebook: null },
+    hideContact: !settings.shareContact,
+  });
 }

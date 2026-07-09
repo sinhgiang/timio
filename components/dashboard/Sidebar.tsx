@@ -88,6 +88,7 @@ const navStructure: NavEntry[] = [
   {
     type: "group", key: "nhansu", label: "Nhân sự", Icon: UsersRound,
     children: [
+      { href: "/dashboard/talent-pool",        label: "Kho ứng viên xác thực",    Icon: ShieldCheck },
       { href: "/dashboard/branches",           label: "Chi nhánh",                Icon: Building2 },
       { href: "/dashboard/team",               label: "Nhóm & Quyền",             Icon: UsersRound },
       { href: "/dashboard/org-chart",          label: "Sơ đồ tổ chức",            Icon: Network },

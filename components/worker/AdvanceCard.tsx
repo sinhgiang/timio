@@ -11,9 +11,12 @@ interface Option {
   alreadyAdvanced: number; available: number;
   advancesThisMonth: number; maxPerMonth: number;
   feeType: string; feeValue: number; reason: string | null;
+  baseMaxPercent: number; trustBoost: number;
 }
 interface Hist { id: string; amount: number; fee: number; status: string; disbursed: boolean; companyName: string; }
-interface Data { consentFinance: boolean; monthLabel: string; options: Option[]; history: Hist[]; }
+interface Data { consentFinance: boolean; monthLabel: string; options: Option[]; history: Hist[]; trustLevel?: string; trustBoost?: number; }
+
+const TRUST_LABEL: Record<string, string> = { gold: "Vàng", silver: "Bạc", bronze: "Đồng", new: "Mới" };
 
 const MIN_ADVANCE = 50000;
 function computeFee(feeType: string, feeValue: number, amount: number) {
@@ -125,6 +128,11 @@ export default function AdvanceCard() {
         Đã kiếm {vnd(opt.earnedSoFar)}đ · trần {opt.maxPercent}% = {vnd(opt.advanceCap)}đ
         {opt.alreadyAdvanced > 0 && <> · đã ứng {vnd(opt.alreadyAdvanced)}đ</>}
       </p>
+      {opt.trustBoost > 0 && (
+        <p className="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1 mt-1.5 inline-flex items-center gap-1">
+          <TrendingUp size={11} /> Điểm tin cậy {TRUST_LABEL[data.trustLevel ?? "new"]} → ứng thêm <b>+{opt.trustBoost}%</b> (từ {opt.baseMaxPercent}%)
+        </p>
+      )}
 
       {opt.reason && opt.available < MIN_ADVANCE ? (
         <p className="text-xs text-gray-400 mt-2 flex items-center gap-1"><Info size={12} /> {opt.reason}</p>
