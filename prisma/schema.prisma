@@ -918,6 +918,7 @@ model WorkerConnection {
   companyName     String
   note            String?
   status          String    @default("pending")     // pending | accepted | declined
+  chargedCredits  Int       @default(0)              // credit đã trừ khi kết nối; hoàn lại nếu NV từ chối
   createdAt       DateTime  @default(now())
   respondedAt     DateTime?
 

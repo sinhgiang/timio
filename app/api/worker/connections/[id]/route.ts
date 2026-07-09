@@ -16,9 +16,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const conn = await prisma.workerConnection.findFirst({ where: { id: params.id, workerAccountId: id } });
   if (!conn) return NextResponse.json({ error: "Không tìm thấy." }, { status: 404 });
 
+  // NV TỪ CHỐI → hoàn credit đã trừ cho công ty (nếu còn ở trạng thái pending)
+  if (action === "decline" && conn.status === "pending" && conn.chargedCredits > 0) {
+    await prisma.talentCredit.updateMany({ where: { companyId: conn.companyId }, data: { balance: { increment: conn.chargedCredits } } });
+  }
+
   const updated = await prisma.workerConnection.update({
     where: { id: params.id },
-    data: { status: action === "accept" ? "accepted" : "declined", respondedAt: new Date() },
+    data: {
+      status: action === "accept" ? "accepted" : "declined",
+      respondedAt: new Date(),
+      ...(action === "decline" ? { chargedCredits: 0 } : {}),
+    },
     select: { id: true, status: true, companyName: true },
   });
   return NextResponse.json({ ok: true, ...updated });

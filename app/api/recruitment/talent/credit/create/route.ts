@@ -24,11 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chỉ chủ công ty được nạp credit." }, { status: 403 });
   }
 
-  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true } });
-  if (company?.plan !== "business") {
-    return NextResponse.json({ error: "Cộng đồng ứng viên chỉ có ở gói Business.", locked: true }, { status: 403 });
-  }
-
+  // Credit dùng cho kho ứng viên xác thực — mở cho mọi gói (mua theo lượt).
   const { packId } = await req.json().catch(() => ({}));
   const pack = findPack(String(packId || ""));
   if (!pack) return NextResponse.json({ error: "Gói credit không hợp lệ." }, { status: 400 });

@@ -31,6 +31,14 @@ export function computeTrustScore(v: TrustInput): TrustScore {
   return { score, level, levelLabel, parts: { punctuality, consistency, tenure } };
 }
 
+// Map điểm số có sẵn (vd vScore của cựu NV) → hạng + nhãn, DÙNG CHUNG với computeTrustScore để đồng nhất.
+export function levelFromScore(score: number | null): { level: TrustLevel; levelLabel: string } {
+  if (score == null) return { level: "new", levelLabel: "Hồ sơ mới" };
+  const level: TrustLevel = score >= 85 ? "gold" : score >= 70 ? "silver" : "bronze";
+  const levelLabel = level === "gold" ? "Vàng · Rất đáng tin" : level === "silver" ? "Bạc · Đáng tin" : "Đồng · Đang xây uy tín";
+  return { level, levelLabel };
+}
+
 // Gợi ý tăng điểm (khung có lợi cho NV)
 export function trustTips(v: TrustInput, ts: TrustScore): string[] {
   const tips: string[] = [];

@@ -1,11 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2, Calendar, Mail, BarChart3, Archive, Send, TrendingUp, ListChecks } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Briefcase, UserPlus, X, Check, Clock, ExternalLink, Link2, HelpCircle, ChevronDown, ChevronUp, Share2, Inbox, FileText, UserCheck, Sparkles, RefreshCw, Loader2, Calendar, Mail, BarChart3, Archive, Send, TrendingUp, ListChecks, ShieldCheck } from "lucide-react";
 import ComboField from "@/components/ui/ComboField";
 import VoiceInput from "@/components/ui/VoiceInput";
 import AutoGrowTextarea from "@/components/ui/AutoGrowTextarea";
-import TalentBrowse from "@/components/recruitment/TalentBrowse";
 import OutreachPanel from "@/components/recruitment/OutreachPanel";
 import ReferralPanel from "@/components/recruitment/ReferralPanel";
 
@@ -176,7 +175,7 @@ export default function RecruitmentClient({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool" | "talent" | "outreach" | "referral">("reports");
+  const [activeTab, setActiveTab] = useState<"jobs" | "candidates" | "reports" | "pool" | "outreach" | "referral">("reports");
   const [showGuide, setShowGuide] = useState(false);
 
   // Báo cáo
@@ -705,7 +704,6 @@ export default function RecruitmentClient({
           { k: "jobs", label: `Vị trí tuyển (${jobs.length})`, Icon: Briefcase },
           { k: "candidates", label: `Ứng viên (${candidates.filter(c => c.status !== "rejected" && c.status !== "hired").length})`, Icon: Users },
           { k: "pool", label: `Kho ứng viên (${candidates.filter(c => c.status === "rejected" || c.status === "hired").length})`, Icon: Archive },
-          ...(isBusiness ? [{ k: "talent", label: "Tìm ứng viên (Cộng đồng)", Icon: Sparkles } as const] : []),
           ...(isBusiness ? [{ k: "outreach", label: "Liên hệ chủ động", Icon: Send } as const] : []),
           { k: "referral", label: "Giới thiệu", Icon: Share2 },
         ] as const).map(tab => (
@@ -719,6 +717,13 @@ export default function RecruitmentClient({
           </button>
         ))}
       </div>
+
+      {/* Điều hướng sang Kho ứng viên xác thực (đã gộp về một chỗ) */}
+      <a href="/dashboard/talent-pool" className="flex items-center gap-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl px-4 py-2.5 mb-4 hover:border-blue-300 transition-colors group">
+        <ShieldCheck size={16} className="text-blue-600 shrink-0" />
+        <p className="text-sm text-gray-700 flex-1">Chưa muốn đăng tin? Xem ngay <b>Kho ứng viên xác thực</b> — người lao động đang tìm việc, có điểm tin cậy từ chấm công thật.</p>
+        <span className="text-sm text-blue-600 font-medium group-hover:underline shrink-0">Mở kho →</span>
+      </a>
 
       {/* KH6 — Upsell mềm: user chưa Business */}
       {!isBusiness && (
@@ -1149,17 +1154,6 @@ export default function RecruitmentClient({
               </div>
             );
           })()}
-        </div>
-      )}
-
-      {/* Tìm ứng viên trong cộng đồng (Business) */}
-      {activeTab === "talent" && isBusiness && (
-        <div>
-          <div className="mb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-3.5 flex items-start gap-2.5">
-            <Sparkles size={18} className="text-blue-600 shrink-0 mt-0.5" strokeWidth={1.5} />
-            <p className="text-sm text-gray-700">Kho ứng viên <b>xác thực bằng dữ liệu chấm công + phát triển</b> — hồ sơ ẩn danh, chỉ lộ liên hệ khi ứng viên đồng ý. Người của công ty bạn không hiện ở đây.</p>
-          </div>
-          <TalentBrowse role={role} />
         </div>
       )}
 
