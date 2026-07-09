@@ -18,11 +18,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const minTrust = parseInt(searchParams.get("minTrust") ?? "0") || 0;
   const q = (searchParams.get("q") ?? "").toLowerCase().trim();
+  const occupation = (searchParams.get("occupation") ?? "").trim();
+  const area = (searchParams.get("area") ?? "").trim();
 
   const workers = await prisma.workerAccount.findMany({
     where: { openToWork: true, activatedAt: { not: null } },
-    select: { id: true, name: true, avatarUrl: true, desiredArea: true, desiredPosition: true, shareTrustScore: true, shareContact: true, phone: true },
-    take: 80,
+    select: { id: true, name: true, avatarUrl: true, desiredArea: true, desiredPosition: true, keywords: true, shareTrustScore: true, shareContact: true, phone: true },
+    take: 120,
   });
   if (workers.length === 0) return NextResponse.json({ candidates: [] });
 
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
     const trust = computeTrustScore({ punctualityRate, totalDaysWorked: total, experienceMonths: expMonths });
     const connStatus = connByWorker.get(w.id) ?? null;
     const revealed = connStatus === "accepted";
+    const kw = (w.keywords || "").split(",").map((k) => k.trim()).filter(Boolean);
     return {
       workerAccountId: w.id,
       name: w.name,                        // họ tên đầy đủ (NV đã bật "đang tìm việc")
@@ -86,11 +89,14 @@ export async function GET(req: NextRequest) {
       experienceMonths: expMonths,
       desiredPosition: w.desiredPosition || posByWorker.get(w.id) || null,
       desiredArea: w.desiredArea || null,
+      keywords: kw,
       connectionStatus: connStatus,
       phone: revealed && w.shareContact ? w.phone : null,
     };
   }).filter((c) => (c.trustScore ?? 0) >= minTrust)
-    .filter((c) => !q || (c.desiredPosition ?? "").toLowerCase().includes(q) || (c.desiredArea ?? "").toLowerCase().includes(q))
+    .filter((c) => !occupation || c.desiredPosition === occupation)
+    .filter((c) => !area || c.desiredArea === area)
+    .filter((c) => !q || (c.desiredPosition ?? "").toLowerCase().includes(q) || (c.desiredArea ?? "").toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.keywords.some((k) => k.toLowerCase().includes(q)))
     .sort((a, b) => (b.trustScore ?? 0) - (a.trustScore ?? 0));
 
   return NextResponse.json({ candidates });

@@ -1,12 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Award, Loader2, Handshake, Phone, Search, ShieldCheck, Clock, Building2, CheckCircle2, MapPin, Briefcase } from "lucide-react";
+import { Award, Loader2, Handshake, Phone, Search, ShieldCheck, Clock, CheckCircle2, Briefcase } from "lucide-react";
+import { JOB_CATEGORIES } from "@/lib/jobTaxonomy";
+import { VN_REGIONS, AREA_REMOTE, AREA_ANYWHERE } from "@/lib/vnLocations";
 
 type Candidate = {
   workerAccountId: string; name: string; avatarUrl: string | null;
   trustScore: number | null; trustLevel: string; trustLabel: string;
   daysWorked: number; experienceMonths: number;
-  desiredPosition: string | null; desiredArea: string | null;
+  desiredPosition: string | null; desiredArea: string | null; keywords: string[];
   connectionStatus: string | null; phone: string | null;
 };
 
@@ -23,16 +25,18 @@ export default function TalentPoolPage() {
   const [loading, setLoading] = useState(true);
   const [minTrust, setMinTrust] = useState(0);
   const [q, setQ] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [area, setArea] = useState("");
   const [acting, setActing] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/talent-pool?minTrust=${minTrust}&q=${encodeURIComponent(q)}`);
+      const r = await fetch(`/api/talent-pool?minTrust=${minTrust}&q=${encodeURIComponent(q)}&occupation=${encodeURIComponent(occupation)}&area=${encodeURIComponent(area)}`);
       if (r.ok) setList((await r.json()).candidates || []);
     } catch { /* */ }
     setLoading(false);
-  }, [minTrust, q]);
+  }, [minTrust, q, occupation, area]);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
   const connect = async (id: string) => {
@@ -50,16 +54,38 @@ export default function TalentPoolPage() {
       </div>
 
       {/* Bộ lọc */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo vị trí / khu vực..." className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <select value={occupation} onChange={(e) => setOccupation(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
+            <option value="">🔎 Tất cả ngành nghề</option>
+            {JOB_CATEGORIES.map((cat) => (
+              <optgroup key={cat.label} label={cat.label}>
+                {cat.jobs.map((j) => <option key={j} value={j}>{j}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <select value={area} onChange={(e) => setArea(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
+            <option value="">📍 Toàn quốc</option>
+            <option value={AREA_ANYWHERE}>{AREA_ANYWHERE}</option>
+            <option value={AREA_REMOTE}>{AREA_REMOTE}</option>
+            {VN_REGIONS.map((r) => (
+              <optgroup key={r.label} label={r.label}>
+                {r.provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+              </optgroup>
+            ))}
+          </select>
         </div>
-        <select value={minTrust} onChange={(e) => setMinTrust(Number(e.target.value))} className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white">
-          <option value={0}>Mọi điểm tin cậy</option>
-          <option value={70}>Từ 70 điểm (Bạc trở lên)</option>
-          <option value={85}>Từ 85 điểm (Vàng)</option>
-        </select>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2.5 mt-2.5">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo từ khóa (kỹ năng, mong muốn...)" className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+          </div>
+          <select value={minTrust} onChange={(e) => setMinTrust(Number(e.target.value))} className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
+            <option value={0}>Mọi điểm tin cậy</option>
+            <option value={70}>Từ 70 điểm (Bạc↑)</option>
+            <option value={85}>Từ 85 điểm (Vàng)</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -90,6 +116,12 @@ export default function TalentPoolPage() {
                 <span className="inline-flex items-center gap-1"><Clock size={12} /> {c.daysWorked} ngày công</span>
                 <span className="inline-flex items-center gap-1"><Briefcase size={12} /> {expLabel(c.experienceMonths)}</span>
               </div>
+
+              {c.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {c.keywords.slice(0, 6).map((k, i) => <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">#{k}</span>)}
+                </div>
+              )}
 
               <div className="mt-3 pt-3 border-t border-gray-50">
                 {c.connectionStatus === "accepted" ? (

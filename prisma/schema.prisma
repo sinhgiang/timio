@@ -884,8 +884,9 @@ model WorkerAccount {
   shareTrustScore  Boolean   @default(true)         // hiện điểm tin cậy khi công khai
   shareContact     Boolean   @default(false)        // hiện SĐT/liên hệ khi công khai
   openToWork       Boolean   @default(false)        // đang tìm việc → vào kho ứng viên xác thực
-  desiredArea      String?                          // khu vực mong muốn (lọc tái tuyển)
-  desiredPosition  String?                          // vị trí mong muốn
+  desiredArea      String?                          // khu vực mong muốn (tỉnh / Online / Bất kỳ đâu)
+  desiredPosition  String?                          // ngành nghề mong muốn (từ danh mục)
+  keywords         String?                          // từ khóa NV tự thêm (SEO tìm việc), phân tách bởi dấu phẩy
   autoAcceptRecruiters Boolean @default(false)      // bật = mọi NTD quan tâm được liên hệ ngay; tắt = tự chọn từng người
   createdAt        DateTime  @default(now())
 }

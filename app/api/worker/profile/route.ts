@@ -37,6 +37,7 @@ export async function PATCH(req: NextRequest) {
   if ("facebook" in body) data.facebook = clip(body.facebook, 200) || null;
   if ("desiredArea" in body) data.desiredArea = clip(body.desiredArea, 100) || null;
   if ("desiredPosition" in body) data.desiredPosition = clip(body.desiredPosition, 100) || null;
+  if ("keywords" in body) data.keywords = clip(body.keywords, 300) || null;
   // Công tắc opt-in (bool) — NV tự quyết chia sẻ (Luật 91/2025)
   const boolData: Record<string, boolean> = {};
   for (const k of ["profilePublic", "shareTrustScore", "shareContact", "openToWork", "autoAcceptRecruiters"] as const) {

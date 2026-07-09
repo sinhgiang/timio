@@ -7,12 +7,14 @@ import {
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
+import { JOB_CATEGORIES } from "@/lib/jobTaxonomy";
+import { VN_REGIONS, AREA_REMOTE, AREA_ANYWHERE } from "@/lib/vnLocations";
 
 const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
 type Social = { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
 type Trust = { score: number | null; level: "new" | "bronze" | "silver" | "gold"; levelLabel: string; parts: { punctuality: number; consistency: number; tenure: number } };
-type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null };
+type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null; keywords: string | null };
 type Notif = { id: string; type: string; title: string; body: string | null; link: string | null; read: boolean; createdAt: string };
 type Profile = {
   handle: string | null; isOwner: boolean; private?: boolean; hideTrust?: boolean; hideContact?: boolean;
@@ -525,7 +527,7 @@ function ConnectionsCard({ data, onChange }: { data: Profile; onChange: (p: Prof
         </div>
         {/* Nút gạt nhỏ: cho mọi NTD liên hệ */}
         <button onClick={() => !savingAuto && toggleAuto(!auto)} disabled={savingAuto} title={auto ? "Đang bật: mọi nhà tuyển dụng thấy SĐT ngay. Bấm để tắt (tự chọn từng người)." : "Đang tắt: bạn tự chọn từng người. Bấm để cho mọi nhà tuyển dụng liên hệ."} className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] text-gray-500 hidden sm:inline">Cho mọi NTD</span>
+          <span className="text-[11px] text-gray-500 hidden sm:inline">Cho mọi nhà tuyển dụng liên hệ</span>
           <span className={`relative w-9 h-5 rounded-full transition-colors ${auto ? "bg-emerald-500" : "bg-gray-300"}`}>
             <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${auto ? "translate-x-4" : ""}`} />
           </span>
@@ -575,6 +577,9 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
   const [editDesired, setEditDesired] = useState(false);
   const [dpos, setDpos] = useState(s.desiredPosition ?? "");
   const [darea, setDarea] = useState(s.desiredArea ?? "");
+  const [dkw, setDkw] = useState<string[]>(() => (s.keywords || "").split(",").map((k) => k.trim()).filter(Boolean));
+  const [kwInput, setKwInput] = useState("");
+  const addKw = () => { const v = kwInput.trim().replace(/^#/, ""); if (v && !dkw.includes(v) && dkw.length < 10) setDkw([...dkw, v]); setKwInput(""); };
   const patch = async (payload: Record<string, unknown>) => {
     setSaving(true);
     try { const r = await fetch("/api/worker/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -596,24 +601,64 @@ function SettingsCard({ data, onChange }: { data: Profile; onChange: (p: Profile
       {s.openToWork && (
         <div className="mt-3 pt-3 border-t border-gray-50">
           {!editDesired ? (
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 text-sm">
-                <p className="text-gray-700 truncate"><span className="text-gray-400">Vị trí mong muốn: </span>{s.desiredPosition || <span className="text-gray-300">Chưa đặt</span>}</p>
-                <p className="text-gray-700 truncate mt-0.5"><span className="text-gray-400">Khu vực: </span>{s.desiredArea || <span className="text-gray-300">Chưa đặt</span>}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 text-sm flex-1">
+                <p className="text-gray-700 truncate"><span className="text-gray-400">Ngành nghề: </span>{s.desiredPosition || <span className="text-gray-300">Chưa chọn</span>}</p>
+                <p className="text-gray-700 truncate mt-0.5"><span className="text-gray-400">Khu vực: </span>{s.desiredArea || <span className="text-gray-300">Chưa chọn</span>}</p>
+                {s.keywords && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {s.keywords.split(",").map((k) => k.trim()).filter(Boolean).map((k, i) => (
+                      <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">#{k}</span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button onClick={() => { setDpos(s.desiredPosition ?? ""); setDarea(s.desiredArea ?? ""); setEditDesired(true); }} className="text-xs text-blue-600 flex items-center gap-1 shrink-0 hover:underline"><Pencil size={12} /> Sửa</button>
+              <button onClick={() => { setDpos(s.desiredPosition ?? ""); setDarea(s.desiredArea ?? ""); setDkw((s.keywords || "").split(",").map((k) => k.trim()).filter(Boolean)); setEditDesired(true); }} className="text-xs text-blue-600 flex items-center gap-1 shrink-0 hover:underline"><Pencil size={12} /> Sửa</button>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input value={dpos} onChange={(e) => setDpos(e.target.value)} placeholder="Vị trí mong muốn" className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
-                <input value={darea} onChange={(e) => setDarea(e.target.value)} placeholder="Khu vực mong muốn" className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+            <div className="space-y-2.5">
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">Ngành nghề mong muốn</label>
+                <select value={dpos} onChange={(e) => setDpos(e.target.value)} className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
+                  <option value="">— Chọn ngành nghề —</option>
+                  {JOB_CATEGORIES.map((cat) => (
+                    <optgroup key={cat.label} label={cat.label}>
+                      {cat.jobs.map((j) => <option key={j} value={j}>{j}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
-              <div className="flex gap-2 justify-end mt-2">
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">Khu vực mong muốn</label>
+                <select value={darea} onChange={(e) => setDarea(e.target.value)} className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none">
+                  <option value="">— Chọn khu vực —</option>
+                  <option value={AREA_ANYWHERE}>{AREA_ANYWHERE}</option>
+                  <option value={AREA_REMOTE}>{AREA_REMOTE}</option>
+                  {VN_REGIONS.map((r) => (
+                    <optgroup key={r.label} label={r.label}>
+                      {r.provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">Từ khóa (giúp nhà tuyển dụng tìm thấy bạn dễ hơn)</label>
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {dkw.map((k, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-full">#{k}<button onClick={() => setDkw(dkw.filter((_, j) => j !== i))} className="text-blue-400 hover:text-blue-600"><X size={11} /></button></span>
+                  ))}
+                </div>
+                <div className="flex gap-1.5">
+                  <input value={kwInput} onChange={(e) => setKwInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addKw(); } }} placeholder="VD: chăm chỉ, biết tiếng Anh, chạy xe..." className="flex-1 border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none" />
+                  <button onClick={addKw} className="text-xs font-medium text-blue-600 border border-blue-200 rounded-lg px-3 hover:bg-blue-50">Thêm</button>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Tối đa 10 từ khóa. Gắn kỹ năng/mong muốn để nhà tuyển dụng dễ tìm ra bạn.</p>
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
                 <button onClick={() => setEditDesired(false)} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">Hủy</button>
-                <button onClick={async () => { await patch({ desiredPosition: dpos, desiredArea: darea }); setEditDesired(false); }} disabled={saving} className="text-xs font-medium bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50">Lưu</button>
+                <button onClick={async () => { await patch({ desiredPosition: dpos, desiredArea: darea, keywords: dkw.join(", ") }); setEditDesired(false); }} disabled={saving} className="text-xs font-medium bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50">Lưu</button>
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

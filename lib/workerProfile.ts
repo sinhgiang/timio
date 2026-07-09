@@ -19,7 +19,7 @@ export interface WorkerProfile {
   socials: { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
   verified: { experienceMonths: number; totalDaysWorked: number; punctualityRate: number | null; companiesCount: number };
   trust: TrustScore;
-  settings: { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null };
+  settings: { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null; keywords: string | null };
   experiences: { companyName: string; position: string; department: string | null; branchName: string | null; joinDate: string | null; active: boolean; monthsHere: number | null }[];
 }
 
@@ -31,7 +31,7 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
       name: true, phone: true, email: true, avatarUrl: true, handle: true,
       coverUrl: true, bio: true, zalo: true, website: true, facebook: true,
       profilePublic: true, shareTrustScore: true, shareContact: true,
-      openToWork: true, autoAcceptRecruiters: true, desiredArea: true, desiredPosition: true,
+      openToWork: true, autoAcceptRecruiters: true, desiredArea: true, desiredPosition: true, keywords: true,
     },
   });
   if (!wa) return null;
@@ -121,6 +121,7 @@ export async function computeWorkerProfile(workerAccountId: string): Promise<Wor
       autoAcceptRecruiters: wa.autoAcceptRecruiters,
       desiredArea: wa.desiredArea,
       desiredPosition: wa.desiredPosition,
+      keywords: wa.keywords,
     },
     experiences,
   };
