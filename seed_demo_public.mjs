@@ -25,6 +25,21 @@ const COMPANIES = [
   { name: "Bảo Hiểm Nhân Thọ Việt", job: "Tư vấn tài chính", dept: "Tài chính", loc: "Hà Nội", min: 10e6, max: 30e6, wt: "Linh hoạt", tags: "tư vấn, hoa hồng cao, có đào tạo" },
   { name: "Chuỗi Nhà Thuốc Long Châu", job: "Nhân viên kho dược", dept: "Kho vận", loc: "Cần Thơ", min: 8e6, max: 11e6, wt: "Ca xoay", tags: "kho vận, cẩn thận" },
   { name: "Nông Trại Hữu Cơ Đà Lạt", job: "Kỹ thuật nông nghiệp", dept: "Nông nghiệp", loc: "Lâm Đồng", min: 9e6, max: 13e6, wt: "Giờ hành chính", tags: "nông nghiệp, chịu khó" },
+  { name: "Chuỗi Trà Sữa Toco", job: "Nhân viên pha chế trà sữa", dept: "F&B", loc: "TP.HCM", min: 6e6, max: 9e6, wt: "Ca xoay", tags: "pha chế, part-time, sinh viên làm thêm" },
+  { name: "Cửa Hàng Điện Thoại FPT", job: "Nhân viên tư vấn kỹ thuật", dept: "Bán hàng", loc: "Hà Nội", min: 8e6, max: 12e6, wt: "Ca xoay", tags: "bán hàng, có đào tạo" },
+  { name: "Nhà Máy May Việt Tiến", job: "Công nhân may", dept: "Sản xuất", loc: "Bình Dương", min: 7e6, max: 11e6, wt: "Giờ hành chính", tags: "may, tăng ca, không cần kinh nghiệm" },
+  { name: "Bệnh Viện Đa Khoa Hồng Ngọc", job: "Điều dưỡng", dept: "Y tế", loc: "Hà Nội", min: 9e6, max: 14e6, wt: "Ca trực", tags: "y tế, điều dưỡng" },
+  { name: "Trường Mầm Non Hoa Sen", job: "Bảo mẫu", dept: "Giáo dục", loc: "TP.HCM", min: 6e6, max: 9e6, wt: "Giờ hành chính", tags: "bảo mẫu, kiên nhẫn" },
+  { name: "Gara Ô Tô Thành Công", job: "Thợ sửa ô tô", dept: "Kỹ thuật", loc: "Đà Nẵng", min: 9e6, max: 14e6, wt: "Giờ hành chính", tags: "sửa chữa, có kinh nghiệm" },
+  { name: "Chuỗi Bún Phở Hà Thành", job: "Phụ bếp", dept: "F&B", loc: "Hà Nội", min: 7e6, max: 10e6, wt: "Ca sáng", tags: "phụ bếp, chịu khó" },
+  { name: "Kho Vận Giao Hàng Nhanh", job: "Nhân viên phân loại hàng", dept: "Kho vận", loc: "Bình Dương", min: 8e6, max: 12e6, wt: "Ca đêm", tags: "kho vận, ca đêm, tuyển gấp" },
+  { name: "Salon Tóc Xinh", job: "Thợ cắt tóc", dept: "Làm đẹp", loc: "TP.HCM", min: 8e6, max: 15e6, wt: "Ca xoay", tags: "làm đẹp, hoa hồng cao" },
+  { name: "Công Ty Bảo Vệ An Ninh 24/7", job: "Nhân viên bảo vệ", dept: "Dịch vụ", loc: "Hà Nội", min: 7e6, max: 10e6, wt: "Ca đêm", tags: "bảo vệ, ca đêm" },
+  { name: "Nhà Sách Trí Tuệ", job: "Nhân viên bán hàng nhà sách", dept: "Bán lẻ", loc: "Cần Thơ", min: 6e6, max: 9e6, wt: "Ca xoay", tags: "bán hàng, sinh viên làm thêm" },
+  { name: "Xưởng In Ấn Sáng Tạo", job: "Nhân viên vận hành máy in", dept: "Sản xuất", loc: "TP.HCM", min: 8e6, max: 12e6, wt: "Giờ hành chính", tags: "kỹ thuật, có đào tạo" },
+  { name: "Chuỗi Fitness Center Gym", job: "Lễ tân phòng gym", dept: "Dịch vụ", loc: "Hà Nội", min: 8e6, max: 14e6, wt: "Ca xoay", tags: "lễ tân, giao tiếp tốt" },
+  { name: "Vựa Trái Cây Miền Tây", job: "Nhân viên đóng gói", dept: "Kho vận", loc: "Cần Thơ", min: 7e6, max: 10e6, wt: "Giờ hành chính", tags: "đóng gói, chịu khó" },
+  { name: "Studio Chụp Ảnh Nắng", job: "Nhân viên chỉnh sửa ảnh", dept: "Marketing", loc: "Đà Nẵng", min: 8e6, max: 13e6, wt: "Giờ hành chính", tags: "thiết kế, chỉnh sửa ảnh" },
 ];
 
 // 10 ứng viên (active → che nửa tên; resigned → hiện đầy đủ)
@@ -49,6 +64,21 @@ const CANDIDATES = [
   { name: "Hồ Thị Vân", pos: "Trợ giảng tiếng Anh", area: "TP.HCM", kw: "biết tiếng Anh, kiên nhẫn", active: false },
   { name: "Đinh Văn Phúc", pos: "Tư vấn tài chính", area: "Hà Nội", kw: "tư vấn, giao tiếp tốt", active: true },
   { name: "Mai Thị Lý", pos: "Nhân viên kho dược", area: "Cần Thơ", kw: "kho vận, trung thực", active: false },
+  { name: "Nguyễn Thị Diệu", pos: "Pha chế trà sữa", area: "TP.HCM", kw: "pha chế, part-time, nhanh nhẹn", active: true },
+  { name: "Trần Minh Đức", pos: "Tư vấn kỹ thuật", area: "Hà Nội", kw: "bán hàng, có kinh nghiệm", active: false },
+  { name: "Lê Văn Hùng", pos: "Công nhân may", area: "Bình Dương", kw: "may, chịu khó", active: true },
+  { name: "Phạm Thị Yến", pos: "Điều dưỡng", area: "Hà Nội", kw: "y tế, kiên nhẫn", active: false },
+  { name: "Hoàng Thị Cúc", pos: "Bảo mẫu", area: "TP.HCM", kw: "bảo mẫu, kiên nhẫn", active: true },
+  { name: "Vũ Đình Trung", pos: "Thợ sửa ô tô", area: "Đà Nẵng", kw: "sửa chữa, có kinh nghiệm", active: false },
+  { name: "Đặng Thị Thảo", pos: "Phụ bếp", area: "Hà Nội", kw: "phụ bếp, chịu khó", active: true },
+  { name: "Bùi Văn Tài", pos: "Phân loại hàng", area: "Bình Dương", kw: "kho vận, ca đêm", active: false },
+  { name: "Ngô Thị Kim", pos: "Thợ cắt tóc", area: "TP.HCM", kw: "làm đẹp, khéo tay", active: true },
+  { name: "Đỗ Văn Thành", pos: "Bảo vệ", area: "Hà Nội", kw: "bảo vệ, ca đêm, trung thực", active: false },
+  { name: "Trịnh Thị Hoa", pos: "Nhân viên bán hàng", area: "Cần Thơ", kw: "bán hàng, nhanh nhẹn", active: true },
+  { name: "Lý Văn Sơn", pos: "Vận hành máy in", area: "TP.HCM", kw: "kỹ thuật, cẩn thận", active: false },
+  { name: "Cao Thị Linh", pos: "Lễ tân phòng gym", area: "Hà Nội", kw: "lễ tân, giao tiếp tốt", active: true },
+  { name: "Dương Văn Bình", pos: "Nhân viên đóng gói", area: "Cần Thơ", kw: "đóng gói, chịu khó", active: false },
+  { name: "Phan Thị Mai", pos: "Chỉnh sửa ảnh", area: "Đà Nẵng", kw: "thiết kế, chỉnh sửa ảnh", active: true },
 ];
 
 async function main() {

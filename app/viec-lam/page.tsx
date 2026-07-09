@@ -104,14 +104,14 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
     prisma.jobPosting.findMany({
       where: jobWhere,
       select: { id: true, title: true, location: true, salaryMin: true, salaryMax: true, workTime: true, tags: true, company: { select: { name: true, slug: true, logoUrl: true } } },
-      orderBy: { createdAt: "desc" }, take: 12,
+      orderBy: { createdAt: "desc" }, take: 27,
     }),
     prisma.jobPosting.findMany({ where: { status: "open", isPublic: true }, select: { company: { select: { name: true, slug: true, logoUrl: true } } }, distinct: ["companyId"], take: 12 }),
     prisma.jobPosting.count({ where: { status: "open", isPublic: true } }),
     prisma.jobPosting.findMany({ where: { status: "open", isPublic: true }, select: { companyId: true }, distinct: ["companyId"] }),
     prisma.talentProfile.count({ where: { isOpen: true } }),
   ]);
-  const candidates = await getPublicCandidates(12);
+  const candidates = await getPublicCandidates(27);
 
   const realCompanies = companyRows.map((r) => r.company);
   const useSampleJobs = jobs.length === 0;
@@ -172,8 +172,8 @@ export default async function PublicJobsPage({ searchParams }: { searchParams?: 
     </div>
   );
 
-  const jobPages = chunk(jobs, 6).map((slice, pi) => <div key={pi} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{slice.map(realJobCard)}</div>);
-  const candPages = chunk(candidates, 6).map((slice, pi) => <div key={pi} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{slice.map((c, i) => candCard(c, pi * 6 + i))}</div>);
+  const jobPages = chunk(jobs, 9).map((slice, pi) => <div key={pi} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{slice.map(realJobCard)}</div>);
+  const candPages = chunk(candidates, 9).map((slice, pi) => <div key={pi} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{slice.map((c, i) => candCard(c, pi * 9 + i))}</div>);
 
   return (
     <div className="min-h-screen bg-gray-50">
