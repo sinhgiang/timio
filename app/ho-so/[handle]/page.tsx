@@ -184,8 +184,8 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
             {tab === "profile" && <ProfileTab data={data} onChange={setData} />}
             {tab === "requests" && data.isOwner && <RequestsTab />}
             {tab === "income" && data.isOwner && <IncomeTab />}
-            {tab === "attendance" && data.isOwner && <AttendanceTab />}
-            {tab === "leave" && data.isOwner && <LeaveTab />}
+            {tab === "attendance" && data.isOwner && <AttendanceTab onNew={() => setTab("requests")} />}
+            {tab === "leave" && data.isOwner && <LeaveTab onNew={() => setTab("requests")} />}
           </div>
         </main>
       </div>
@@ -835,7 +835,7 @@ function IncomeTab() {
 }
 
 // ─────────── TAB CHẤM CÔNG ───────────
-function AttendanceTab() {
+function AttendanceTab({ onNew }: { onNew: () => void }) {
   const [d, setD] = useState<{ summary: { total: number; onTime: number; late: number }; logs: { date: string; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; companyName: string }[] } | null>(null);
   useEffect(() => { fetch("/api/worker/attendance").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
   if (!d) return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>;
@@ -847,6 +847,7 @@ function AttendanceTab() {
         <div className="bg-green-50 rounded-xl border border-green-100 p-4 text-center"><p className="text-2xl font-bold text-green-700">{d.summary.onTime}</p><p className="text-xs text-green-600">Đúng giờ</p></div>
         <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 text-center"><p className="text-2xl font-bold text-amber-700">{d.summary.late}</p><p className="text-xs text-amber-600">Đi trễ</p></div>
       </div>
+      <button onClick={onNew} className="w-full flex items-center justify-center gap-2 border border-blue-200 text-blue-600 bg-blue-50 rounded-xl py-2.5 text-sm font-medium hover:bg-blue-100"><Pencil size={15} /> Thấy chấm công chưa đúng? Tạo đơn sửa</button>
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
         <p className="text-sm font-semibold text-gray-700 mb-2">Lịch sử gần đây</p>
         {d.logs.length === 0 ? <p className="text-sm text-gray-400">Chưa có dữ liệu chấm công.</p> : (
@@ -865,7 +866,7 @@ function AttendanceTab() {
 }
 
 // ─────────── TAB NGHỈ PHÉP ───────────
-function LeaveTab() {
+function LeaveTab({ onNew }: { onNew: () => void }) {
   const [d, setD] = useState<{ leaveBalance: number; requests: { id: string; typeLabel: string; fromDate: string; toDate: string; days: number; reason: string | null; status: string; note: string | null; companyName: string }[] } | null>(null);
   useEffect(() => { fetch("/api/worker/leave").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
   if (!d) return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>;
@@ -878,9 +879,10 @@ function LeaveTab() {
         <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center"><Umbrella size={24} /></div>
         <div><p className="text-3xl font-extrabold">{d.leaveBalance}<span className="text-base font-semibold text-blue-200"> ngày</span></p><p className="text-sm text-blue-100">Phép năm còn lại</p></div>
       </div>
+      <button onClick={onNew} className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-xl py-3 text-sm font-semibold hover:bg-blue-700"><Plus size={16} /> Tạo đơn nghỉ phép</button>
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
         <p className="text-sm font-semibold text-gray-700 mb-2">Đơn nghỉ phép</p>
-        {d.requests.length === 0 ? <p className="text-sm text-gray-400">Chưa có đơn nào. Xin nghỉ tại kiosk công ty (quét mặt).</p> : (
+        {d.requests.length === 0 ? <p className="text-sm text-gray-400">Chưa có đơn nào. Bấm <b>“Tạo đơn nghỉ phép”</b> ở trên để xin nghỉ ngay trong app — công ty sẽ nhận và duyệt.</p> : (
           <div className="space-y-2.5">
             {d.requests.map((r) => (
               <div key={r.id} className="border border-gray-100 rounded-xl p-3">
