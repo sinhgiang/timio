@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Award, Loader2, Handshake, Phone, Search, ShieldCheck, Clock, CheckCircle2, Briefcase } from "lucide-react";
+import { Award, Loader2, Handshake, Phone, Search, ShieldCheck, Clock, CheckCircle2, Briefcase, MessageCircle, ExternalLink } from "lucide-react";
 import { JOB_CATEGORIES } from "@/lib/jobTaxonomy";
 import { VN_REGIONS, AREA_REMOTE, AREA_ANYWHERE } from "@/lib/vnLocations";
 
@@ -9,7 +9,7 @@ type Candidate = {
   trustScore: number | null; trustLevel: string; trustLabel: string;
   daysWorked: number; experienceMonths: number;
   desiredPosition: string | null; desiredArea: string | null; keywords: string[];
-  connectionStatus: string | null; phone: string | null;
+  connectionStatus: string | null; phone: string | null; zalo: string | null; handle: string | null;
 };
 
 const LEVEL: Record<string, string> = {
@@ -125,9 +125,14 @@ export default function TalentPoolPage() {
 
               <div className="mt-3 pt-3 border-t border-gray-50">
                 {c.connectionStatus === "accepted" ? (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 size={15} className="text-green-600" />
-                    {c.phone ? <a href={`tel:${c.phone}`} className="text-blue-600 font-medium flex items-center gap-1"><Phone size={13} /> {c.phone}</a> : <span className="text-green-600">Đã kết nối</span>}
+                  <div>
+                    <p className="text-xs text-green-600 font-medium flex items-center gap-1 mb-2"><CheckCircle2 size={13} /> Đã kết nối — ứng viên cho phép liên hệ</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {c.phone && <a href={`tel:${c.phone}`} className="flex items-center justify-center gap-1.5 bg-blue-600 text-white rounded-lg py-2 text-xs font-medium hover:bg-blue-700"><Phone size={13} /> Gọi</a>}
+                      {c.zalo && <a href={c.zalo.startsWith("http") ? c.zalo : `https://zalo.me/${c.zalo.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 bg-sky-500 text-white rounded-lg py-2 text-xs font-medium hover:bg-sky-600"><MessageCircle size={13} /> Nhắn Zalo</a>}
+                      {c.handle && <a href={`/ho-so/${c.handle}`} target="_blank" rel="noreferrer" className={`flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 rounded-lg py-2 text-xs font-medium hover:bg-gray-50 ${c.phone && c.zalo ? "col-span-2" : ""}`}><ExternalLink size={13} /> Xem hồ sơ đầy đủ</a>}
+                    </div>
+                    {c.phone && <p className="text-[11px] text-gray-500 mt-1.5 flex items-center gap-1"><Phone size={11} /> {c.phone}</p>}
                   </div>
                 ) : c.connectionStatus === "pending" ? (
                   <p className="text-xs text-amber-600 flex items-center gap-1.5"><Clock size={13} /> Đã gửi quan tâm — chờ ứng viên đồng ý</p>

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const workers = await prisma.workerAccount.findMany({
     where: { openToWork: true, activatedAt: { not: null } },
-    select: { id: true, name: true, avatarUrl: true, desiredArea: true, desiredPosition: true, keywords: true, shareTrustScore: true, shareContact: true, phone: true },
+    select: { id: true, name: true, avatarUrl: true, desiredArea: true, desiredPosition: true, keywords: true, shareTrustScore: true, phone: true, zalo: true, handle: true },
     take: 120,
   });
   if (workers.length === 0) return NextResponse.json({ candidates: [] });
@@ -91,7 +91,10 @@ export async function GET(req: NextRequest) {
       desiredArea: w.desiredArea || null,
       keywords: kw,
       connectionStatus: connStatus,
-      phone: revealed && w.shareContact ? w.phone : null,
+      // Khi ứng viên ĐÃ ĐỒNG Ý (accepted) → lộ liên hệ + hồ sơ cho công ty này (đúng đồng thuận NV)
+      phone: revealed ? w.phone : null,
+      zalo: revealed ? w.zalo : null,
+      handle: revealed ? w.handle : null,
     };
   }).filter((c) => (c.trustScore ?? 0) >= minTrust)
     .filter((c) => !occupation || c.desiredPosition === occupation)
