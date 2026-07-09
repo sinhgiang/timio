@@ -35,8 +35,17 @@ export async function GET(req: NextRequest) {
   const workerIds = workers.map((w) => w.id);
   const emps = await prisma.employee.findMany({
     where: { workerAccountId: { in: workerIds } },
-    select: { id: true, workerAccountId: true, position: true, joinDate: true },
+    select: { id: true, workerAccountId: true, position: true, joinDate: true, companyId: true, status: true },
   });
+
+  // ⚠️ QUAN TRỌNG: KHÔNG cho công ty thấy nhân viên ĐANG LÀM cho chính mình mà bật "tìm việc".
+  // (Cựu NV đã nghỉ vẫn hiện để tái tuyển; chỉ ẩn người đang active tại công ty này.)
+  const excludeSet = new Set(
+    emps.filter((e) => e.companyId === user.companyId && e.status === "active").map((e) => e.workerAccountId!)
+  );
+  const visibleWorkers = workers.filter((w) => !excludeSet.has(w.id));
+  if (visibleWorkers.length === 0) return NextResponse.json({ candidates: [] });
+
   const allEmpIds = emps.map((e) => e.id);
   const empToWorker = new Map(emps.map((e) => [e.id, e.workerAccountId!]));
 
@@ -63,7 +72,7 @@ export async function GET(req: NextRequest) {
   for (const e of emps) { if (e.position && !posByWorker.has(e.workerAccountId!)) posByWorker.set(e.workerAccountId!, e.position); }
   const connByWorker = new Map(conns.map((c) => [c.workerAccountId, c.status]));
 
-  const candidates = workers.map((w) => {
+  const candidates = visibleWorkers.map((w) => {
     const total = totalByWorker.get(w.id) ?? 0;
     const onTime = onTimeByWorker.get(w.id) ?? 0;
     const punctualityRate = total > 0 ? Math.round((onTime / total) * 100) : null;
@@ -105,6 +114,10 @@ export async function POST(req: NextRequest) {
 
   const w = await prisma.workerAccount.findUnique({ where: { id: workerAccountId }, select: { openToWork: true } });
   if (!w?.openToWork) return NextResponse.json({ error: "Ứng viên không còn tìm việc." }, { status: 400 });
+
+  // Chặn: không kết nối với chính nhân viên đang làm cho mình
+  const ownActive = await prisma.employee.findFirst({ where: { workerAccountId, companyId: user.companyId, status: "active" }, select: { id: true } });
+  if (ownActive) return NextResponse.json({ error: "Đây là nhân viên đang làm cho công ty bạn." }, { status: 400 });
 
   const existing = await prisma.workerConnection.findFirst({ where: { companyId: user.companyId, workerAccountId, status: { in: ["pending", "accepted"] } } });
   if (existing) return NextResponse.json({ ok: true, status: existing.status, already: true });
