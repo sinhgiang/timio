@@ -56,12 +56,21 @@ export async function PATCH(
           totalOvertimeAmount: { increment: log.overtimeAmount },
         },
       });
+      // Đồng bộ đơn xin tăng ca (nếu có) của ngày đó → approved
+      await prisma.overtimeRequest.updateMany({
+        where: { employeeId: log.employeeId, date: log.date, status: "pending" },
+        data: { status: "approved" },
+      });
       return NextResponse.json({ success: true, status: "approved", overtimeAmount: log.overtimeAmount });
     } else {
       // Reject: giữ minutesOvertime (thông tin) nhưng đặt amount = 0
       await prisma.attendanceLog.update({
         where: { id: log.id },
         data: { overtimeStatus: "rejected", overtimeAmount: 0 },
+      });
+      await prisma.overtimeRequest.updateMany({
+        where: { employeeId: log.employeeId, date: log.date, status: "pending" },
+        data: { status: "rejected" },
       });
       return NextResponse.json({ success: true, status: "rejected", overtimeAmount: 0 });
     }

@@ -60,7 +60,13 @@ export default async function DashboardLayout({
           },
         }).catch(() => 0)
       : Promise.resolve(0),
-    companyId ? prisma.overtimeRequest.count({ where: { companyId, status: "pending", ...empBranch } }).catch(() => 0) : Promise.resolve(0),
+    // Tăng ca "cần duyệt" = đơn xin đang chờ + bản ghi tăng ca thực tế đang chờ (đã gộp về 1 mục)
+    companyId
+      ? Promise.all([
+          prisma.overtimeRequest.count({ where: { companyId, status: "pending", ...empBranch } }),
+          prisma.attendanceLog.count({ where: { minutesOvertime: { gt: 0 }, overtimeStatus: "pending", employee: { companyId, ...(userBranchId ? { branchId: userBranchId } : {}) } } }),
+        ]).then(([a, b]) => a + b).catch(() => 0)
+      : Promise.resolve(0),
     companyId ? prisma.earlyLeaveRequest.count({ where: { companyId, status: "pending", ...empBranch } }).catch(() => 0) : Promise.resolve(0),
     companyId ? prisma.shiftSwapRequest.count({ where: { companyId, status: "pending", ...(userBranchId ? { requester: { branchId: userBranchId } } : {}) } }).catch(() => 0) : Promise.resolve(0),
     // Ứng lương cần xử lý: chờ duyệt HOẶC (NV tự ứng đã duyệt nhưng chưa chi tiền)

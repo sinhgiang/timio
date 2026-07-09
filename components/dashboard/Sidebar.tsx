@@ -50,8 +50,7 @@ const navStructure: NavEntry[] = [
     type: "group", key: "chamcong", label: "Chấm công", Icon: ClipboardEdit,
     children: [
       { href: "/dashboard/corrections",          label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
-      { href: "/dashboard/overtime",             label: "Tăng ca",              Icon: Timer },
-      { href: "/dashboard/overtime-requests",    label: "Duyệt tăng ca",        Icon: Clock, badgeKey: "overtime" },
+      { href: "/dashboard/overtime",             label: "Tăng ca",              Icon: Timer, badgeKey: "overtime" },
       { href: "/dashboard/early-leave-requests", label: "Duyệt về sớm",         Icon: LogOut, badgeKey: "earlyleave" },
       { href: "/dashboard/shift-swap-requests",  label: "Đổi ca cho nhau",      Icon: ArrowLeftRight, badgeKey: "shiftswap" },
     ],

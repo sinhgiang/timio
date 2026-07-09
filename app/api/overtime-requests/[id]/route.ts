@@ -40,24 +40,28 @@ export async function PATCH(
       },
     });
 
-    // When approved: update the AttendanceLog for that date to set overtimeStatus = "approved"
+    // Duyệt đơn = CHỐT TIỀN luôn (một lần): với các bản ghi tăng ca THỰC TẾ đang chờ
+    // của ngày đó → set approved + CỘNG tiền vào MonthlySummary (giống màn Tăng ca).
     if (status === "approved") {
-      await prisma.attendanceLog.updateMany({
-        where: {
-          employeeId: existing.employeeId,
-          date: existing.date,
-        },
-        data: { overtimeStatus: "approved" },
+      const year = parseInt(existing.date.split("-")[0]);
+      const month = parseInt(existing.date.split("-")[1]);
+      const otLogs = await prisma.attendanceLog.findMany({
+        where: { employeeId: existing.employeeId, date: existing.date, minutesOvertime: { gt: 0 }, overtimeStatus: "pending" },
+        select: { id: true, minutesOvertime: true, overtimeAmount: true },
       });
+      for (const l of otLogs) {
+        await prisma.attendanceLog.update({ where: { id: l.id }, data: { overtimeStatus: "approved" } });
+        await prisma.monthlySummary.upsert({
+          where: { employeeId_year_month: { employeeId: existing.employeeId, year, month } },
+          create: { employeeId: existing.employeeId, year, month, totalMinutesOvertime: l.minutesOvertime, totalOvertimeAmount: l.overtimeAmount },
+          update: { totalMinutesOvertime: { increment: l.minutesOvertime }, totalOvertimeAmount: { increment: l.overtimeAmount } },
+        });
+      }
     } else if (status === "rejected") {
-      // If rejecting a previously-approved request, revert overtimeStatus
+      // Từ chối: các bản ghi tăng ca đang CHỜ của ngày đó → rejected (chưa cộng tiền nên không cần trừ)
       await prisma.attendanceLog.updateMany({
-        where: {
-          employeeId: existing.employeeId,
-          date: existing.date,
-          overtimeStatus: "approved",
-        },
-        data: { overtimeStatus: "rejected" },
+        where: { employeeId: existing.employeeId, date: existing.date, overtimeStatus: "pending" },
+        data: { overtimeStatus: "rejected", overtimeAmount: 0 },
       });
     }
 
