@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
-  XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake,
+  XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 
@@ -12,7 +12,8 @@ const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
 type Social = { phone: string | null; email: string | null; zalo: string | null; website: string | null; facebook: string | null };
 type Trust = { score: number | null; level: "new" | "bronze" | "silver" | "gold"; levelLabel: string; parts: { punctuality: number; consistency: number; tenure: number } };
-type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; desiredArea: string | null; desiredPosition: string | null };
+type Settings = { profilePublic: boolean; shareTrustScore: boolean; shareContact: boolean; openToWork: boolean; autoAcceptRecruiters: boolean; desiredArea: string | null; desiredPosition: string | null };
+type Notif = { id: string; type: string; title: string; body: string | null; link: string | null; read: boolean; createdAt: string };
 type Profile = {
   handle: string | null; isOwner: boolean; private?: boolean; hideTrust?: boolean; hideContact?: boolean;
   name: string; avatarUrl: string | null; coverUrl: string | null; bio: string | null;
@@ -152,6 +153,7 @@ export default function HoSoPage({ params }: { params: { handle: string } }) {
               </div>
               <span className="hidden md:block font-semibold text-gray-700 text-sm">{tabs.find((t) => t.key === tab)?.label}</span>
               <div className="flex items-center gap-2">
+                {data.isOwner && <NotificationBell onNavigate={setTab} />}
                 <button onClick={share} className="flex items-center gap-1.5 text-xs bg-blue-600 text-white rounded-full px-3 py-1.5 hover:bg-blue-700 transition-colors"><Share2 size={13} /> {copied ? "Đã chép" : "Chia sẻ"}</button>
                 {data.isOwner && <button onClick={logout} title="Đăng xuất" className="md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-100"><LogOut size={17} /></button>}
               </div>
@@ -289,7 +291,7 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
       {(data.isOwner || !data.hideTrust) && <TrustCard trust={data.trust} verified={v} isOwner={!!data.isOwner} />}
 
       {/* Nhà tuyển dụng quan tâm (GĐ2, chính chủ) */}
-      {data.isOwner && <ConnectionsCard />}
+      {data.isOwner && data.settings && <ConnectionsCard data={data} onChange={onChange} />}
 
       {/* Được Timio xác thực */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-5 text-white">
@@ -327,6 +329,96 @@ function ProfileTab({ data, onChange }: { data: Profile; onChange: (p: Profile) 
       {data.isOwner && data.settings && <SettingsCard data={data} onChange={onChange} />}
 
       {editOpen && <EditModal data={data} onClose={() => setEditOpen(false)} onSaved={(p) => { onChange({ ...p, isOwner: true }); setEditOpen(false); }} />}
+    </div>
+  );
+}
+
+// ─────────── Chuông thông báo (như Facebook/Zalo) ───────────
+function notifIcon(type: string) {
+  if (type === "recruiter") return <Handshake size={15} className="text-emerald-600" />;
+  if (type === "leave") return <Umbrella size={15} className="text-blue-600" />;
+  if (type === "correction") return <Clock size={15} className="text-blue-600" />;
+  if (type === "advance" || type === "salary") return <Wallet size={15} className="text-green-600" />;
+  return <Bell size={15} className="text-blue-600" />;
+}
+function NotificationBell({ onNavigate }: { onNavigate: (tab: TabKey) => void }) {
+  const [items, setItems] = useState<Notif[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [pulse, setPulse] = useState(false);
+  const prev = useRef<number | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+
+  const ting = useCallback(() => {
+    try {
+      let ctx = ctxRef.current;
+      if (!ctx) { const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext; ctx = new AC(); ctxRef.current = ctx; }
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const t0 = ctx.currentTime;
+      ([[880, 0], [1320, 0.09]] as [number, number][]).forEach(([f, t]) => {
+        const o = ctx!.createOscillator(), g = ctx!.createGain();
+        o.type = "sine"; o.frequency.value = f; o.connect(g); g.connect(ctx!.destination);
+        g.gain.setValueAtTime(0.0001, t0 + t); g.gain.exponentialRampToValueAtTime(0.14, t0 + t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + t + 0.32);
+        o.start(t0 + t); o.stop(t0 + t + 0.36);
+      });
+    } catch { /* */ }
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/worker/notifications");
+      if (r.ok) {
+        const d = await r.json();
+        setItems(d.items || []); setUnread(d.unread || 0);
+        if (prev.current !== null && d.unread > prev.current) { ting(); setPulse(true); setTimeout(() => setPulse(false), 1200); }
+        prev.current = d.unread;
+      }
+    } catch { /* */ }
+  }, [ting]);
+  useEffect(() => { load(); const t = setInterval(load, 45000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { if (!open) return; const h = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, [open]);
+
+  const clickItem = async (it: Notif) => {
+    if (!it.read) await fetch("/api/worker/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it.id }) }).catch(() => {});
+    setOpen(false);
+    onNavigate((["income", "attendance", "leave"].includes(it.link || "") ? it.link : "profile") as TabKey);
+    load();
+  };
+  const markAll = async () => { await fetch("/api/worker/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) }).catch(() => {}); load(); };
+  const timeAgo = (iso: string) => { const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000); if (s < 60) return "vừa xong"; if (s < 3600) return `${Math.floor(s / 60)} phút`; if (s < 86400) return `${Math.floor(s / 3600)} giờ`; return `${Math.floor(s / 86400)} ngày`; };
+
+  return (
+    <div ref={boxRef} className="relative">
+      <button onClick={() => setOpen((o) => !o)} title="Thông báo" className={`relative p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-colors ${pulse ? "animate-bounce" : ""}`}>
+        <Bell size={19} className={unread > 0 ? "text-blue-600" : ""} />
+        {unread > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">{unread > 9 ? "9+" : unread}</span>}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+            <p className="font-semibold text-gray-800 text-sm">Thông báo</p>
+            {unread > 0 && <button onClick={markAll} className="text-[11px] text-blue-600 hover:underline">Đánh dấu đã đọc</button>}
+          </div>
+          {items.length === 0 ? (
+            <div className="py-10 text-center text-gray-400"><Bell size={26} className="mx-auto mb-2 text-gray-200" /><p className="text-sm">Chưa có thông báo</p></div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto">
+              {items.map((it) => (
+                <button key={it.id} onClick={() => clickItem(it)} className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors ${it.read ? "" : "bg-blue-50/40"}`}>
+                  <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0">{notifIcon(it.type)}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-800 font-medium leading-snug">{it.title}</p>
+                    {it.body && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{it.body}</p>}
+                    <p className="text-[10px] text-gray-400 mt-1">{timeAgo(it.createdAt)} trước{it.read ? "" : " · mới"}</p>
+                  </div>
+                  {!it.read && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1.5" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -402,10 +494,12 @@ function TrustPart({ label, value, max }: { label: string; value: number; max: n
   );
 }
 
-// ─────────── Nhà tuyển dụng quan tâm (GĐ2 inbox) ───────────
-function ConnectionsCard() {
+// ─────────── Nhà tuyển dụng quan tâm (GĐ2 inbox + nút gạt cho phép mọi NTD) ───────────
+function ConnectionsCard({ data, onChange }: { data: Profile; onChange: (p: Profile) => void }) {
+  const auto = data.settings!.autoAcceptRecruiters;
   const [conns, setConns] = useState<{ id: string; companyName: string; note: string | null; status: string }[]>([]);
   const [acting, setActing] = useState<Record<string, boolean>>({});
+  const [savingAuto, setSavingAuto] = useState(false);
   const load = useCallback(async () => {
     try { const r = await fetch("/api/worker/connections"); if (r.ok) { const d = await r.json(); setConns(d.connections || []); } } catch { /* */ }
   }, []);
@@ -416,7 +510,11 @@ function ConnectionsCard() {
     await load();
     setActing((p) => ({ ...p, [id]: false }));
   };
-  if (conns.length === 0) return null;
+  const toggleAuto = async (v: boolean) => {
+    setSavingAuto(true);
+    try { const r = await fetch("/api/worker/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ autoAcceptRecruiters: v }) }); if (r.ok) onChange({ ...(await r.json()), isOwner: true }); } catch { /* */ }
+    setSavingAuto(false);
+  };
   const pending = conns.filter((c) => c.status === "pending");
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -424,31 +522,50 @@ function ConnectionsCard() {
         <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center"><Handshake size={17} className="text-emerald-600" /></div>
         <p className="text-sm font-semibold text-gray-800">Nhà tuyển dụng quan tâm {pending.length > 0 && <span className="text-emerald-600">· {pending.length} mới</span>}</p>
       </div>
-      <div className="space-y-2.5">
-        {conns.map((c) => (
-          <div key={c.id} className="flex items-center gap-3 border border-gray-100 rounded-xl p-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0"><Building2 size={17} className="text-blue-600" /></div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{c.companyName}</p>
-              <p className="text-[11px] text-gray-400 truncate">{c.note || "Muốn kết nối với bạn"}</p>
-            </div>
-            {c.status === "pending" ? (
-              <div className="flex gap-1.5 shrink-0">
-                <button onClick={() => respond(c.id, "accept")} disabled={acting[c.id]} className="px-2.5 py-1.5 text-[11px] font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">Cho phép liên hệ</button>
-                <button onClick={() => respond(c.id, "decline")} disabled={acting[c.id]} className="px-2.5 py-1.5 text-[11px] text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Bỏ qua</button>
+
+      {/* Nút gạt: cho phép mọi NTD liên hệ, hay tự chọn từng người */}
+      <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 mb-3 border ${auto ? "bg-emerald-50 border-emerald-100" : "bg-gray-50 border-gray-100"}`}>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-800">Cho phép mọi nhà tuyển dụng liên hệ</p>
+          <p className="text-[11px] text-gray-500">{auto ? "Bất kỳ ai quan tâm cũng thấy SĐT ngay." : "Đang TẮT — bạn tự chọn từng người được liên hệ."}</p>
+        </div>
+        <button onClick={() => !savingAuto && toggleAuto(!auto)} disabled={savingAuto} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${auto ? "bg-emerald-500" : "bg-gray-300"}`}>
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${auto ? "translate-x-5" : ""}`} />
+        </button>
+      </div>
+
+      {conns.length === 0 ? (
+        <p className="text-sm text-gray-400 py-3 text-center">Chưa có nhà tuyển dụng nào quan tâm. Bật <b>&quot;Đang tìm việc&quot;</b> để được mời.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {conns.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 border border-gray-100 rounded-xl p-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0"><Building2 size={17} className="text-blue-600" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">{c.companyName}</p>
+                <p className="text-[11px] text-gray-400 truncate">{c.note || "Muốn kết nối với bạn"}</p>
               </div>
-            ) : c.status === "accepted" ? (
-              <span className="text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">Đã cho phép</span>
-            ) : (
-              <span className="text-[11px] text-gray-400 shrink-0">Đã bỏ qua</span>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
-        <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-        <p className="text-xs text-emerald-800 font-medium">Riêng tư của bạn: chỉ khi bạn <b>bấm &quot;Cho phép liên hệ&quot;</b>, nhà tuyển dụng mới thấy số điện thoại của bạn.</p>
-      </div>
+              {c.status === "pending" ? (
+                <div className="flex gap-1.5 shrink-0">
+                  <button onClick={() => respond(c.id, "accept")} disabled={acting[c.id]} className="px-2.5 py-1.5 text-[11px] font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">Cho phép liên hệ</button>
+                  <button onClick={() => respond(c.id, "decline")} disabled={acting[c.id]} className="px-2.5 py-1.5 text-[11px] text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Bỏ qua</button>
+                </div>
+              ) : c.status === "accepted" ? (
+                <span className="text-[11px] text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">Đã cho phép</span>
+              ) : (
+                <span className="text-[11px] text-gray-400 shrink-0">Đã bỏ qua</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!auto && (
+        <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
+          <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+          <p className="text-xs text-emerald-800 font-medium">Riêng tư của bạn: chỉ khi bạn <b>bấm &quot;Cho phép liên hệ&quot;</b>, nhà tuyển dụng mới thấy số điện thoại của bạn.</p>
+        </div>
+      )}
     </div>
   );
 }

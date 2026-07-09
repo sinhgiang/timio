@@ -886,7 +886,22 @@ model WorkerAccount {
   openToWork       Boolean   @default(false)        // đang tìm việc → vào kho ứng viên xác thực
   desiredArea      String?                          // khu vực mong muốn (lọc tái tuyển)
   desiredPosition  String?                          // vị trí mong muốn
+  autoAcceptRecruiters Boolean @default(false)      // bật = mọi NTD quan tâm được liên hệ ngay; tắt = tự chọn từng người
   createdAt        DateTime  @default(now())
+}
+
+// Thông báo trong app nhân viên (như Facebook/Zalo): NTD quan tâm, duyệt phép, sửa chấm công, trả lương...
+model WorkerNotification {
+  id              String   @id @default(cuid())
+  workerAccountId String
+  type            String   // recruiter | leave | correction | advance | salary | generic
+  title           String
+  body            String?
+  link            String?  // tab trên /ho-so: profile | income | attendance | leave
+  read            Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([workerAccountId, read])
 }
 
 // GĐ2 wedge: nhà tuyển dụng bày tỏ QUAN TÂM tới 1 WorkerAccount đang tìm việc (double opt-in).

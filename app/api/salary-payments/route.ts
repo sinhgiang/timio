@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { employeeBranchWhere, employeeInScope } from "@/lib/branchScope";
+import { notifyWorkerByEmployee } from "@/lib/workerNotify";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -65,6 +66,13 @@ export async function POST(req: NextRequest) {
         note: note !== undefined ? note : undefined,
       },
     });
+    if (isPaid) {
+      void notifyWorkerByEmployee(employeeId, {
+        type: "salary", title: `Công ty đã trả lương tháng ${month}/${year}`,
+        body: amount ? `Số tiền ${Number(amount).toLocaleString("vi-VN")}đ đã được chi trả.` : "Lương của bạn đã được chi trả.",
+        link: "income", email: true,
+      });
+    }
     return NextResponse.json(payment);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

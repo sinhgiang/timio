@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendTelegram, buildLeaveApprovedAlert } from "@/lib/telegram";
 import { employeeInScope } from "@/lib/branchScope";
+import { notifyWorkerByEmployee } from "@/lib/workerNotify";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -39,6 +40,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data: { status, note: note ?? null },
     include: { employee: { select: { name: true } } },
   });
+
+  // Thông báo cho nhân viên (in-app + email)
+  if (request.status === "pending" && (status === "approved" || status === "rejected")) {
+    const range = `${new Date(request.fromDate).toLocaleDateString("vi-VN")} → ${new Date(request.toDate).toLocaleDateString("vi-VN")}`;
+    void notifyWorkerByEmployee(request.employeeId, {
+      type: "leave",
+      title: status === "approved" ? "Đơn nghỉ phép đã được duyệt" : "Đơn nghỉ phép bị từ chối",
+      body: status === "approved" ? `Bạn được nghỉ ${range} (${request.days} ngày).` : `Đơn nghỉ ${range}${note ? ` — lý do: ${note}` : ""}.`,
+      link: "leave", email: true,
+    });
+  }
 
   // Gửi Telegram cho kế toán khi duyệt
   if (status === "approved" && request.status === "pending") {

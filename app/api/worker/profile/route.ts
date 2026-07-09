@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest) {
   if ("desiredPosition" in body) data.desiredPosition = clip(body.desiredPosition, 100) || null;
   // Công tắc opt-in (bool) — NV tự quyết chia sẻ (Luật 91/2025)
   const boolData: Record<string, boolean> = {};
-  for (const k of ["profilePublic", "shareTrustScore", "shareContact", "openToWork"] as const) {
+  for (const k of ["profilePublic", "shareTrustScore", "shareContact", "openToWork", "autoAcceptRecruiters"] as const) {
     if (typeof body[k] === "boolean") boolData[k] = body[k];
   }
 

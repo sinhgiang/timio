@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeTrustScore } from "@/lib/trustScore";
+import { notifyWorkerById } from "@/lib/workerNotify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
   const { workerAccountId, note } = await req.json().catch(() => ({}));
   if (!workerAccountId) return NextResponse.json({ error: "Thiếu ứng viên." }, { status: 400 });
 
-  const w = await prisma.workerAccount.findUnique({ where: { id: workerAccountId }, select: { openToWork: true } });
+  const w = await prisma.workerAccount.findUnique({ where: { id: workerAccountId }, select: { openToWork: true, autoAcceptRecruiters: true } });
   if (!w?.openToWork) return NextResponse.json({ error: "Ứng viên không còn tìm việc." }, { status: 400 });
 
   // Chặn: không kết nối với chính nhân viên đang làm cho mình
@@ -123,8 +124,17 @@ export async function POST(req: NextRequest) {
   if (existing) return NextResponse.json({ ok: true, status: existing.status, already: true });
 
   const company = await prisma.company.findUnique({ where: { id: user.companyId }, select: { name: true } });
+  const companyName = company?.name ?? "Công ty";
+  // NV bật "cho mọi NTD liên hệ" → tự đồng ý ngay; ngược lại chờ NV duyệt
+  const status = w.autoAcceptRecruiters ? "accepted" : "pending";
   await prisma.workerConnection.create({
-    data: { companyId: user.companyId, companyName: company?.name ?? "Công ty", workerAccountId, note: (note || "").slice(0, 200) || null, status: "pending" },
+    data: { companyId: user.companyId, companyName, workerAccountId, note: (note || "").slice(0, 200) || null, status, respondedAt: status === "accepted" ? new Date() : null },
   });
-  return NextResponse.json({ ok: true, status: "pending" });
+  await notifyWorkerById(workerAccountId, {
+    type: "recruiter",
+    title: status === "accepted" ? `${companyName} muốn liên hệ với bạn` : `${companyName} quan tâm đến bạn`,
+    body: status === "accepted" ? "Bạn đã bật cho phép mọi nhà tuyển dụng — họ đã có thể liên hệ." : "Bấm \"Cho phép liên hệ\" để chia sẻ số điện thoại.",
+    link: "profile", email: true,
+  });
+  return NextResponse.json({ ok: true, status });
 }

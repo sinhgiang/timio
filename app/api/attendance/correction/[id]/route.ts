@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { employeeInScope } from "@/lib/branchScope";
+import { notifyWorkerByEmployee } from "@/lib/workerNotify";
 
 // PATCH — HR duyệt hoặc từ chối
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -79,6 +80,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const updated = await prisma.correctionRequest.update({
       where: { id: params.id },
       data: { status, adminNote: adminNote ?? null },
+    });
+
+    void notifyWorkerByEmployee(correction.employeeId, {
+      type: "correction",
+      title: status === "approved" ? "Yêu cầu sửa chấm công được duyệt" : "Yêu cầu sửa chấm công bị từ chối",
+      body: status === "approved" ? `Chấm công ngày ${new Date(correction.date).toLocaleDateString("vi-VN")} đã được cập nhật.` : `Yêu cầu sửa ngày ${new Date(correction.date).toLocaleDateString("vi-VN")}${adminNote ? ` — ${adminNote}` : ""}.`,
+      link: "attendance", email: true,
     });
 
     return NextResponse.json(updated);
