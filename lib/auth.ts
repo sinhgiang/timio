@@ -103,6 +103,27 @@ export const authOptions: NextAuthOptions = {
         const br = (user as { phoneNumber?: string }).phoneNumber;
         token.branchId = br || null;
       }
+
+      // JWT strategy nghĩa là companyId/role/branchId được "đóng băng" trong token lúc đăng nhập
+      // và KHÔNG tự cập nhật lại — nếu admin đổi role/chi nhánh của ai đó (hoặc ta sửa qua DB),
+      // người đó vẫn thấy quyền cũ cho tới khi đăng nhập lại. Để tránh lệch dữ liệu âm thầm,
+      // định kỳ (tối đa 1 lần/phút mỗi phiên) đọc lại từ DB cho các request bình thường.
+      if (!token.impersonating && token.email) {
+        const lastChecked = (token.roleCheckedAt as number | undefined) ?? 0;
+        if (Date.now() - lastChecked > 60_000) {
+          const fresh = await prisma.admin.findUnique({
+            where: { email: token.email as string },
+            select: { companyId: true, role: true, branchId: true },
+          });
+          if (fresh) {
+            token.companyId = fresh.companyId;
+            token.role = fresh.role;
+            token.branchId = fresh.branchId ?? null;
+          }
+          token.roleCheckedAt = Date.now();
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
