@@ -383,10 +383,12 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   // Penalty (late)
   const [showLatePenaltyForm, setShowLatePenaltyForm] = useState(false);
   const [latePenaltyForm, setLatePenaltyForm] = useState({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE });
+  const [editLateId, setEditLateId] = useState<string | null>(null);
 
   // Penalty (early leave)
   const [showEarlyForm, setShowEarlyForm] = useState(false);
   const [earlyForm, setEarlyForm] = useState({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE });
+  const [editEarlyId, setEditEarlyId] = useState<string | null>(null);
 
   // Reward
   const [showRewardForm, setShowRewardForm] = useState(false);
@@ -712,25 +714,55 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     return parts.join(" · ");
   };
 
-  const savePenaltyRule = async (type: "late" | "early_leave", form: typeof latePenaltyForm) => {
+  // Chuyển 1 rule đã lưu thành giá trị cho PenaltyScopePicker — dùng khi bấm Sửa
+  const ruleToScopeValue = (r: PenaltyRule): PenaltyScopeValue => {
+    const empIds = safeParseArray(r.scopeEmployeeIds);
+    const depts = safeParseArray(r.scopeDepartments);
+    const days = safeParseArray(r.scopeDaysOfWeek).map(Number);
+    const scopeType: PenaltyScopeValue["scopeType"] = empIds.length > 0 ? "employee" : depts.length > 0 ? "department" : "all";
+    return { scopeType, scopeDepartments: depts, scopeEmployeeIds: empIds, scopeDays: days };
+  };
+
+  const startEditLate = (r: PenaltyRule) => {
+    setLatePenaltyForm({ fromMinutes: String(r.fromMinutes), toMinutes: String(r.toMinutes), amount: String(r.amount), scope: ruleToScopeValue(r) });
+    setEditLateId(r.id);
+    setShowLatePenaltyForm(true);
+  };
+
+  const startEditEarly = (r: PenaltyRule) => {
+    setEarlyForm({ fromMinutes: String(r.fromMinutes), toMinutes: String(r.toMinutes), amount: String(r.amount), scope: ruleToScopeValue(r) });
+    setEditEarlyId(r.id);
+    setShowEarlyForm(true);
+  };
+
+  const savePenaltyRule = async (type: "late" | "early_leave", form: typeof latePenaltyForm, editingId: string | null) => {
     setLoading(true);
-    await fetch("/api/penalty-rules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fromMinutes: Number(form.fromMinutes),
-        toMinutes: Number(form.toMinutes),
-        amount: Number(form.amount),
-        companyId: company.id,
-        type,
-        scopeDepartments: form.scope.scopeType === "department" ? form.scope.scopeDepartments : [],
-        scopeEmployeeIds: form.scope.scopeType === "employee" ? form.scope.scopeEmployeeIds : [],
-        scopeDaysOfWeek: form.scope.scopeDays,
-      }),
-    });
+    const body = {
+      fromMinutes: Number(form.fromMinutes),
+      toMinutes: Number(form.toMinutes),
+      amount: Number(form.amount),
+      companyId: company.id,
+      type,
+      scopeDepartments: form.scope.scopeType === "department" ? form.scope.scopeDepartments : [],
+      scopeEmployeeIds: form.scope.scopeType === "employee" ? form.scope.scopeEmployeeIds : [],
+      scopeDaysOfWeek: form.scope.scopeDays,
+    };
+    if (editingId) {
+      await fetch(`/api/penalty-rules/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } else {
+      await fetch("/api/penalty-rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
     setLoading(false);
-    if (type === "late") { setShowLatePenaltyForm(false); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }
-    else { setShowEarlyForm(false); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }
+    if (type === "late") { setShowLatePenaltyForm(false); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); setEditLateId(null); }
+    else { setShowEarlyForm(false); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); setEditEarlyId(null); }
     router.refresh();
   };
 
@@ -1068,19 +1100,20 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
           {/* Đến muộn */}
           <div>
-            <div className="flex justify-between items-center mb-3">
-              <div>
+            <div className="flex justify-between items-start gap-3 mb-3">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-semibold text-gray-700"><Clock size={16} className="text-orange-500" /> Quy tắc phạt đến muộn</div>
                 <p className="text-xs text-gray-400 mt-0.5">Mặc định áp dụng tất cả nhân viên, mọi ngày — có thể giới hạn theo phòng ban/nhân viên/ngày khi thêm mức</p>
               </div>
               <button
-                onClick={() => setShowLatePenaltyForm(true)}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                onClick={() => { setEditLateId(null); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); setShowLatePenaltyForm(true); }}
+                className="shrink-0 whitespace-nowrap px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
               >+ Thêm mức</button>
             </div>
 
             {showLatePenaltyForm && (
-              <form onSubmit={(e) => { e.preventDefault(); savePenaltyRule("late", latePenaltyForm); }} className="bg-white rounded-xl border border-gray-200 p-4 mb-3">
+              <form onSubmit={(e) => { e.preventDefault(); savePenaltyRule("late", latePenaltyForm, editLateId); }} className="bg-white rounded-xl border border-gray-200 p-4 mb-3">
+                <p className="text-xs font-medium text-gray-500 mb-3">{editLateId ? "Sửa mức phạt đến muộn" : "Thêm mức phạt đến muộn mới"}</p>
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Từ (phút)</label>
@@ -1104,8 +1137,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                 />
 
                 <div className="flex gap-2 mt-3">
-                  <button type="button" onClick={() => { setShowLatePenaltyForm(false); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
-                  <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
+                  <button type="button" onClick={() => { setShowLatePenaltyForm(false); setEditLateId(null); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
+                  <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">{editLateId ? "Cập nhật" : "Lưu"}</button>
                 </div>
               </form>
             )}
@@ -1128,7 +1161,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                       <td className="px-5 py-3 text-gray-700">{r.toMinutes} phút</td>
                       <td className="px-5 py-3 text-red-600 font-medium">{formatCurrency(r.amount)}</td>
                       <td className="px-5 py-3 text-gray-500 text-xs">{scopeSummary(r)}</td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => startEditLate(r)} className="text-blue-500 hover:text-blue-700 text-xs mr-3">Sửa</button>
                         <button onClick={() => deletePenaltyRule(r.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
                       </td>
                     </tr>
@@ -1143,19 +1177,20 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
           {/* Về sớm */}
           <div>
-            <div className="flex justify-between items-center mb-3">
-              <div>
+            <div className="flex justify-between items-start gap-3 mb-3">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-semibold text-gray-700"><Timer size={16} className="text-purple-500" /> Quy tắc phạt về sớm</div>
                 <p className="text-xs text-gray-400 mt-0.5">Mặc định áp dụng tất cả nhân viên, mọi ngày — có thể giới hạn theo phòng ban/nhân viên/ngày khi thêm mức</p>
               </div>
               <button
-                onClick={() => setShowEarlyForm(true)}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                onClick={() => { setEditEarlyId(null); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); setShowEarlyForm(true); }}
+                className="shrink-0 whitespace-nowrap px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
               >+ Thêm mức</button>
             </div>
 
             {showEarlyForm && (
-              <form onSubmit={(e) => { e.preventDefault(); savePenaltyRule("early_leave", earlyForm); }} className="bg-white rounded-xl border border-gray-200 p-4 mb-3">
+              <form onSubmit={(e) => { e.preventDefault(); savePenaltyRule("early_leave", earlyForm, editEarlyId); }} className="bg-white rounded-xl border border-gray-200 p-4 mb-3">
+                <p className="text-xs font-medium text-gray-500 mb-3">{editEarlyId ? "Sửa mức phạt về sớm" : "Thêm mức phạt về sớm mới"}</p>
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Từ (phút)</label>
@@ -1179,8 +1214,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                 />
 
                 <div className="flex gap-2 mt-3">
-                  <button type="button" onClick={() => { setShowEarlyForm(false); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
-                  <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
+                  <button type="button" onClick={() => { setShowEarlyForm(false); setEditEarlyId(null); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
+                  <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">{editEarlyId ? "Cập nhật" : "Lưu"}</button>
                 </div>
               </form>
             )}
@@ -1203,7 +1238,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                       <td className="px-5 py-3 text-gray-700">{r.toMinutes} phút</td>
                       <td className="px-5 py-3 text-red-600 font-medium">{formatCurrency(r.amount)}</td>
                       <td className="px-5 py-3 text-gray-500 text-xs">{scopeSummary(r)}</td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right whitespace-nowrap">
+                        <button onClick={() => startEditEarly(r)} className="text-blue-500 hover:text-blue-700 text-xs mr-3">Sửa</button>
                         <button onClick={() => deletePenaltyRule(r.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
                       </td>
                     </tr>
