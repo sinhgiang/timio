@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     });
     companyId = company.id;
     await tx.admin.create({
-      data: { companyId: company.id, email, name: companyName, password: hashedPassword, role: "admin" },
+      data: { companyId: company.id, email, name: companyName, password: hashedPassword, role: "owner" },
     });
     await tx.branch.create({
       data: { companyId: company.id, name: "Văn phòng chính" },

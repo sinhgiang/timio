@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       data: { name: companyName, slug, plan: "starter" },
     });
     await tx.admin.create({
-      data: { companyId: c.id, email: adminEmail, name: adminName || companyName, password: hashedPassword, role: "admin" },
+      data: { companyId: c.id, email: adminEmail, name: adminName || companyName, password: hashedPassword, role: "owner" },
     });
     await tx.branch.create({
       data: { companyId: c.id, name: "Văn phòng chính" },

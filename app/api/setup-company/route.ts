@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         companyId: company.id,
         email,
         name: name || companyName,
-        role: "admin",
+        role: "owner",
       },
     });
     await tx.branch.create({
