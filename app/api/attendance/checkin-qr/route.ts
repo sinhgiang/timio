@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus, type LateRule } from "@/lib/attendance";
+import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
 import { resolveShift } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
       let earlyLeavePenalty = 0;
       if (minutesEarly > (employee.branch.gracePeriod ?? 5)) {
-        const earlyRules = employee.company.penaltyRules
+        const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
           .filter((r) => r.type === "early_leave")
           .sort((a, b) => a.fromMinutes - b.fromMinutes);
         for (const rule of earlyRules) {
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
         type: "late" as const,
       }));
     } else {
-      effectiveLateRules = employee.company.penaltyRules
+      effectiveLateRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
         .filter((r) => r.type === "late")
         .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount, type: "late" as const }));
     }

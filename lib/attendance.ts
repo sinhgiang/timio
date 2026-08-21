@@ -15,6 +15,66 @@ export interface LateRule {
   amount: number;
 }
 
+/**
+ * Một PenaltyRule đầy đủ (kèm phạm vi áp dụng) — dùng để lọc trước khi đưa vào calculateCheckInStatus.
+ * scopeEmployeeIds / scopeDepartments / scopeDaysOfWeek là chuỗi JSON (TEXT trong DB).
+ * null hoặc mảng rỗng = không giới hạn (áp dụng cho tất cả).
+ * Nếu scopeEmployeeIds có giá trị thì ưu tiên hơn scopeDepartments (2 kiểu phạm vi không cộng dồn).
+ */
+export interface ScopedPenaltyRule {
+  id: string;
+  fromMinutes: number;
+  toMinutes: number;
+  amount: number;
+  type: string;
+  scopeDepartments?: string | null;
+  scopeEmployeeIds?: string | null;
+  scopeDaysOfWeek?: string | null;
+}
+
+function parseJsonArray(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lọc danh sách quy tắc phạt (công ty) để chỉ giữ lại những quy tắc áp dụng
+ * cho 1 nhân viên cụ thể vào 1 thời điểm cụ thể — dựa trên phòng ban/nhân viên/thứ trong tuần.
+ * Dùng ở TẤT CẢ nơi tính phạt trễ/về sớm (checkin, checkin-face, checkin-qr, admin-edit, recalculate)
+ * để đảm bảo hành vi nhất quán.
+ */
+export function filterApplicableRules<T extends ScopedPenaltyRule>(
+  rules: T[],
+  employee: { id: string; department?: string | null },
+  atDate: Date
+): T[] {
+  const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const vnDate = new Date(atDate.getTime() + VN_OFFSET_MS);
+  const dayOfWeek = vnDate.getUTCDay(); // 0=CN, 1=T2 ... 6=T7 (giờ VN)
+
+  return rules.filter((r) => {
+    const scopeEmployeeIds = parseJsonArray(r.scopeEmployeeIds);
+    if (scopeEmployeeIds.length > 0) {
+      if (!scopeEmployeeIds.includes(employee.id)) return false;
+    } else {
+      const scopeDepartments = parseJsonArray(r.scopeDepartments);
+      if (scopeDepartments.length > 0 && !scopeDepartments.includes(employee.department ?? "")) {
+        return false;
+      }
+    }
+
+    const scopeDays = parseJsonArray(r.scopeDaysOfWeek).map(Number);
+    if (scopeDays.length > 0 && !scopeDays.includes(dayOfWeek)) return false;
+
+    return true;
+  });
+}
+
 export function calculateCheckInStatus(
   checkInAt: Date,
   scheduledTime: string,

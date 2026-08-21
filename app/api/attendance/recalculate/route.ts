@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus, type LateRule } from "@/lib/attendance";
+import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
           amount: r.amount,
         }));
       } else {
-        effectiveLateRules = penaltyRules
+        effectiveLateRules = filterApplicableRules(penaltyRules, log.employee, log.checkInAt)
           .filter((r) => r.type !== "early_leave")
           .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
       }

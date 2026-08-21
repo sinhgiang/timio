@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus } from "@/lib/attendance";
+import { calculateCheckInStatus, filterApplicableRules } from "@/lib/attendance";
 import { managerBranchId } from "@/lib/branchScope";
 
 export async function POST(req: NextRequest) {
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       const shiftData = employee.shiftOverride ? JSON.parse(employee.shiftOverride) as { checkInTime?: string; gracePeriod?: number } : {};
       const checkInTime = shiftData.checkInTime ?? employee.branch.checkInTime;
       const gracePeriod = shiftData.gracePeriod ?? employee.branch.gracePeriod;
-      const lateRules = employee.company.penaltyRules
+      const lateRules = filterApplicableRules(employee.company.penaltyRules, employee, checkInDate)
         .filter((r) => r.type !== "early_leave")
         .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
 

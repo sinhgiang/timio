@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import {
@@ -13,7 +12,7 @@ import {
   CalendarDays, BarChart2, Network, Download, ShieldCheck, ShieldAlert,
   Package, History, GraduationCap, TrendingUp, Filter, CalendarRange,
   ArrowLeftRight, Briefcase, Target, Megaphone, Receipt, Star,
-  ClipboardCheck, ChevronDown, MessagesSquare, MessageSquare,
+  ClipboardCheck, ChevronDown, MessagesSquare, MessageSquare, CircleUserRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -241,7 +240,7 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
         )}
       >
         <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-        <span className="flex-1 leading-snug whitespace-nowrap">{leaf.label}</span>
+        <span className="flex-1 min-w-0 leading-snug truncate">{leaf.label}</span>
         <Badge count={count} color={leaf.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500"} />
       </Link>
     );
@@ -271,7 +270,7 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
         "md:relative md:translate-x-0 md:transition-none"
       )}>
         {/* Logo */}
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="p-3 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
               <Clock size={18} className="text-white" />
@@ -290,7 +289,7 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
           {navStructure.map((entry, idx) => {
             if (entry.type === "section") {
               // Ẩn tiêu đề khu nếu mọi mục trong khu đều bị ẩn theo quyền
@@ -303,7 +302,7 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
               }
               if (!hasVisible) return null;
               return (
-                <p key={`sec-${idx}`} className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">
+                <p key={`sec-${idx}`} className="px-3 pt-2.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">
                   {entry.label}
                 </p>
               );
@@ -318,17 +317,17 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
                   href={entry.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                   )}
                 >
                   <entry.Icon size={17} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-                  <span className="flex-1 whitespace-nowrap">{entry.label}</span>
+                  <span className="flex-1 min-w-0 truncate">{entry.label}</span>
                   {entry.isNew && count === 0 && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 leading-none">MỚI</span>
+                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 leading-none">MỚI</span>
                   )}
                   {count > 0 && (
-                    <span className={cn("min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
+                    <span className={cn("shrink-0 min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
                       {count > 99 ? "99+" : count}
                     </span>
                   )}
@@ -349,14 +348,14 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
                 <button
                   onClick={() => toggleGroup(entry.key)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     groupActive ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                   )}
                 >
                   <entry.Icon size={17} strokeWidth={groupActive ? 2.5 : 2} className="shrink-0" />
-                  <span className="flex-1 text-left whitespace-nowrap">{entry.label}</span>
+                  <span className="flex-1 min-w-0 text-left truncate">{entry.label}</span>
                   {!isOpen && groupBadgeCount > 0 && (
-                    <span className="min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                       {groupBadgeCount > 99 ? "99+" : groupBadgeCount}
                     </span>
                   )}
@@ -377,15 +376,18 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="p-3 border-t border-gray-100">
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+        {/* Tài khoản (đổi mật khẩu, gói dịch vụ, đăng xuất) */}
+        <div className="p-2 border-t border-gray-100">
+          {/* Thẻ <a> thường (không phải next/link) — khi đang ở sẵn trang /dashboard/settings,
+              điều hướng client-side sẽ không remount SettingsClient nên querystring ?section=account
+              không được đọc lại. Dùng <a> để luôn tải mới trang, đảm bảo mở đúng tab Tài khoản. */}
+          <a
+            href="/dashboard/settings?section=account"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
           >
-            <LogOut size={17} strokeWidth={2} />
-            Đăng xuất
-          </button>
+            <CircleUserRound size={17} strokeWidth={2} />
+            Tài khoản
+          </a>
         </div>
       </aside>
     </>

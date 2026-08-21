@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { DEPARTMENT_PRESETS } from "@/lib/presets";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage() {
@@ -11,7 +12,7 @@ export default async function SettingsPage() {
   if (!companyId) return null;
 
   const currentYear = new Date().getFullYear();
-  const [company, penaltyRules, rewardRules, holidays, branches] = await Promise.all([
+  const [company, penaltyRules, rewardRules, holidays, branches, employees] = await Promise.all([
     prisma.company.findUnique({ where: { id: companyId } }),
     prisma.penaltyRule.findMany({ where: { companyId }, orderBy: { fromMinutes: "asc" } }),
     prisma.rewardRule.findMany({ where: { companyId } }),
@@ -20,7 +21,18 @@ export default async function SettingsPage() {
       orderBy: { date: "asc" },
     }),
     prisma.branch.findMany({ where: { companyId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.employee.findMany({
+      where: { companyId, status: "active" },
+      select: { id: true, name: true, department: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
+
+  const savedOpts = company?.customOptions
+    ? (JSON.parse(company.customOptions) as { departments?: string[] })
+    : {};
+  const usedDepts = employees.map((e) => e.department).filter((d): d is string => !!d);
+  const allDepartments = Array.from(new Set([...(savedOpts.departments ?? []), ...DEPARTMENT_PRESETS, ...usedDepts]));
 
   const slug = company?.slug ?? "";
   const referredCompanies = slug
@@ -57,6 +69,8 @@ export default async function SettingsPage() {
       rewardRules={rewardRules}
       holidays={holidays}
       branches={branches}
+      employees={employees}
+      departments={allDepartments}
       referralStats={{ registered: referralRegistered, converted: referralConverted, companies: referredCompanies.map((c) => ({ name: c.name, slug: c.slug, plan: c.plan, joinedAt: c.createdAt.toISOString() })) }}
       plan={company?.plan ?? "starter"}
       trialEndsAt={(company as { trialEndsAt?: Date | null })?.trialEndsAt?.toISOString() ?? null}

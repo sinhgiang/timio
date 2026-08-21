@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import BranchQRCard from "@/components/settings/BranchQRCard";
 import AutoReminderPanel from "@/components/settings/AutoReminderPanel";
 import LateReminderPanel from "@/components/settings/LateReminderPanel";
 import PlanGate from "@/components/ui/PlanGate";
+import PenaltyScopePicker, { DEFAULT_PENALTY_SCOPE, type PenaltyScopeValue } from "@/components/settings/PenaltyScopePicker";
 import {
   Monitor,
   Building2,
@@ -30,6 +32,7 @@ import {
   Users,
   Mail,
   ArrowRightLeft,
+  LogOut,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -38,6 +41,15 @@ interface PenaltyRule {
   toMinutes: number;
   amount: number;
   type: string;
+  scopeDepartments?: string | null;
+  scopeEmployeeIds?: string | null;
+  scopeDaysOfWeek?: string | null;
+}
+
+interface EmployeeOpt {
+  id: string;
+  name: string;
+  department?: string | null;
 }
 
 interface RewardRule {
@@ -57,6 +69,8 @@ interface Props {
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
+  employees?: EmployeeOpt[];
+  departments?: string[];
   referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] };
   plan?: string;
   trialEndsAt?: string | null;
@@ -82,10 +96,16 @@ interface HolidayProps extends Props {
   holidays: Holiday[];
 }
 
-export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], referralStats, plan = "starter", trialEndsAt = null, role = "owner" }: HolidayProps & { branches?: Branch[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] }; plan?: string; trialEndsAt?: string | null; role?: string }) {
+export default function SettingsClient({ company, penaltyRules, rewardRules, holidays: initialHolidays, branches = [], employees = [], departments = [], referralStats, plan = "starter", trialEndsAt = null, role = "owner" }: HolidayProps & { branches?: Branch[]; employees?: EmployeeOpt[]; departments?: string[]; referralStats?: { registered: number; converted: number; companies?: { name: string; slug: string; plan: string; joinedAt: string }[] }; plan?: string; trialEndsAt?: string | null; role?: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<"penalty" | "reward">("penalty");
   const [activeSection, setActiveSection] = useState("qr");
+
+  // Cho phép mở thẳng 1 tab qua URL, vd /dashboard/settings?section=account
+  useEffect(() => {
+    const section = new URLSearchParams(window.location.search).get("section");
+    if (section) setActiveSection(section);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [telegramToken, setTelegramToken] = useState(company.telegramBotToken ?? "");
   const [accountingChatId, setAccountingChatId] = useState(company.accountingChatId ?? "");
@@ -362,11 +382,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
   // Penalty (late)
   const [showLatePenaltyForm, setShowLatePenaltyForm] = useState(false);
-  const [latePenaltyForm, setLatePenaltyForm] = useState({ fromMinutes: "", toMinutes: "", amount: "" });
+  const [latePenaltyForm, setLatePenaltyForm] = useState({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE });
 
   // Penalty (early leave)
   const [showEarlyForm, setShowEarlyForm] = useState(false);
-  const [earlyForm, setEarlyForm] = useState({ fromMinutes: "", toMinutes: "", amount: "" });
+  const [earlyForm, setEarlyForm] = useState({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE });
 
   // Reward
   const [showRewardForm, setShowRewardForm] = useState(false);
@@ -667,6 +687,31 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const lateRules = penaltyRules.filter((r) => r.type !== "early_leave");
   const earlyRules = penaltyRules.filter((r) => r.type === "early_leave");
 
+  const DAY_SHORT: Record<number, string> = { 0: "CN", 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7" };
+  const safeParseArray = (raw?: string | null): string[] => {
+    if (!raw) return [];
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+  };
+  // Tóm tắt phạm vi áp dụng của 1 mức phạt để hiển thị trong bảng
+  const scopeSummary = (r: PenaltyRule): string => {
+    const parts: string[] = [];
+    const empIds = safeParseArray(r.scopeEmployeeIds);
+    const depts = safeParseArray(r.scopeDepartments);
+    const days = safeParseArray(r.scopeDaysOfWeek);
+    if (empIds.length > 0) {
+      const names = empIds.map((id) => employees.find((e) => e.id === id)?.name).filter((n): n is string => !!n);
+      parts.push(names.length > 0 ? names.join(", ") : `${empIds.length} nhân viên`);
+    } else if (depts.length > 0) {
+      parts.push(`Phòng: ${depts.join(", ")}`);
+    } else {
+      parts.push("Tất cả NV");
+    }
+    if (days.length > 0) {
+      parts.push(days.map((d) => DAY_SHORT[Number(d)] ?? d).join(", "));
+    }
+    return parts.join(" · ");
+  };
+
   const savePenaltyRule = async (type: "late" | "early_leave", form: typeof latePenaltyForm) => {
     setLoading(true);
     await fetch("/api/penalty-rules", {
@@ -678,11 +723,14 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         amount: Number(form.amount),
         companyId: company.id,
         type,
+        scopeDepartments: form.scope.scopeType === "department" ? form.scope.scopeDepartments : [],
+        scopeEmployeeIds: form.scope.scopeType === "employee" ? form.scope.scopeEmployeeIds : [],
+        scopeDaysOfWeek: form.scope.scopeDays,
       }),
     });
     setLoading(false);
-    if (type === "late") { setShowLatePenaltyForm(false); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "" }); }
-    else { setShowEarlyForm(false); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "" }); }
+    if (type === "late") { setShowLatePenaltyForm(false); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }
+    else { setShowEarlyForm(false); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }
     router.refresh();
   };
 
@@ -756,7 +804,6 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     { key: "notify",    label: "Thông báo",      Icon: MessageSquare },
     { key: "kiosk",     label: "Kiosk",          Icon: Monitor },
     { key: "signature", label: "Chữ ký & Dấu",  Icon: PenLine },
-    { key: "account",   label: "Tài khoản",      Icon: Users },
     { key: "referral",  label: "Giới thiệu",     Icon: Gift },
   ];
 
@@ -783,9 +830,20 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
       {/* ── Content ── */}
       <div className={`flex-1 p-6 ${activeSection === "qr" ? "max-w-6xl" : "max-w-3xl"}`}>
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">
-          {SETTINGS_NAV.find(s => s.key === activeSection)?.label ?? "Cài đặt"}
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">
+            {activeSection === "account" ? "Tài khoản" : SETTINGS_NAV.find(s => s.key === activeSection)?.label ?? "Cài đặt"}
+          </h1>
+          {activeSection === "account" && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+            >
+              <LogOut size={16} strokeWidth={2} />
+              Đăng xuất
+            </button>
+          )}
+        </div>
 
       {activeSection === "qr" && <>
       {/* Check-in URL */}
@@ -1013,7 +1071,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <div className="flex justify-between items-center mb-3">
               <div>
                 <div className="flex items-center gap-2 font-semibold text-gray-700"><Clock size={16} className="text-orange-500" /> Quy tắc phạt đến muộn</div>
-                <p className="text-xs text-gray-400 mt-0.5">Áp dụng mặc định cho tất cả nhân viên</p>
+                <p className="text-xs text-gray-400 mt-0.5">Mặc định áp dụng tất cả nhân viên, mọi ngày — có thể giới hạn theo phòng ban/nhân viên/ngày khi thêm mức</p>
               </div>
               <button
                 onClick={() => setShowLatePenaltyForm(true)}
@@ -1037,8 +1095,16 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                     <input type="number" min="0" step="1000" value={latePenaltyForm.amount} onChange={(e) => setLatePenaltyForm({ ...latePenaltyForm, amount: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowLatePenaltyForm(false)} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
+
+                <PenaltyScopePicker
+                  departments={departments}
+                  employees={employees}
+                  value={latePenaltyForm.scope}
+                  onChange={(scope) => setLatePenaltyForm({ ...latePenaltyForm, scope })}
+                />
+
+                <div className="flex gap-2 mt-3">
+                  <button type="button" onClick={() => { setShowLatePenaltyForm(false); setLatePenaltyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
                   <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
                 </div>
               </form>
@@ -1051,6 +1117,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Trễ từ</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Đến</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Phạt</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Phạm vi</th>
                     <th className="text-right px-5 py-3"></th>
                   </tr>
                 </thead>
@@ -1060,13 +1127,14 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                       <td className="px-5 py-3 text-gray-700">{r.fromMinutes} phút</td>
                       <td className="px-5 py-3 text-gray-700">{r.toMinutes} phút</td>
                       <td className="px-5 py-3 text-red-600 font-medium">{formatCurrency(r.amount)}</td>
+                      <td className="px-5 py-3 text-gray-500 text-xs">{scopeSummary(r)}</td>
                       <td className="px-5 py-3 text-right">
                         <button onClick={() => deletePenaltyRule(r.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
                       </td>
                     </tr>
                   ))}
                   {lateRules.length === 0 && (
-                    <tr><td colSpan={4} className="text-center py-5 text-gray-400 text-sm">Chưa có quy tắc phạt đến muộn</td></tr>
+                    <tr><td colSpan={5} className="text-center py-5 text-gray-400 text-sm">Chưa có quy tắc phạt đến muộn</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1078,7 +1146,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             <div className="flex justify-between items-center mb-3">
               <div>
                 <div className="flex items-center gap-2 font-semibold text-gray-700"><Timer size={16} className="text-purple-500" /> Quy tắc phạt về sớm</div>
-                <p className="text-xs text-gray-400 mt-0.5">Áp dụng mặc định cho tất cả nhân viên</p>
+                <p className="text-xs text-gray-400 mt-0.5">Mặc định áp dụng tất cả nhân viên, mọi ngày — có thể giới hạn theo phòng ban/nhân viên/ngày khi thêm mức</p>
               </div>
               <button
                 onClick={() => setShowEarlyForm(true)}
@@ -1102,8 +1170,16 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                     <input type="number" min="0" step="1000" value={earlyForm.amount} onChange={(e) => setEarlyForm({ ...earlyForm, amount: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowEarlyForm(false)} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
+
+                <PenaltyScopePicker
+                  departments={departments}
+                  employees={employees}
+                  value={earlyForm.scope}
+                  onChange={(scope) => setEarlyForm({ ...earlyForm, scope })}
+                />
+
+                <div className="flex gap-2 mt-3">
+                  <button type="button" onClick={() => { setShowEarlyForm(false); setEarlyForm({ fromMinutes: "", toMinutes: "", amount: "", scope: DEFAULT_PENALTY_SCOPE }); }} className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
                   <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
                 </div>
               </form>
@@ -1116,6 +1192,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Về sớm từ</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Đến</th>
                     <th className="text-left px-5 py-3 text-gray-500 font-medium">Phạt</th>
+                    <th className="text-left px-5 py-3 text-gray-500 font-medium">Phạm vi</th>
                     <th className="text-right px-5 py-3"></th>
                   </tr>
                 </thead>
@@ -1125,13 +1202,14 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                       <td className="px-5 py-3 text-gray-700">{r.fromMinutes} phút</td>
                       <td className="px-5 py-3 text-gray-700">{r.toMinutes} phút</td>
                       <td className="px-5 py-3 text-red-600 font-medium">{formatCurrency(r.amount)}</td>
+                      <td className="px-5 py-3 text-gray-500 text-xs">{scopeSummary(r)}</td>
                       <td className="px-5 py-3 text-right">
                         <button onClick={() => deletePenaltyRule(r.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
                       </td>
                     </tr>
                   ))}
                   {earlyRules.length === 0 && (
-                    <tr><td colSpan={4} className="text-center py-5 text-gray-400 text-sm">Chưa có quy tắc phạt về sớm</td></tr>
+                    <tr><td colSpan={5} className="text-center py-5 text-gray-400 text-sm">Chưa có quy tắc phạt về sớm</td></tr>
                   )}
                 </tbody>
               </table>

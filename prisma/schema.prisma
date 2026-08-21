@@ -266,6 +266,11 @@ model PenaltyRule {
   amount      Int
   type        String @default("late")  // "late" | "early_leave"
 
+  // Phạm vi áp dụng — JSON string[] / number[] dạng TEXT. null hoặc rỗng = áp dụng cho tất cả.
+  scopeDepartments String? // JSON string[] tên phòng ban; bỏ qua nếu scopeEmployeeIds có giá trị
+  scopeEmployeeIds String? // JSON string[] id nhân viên; nếu có thì ưu tiên hơn scopeDepartments
+  scopeDaysOfWeek  String? // JSON number[] thứ áp dụng (0=CN...6=T7); rỗng = tất cả các ngày
+
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 

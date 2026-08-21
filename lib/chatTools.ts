@@ -711,7 +711,7 @@ export async function executeChatTool(
             branches: {
               select: { name: true, checkInTime: true, checkOutTime: true, gracePeriod: true, workDays: true, gpsRadius: true },
             },
-            penaltyRules: { select: { fromMinutes: true, toMinutes: true, amount: true, type: true } },
+            penaltyRules: { select: { fromMinutes: true, toMinutes: true, amount: true, type: true, scopeDepartments: true, scopeEmployeeIds: true, scopeDaysOfWeek: true } },
             rewardRules: { select: { label: true, condition: true, amount: true } },
             admins: { select: { name: true, email: true, role: true } },
           },
