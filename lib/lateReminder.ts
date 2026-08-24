@@ -65,10 +65,20 @@ interface DueEmployee {
   branchId: string;
 }
 
-function parseShift(raw: string | null): { checkInTime?: string; gracePeriod?: number; workDays?: string } {
+interface ParsedShift {
+  checkInTime?: string;
+  gracePeriod?: number;
+  workDays?: string;
+  // Ngày làm khác (lặp lại theo thứ, vd nhân viên ca gãy nhưng cứ T5 làm ca thường thay đồng
+  // nghiệp nghỉ) — xem lib/shiftResolve.ts (findDayOverride). Ở đây tự đối chiếu theo jsDay
+  // thay vì gọi findDayOverride() vì nowVN truyền vào hàm này đã cộng sẵn +7h (giờ VN).
+  dayOverrides?: { day: number; checkInTime: string; checkOutTime: string; gracePeriod?: number }[];
+}
+
+function parseShift(raw: string | null): ParsedShift {
   if (!raw) return {};
   try {
-    return JSON.parse(raw) as { checkInTime?: string; gracePeriod?: number; workDays?: string };
+    return JSON.parse(raw) as ParsedShift;
   } catch {
     return {};
   }
@@ -178,10 +188,16 @@ export async function computeDueEmployees(
 
     let checkInTime: string;
     const ov = parseShift(e.shiftOverride);
-    const gracePeriod = Number.isFinite(ov.gracePeriod) ? Number(ov.gracePeriod) : e.branch.gracePeriod;
+    const dayOverride = ov.dayOverrides?.find((d) => d.day === jsDay);
+    const gracePeriod = dayOverride?.gracePeriod
+      ?? (Number.isFinite(ov.gracePeriod) ? Number(ov.gracePeriod) : e.branch.gracePeriod);
 
     const roster = assignMap.get(e.id);
-    if (roster && roster.length > 0) {
+    if (dayOverride) {
+      // Ngày làm khác — giờ riêng của ngày này ưu tiên tuyệt đối, bỏ qua ca gãy/lịch phân ca hôm đó
+      // (khớp thứ tự ưu tiên đã dùng khi chấm công thật, xem app/api/attendance/*)
+      checkInTime = dayOverride.checkInTime;
+    } else if (roster && roster.length > 0) {
       // Có phân ca hôm nay → ca theo ngày là nguồn chuẩn
       const workShifts = roster.filter((r) => r.shiftLabel !== "Nghỉ" && /^\d{1,2}:\d{2}$/.test(r.checkIn));
       if (workShifts.length === 0) continue; // hôm nay được xếp nghỉ

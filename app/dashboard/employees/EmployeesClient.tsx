@@ -1400,15 +1400,25 @@ export default function EmployeesClient({
                       <div className="flex gap-1.5">
                         {DAYS.map((d) => {
                           const active = parseWorkDays(form.workDays).includes(d.value);
+                          // Thứ này có "Ngày làm khác" bên dưới → giờ riêng đó LUÔN được ưu tiên,
+                          // bất kể nút này đang bật/tắt (xem lib/shiftResolve.ts findDayOverride).
+                          // Đánh dấu bằng chấm cam để không nhìn giống hệt các thứ dùng giờ chung.
+                          const hasOverride = form.dayOverrides.some((o) => o.day === d.value);
                           return (
                             <button
                               key={d.value}
                               type="button"
                               onClick={() => setForm((f) => ({ ...f, workDays: toggleDay(f.workDays, d.value) }))}
-                              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                              title={hasOverride ? `${d.label}: có giờ làm khác riêng (xem "Ngày làm khác" bên dưới) — không dùng giờ chung` : undefined}
+                              className={`relative flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
                                 active ? "bg-blue-600 text-white shadow-sm" : "bg-white text-gray-400 border border-gray-200 hover:border-blue-200 hover:text-blue-500"
-                              }`}
-                            >{d.label}</button>
+                              } ${hasOverride ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
+                            >
+                              {d.label}
+                              {hasOverride && (
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white" />
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -1418,6 +1428,11 @@ export default function EmployeesClient({
                           : `${form.checkInTime}–${form.checkOutTime}`}
                         {selectedBranch && !isNewBranch && ` · Chi nhánh: ${selectedBranch.name}`}
                       </p>
+                      {form.dayOverrides.length > 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          🔶 {form.dayOverrides.map((o) => DAYS.find((d) => d.value === o.day)?.label).filter(Boolean).join(", ")}: giờ làm riêng (khác lịch chung ở trên) — xem &quot;Ngày làm khác&quot; bên dưới.
+                        </p>
+                      )}
                     </div>
 
                     {/* Ngày làm khác — vd: NV này bình thường nghỉ T7, nhưng cứ T5 phải làm ca
@@ -1495,7 +1510,7 @@ export default function EmployeesClient({
                             </button>
                           )}
                           <p className="text-xs text-blue-500 bg-blue-50/70 rounded-lg px-3 py-2">
-                            Vào (các) thứ này, nhân viên chấm công 1 ca bình thường theo giờ riêng ở trên — bỏ qua ca gãy/lịch phân ca hôm đó.
+                            Vào (các) thứ này, nhân viên chấm công 1 ca bình thường theo giờ riêng ở trên — bỏ qua ca gãy/lịch phân ca hôm đó, giờ riêng này LUÔN được ưu tiên (không cần bỏ chọn thứ tương ứng ở &quot;Ngày làm việc&quot; phía trên — cứ để nguyên đang chọn, vì đó vẫn là ngày nhân viên có đi làm).
                           </p>
                         </div>
                       )}
