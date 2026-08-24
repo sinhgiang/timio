@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
-import { resolveShift, parseShiftSessions, pickActiveSession, type ShiftSession } from "@/lib/shiftResolve";
+import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 
@@ -76,9 +76,13 @@ export async function POST(req: NextRequest) {
     const today = getTodayString();
     const now = new Date();
 
+    // Ngày làm khác (vd nhân viên ca gãy nhưng cứ thứ 5 làm ca bình thường thay đồng nghiệp)
+    // → hôm nay bỏ qua sessions, chấm công như 1 ca thường (session "full") với giờ riêng của ngày này.
+    const dayOverride = findDayOverride(employee.shiftOverride, now);
+
     // Ca gãy nhiều buổi/ngày (vd sáng + tối) — xem lib/shiftResolve.ts. Nhân viên bình thường
     // (không có sessions) đi qua nhánh else, hành vi giữ nguyên như trước.
-    const sessions = parseShiftSessions(employee.shiftOverride);
+    const sessions = dayOverride ? null : parseShiftSessions(employee.shiftOverride);
     let session = "full";
     let sessionCfg: ShiftSession | null = null;
     let isFirstLogOfDay = true;
@@ -114,8 +118,8 @@ export async function POST(req: NextRequest) {
       try {
         shiftData = employee.shiftOverride ? JSON.parse(employee.shiftOverride) : {};
       } catch { shiftData = {}; }
-      const checkOutTime = sessionCfg?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
-      const coGracePeriod = sessionCfg?.gracePeriod ?? employee.branch.gracePeriod ?? 5;
+      const checkOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? employee.branch.gracePeriod ?? 5;
       const [coH, coM] = checkOutTime.split(":").map(Number);
       // Compare in Vietnam time to avoid UTC server bias
       const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -202,6 +206,16 @@ export async function POST(req: NextRequest) {
       shift = {
         checkInTime: sessionCfg.checkInTime,
         gracePeriod: sessionCfg.gracePeriod ?? employee.branch.gracePeriod,
+        suppressPenalty: holidayNoPenalty,
+        reason: holidayNoPenalty ? "holiday_no_penalty" : null,
+      };
+    } else if (dayOverride) {
+      // Ngày làm khác — dùng giờ riêng của ngày này; Lịch phân ca không áp dụng (giống ca gãy)
+      const todayHoliday = await prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } });
+      const holidayNoPenalty = !!(todayHoliday && !todayHoliday.penalizeLate);
+      shift = {
+        checkInTime: dayOverride.checkInTime,
+        gracePeriod: dayOverride.gracePeriod ?? employee.branch.gracePeriod,
         suppressPenalty: holidayNoPenalty,
         reason: holidayNoPenalty ? "holiday_no_penalty" : null,
       };

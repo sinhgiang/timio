@@ -88,6 +88,37 @@ export function parseShiftSessions(shiftOverrideRaw: string | null | undefined):
   return null;
 }
 
+// ─── Ngày làm khác (day override) ───────────────────────────────────────────────
+// Cho phép 1 nhân viên (kể cả ca gãy 2 buổi) có 1-2 ngày/tuần làm CA BÌNH THƯỜNG
+// (1 khoảng giờ vào/ra, không tách buổi) khác với lịch chung — vd: nhân viên ca gãy
+// nhưng cứ thứ 5 phải thay ca nguyên ngày cho đồng nghiệp nghỉ. Đây là quy tắc LẶP LẠI
+// theo THỨ TRONG TUẦN (khác "Lịch phân ca"/ShiftAssignment vốn theo TỪNG NGÀY cụ thể).
+
+export interface DayOverride {
+  day: number; // 0=CN, 1=T2 ... 6=T7 (giờ VN) — khớp với DAYS ở EmployeesClient.tsx
+  checkInTime: string;
+  checkOutTime: string;
+  gracePeriod?: number;
+}
+
+/** Đọc Employee.shiftOverride.dayOverrides — trả về override khớp THỨ (giờ VN) của `at`, nếu có. */
+export function findDayOverride(shiftOverrideRaw: string | null | undefined, at: Date): DayOverride | null {
+  if (!shiftOverrideRaw) return null;
+  try {
+    const ov = JSON.parse(shiftOverrideRaw) as { dayOverrides?: DayOverride[] };
+    if (!Array.isArray(ov.dayOverrides) || ov.dayOverrides.length === 0) return null;
+    const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+    const dow = new Date(at.getTime() + VN_OFFSET_MS).getUTCDay();
+    return (
+      ov.dayOverrides.find(
+        (d) => d && d.day === dow && typeof d.checkInTime === "string" && typeof d.checkOutTime === "string"
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
 function hhmmToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);

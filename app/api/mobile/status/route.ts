@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseShiftSessions, pickActiveSession } from "@/lib/shiftResolve";
+import { parseShiftSessions, pickActiveSession, findDayOverride } from "@/lib/shiftResolve";
 
 const VN_TZ = "Asia/Ho_Chi_Minh";
 
@@ -37,9 +37,12 @@ export async function GET(req: NextRequest) {
 
     const today = getDateString(new Date());
 
+    // Ngày làm khác (dayOverrides) → hôm nay bỏ qua sessions, coi như session "full" bình thường.
+    const dayOverride = findDayOverride(employee.shiftOverride, new Date());
+
     // Ca gãy 2 buổi/ngày (xem lib/shiftResolve.ts) → nhiều dòng AttendanceLog/ngày.
     // Nhân viên bình thường vẫn chỉ có 1 dòng session="full" — hành vi giữ nguyên.
-    const sessions = parseShiftSessions(employee.shiftOverride);
+    const sessions = dayOverride ? null : parseShiftSessions(employee.shiftOverride);
     let log: { checkInAt: Date | null; checkOutAt: Date | null; status: string; minutesLate: number } | null = null;
     if (sessions) {
       const todaysLogs = await prisma.attendanceLog.findMany({

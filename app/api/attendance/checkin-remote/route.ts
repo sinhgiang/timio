@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { resolveShift, parseShiftSessions, pickActiveSession } from "@/lib/shiftResolve";
+import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride } from "@/lib/shiftResolve";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -77,8 +77,12 @@ export async function POST(req: Request) {
     const todayStr = vnNow.toISOString().slice(0, 10);
     const timeStr = vnNow.toISOString().slice(11, 16); // HH:MM
 
+    // Ngày làm khác (vd nhân viên ca gãy nhưng cứ thứ 5 làm ca bình thường thay đồng nghiệp)
+    // → hôm nay bỏ qua sessions, chấm công như 1 ca thường (session "full") với giờ riêng của ngày này.
+    const dayOverride = findDayOverride(employee.shiftOverride, now);
+
     // Ca gãy nhiều buổi/ngày (vd sáng + tối) — xem lib/shiftResolve.ts.
-    const sessions = parseShiftSessions(employee.shiftOverride);
+    const sessions = dayOverride ? null : parseShiftSessions(employee.shiftOverride);
     let session = "full";
     let sessionLabel: string | null = null;
     if (sessions) {
@@ -103,6 +107,16 @@ export async function POST(req: Request) {
         shift = {
           checkInTime: sessionCfg.checkInTime,
           gracePeriod: sessionCfg.gracePeriod ?? branch.gracePeriod,
+          suppressPenalty: holidayNoPenalty,
+          reason: holidayNoPenalty ? "holiday_no_penalty" : null,
+        };
+      } else if (dayOverride) {
+        // Ngày làm khác — dùng giờ riêng của ngày này; Lịch phân ca không áp dụng (giống ca gãy)
+        const todayHoliday = await prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: todayStr }, select: { penalizeLate: true } });
+        const holidayNoPenalty = !!(todayHoliday && !todayHoliday.penalizeLate);
+        shift = {
+          checkInTime: dayOverride.checkInTime,
+          gracePeriod: dayOverride.gracePeriod ?? branch.gracePeriod,
           suppressPenalty: holidayNoPenalty,
           reason: holidayNoPenalty ? "holiday_no_penalty" : null,
         };

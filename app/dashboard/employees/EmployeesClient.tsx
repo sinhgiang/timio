@@ -68,6 +68,10 @@ interface ShiftOverride {
   // checkInTime/checkOutTime ở trên KHÔNG dùng để chấm công nữa (chỉ còn giữ để hiển thị
   // khoảng giờ tổng quát). Xem lib/shiftResolve.ts (parseShiftSessions/pickActiveSession).
   sessions?: Array<{ label: string; checkInTime: string; checkOutTime: string; gracePeriod?: number }>;
+  // Ngày làm khác (lặp lại hàng tuần theo THỨ) — vd nhân viên ca gãy nhưng cứ thứ 5 phải làm
+  // ca bình thường (1 khoảng giờ, không tách buổi) để thay ca cho đồng nghiệp nghỉ. Hôm đó bỏ
+  // qua sessions hoàn toàn. Xem lib/shiftResolve.ts (findDayOverride). day: 0=CN,1=T2...6=T7.
+  dayOverrides?: Array<{ day: number; checkInTime: string; checkOutTime: string; gracePeriod?: number }>;
 }
 
 interface CompanyPenaltyRule { fromMinutes: number; toMinutes: number; amount: number; type: string; }
@@ -319,6 +323,9 @@ export default function EmployeesClient({
         { label: "Sáng", checkInTime: "08:00", checkOutTime: "11:30" },
         { label: "Tối", checkInTime: "13:30", checkOutTime: "17:00" },
       ] as { label: string; checkInTime: string; checkOutTime: string }[],
+      // Ngày làm khác — vd nhân viên ca gãy nhưng cứ thứ 5 phải làm ca bình thường thay
+      // đồng nghiệp nghỉ. Rỗng = không có ngoại lệ (mặc định, đa số nhân viên không cần).
+      dayOverrides: [] as { day: number; checkInTime: string; checkOutTime: string }[],
       lateRules: [] as PenaltyRow[],
       earlyLeaveRules: [] as PenaltyRow[],
       perfectBonus: "",
@@ -431,6 +438,9 @@ export default function EmployeesClient({
             { label: "Sáng", checkInTime: "08:00", checkOutTime: "11:30" },
             { label: "Tối", checkInTime: "13:30", checkOutTime: "17:00" },
           ],
+      dayOverrides: Array.isArray(ov?.dayOverrides)
+        ? ov.dayOverrides.map((d) => ({ day: d.day, checkInTime: d.checkInTime, checkOutTime: d.checkOutTime }))
+        : [],
       lateRules: (ov?.lateRules ?? []).map((r) => ({ minutes: String(r.minutes), amount: String(r.amount) })),
       earlyLeaveRules: (ov?.earlyLeaveRules ?? []).map((r) => ({ minutes: String(r.minutes), amount: String(r.amount) })),
       perfectBonus: ov?.perfectBonus ? String(ov.perfectBonus) : "",
@@ -504,6 +514,16 @@ export default function EmployeesClient({
           .map((s, i) => ({ label: s.label.trim() || (i === 0 ? "Sáng" : "Tối"), checkInTime: s.checkInTime, checkOutTime: s.checkOutTime, gracePeriod: Number(form.gracePeriod) }))
       : [];
 
+    // Ngày làm khác — bỏ dòng thiếu giờ, mỗi thứ chỉ giữ 1 dòng (dòng sau đè dòng trước nếu trùng thứ).
+    const validDayOverrides = Object.values(
+      form.dayOverrides
+        .filter((d) => d.checkInTime && d.checkOutTime)
+        .reduce((acc, d) => {
+          acc[d.day] = { day: d.day, checkInTime: d.checkInTime, checkOutTime: d.checkOutTime, gracePeriod: Number(form.gracePeriod) };
+          return acc;
+        }, {} as Record<number, { day: number; checkInTime: string; checkOutTime: string; gracePeriod: number }>)
+    );
+
     const shiftOverride: ShiftOverride = {
       name: finalShiftName,
       checkInTime: validSessions.length >= 2 ? validSessions[0].checkInTime : form.checkInTime,
@@ -517,6 +537,7 @@ export default function EmployeesClient({
       earlyLeaveRules: form.earlyLeaveRules.filter((r) => r.minutes && r.amount).map((r) => ({ minutes: Number(r.minutes), amount: Number(r.amount) })),
       perfectBonus: form.perfectBonus ? Number(form.perfectBonus) : undefined,
       ...(validSessions.length >= 2 && { sessions: validSessions }),
+      ...(validDayOverrides.length > 0 && { dayOverrides: validDayOverrides }),
     };
 
     const url = editingId ? `/api/employees/${editingId}` : "/api/employees";
@@ -1397,6 +1418,87 @@ export default function EmployeesClient({
                           : `${form.checkInTime}–${form.checkOutTime}`}
                         {selectedBranch && !isNewBranch && ` · Chi nhánh: ${selectedBranch.name}`}
                       </p>
+                    </div>
+
+                    {/* Ngày làm khác — vd: NV này bình thường nghỉ T7, nhưng cứ T5 phải làm ca
+                        bình thường (không tách buổi) thay đồng nghiệp nghỉ. Áp dụng lặp lại mỗi tuần. */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-gray-500">Ngày làm khác (nếu có)</label>
+                        {form.dayOverrides.length === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setForm((f) => ({
+                              ...f,
+                              dayOverrides: [{
+                                day: DAYS.find((d) => !parseWorkDays(f.workDays).includes(d.value))?.value ?? DAYS[3].value,
+                                checkInTime: "08:00",
+                                checkOutTime: "17:00",
+                              }],
+                            }))}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                          >
+                            + Thêm ngày làm khác
+                          </button>
+                        )}
+                      </div>
+                      {form.dayOverrides.length === 0 ? (
+                        <p className="text-xs text-gray-400">
+                          Dùng khi có 1-2 ngày/tuần nhân viên này phải làm ca khác lịch chung ở trên — vd: thay ca cho đồng nghiệp nghỉ.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {form.dayOverrides.map((d, i) => (
+                            <div key={i} className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 items-end bg-white/70 border border-gray-200 rounded-lg p-2.5">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Thứ</label>
+                                <select
+                                  value={d.day}
+                                  onChange={(e) => setForm((f) => { const arr = [...f.dayOverrides]; arr[i] = { ...arr[i], day: Number(e.target.value) }; return { ...f, dayOverrides: arr }; })}
+                                  className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                >
+                                  {DAYS.map((dd) => <option key={dd.value} value={dd.value}>{dd.label}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Giờ vào</label>
+                                <input
+                                  type="time" value={d.checkInTime}
+                                  onChange={(e) => setForm((f) => { const arr = [...f.dayOverrides]; arr[i] = { ...arr[i], checkInTime: e.target.value }; return { ...f, dayOverrides: arr }; })}
+                                  className="w-full px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Giờ ra</label>
+                                <input
+                                  type="time" value={d.checkOutTime}
+                                  onChange={(e) => setForm((f) => { const arr = [...f.dayOverrides]; arr[i] = { ...arr[i], checkOutTime: e.target.value }; return { ...f, dayOverrides: arr }; })}
+                                  className="w-full px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setForm((f) => ({ ...f, dayOverrides: f.dayOverrides.filter((_, j) => j !== i) }))}
+                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                          {form.dayOverrides.length < DAYS.length && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, dayOverrides: [...f.dayOverrides, { day: DAYS.find((d) => !f.dayOverrides.some((o) => o.day === d.value))?.value ?? DAYS[0].value, checkInTime: "08:00", checkOutTime: "17:00" }] }))}
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                            >
+                              + Thêm thứ khác
+                            </button>
+                          )}
+                          <p className="text-xs text-blue-500 bg-blue-50/70 rounded-lg px-3 py-2">
+                            Vào (các) thứ này, nhân viên chấm công 1 ca bình thường theo giờ riêng ở trên — bỏ qua ca gãy/lịch phân ca hôm đó.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
