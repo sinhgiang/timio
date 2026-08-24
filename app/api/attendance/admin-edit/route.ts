@@ -50,8 +50,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert AttendanceLog trực tiếp
+    // Lưu ý: route này sửa 1 dòng/ngày (session "full") — với NV ca gãy 2 buổi/ngày
+    // (Employee.shiftOverride.sessions, xem lib/shiftResolve.ts) hãy sửa qua trang chấm công
+    // theo từng buổi thay vì route này.
     const existing = await prisma.attendanceLog.findUnique({
-      where: { employeeId_date: { employeeId, date } },
+      where: { employeeId_date_session: { employeeId, date, session: "full" } },
     });
 
     if (existing) {

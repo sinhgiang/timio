@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
-import { resolveShift } from "@/lib/shiftResolve";
+import { resolveShift, parseShiftSessions, pickActiveSession, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 
@@ -76,9 +76,31 @@ export async function POST(req: NextRequest) {
     const today = getTodayString();
     const now = new Date();
 
-    const existingLog = await prisma.attendanceLog.findUnique({
-      where: { employeeId_date: { employeeId, date: today } },
-    });
+    // Ca gãy nhiều buổi/ngày (vd sáng + tối) — xem lib/shiftResolve.ts. Nhân viên bình thường
+    // (không có sessions) đi qua nhánh else, hành vi giữ nguyên như trước.
+    const sessions = parseShiftSessions(employee.shiftOverride);
+    let session = "full";
+    let sessionCfg: ShiftSession | null = null;
+    let isFirstLogOfDay = true;
+    let existingLog: Awaited<ReturnType<typeof prisma.attendanceLog.findUnique>> = null;
+
+    if (sessions) {
+      const todaysLogs = await prisma.attendanceLog.findMany({ where: { employeeId, date: today } });
+      isFirstLogOfDay = todaysLogs.length === 0;
+      const logsBySessionKey = new Map(todaysLogs.map((l) => [l.session, { checkOutAt: l.checkOutAt }]));
+      const idx = pickActiveSession(sessions, now, logsBySessionKey);
+      if (idx === null) {
+        const list = sessions.map((s) => `${s.label} ${s.checkInTime}–${s.checkOutTime}`).join(", ");
+        return NextResponse.json({ error: `Chưa đến giờ chấm công. Ca hôm nay: ${list}` }, { status: 400 });
+      }
+      session = String(idx);
+      sessionCfg = sessions[idx];
+      existingLog = todaysLogs.find((l) => l.session === session) ?? null;
+    } else {
+      existingLog = await prisma.attendanceLog.findUnique({
+        where: { employeeId_date_session: { employeeId, date: today, session } },
+      });
+    }
 
     if (existingLog) {
       if (existingLog.checkOutAt) {
@@ -92,8 +114,8 @@ export async function POST(req: NextRequest) {
       try {
         shiftData = employee.shiftOverride ? JSON.parse(employee.shiftOverride) : {};
       } catch { shiftData = {}; }
-      const shift = shiftData;
-      const checkOutTime = shift.checkOutTime ?? employee.branch.checkOutTime;
+      const checkOutTime = sessionCfg?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      const coGracePeriod = sessionCfg?.gracePeriod ?? employee.branch.gracePeriod ?? 5;
       const [coH, coM] = checkOutTime.split(":").map(Number);
       // Compare in Vietnam time to avoid UTC server bias
       const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -117,7 +139,7 @@ export async function POST(req: NextRequest) {
       // Ra sớm: phạt nếu checkout trước giờ tan ca
       const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
       let earlyLeavePenalty = 0;
-      if (minutesEarly > (employee.branch.gracePeriod ?? 5)) {
+      if (minutesEarly > coGracePeriod) {
         const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
           .filter((r) => r.type === "early_leave")
           .sort((a, b) => a.fromMinutes - b.fromMinutes);
@@ -148,6 +170,7 @@ export async function POST(req: NextRequest) {
       const msgs: string[] = [];
       if (minutesEarly > 0 && earlyLeavePenalty > 0) msgs.push(`Ra sớm ${minutesEarly} phút`);
       if (minutesOvertime > 0) msgs.push(`Tăng ca ${minutesOvertime} phút — chờ duyệt`);
+      const prefix = sessionCfg ? `[${sessionCfg.label}] ` : "";
       return NextResponse.json({
         action: "check_out",
         status: existingLog.status,
@@ -157,7 +180,7 @@ export async function POST(req: NextRequest) {
         earlyLeavePenalty,
         minutesOvertime,
         overtimeAmount,
-        message: msgs.length > 0 ? `Ra ca · ${msgs.join(" · ")}` : "Ra ca thành công",
+        message: prefix + (msgs.length > 0 ? `Ra ca · ${msgs.join(" · ")}` : "Ra ca thành công"),
       });
     }
 
@@ -171,19 +194,32 @@ export async function POST(req: NextRequest) {
     try {
       shiftOverrideParsed = employee.shiftOverride ? JSON.parse(employee.shiftOverride) : {};
     } catch { shiftOverrideParsed = {}; }
-    // Ca theo ngày (Lịch phân ca) + ngày lễ → xác định giờ vào chuẩn + có né phạt không
-    const [todaysAssignments, todayHoliday] = await Promise.all([
-      prisma.shiftAssignment.findMany({ where: { employeeId, date: today }, select: { shiftLabel: true, checkIn: true } }),
-      prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } }),
-    ]);
-    const shift = resolveShift({
-      now,
-      branchCheckInTime: employee.branch.checkInTime,
-      branchGracePeriod: employee.branch.gracePeriod,
-      shiftOverrideRaw: employee.shiftOverride,
-      todaysAssignments,
-      holiday: todayHoliday,
-    });
+    let shift: { checkInTime: string; gracePeriod: number; suppressPenalty: boolean; reason: "roster_off" | "holiday_no_penalty" | null };
+    if (sessionCfg) {
+      // Ca gãy nhiều buổi/ngày — dùng giờ riêng của buổi này; Lịch phân ca không áp dụng cho ca gãy
+      const todayHoliday = await prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } });
+      const holidayNoPenalty = !!(todayHoliday && !todayHoliday.penalizeLate);
+      shift = {
+        checkInTime: sessionCfg.checkInTime,
+        gracePeriod: sessionCfg.gracePeriod ?? employee.branch.gracePeriod,
+        suppressPenalty: holidayNoPenalty,
+        reason: holidayNoPenalty ? "holiday_no_penalty" : null,
+      };
+    } else {
+      // Ca theo ngày (Lịch phân ca) + ngày lễ → xác định giờ vào chuẩn + có né phạt không
+      const [todaysAssignments, todayHoliday] = await Promise.all([
+        prisma.shiftAssignment.findMany({ where: { employeeId, date: today }, select: { shiftLabel: true, checkIn: true } }),
+        prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } }),
+      ]);
+      shift = resolveShift({
+        now,
+        branchCheckInTime: employee.branch.checkInTime,
+        branchGracePeriod: employee.branch.gracePeriod,
+        shiftOverrideRaw: employee.shiftOverride,
+        todaysAssignments,
+        holiday: todayHoliday,
+      });
+    }
 
     // Resolve effective late-penalty rules: employee-custom or company-wide
     let effectiveLateRules: LateRule[];
@@ -222,6 +258,7 @@ export async function POST(req: NextRequest) {
         employeeId,
         branchId: employee.branchId,
         date: today,
+        session,
         checkInAt: now,
         status,
         minutesLate,
@@ -229,21 +266,22 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Cập nhật MonthlySummary
+    // Cập nhật MonthlySummary — daysPresent/daysLate chỉ tăng ở buổi ĐẦU TIÊN trong ngày
+    // (ca gãy 2 buổi không được tính thành 2 "ngày làm"), nhưng phút trễ/tiền phạt luôn cộng dồn.
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
     await prisma.monthlySummary.upsert({
       where: { employeeId_year_month: { employeeId, year, month } },
       create: {
         employeeId, year, month,
-        daysPresent: 1,
-        daysLate: minutesLate > 0 ? 1 : 0,
+        daysPresent: isFirstLogOfDay ? 1 : 0,
+        daysLate: isFirstLogOfDay && minutesLate > 0 ? 1 : 0,
         totalMinutesLate: minutesLate,
         totalPenalty: penaltyAmount,
       },
       update: {
-        daysPresent: { increment: 1 },
-        daysLate: { increment: minutesLate > 0 ? 1 : 0 },
+        ...(isFirstLogOfDay && { daysPresent: { increment: 1 } }),
+        ...(isFirstLogOfDay && minutesLate > 0 && { daysLate: { increment: 1 } }),
         totalMinutesLate: { increment: minutesLate },
         totalPenalty: { increment: penaltyAmount },
       },
@@ -258,7 +296,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ action: "check_in", status, minutesLate, penaltyAmount, message });
+    const prefixIn = sessionCfg ? `[${sessionCfg.label}] ` : "";
+    return NextResponse.json({ action: "check_in", status, minutesLate, penaltyAmount, message: prefixIn + message });
   } catch (error) {
     console.error("Face check-in error:", error);
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });

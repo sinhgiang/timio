@@ -148,6 +148,10 @@ model Employee {
   status          String  @default("active")
   faceDescriptors String? // JSON: number[][]  — stored face embeddings
   shiftOverride   String? // JSON: {checkInTime, checkOutTime, workDays, gracePeriod} — overrides branch defaults
+                          // Ca gãy 2 buổi/ngày (vd: sáng 8h-10h30, tối 16h-22h30): thêm field
+                          // sessions: [{label, checkInTime, checkOutTime, gracePeriod?}, ...] (>=2 phần tử).
+                          // Khi có sessions, checkInTime/checkOutTime ở trên KHÔNG dùng nữa — mỗi buổi
+                          // chấm công độc lập, xem AttendanceLog.session + lib/shiftResolve.ts
   email               String?   // Email cá nhân (nhận phiếu lương, thông báo)
   avatarUrl           String?   // base64 ảnh đại diện
   phone               String?   // Số điện thoại
@@ -221,6 +225,7 @@ model AttendanceLog {
   employeeId    String
   branchId      String
   date          String
+  session         String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
   checkInAt     DateTime?
   checkOutAt    DateTime?
   minutesLate     Int       @default(0)
@@ -235,7 +240,7 @@ model AttendanceLog {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch   Branch   @relation(fields: [branchId], references: [id])
 
-  @@unique([employeeId, date])
+  @@unique([employeeId, date, session])
 }
 
 model MonthlySummary {

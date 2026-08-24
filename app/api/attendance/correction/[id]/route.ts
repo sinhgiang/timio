@@ -33,8 +33,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     // Nếu duyệt → cập nhật AttendanceLog
     if (status === "approved") {
+      // Lưu ý: đơn sửa chấm công hiện chỉ nhắm dòng session "full" — NV ca gãy 2 buổi/ngày
+      // (Employee.shiftOverride.sessions, xem lib/shiftResolve.ts) cần sửa qua trang chấm công
+      // theo từng buổi.
       const log = await prisma.attendanceLog.findUnique({
-        where: { employeeId_date: { employeeId: correction.employeeId, date: correction.date } },
+        where: { employeeId_date_session: { employeeId: correction.employeeId, date: correction.date, session: "full" } },
       });
 
       const updateData: Record<string, unknown> = {};

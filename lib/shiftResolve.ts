@@ -62,3 +62,79 @@ export function resolveShift(p: {
 
   return { checkInTime, gracePeriod, suppressPenalty, reason };
 }
+
+// ─── Ca gãy nhiều buổi/ngày (vd: sáng 8h-10h30, tối 16h-22h30) ──────────────────
+// Chỉ áp dụng cho nhân viên có Employee.shiftOverride.sessions (mảng >=2 phần tử).
+// Với nhân viên bình thường (không có sessions), toàn bộ luồng check-in giữ NGUYÊN
+// hành vi cũ — các hàm dưới đây chỉ được gọi thêm khi parseShiftSessions() trả về non-null.
+
+export interface ShiftSession {
+  label: string; // "Sáng" | "Tối" | ... — hiển thị cho nhân viên biết đang chấm buổi nào
+  checkInTime: string; // HH:MM
+  checkOutTime: string; // HH:MM
+  gracePeriod?: number;
+}
+
+/** Đọc Employee.shiftOverride, trả về mảng sessions nếu nhân viên này là ca gãy nhiều buổi, ngược lại null. */
+export function parseShiftSessions(shiftOverrideRaw: string | null | undefined): ShiftSession[] | null {
+  if (!shiftOverrideRaw) return null;
+  try {
+    const ov = JSON.parse(shiftOverrideRaw) as { sessions?: ShiftSession[] };
+    if (Array.isArray(ov.sessions) && ov.sessions.length >= 2) {
+      const valid = ov.sessions.filter((s) => s && typeof s.checkInTime === "string" && typeof s.checkOutTime === "string");
+      if (valid.length >= 2) return valid;
+    }
+  } catch { /* not JSON / không có sessions */ }
+  return null;
+}
+
+function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * Chọn buổi (session) mà lần quét hiện tại nên tác động vào.
+ *  - Nếu mọi buổi đã xong (đủ check-in + check-out) → trả về buổi gần giờ hiện tại nhất,
+ *    để route báo "đã chấm công đủ hôm nay".
+ *  - Nếu đang có buổi dở dang (đã check-in, chưa check-out) → luôn cho phép check-out buổi đó
+ *    bất kể giờ nào (tránh nhân viên bị kẹt nếu ra trễ).
+ *  - Buổi CHƯA bắt đầu chỉ được chọn để check-in nếu giờ quét nằm trong khung [giờ vào - 2h, giờ ra + 2h] —
+ *    tránh quét nhầm giữa giờ nghỉ (vd 11h trưa, giữa buổi sáng và buổi tối) bị ghi nhận sai thành
+ *    check-in buổi tối. Trả về null nếu không có buổi nào hợp lý — route nên báo lỗi rõ ràng.
+ * Trả về index trong mảng `sessions` — dùng làm giá trị cột AttendanceLog.session (String(index)).
+ */
+export function pickActiveSession(
+  sessions: ShiftSession[],
+  now: Date,
+  logsBySessionKey: Map<string, { checkOutAt: Date | null }>
+): number | null {
+  const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const nowVNMinutes = Math.floor(((now.getTime() + VN_OFFSET_MS) % (24 * 60 * 60 * 1000)) / 60000);
+  const closest = (pool: number[]) => {
+    let best = pool[0];
+    let bestDiff = Math.abs(nowVNMinutes - hhmmToMinutes(sessions[best].checkInTime));
+    for (const i of pool) {
+      const diff = Math.abs(nowVNMinutes - hhmmToMinutes(sessions[i].checkInTime));
+      if (diff < bestDiff) { best = i; bestDiff = diff; }
+    }
+    return best;
+  };
+
+  const indices = sessions.map((_, i) => i);
+  const incomplete = indices.filter((i) => {
+    const log = logsBySessionKey.get(String(i));
+    return !log || !log.checkOutAt;
+  });
+  if (incomplete.length === 0) return closest(indices); // đã xong hết — báo "đủ hôm nay"
+
+  const WINDOW_MIN = 120;
+  const withinWindow = incomplete.filter((i) => {
+    if (logsBySessionKey.has(String(i))) return true; // đang dở dang (chờ check-out) — luôn hợp lệ
+    const inMin = hhmmToMinutes(sessions[i].checkInTime);
+    const outMin = hhmmToMinutes(sessions[i].checkOutTime);
+    return nowVNMinutes >= inMin - WINDOW_MIN && nowVNMinutes <= outMin + WINDOW_MIN;
+  });
+  if (withinWindow.length === 0) return null;
+  return closest(withinWindow);
+}

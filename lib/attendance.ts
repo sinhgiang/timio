@@ -145,11 +145,14 @@ export function calculateMonthlySummary({
   workDays,
   rewardRules,
 }: MonthlySummaryInput): MonthlySummaryResult {
+  // Đếm theo NGÀY duy nhất (Set), không đếm theo số dòng log — nhân viên ca gãy 2 buổi/ngày
+  // (xem lib/shiftResolve.ts) có 2 dòng AttendanceLog/ngày, đếm theo dòng sẽ tính khống gấp đôi
+  // số ngày làm/ngày trễ.
   const presentLogs = logs.filter((l) => l.status !== "absent" && l.checkInAt);
-  const daysPresent = presentLogs.length;
-  const daysLate = logs.filter(
-    (l) => l.status === "late" || l.status === "very_late"
-  ).length;
+  const daysPresent = new Set(presentLogs.map((l) => l.date)).size;
+  const daysLate = new Set(
+    logs.filter((l) => l.status === "late" || l.status === "very_late").map((l) => l.date)
+  ).size;
   const daysAbsent = workDays - daysPresent;
   const totalMinutesLate = logs.reduce((sum, l) => sum + l.minutesLate, 0);
   const totalPenalty = logs.reduce((sum, l) => sum + l.penaltyAmount, 0);

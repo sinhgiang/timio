@@ -62,6 +62,10 @@ interface ShiftOverride {
   useDefaultLate?: boolean;
   useDefaultEarlyLeave?: boolean;
   useDefaultBonus?: boolean;
+  // Ca gãy 2 buổi/ngày (vd: sáng 8h-10h30, nghỉ hẳn, tối 16h-22h30) — khi có mảng này,
+  // checkInTime/checkOutTime ở trên KHÔNG dùng để chấm công nữa (chỉ còn giữ để hiển thị
+  // khoảng giờ tổng quát). Xem lib/shiftResolve.ts (parseShiftSessions/pickActiveSession).
+  sessions?: Array<{ label: string; checkInTime: string; checkOutTime: string; gracePeriod?: number }>;
 }
 
 interface CompanyPenaltyRule { fromMinutes: number; toMinutes: number; amount: number; type: string; }
@@ -301,6 +305,11 @@ export default function EmployeesClient({
       checkOutTime: b?.checkOutTime ?? "17:00",
       workDays: b?.workDays ?? "1,2,3,4,5",
       gracePeriod: String(b?.gracePeriod ?? 5),
+      splitShift: false,
+      sessions: [
+        { label: "Sáng", checkInTime: "08:00", checkOutTime: "11:30" },
+        { label: "Tối", checkInTime: "13:30", checkOutTime: "17:00" },
+      ] as { label: string; checkInTime: string; checkOutTime: string }[],
       lateRules: [] as PenaltyRow[],
       earlyLeaveRules: [] as PenaltyRow[],
       perfectBonus: "",
@@ -405,6 +414,13 @@ export default function EmployeesClient({
       checkOutTime: ov?.checkOutTime ?? b?.checkOutTime ?? "17:00",
       workDays: ov?.workDays ?? b?.workDays ?? "1,2,3,4,5",
       gracePeriod: String(ov?.gracePeriod ?? b?.gracePeriod ?? 5),
+      splitShift: Array.isArray(ov?.sessions) && ov.sessions.length >= 2,
+      sessions: Array.isArray(ov?.sessions) && ov.sessions.length >= 2
+        ? ov.sessions.map((s) => ({ label: s.label, checkInTime: s.checkInTime, checkOutTime: s.checkOutTime }))
+        : [
+            { label: "Sáng", checkInTime: "08:00", checkOutTime: "11:30" },
+            { label: "Tối", checkInTime: "13:30", checkOutTime: "17:00" },
+          ],
       lateRules: (ov?.lateRules ?? []).map((r) => ({ minutes: String(r.minutes), amount: String(r.amount) })),
       earlyLeaveRules: (ov?.earlyLeaveRules ?? []).map((r) => ({ minutes: String(r.minutes), amount: String(r.amount) })),
       perfectBonus: ov?.perfectBonus ? String(ov.perfectBonus) : "",
@@ -468,10 +484,20 @@ export default function EmployeesClient({
         ? form.shiftCustomName || "Ca tùy chỉnh"
         : form.shiftPreset;
 
+    // Ca gãy 2 buổi/ngày — sáng 1 khối, tối 1 khối, nghỉ hẳn giữa ca (không phải giờ nghỉ trưa).
+    // Khi bật, checkInTime/checkOutTime top-level chỉ còn để hiển thị khoảng giờ tổng quát
+    // (giờ vào buổi đầu → giờ ra buổi cuối) — chấm công thật sự dùng ov.sessions,
+    // xem lib/shiftResolve.ts.
+    const validSessions = form.splitShift
+      ? form.sessions
+          .filter((s) => s.checkInTime && s.checkOutTime)
+          .map((s, i) => ({ label: s.label.trim() || (i === 0 ? "Sáng" : "Tối"), checkInTime: s.checkInTime, checkOutTime: s.checkOutTime, gracePeriod: Number(form.gracePeriod) }))
+      : [];
+
     const shiftOverride: ShiftOverride = {
       name: finalShiftName,
-      checkInTime: form.checkInTime,
-      checkOutTime: form.checkOutTime,
+      checkInTime: validSessions.length >= 2 ? validSessions[0].checkInTime : form.checkInTime,
+      checkOutTime: validSessions.length >= 2 ? validSessions[validSessions.length - 1].checkOutTime : form.checkOutTime,
       workDays: form.workDays,
       gracePeriod: Number(form.gracePeriod),
       useDefaultLate: form.useDefaultLate,
@@ -480,6 +506,7 @@ export default function EmployeesClient({
       lateRules: form.lateRules.filter((r) => r.minutes && r.amount).map((r) => ({ minutes: Number(r.minutes), amount: Number(r.amount) })),
       earlyLeaveRules: form.earlyLeaveRules.filter((r) => r.minutes && r.amount).map((r) => ({ minutes: Number(r.minutes), amount: Number(r.amount) })),
       perfectBonus: form.perfectBonus ? Number(form.perfectBonus) : undefined,
+      ...(validSessions.length >= 2 && { sessions: validSessions }),
     };
 
     const url = editingId ? `/api/employees/${editingId}` : "/api/employees";
@@ -1152,8 +1179,22 @@ export default function EmployeesClient({
                   <div className="bg-gray-50/70 rounded-xl p-4 space-y-4">
                     <label className="block text-sm font-semibold text-gray-700">Lịch làm việc</label>
 
+                    {/* Toggle ca gãy 2 buổi/ngày */}
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none bg-white/70 border border-gray-200 rounded-lg px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={form.splitShift}
+                        onChange={(e) => setForm((f) => ({ ...f, splitShift: e.target.checked }))}
+                        className="w-4 h-4 mt-0.5 rounded accent-blue-600"
+                      />
+                      <span>
+                        <span className="block text-sm text-gray-700 font-medium">Ca gãy — 2 buổi/ngày</span>
+                        <span className="block text-xs text-gray-400">Nghỉ hẳn giữa ca (vd sáng 8h–10h30, tối 16h–22h30) — khác giờ nghỉ trưa thông thường</span>
+                      </span>
+                    </label>
+
                     {/* Shift preset buttons */}
-                    <div className="flex flex-wrap gap-2">
+                    {!form.splitShift && <div className="flex flex-wrap gap-2">
                       {SHIFT_QUICK.map((p) => (
                         <button
                           key={p.name}
@@ -1195,10 +1236,10 @@ export default function EmployeesClient({
                       >
                         ✎ Tự đặt tên
                       </button>
-                    </div>
+                    </div>}
 
                     {/* Custom shift name input + Lưu button */}
-                    {form.shiftPreset === CUSTOM_SHIFT && (
+                    {!form.splitShift && form.shiftPreset === CUSTOM_SHIFT && (
                       <div className="flex gap-2">
                         <input
                           autoFocus
@@ -1226,7 +1267,7 @@ export default function EmployeesClient({
                     )}
 
                     {/* Time fields */}
-                    <div className="grid grid-cols-3 gap-3">
+                    {!form.splitShift && <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Giờ vào</label>
                         <input type="time" value={form.checkInTime} onChange={(e) => setForm({ ...form, checkInTime: e.target.value })} className="w-full px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
@@ -1239,7 +1280,49 @@ export default function EmployeesClient({
                         <label className="block text-xs font-medium text-gray-500 mb-1">Cho phép trễ (phút)</label>
                         <input type="number" min="0" max="60" value={form.gracePeriod} onChange={(e) => setForm({ ...form, gracePeriod: e.target.value })} className="w-full px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                       </div>
-                    </div>
+                    </div>}
+
+                    {/* Ca gãy — 2 buổi/ngày: mỗi buổi 1 khối giờ vào/ra riêng, cách nhau 1 khoảng nghỉ hẳn */}
+                    {form.splitShift && (
+                      <div className="space-y-2.5">
+                        {form.sessions.map((s, i) => (
+                          <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 items-end bg-white/70 border border-gray-200 rounded-lg p-2.5">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Tên buổi {i + 1}</label>
+                              <input
+                                value={s.label}
+                                onChange={(e) => setForm((f) => { const arr = [...f.sessions]; arr[i] = { ...arr[i], label: e.target.value }; return { ...f, sessions: arr }; })}
+                                placeholder={i === 0 ? "Sáng" : "Tối"}
+                                className="w-full px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Giờ vào</label>
+                              <input
+                                type="time" value={s.checkInTime}
+                                onChange={(e) => setForm((f) => { const arr = [...f.sessions]; arr[i] = { ...arr[i], checkInTime: e.target.value }; return { ...f, sessions: arr }; })}
+                                className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Giờ ra</label>
+                              <input
+                                type="time" value={s.checkOutTime}
+                                onChange={(e) => setForm((f) => { const arr = [...f.sessions]; arr[i] = { ...arr[i], checkOutTime: e.target.value }; return { ...f, sessions: arr }; })}
+                                className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        <div className="w-40">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Cho phép trễ (phút) — cả 2 buổi</label>
+                          <input type="number" min="0" max="60" value={form.gracePeriod} onChange={(e) => setForm({ ...form, gracePeriod: e.target.value })} className="w-full px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                        </div>
+                        <p className="text-xs text-blue-500 bg-blue-50/70 rounded-lg px-3 py-2">
+                          Nhân viên sẽ chấm công riêng cho từng buổi (vào + ra). Máy tự nhận buổi nào đang tới dựa trên giờ quét — quét giữa 2 buổi (lúc đang nghỉ) sẽ báo &quot;chưa đến giờ&quot; thay vì ghi nhầm.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Work days */}
                     <div>
@@ -1260,7 +1343,9 @@ export default function EmployeesClient({
                         })}
                       </div>
                       <p className="text-xs text-gray-400 mt-1">
-                        {parseWorkDays(form.workDays).length} ngày/tuần · {form.checkInTime}–{form.checkOutTime}
+                        {parseWorkDays(form.workDays).length} ngày/tuần · {form.splitShift
+                          ? form.sessions.map((s) => `${s.label || "?"} ${s.checkInTime}–${s.checkOutTime}`).join(" · ")
+                          : `${form.checkInTime}–${form.checkOutTime}`}
                         {selectedBranch && !isNewBranch && ` · Chi nhánh: ${selectedBranch.name}`}
                       </p>
                     </div>
@@ -1513,7 +1598,11 @@ export default function EmployeesClient({
             {[...activeEmployees, ...inactiveEmployees].map((emp) => {
               const ov: ShiftOverride | null = emp.shiftOverride ? JSON.parse(emp.shiftOverride) : null;
               const shiftName = ov?.name ?? null;
-              const shiftTime = ov ? `${ov.checkInTime}–${ov.checkOutTime}` : null;
+              const shiftTime = ov
+                ? (Array.isArray(ov.sessions) && ov.sessions.length >= 2
+                    ? ov.sessions.map((s) => `${s.label} ${s.checkInTime}–${s.checkOutTime}`).join(" · ")
+                    : `${ov.checkInTime}–${ov.checkOutTime}`)
+                : null;
               return (
                 <tr key={emp.id} className="hover:bg-gray-50/60 transition-colors">
                   {/* Col 1: Nhân viên */}

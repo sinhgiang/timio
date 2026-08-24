@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { resolveShift } from "@/lib/shiftResolve";
+import { resolveShift, parseShiftSessions, pickActiveSession } from "@/lib/shiftResolve";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -77,20 +77,50 @@ export async function POST(req: Request) {
     const todayStr = vnNow.toISOString().slice(0, 10);
     const timeStr = vnNow.toISOString().slice(11, 16); // HH:MM
 
+    // Ca gãy nhiều buổi/ngày (vd sáng + tối) — xem lib/shiftResolve.ts.
+    const sessions = parseShiftSessions(employee.shiftOverride);
+    let session = "full";
+    let sessionLabel: string | null = null;
+    if (sessions) {
+      const todaysLogs = await prisma.attendanceLog.findMany({ where: { employeeId: employee.id, date: todayStr } });
+      const logsBySessionKey = new Map(todaysLogs.map((l) => [l.session, { checkOutAt: l.checkOutAt }]));
+      const idx = pickActiveSession(sessions, now, logsBySessionKey);
+      if (idx === null) {
+        const list = sessions.map((s) => `${s.label} ${s.checkInTime}–${s.checkOutTime}`).join(", ");
+        return NextResponse.json({ error: `Chưa đến giờ chấm công. Ca hôm nay: ${list}` }, { status: 400 });
+      }
+      session = String(idx);
+      sessionLabel = sessions[idx].label;
+    }
+    const sessionCfg = sessions ? sessions[Number(session)] : null;
+
     if (action === "checkin") {
-      // Ca theo ngày (Lịch phân ca) + ngày lễ → giờ vào chuẩn + né phạt
-      const [todaysAssignments, todayHoliday] = await Promise.all([
-        prisma.shiftAssignment.findMany({ where: { employeeId: employee.id, date: todayStr }, select: { shiftLabel: true, checkIn: true } }),
-        prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: todayStr }, select: { penalizeLate: true } }),
-      ]);
-      const shift = resolveShift({
-        now,
-        branchCheckInTime: branch.checkInTime,
-        branchGracePeriod: branch.gracePeriod,
-        shiftOverrideRaw: employee.shiftOverride,
-        todaysAssignments,
-        holiday: todayHoliday,
-      });
+      let shift: { checkInTime: string; gracePeriod: number; suppressPenalty: boolean; reason: "roster_off" | "holiday_no_penalty" | null };
+      if (sessionCfg) {
+        // Ca gãy nhiều buổi/ngày — dùng giờ riêng của buổi này; Lịch phân ca không áp dụng cho ca gãy
+        const todayHoliday = await prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: todayStr }, select: { penalizeLate: true } });
+        const holidayNoPenalty = !!(todayHoliday && !todayHoliday.penalizeLate);
+        shift = {
+          checkInTime: sessionCfg.checkInTime,
+          gracePeriod: sessionCfg.gracePeriod ?? branch.gracePeriod,
+          suppressPenalty: holidayNoPenalty,
+          reason: holidayNoPenalty ? "holiday_no_penalty" : null,
+        };
+      } else {
+        // Ca theo ngày (Lịch phân ca) + ngày lễ → giờ vào chuẩn + né phạt
+        const [todaysAssignments, todayHoliday] = await Promise.all([
+          prisma.shiftAssignment.findMany({ where: { employeeId: employee.id, date: todayStr }, select: { shiftLabel: true, checkIn: true } }),
+          prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: todayStr }, select: { penalizeLate: true } }),
+        ]);
+        shift = resolveShift({
+          now,
+          branchCheckInTime: branch.checkInTime,
+          branchGracePeriod: branch.gracePeriod,
+          shiftOverrideRaw: employee.shiftOverride,
+          todaysAssignments,
+          holiday: todayHoliday,
+        });
+      }
 
       // Calculate late minutes theo giờ ca đã resolve
       const [ciH, ciM] = shift.checkInTime.split(":").map(Number);
@@ -103,12 +133,13 @@ export async function POST(req: Request) {
       if (shift.suppressPenalty) { minutesLate = 0; statusVal = "on_time"; }
 
       await prisma.attendanceLog.upsert({
-        where: { employeeId_date: { employeeId: employee.id, date: todayStr } },
+        where: { employeeId_date_session: { employeeId: employee.id, date: todayStr, session } },
         update: { checkInAt: now, minutesLate, status: statusVal },
         create: {
           employeeId: employee.id,
           branchId: branch.id,
           date: todayStr,
+          session,
           checkInAt: now,
           minutesLate,
           status: statusVal,
@@ -119,13 +150,13 @@ export async function POST(req: Request) {
       const statusLabel = statusVal === "on_time" ? "Đúng giờ ✓" : minutesLate > 30 ? `Trễ nhiều (${minutesLate} phút)` : `Đi trễ ${minutesLate} phút`;
       return NextResponse.json({
         name: employee.name,
-        status: statusLabel,
+        status: (sessionLabel ? `[${sessionLabel}] ` : "") + statusLabel,
         time: `Check-in lúc ${timeStr}`,
       });
     } else {
       // Checkout
       const log = await prisma.attendanceLog.findUnique({
-        where: { employeeId_date: { employeeId: employee.id, date: todayStr } },
+        where: { employeeId_date_session: { employeeId: employee.id, date: todayStr, session } },
       });
       if (!log) {
         return NextResponse.json({ error: "Bạn chưa check-in hôm nay" }, { status: 400 });
@@ -138,7 +169,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         name: employee.name,
-        status: "Đã check-out ✓",
+        status: (sessionLabel ? `[${sessionLabel}] ` : "") + "Đã check-out ✓",
         time: `Check-out lúc ${timeStr}`,
       });
     }
