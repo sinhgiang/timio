@@ -18,7 +18,9 @@ const SHIFT_QUICK = [
   { name: "Ca sáng",       checkInTime: "07:00", checkOutTime: "12:00", workDays: "1,2,3,4,5,6",   gracePeriod: 5  },
   { name: "Ca chiều",      checkInTime: "13:00", checkOutTime: "18:00", workDays: "1,2,3,4,5,6",   gracePeriod: 5  },
   { name: "Ca tối",        checkInTime: "18:00", checkOutTime: "23:00", workDays: "1,2,3,4,5,6,0", gracePeriod: 10 },
-  { name: "Ca gãy",        checkInTime: "07:30", checkOutTime: "17:30", workDays: "1,2,3,4,5",     gracePeriod: 5  },
+  // Đổi tên (khác "Ca gãy — 2 buổi/ngày" ở dưới) để tránh trùng tên với tính năng ca gãy thật
+  // (splitShift/sessions) — preset này vẫn chỉ là 1 khoảng giờ vào/ra, không tách buổi.
+  { name: "Ca giờ hành chính dài", checkInTime: "07:30", checkOutTime: "17:30", workDays: "1,2,3,4,5", gracePeriod: 5  },
   { name: "Ca đêm",        checkInTime: "22:00", checkOutTime: "06:00", workDays: "1,2,3,4,5,6",   gracePeriod: 10 },
 ];
 const CUSTOM_SHIFT = "__custom__";
@@ -184,6 +186,13 @@ export default function EmployeesClient({
       setWorkerInvite({ name: emp.name, loading: false, link, qrUrl, phone: data.phone });
     } catch { setWorkerInvite({ name: emp.name, loading: false, error: "Lỗi kết nối." }); }
   };
+  // Bản sao local của danh sách nhân viên — KHÔNG đọc thẳng `employees` (prop) khi render/sửa.
+  // Lý do: router.refresh() sau khi lưu chạy nền (fetch RSC payload mới), không có gì đảm bảo
+  // nó xong TRƯỚC khi người dùng bấm "Sửa" lại ngay nhân viên vừa lưu — nếu đọc `employees`
+  // (prop cũ) lúc đó, form sẽ hiện lại dữ liệu CŨ (vd: mất "Ca gãy 2 buổi/ngày" vừa cấu hình)
+  // dù DB đã lưu đúng. Nên: cập nhật localEmployees NGAY bằng data trả về từ API lúc lưu
+  // (xem handleSubmit), còn router.refresh() vẫn giữ để đồng bộ nền cho các trường khác.
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
   const [localBranches, setLocalBranches] = useState<Branch[]>(branches);
   const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
   const [localPositions, setLocalPositions] = useState<string[]>(allPositions);
@@ -337,6 +346,7 @@ export default function EmployeesClient({
   const [form, setForm] = useState(makeDefaultForm);
 
   useEffect(() => { setLocalBranches(branches); }, [branches]);
+  useEffect(() => { setLocalEmployees(employees); }, [employees]);
 
   const selectedBranch = localBranches.find(
     (b) => b.name.toLowerCase() === form.branchName.toLowerCase()
@@ -537,13 +547,52 @@ export default function EmployeesClient({
       }),
     });
 
+    const saved = (await res.json()) as Record<string, unknown>;
+
     setLoading(false);
     setShowForm(false);
     resetForm();
 
-    if (!editingId) {
-      const created = (await res.json()) as { id?: string };
-      if (created?.id) setFaceTarget({ id: created.id, name: employeeName });
+    // Cập nhật localEmployees NGAY bằng data server vừa trả về (xem giải thích ở khai báo
+    // localEmployees phía trên) — không đợi router.refresh(), để mở "Sửa" lại nhân viên này
+    // ngay sau khi lưu luôn thấy đúng cấu hình vừa lưu (vd: ca gãy 2 buổi/ngày không bị mất).
+    if (res.ok && typeof saved?.id === "string") {
+      const clientEmployee: Employee = {
+        id: saved.id,
+        name: saved.name as string,
+        code: saved.code as string,
+        department: (saved.department as string | null) ?? null,
+        position: (saved.position as string | null) ?? null,
+        status: saved.status as string,
+        branchId: saved.branchId as string,
+        branchName: matched?.name ?? form.branchName.trim(),
+        shiftOverride: (saved.shiftOverride as string | null) ?? null,
+        hasFace: !!saved.faceDescriptors,
+        pin: (saved.pin as string | null) ?? null,
+        createdAt: saved.createdAt as string,
+        baseSalary: (saved.baseSalary as number | null) ?? null,
+        joinDate: (saved.joinDate as string | null) ?? null,
+        dateOfBirth: (saved.dateOfBirth as string | null) ?? null,
+        email: (saved.email as string | null) ?? null,
+        avatarUrl: (saved.avatarUrl as string | null) ?? null,
+        phone: (saved.phone as string | null) ?? null,
+        zalo: (saved.zalo as string | null) ?? null,
+        facebook: (saved.facebook as string | null) ?? null,
+        cccd: (saved.cccd as string | null) ?? null,
+        bankName: (saved.bankName as string | null) ?? null,
+        bankAccount: (saved.bankAccount as string | null) ?? null,
+        bankBranch: (saved.bankBranch as string | null) ?? null,
+        annualLeaveBalance: (saved.annualLeaveBalance as number) ?? 12,
+        allowancesJson: (saved.allowancesJson as string | null) ?? null,
+      };
+      setLocalEmployees((prev) => {
+        const exists = prev.some((e) => e.id === clientEmployee.id);
+        const next = exists
+          ? prev.map((e) => (e.id === clientEmployee.id ? clientEmployee : e))
+          : [...prev, clientEmployee];
+        return next.sort((a, b) => a.name.localeCompare(b.name, "vi"));
+      });
+      if (!editingId) setFaceTarget({ id: clientEmployee.id, name: employeeName });
     }
 
     router.refresh();
@@ -605,9 +654,9 @@ export default function EmployeesClient({
     setQrLoading(false);
   };
 
-  const activeEmployees = employees.filter((e) => e.status === "active");
-  const inactiveEmployees = employees.filter((e) => e.status !== "active");
-  const registeredCount = employees.filter((e) => e.hasFace).length;
+  const activeEmployees = localEmployees.filter((e) => e.status === "active");
+  const inactiveEmployees = localEmployees.filter((e) => e.status !== "active");
+  const registeredCount = localEmployees.filter((e) => e.hasFace).length;
   const isNewBranch =
     form.branchName.trim() !== "" &&
     !localBranches.some((b) => b.name.toLowerCase() === form.branchName.trim().toLowerCase());
@@ -732,7 +781,7 @@ export default function EmployeesClient({
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Nhân viên</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            {activeEmployees.length} đang làm · {registeredCount}/{employees.length} đã đăng ký khuôn mặt
+            {activeEmployees.length} đang làm · {registeredCount}/{localEmployees.length} đã đăng ký khuôn mặt
           </p>
         </div>
         <div className="flex gap-2">
@@ -1574,7 +1623,7 @@ export default function EmployeesClient({
         </div>
       )}
 
-      {registeredCount === 0 && employees.length > 0 && (
+      {registeredCount === 0 && localEmployees.length > 0 && (
         <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
           <span className="text-yellow-500 text-xl">⚠️</span>
           <div>
@@ -1773,7 +1822,7 @@ export default function EmployeesClient({
                 </tr>
               );
             })}
-            {employees.length === 0 && (
+            {localEmployees.length === 0 && (
               <tr><td colSpan={4} className="text-center py-10 text-gray-400">Chưa có nhân viên nào. Thêm nhân viên đầu tiên!</td></tr>
             )}
           </tbody>
