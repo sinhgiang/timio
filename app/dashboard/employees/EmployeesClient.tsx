@@ -58,8 +58,6 @@ function addMinutesToTime(hhmm: string, minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-const OT_BUFFER_PRESETS = [15, 30, 45, 60, 90];
-
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface PenaltyRow { minutes: string; amount: string; }
@@ -86,11 +84,14 @@ interface ShiftOverride {
   dayOverrides?: Array<{ day: number; checkInTime: string; checkOutTime: string; gracePeriod?: number }>;
   // Tăng ca riêng theo nhân viên (26/8/2026) — mặc định otEnabled=false: nhân viên KHÔNG được
   // tính tăng ca cho tới khi khai báo bật lên. Khi bật, useDefaultOt=true dùng ngưỡng phút chung
-  // của công ty (Cài đặt → Cấu hình tăng ca); false thì dùng otBufferMinutes riêng cho người này.
-  // Xem lib/overtime.ts (resolveOvertimeMinMinutes) — nơi 3 route check-out đọc lại field này.
+  // của công ty (Cài đặt → Cấu hình tăng ca, mở — không chặn trần); false thì khai báo TRỰC TIẾP
+  // giờ tăng ca bắt đầu/kết thúc riêng cho người này (giống hệt giờ vào/ra của 1 ca thật) — otEndTime
+  // bỏ trống = mở (tính theo giờ chấm ra thật), có giá trị = chặn trần ("tăng ca có kiểm soát").
+  // Xem lib/overtime.ts (resolveOvertimeThreshold) — nơi 3 route check-out đọc lại field này.
   otEnabled?: boolean;
   useDefaultOt?: boolean;
-  otBufferMinutes?: number;
+  otStartTime?: string;
+  otEndTime?: string;
 }
 
 interface CompanyPenaltyRule { fromMinutes: number; toMinutes: number; amount: number; type: string; }
@@ -355,7 +356,8 @@ export default function EmployeesClient({
       // Tăng ca — mặc định TẮT (nhân viên mới khai báo chưa chắc có tăng ca).
       otEnabled: false,
       useDefaultOt: true,
-      otBufferMinutes: "",
+      otStartTime: "",
+      otEndTime: "",
       baseSalary: "",
       joinDate: "",
       dateOfBirth: "",
@@ -473,7 +475,8 @@ export default function EmployeesClient({
       useDefaultBonus: ov?.useDefaultBonus !== false,
       otEnabled: ov?.otEnabled === true,
       useDefaultOt: ov?.useDefaultOt !== false,
-      otBufferMinutes: ov?.otBufferMinutes != null ? String(ov.otBufferMinutes) : "",
+      otStartTime: ov?.otStartTime ?? "",
+      otEndTime: ov?.otEndTime ?? "",
       baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
       dateOfBirth: emp.dateOfBirth ?? "",
@@ -565,7 +568,8 @@ export default function EmployeesClient({
       perfectBonus: form.perfectBonus ? Number(form.perfectBonus) : undefined,
       otEnabled: form.otEnabled,
       useDefaultOt: form.useDefaultOt,
-      ...(form.otEnabled && form.useDefaultOt === false && form.otBufferMinutes !== "" && { otBufferMinutes: Number(form.otBufferMinutes) }),
+      ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && { otStartTime: form.otStartTime }),
+      ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && form.otEndTime && { otEndTime: form.otEndTime }),
       ...(validSessions.length >= 2 && { sessions: validSessions }),
       ...(validDayOverrides.length > 0 && { dayOverrides: validDayOverrides }),
     };
@@ -1722,7 +1726,18 @@ export default function EmployeesClient({
                           <input
                             type="checkbox"
                             checked={form.useDefaultOt}
-                            onChange={(e) => setForm((f) => ({ ...f, useDefaultOt: e.target.checked }))}
+                            onChange={(e) => setForm((f) => {
+                              const turningOff = f.useDefaultOt && !e.target.checked;
+                              return {
+                                ...f,
+                                useDefaultOt: e.target.checked,
+                                // Bỏ tick "dùng mặc định" lần đầu → gợi ý sẵn giờ bắt đầu tăng ca theo
+                                // ngưỡng công ty, để bạn chỉnh tiếp thay vì phải gõ từ đầu.
+                                otStartTime: turningOff && !f.otStartTime
+                                  ? addMinutesToTime(f.checkOutTime || "17:30", companyOvertimeMinMinutes)
+                                  : f.otStartTime,
+                              };
+                            })}
                             className="w-4 h-4 rounded accent-teal-500"
                           />
                           <span className="text-sm text-gray-600 font-medium">Dùng cấu hình mặc định của công ty</span>
@@ -1732,41 +1747,39 @@ export default function EmployeesClient({
                           <p className="text-xs bg-white/80 rounded-lg px-3 py-2 border border-teal-100 text-gray-500">
                             Công ty: tính tăng ca khi ra muộn hơn giờ tan ca trên <b>{companyOvertimeMinMinutes} phút</b>
                             {" "}→ với ca này, tăng ca bắt đầu tính từ{" "}
-                            <b className="text-teal-700">{addMinutesToTime(form.checkInTime && form.checkOutTime ? form.checkOutTime : "17:30", companyOvertimeMinMinutes)}</b>.{" "}
+                            <b className="text-teal-700">{addMinutesToTime(form.checkOutTime || "17:30", companyOvertimeMinMinutes)}</b>, không giới hạn giờ ra.{" "}
                             <a href="/dashboard/settings?tab=penalty" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-teal-700">
                               Đổi ở Cài đặt ↗
                             </a>
                           </p>
                         ) : (
                           <div className="space-y-2">
-                            <p className="text-xs text-gray-400">Khoảng nghỉ sau giờ tan ca, trước khi tính tăng ca riêng cho nhân viên này:</p>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {OT_BUFFER_PRESETS.map((m) => (
-                                <button
-                                  key={m}
-                                  type="button"
-                                  onClick={() => setForm((f) => ({ ...f, otBufferMinutes: String(m) }))}
-                                  className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors ${
-                                    form.otBufferMinutes === String(m)
-                                      ? "bg-teal-600 text-white border-teal-600"
-                                      : "bg-white text-gray-500 border-gray-200 hover:border-teal-300"
-                                  }`}
-                                >
-                                  {m} phút
-                                </button>
-                              ))}
-                              <input
-                                type="number" min={0} max={240}
-                                value={form.otBufferMinutes}
-                                onChange={(e) => setForm((f) => ({ ...f, otBufferMinutes: e.target.value }))}
-                                placeholder="Khác"
-                                className="w-20 px-2 py-1.5 border border-teal-200 bg-white rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-300"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Giờ vào tăng ca</label>
+                                <input
+                                  type="time"
+                                  value={form.otStartTime}
+                                  onChange={(e) => setForm((f) => ({ ...f, otStartTime: e.target.value }))}
+                                  className="w-full px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Giờ ra tăng ca (không bắt buộc)</label>
+                                <input
+                                  type="time"
+                                  value={form.otEndTime}
+                                  onChange={(e) => setForm((f) => ({ ...f, otEndTime: e.target.value }))}
+                                  className="w-full px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
+                                />
+                              </div>
                             </div>
                             <p className="text-xs text-teal-700 bg-white/80 rounded-lg px-3 py-2 border border-teal-100">
-                              Tăng ca bắt đầu tính từ{" "}
-                              <b>{addMinutesToTime(form.checkOutTime || "17:30", Number(form.otBufferMinutes) || 0)}</b>
-                              {" "}(giờ tan ca {form.checkOutTime || "17:30"} + {Number(form.otBufferMinutes) || 0} phút nghỉ). Ra trước mốc này không tính là tăng ca.
+                              {form.otStartTime ? (
+                                <>Tăng ca chỉ tính từ <b>{form.otStartTime}</b> trở đi — ra trước mốc này không tính là tăng ca (kể cả đã muộn hơn giờ tan ca {form.checkOutTime || "?"}, khoảng giữa xem như giờ nghỉ).
+                                  {form.otEndTime && <> Tối đa tính đến <b>{form.otEndTime}</b> — ra muộn hơn nữa cũng không tính thêm (tăng ca có kiểm soát).</>}
+                                </>
+                              ) : "Nhập giờ vào tăng ca để bắt đầu tính."}
                             </p>
                           </div>
                         )}

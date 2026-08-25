@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
-import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeMinMinutes, type EmployeeOvertimeOverride } from "@/lib/overtime";
+import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeThreshold, type EmployeeOvertimeOverride } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
@@ -137,13 +137,13 @@ export async function POST(req: NextRequest) {
       const dayOfWeek = now.getDay(); // 0=CN, 6=T7
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       // Chỉ tính tăng ca nếu nhân viên này đã được BẬT tăng ca khi khai báo (mặc định TẮT —
-      // xem lib/overtime.ts resolveOvertimeMinMinutes). null = không tính, dù ra muộn bao nhiêu.
-      const otMinMinutes = resolveOvertimeMinMinutes(overtimeCfg, shiftData);
-      const { minutesOvertime, overtimeAmount } = otMinMinutes === null
+      // xem lib/overtime.ts resolveOvertimeThreshold). null = không tính, dù ra muộn bao nhiêu.
+      const otThreshold = resolveOvertimeThreshold(overtimeCfg, shiftData, checkOutTime);
+      const { minutesOvertime, overtimeAmount } = otThreshold === null
         ? { minutesOvertime: 0, overtimeAmount: 0 }
         : computeCheckoutOvertime(
-            coMinutesDiff, { ...overtimeCfg, minMinutes: otMinMinutes },
-            employee.baseSalary, employee.branch.standardWorkDays, isWeekend
+            coMinutesDiff, overtimeCfg,
+            employee.baseSalary, employee.branch.standardWorkDays, isWeekend, otThreshold
           );
 
       // Ra sớm: phạt nếu checkout trước giờ tan ca
