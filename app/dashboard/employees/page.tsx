@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import EmployeesClient from "./EmployeesClient";
 import { DEPARTMENT_PRESETS, POSITION_PRESETS } from "@/lib/presets";
+import { sanitizeOvertimeConfig } from "@/lib/overtime";
 
 export default async function EmployeesPage() {
   const session = await getServerSession(authOptions);
@@ -22,7 +23,7 @@ export default async function EmployeesPage() {
       where: { companyId, ...(scopedBranchId ? { id: scopedBranchId } : {}) },
       orderBy: { name: "asc" },
     }),
-    prisma.company.findUnique({ where: { id: companyId }, select: { customOptions: true } }),
+    prisma.company.findUnique({ where: { id: companyId }, select: { customOptions: true, overtimeRates: true } }),
     prisma.penaltyRule.findMany({ where: { companyId }, orderBy: { fromMinutes: "asc" } }),
     prisma.rewardRule.findMany({ where: { companyId } }),
   ]);
@@ -37,6 +38,10 @@ export default async function EmployeesPage() {
   const allDepartments = Array.from(new Set([...(savedOpts.departments ?? []), ...DEPARTMENT_PRESETS, ...usedDepts]));
   const allPositions = Array.from(new Set([...(savedOpts.positions ?? []), ...POSITION_PRESETS, ...usedPositions]));
   const savedShifts = savedOpts.shifts ?? [];
+
+  const companyOvertimeMinMinutes = sanitizeOvertimeConfig(
+    company?.overtimeRates ? JSON.parse(company.overtimeRates) : null
+  ).minMinutes;
 
   return (
     <EmployeesClient
@@ -82,6 +87,7 @@ export default async function EmployeesPage() {
       companyId={companyId}
       penaltyRules={penaltyRules.map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount, type: r.type }))}
       rewardRules={rewardRules.map((r) => ({ id: r.id, condition: r.condition, amount: r.amount, label: r.label }))}
+      companyOvertimeMinMinutes={companyOvertimeMinMinutes}
     />
   );
 }

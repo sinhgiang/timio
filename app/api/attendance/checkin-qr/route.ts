@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
-import { computeCheckoutOvertime, sanitizeOvertimeConfig } from "@/lib/overtime";
+import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeMinMinutes, type EmployeeOvertimeOverride } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       }
       // Check-out
       const shiftOut = employee.shiftOverride
-        ? (JSON.parse(employee.shiftOverride) as { checkOutTime?: string })
+        ? (JSON.parse(employee.shiftOverride) as { checkOutTime?: string } & EmployeeOvertimeOverride)
         : {};
       const checkOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftOut.checkOutTime ?? employee.branch.checkOutTime;
       const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? employee.branch.gracePeriod ?? 5;
@@ -129,9 +129,14 @@ export async function POST(req: NextRequest) {
         employee.company.overtimeRates ? JSON.parse(employee.company.overtimeRates) : null
       );
       const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-      const { minutesOvertime, overtimeAmount } = computeCheckoutOvertime(
-        coMinutesDiff, overtimeCfg, employee.baseSalary, employee.branch.standardWorkDays, isWeekend
-      );
+      // Chỉ tính tăng ca nếu nhân viên này đã BẬT tăng ca khi khai báo (mặc định TẮT).
+      const otMinMinutes = resolveOvertimeMinMinutes(overtimeCfg, shiftOut);
+      const { minutesOvertime, overtimeAmount } = otMinMinutes === null
+        ? { minutesOvertime: 0, overtimeAmount: 0 }
+        : computeCheckoutOvertime(
+            coMinutesDiff, { ...overtimeCfg, minMinutes: otMinMinutes },
+            employee.baseSalary, employee.branch.standardWorkDays, isWeekend
+          );
 
       const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
       let earlyLeavePenalty = 0;

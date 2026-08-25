@@ -33,6 +33,32 @@ export interface OvertimeComputeResult {
   overtimeAmount: number;
 }
 
+// Cấu hình tăng ca RIÊNG theo từng nhân viên (lưu trong Employee.shiftOverride JSON, cạnh
+// checkInTime/checkOutTime/lateRules...) — thêm 26/8/2026 theo yêu cầu: khai báo ngay lúc tạo/sửa
+// nhân viên xem người này CÓ tăng ca không, và giờ tăng ca "thật" bắt đầu tính từ đâu (thường là
+// giờ tan ca + 1 khoảng nghỉ, vd tan ca 17:30 + nghỉ 60 phút = tăng ca tính từ 18:30).
+// Mặc định otEnabled=false — nhân viên KHÔNG được tính tăng ca cho tới khi admin bật lên.
+export interface EmployeeOvertimeOverride {
+  otEnabled?: boolean; // nhân viên này có được tính tăng ca không — mặc định false
+  useDefaultOt?: boolean; // true (mặc định) = dùng ngưỡng phút chung của công ty; false = dùng otBufferMinutes riêng
+  otBufferMinutes?: number; // ngưỡng phút riêng (chỉ áp dụng khi useDefaultOt === false)
+}
+
+/**
+ * Trả về ngưỡng phút tối thiểu để tính tăng ca cho 1 nhân viên cụ thể, hoặc `null` nếu nhân viên
+ * này chưa bật tăng ca (otEnabled !== true) — khi đó KHÔNG tính tăng ca dù ra muộn bao nhiêu.
+ */
+export function resolveOvertimeMinMinutes(
+  companyCfg: OvertimeConfig,
+  employeeOverride: EmployeeOvertimeOverride | null | undefined
+): number | null {
+  if (!employeeOverride?.otEnabled) return null;
+  if (employeeOverride.useDefaultOt === false) {
+    return Math.round(clampNumber(employeeOverride.otBufferMinutes, companyCfg.minMinutes, 0, 240));
+  }
+  return companyCfg.minMinutes;
+}
+
 /**
  * Tính tăng ca khi check-out muộn hơn giờ tan ca (coMinutesDiff = số phút ra muộn, có thể âm).
  * Ra muộn <= cfg.minMinutes → KHÔNG tính là tăng ca (0 phút, 0đ) — vd ra muộn 4-5 phút do đi

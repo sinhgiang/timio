@@ -48,6 +48,18 @@ function toggleDay(current: string, day: number): string {
   return order.filter((d) => set.has(d)).join(",");
 }
 
+// Cộng thêm N phút vào giờ "HH:MM", có xoay vòng qua nửa đêm (vd tan ca 23:30 + 60p → 00:30).
+function addMinutesToTime(hhmm: string, minutes: number): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return hhmm;
+  const total = (((Number(m[1]) * 60 + Number(m[2]) + minutes) % 1440) + 1440) % 1440;
+  const h = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+const OT_BUFFER_PRESETS = [15, 30, 45, 60, 90];
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface PenaltyRow { minutes: string; amount: string; }
@@ -72,6 +84,13 @@ interface ShiftOverride {
   // ca bình thường (1 khoảng giờ, không tách buổi) để thay ca cho đồng nghiệp nghỉ. Hôm đó bỏ
   // qua sessions hoàn toàn. Xem lib/shiftResolve.ts (findDayOverride). day: 0=CN,1=T2...6=T7.
   dayOverrides?: Array<{ day: number; checkInTime: string; checkOutTime: string; gracePeriod?: number }>;
+  // Tăng ca riêng theo nhân viên (26/8/2026) — mặc định otEnabled=false: nhân viên KHÔNG được
+  // tính tăng ca cho tới khi khai báo bật lên. Khi bật, useDefaultOt=true dùng ngưỡng phút chung
+  // của công ty (Cài đặt → Cấu hình tăng ca); false thì dùng otBufferMinutes riêng cho người này.
+  // Xem lib/overtime.ts (resolveOvertimeMinMinutes) — nơi 3 route check-out đọc lại field này.
+  otEnabled?: boolean;
+  useDefaultOt?: boolean;
+  otBufferMinutes?: number;
 }
 
 interface CompanyPenaltyRule { fromMinutes: number; toMinutes: number; amount: number; type: string; }
@@ -124,13 +143,14 @@ interface Props {
   companyId: string;
   penaltyRules: CompanyPenaltyRule[];
   rewardRules: CompanyRewardRule[];
+  companyOvertimeMinMinutes: number;
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 export default function EmployeesClient({
   employees, branches, allDepartments, allPositions, savedShifts, companyId,
-  penaltyRules, rewardRules,
+  penaltyRules, rewardRules, companyOvertimeMinMinutes,
 }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -332,6 +352,10 @@ export default function EmployeesClient({
       useDefaultLate: true,
       useDefaultEarlyLeave: true,
       useDefaultBonus: true,
+      // Tăng ca — mặc định TẮT (nhân viên mới khai báo chưa chắc có tăng ca).
+      otEnabled: false,
+      useDefaultOt: true,
+      otBufferMinutes: "",
       baseSalary: "",
       joinDate: "",
       dateOfBirth: "",
@@ -447,6 +471,9 @@ export default function EmployeesClient({
       useDefaultLate: ov?.useDefaultLate !== false,
       useDefaultEarlyLeave: ov?.useDefaultEarlyLeave !== false,
       useDefaultBonus: ov?.useDefaultBonus !== false,
+      otEnabled: ov?.otEnabled === true,
+      useDefaultOt: ov?.useDefaultOt !== false,
+      otBufferMinutes: ov?.otBufferMinutes != null ? String(ov.otBufferMinutes) : "",
       baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
       dateOfBirth: emp.dateOfBirth ?? "",
@@ -536,6 +563,9 @@ export default function EmployeesClient({
       lateRules: form.lateRules.filter((r) => r.minutes && r.amount).map((r) => ({ minutes: Number(r.minutes), amount: Number(r.amount) })),
       earlyLeaveRules: form.earlyLeaveRules.filter((r) => r.minutes && r.amount).map((r) => ({ minutes: Number(r.minutes), amount: Number(r.amount) })),
       perfectBonus: form.perfectBonus ? Number(form.perfectBonus) : undefined,
+      otEnabled: form.otEnabled,
+      useDefaultOt: form.useDefaultOt,
+      ...(form.otEnabled && form.useDefaultOt === false && form.otBufferMinutes !== "" && { otBufferMinutes: Number(form.otBufferMinutes) }),
       ...(validSessions.length >= 2 && { sessions: validSessions }),
       ...(validDayOverrides.length > 0 && { dayOverrides: validDayOverrides }),
     };
@@ -1669,6 +1699,79 @@ export default function EmployeesClient({
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* ── Tăng ca ── */}
+                  <div className="bg-teal-50/60 rounded-xl p-4 space-y-3 border border-teal-100">
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={form.otEnabled}
+                        onChange={(e) => setForm((f) => ({ ...f, otEnabled: e.target.checked }))}
+                        className="w-4 h-4 mt-0.5 rounded accent-teal-600"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-teal-700">⏱️ Tăng ca</span>
+                        <span className="block text-xs text-gray-400">Nhân viên này có làm tăng ca không? Mặc định KHÔNG — chỉ bật khi bạn ấy thực sự có ở lại làm thêm giờ.</span>
+                      </span>
+                    </label>
+
+                    {form.otEnabled && (
+                      <div className="space-y-3 pt-1">
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={form.useDefaultOt}
+                            onChange={(e) => setForm((f) => ({ ...f, useDefaultOt: e.target.checked }))}
+                            className="w-4 h-4 rounded accent-teal-500"
+                          />
+                          <span className="text-sm text-gray-600 font-medium">Dùng cấu hình mặc định của công ty</span>
+                        </label>
+
+                        {form.useDefaultOt ? (
+                          <p className="text-xs bg-white/80 rounded-lg px-3 py-2 border border-teal-100 text-gray-500">
+                            Công ty: tính tăng ca khi ra muộn hơn giờ tan ca trên <b>{companyOvertimeMinMinutes} phút</b>
+                            {" "}→ với ca này, tăng ca bắt đầu tính từ{" "}
+                            <b className="text-teal-700">{addMinutesToTime(form.checkInTime && form.checkOutTime ? form.checkOutTime : "17:30", companyOvertimeMinMinutes)}</b>.{" "}
+                            <a href="/dashboard/settings?tab=penalty" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-teal-700">
+                              Đổi ở Cài đặt ↗
+                            </a>
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-xs text-gray-400">Khoảng nghỉ sau giờ tan ca, trước khi tính tăng ca riêng cho nhân viên này:</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {OT_BUFFER_PRESETS.map((m) => (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => setForm((f) => ({ ...f, otBufferMinutes: String(m) }))}
+                                  className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                                    form.otBufferMinutes === String(m)
+                                      ? "bg-teal-600 text-white border-teal-600"
+                                      : "bg-white text-gray-500 border-gray-200 hover:border-teal-300"
+                                  }`}
+                                >
+                                  {m} phút
+                                </button>
+                              ))}
+                              <input
+                                type="number" min={0} max={240}
+                                value={form.otBufferMinutes}
+                                onChange={(e) => setForm((f) => ({ ...f, otBufferMinutes: e.target.value }))}
+                                placeholder="Khác"
+                                className="w-20 px-2 py-1.5 border border-teal-200 bg-white rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-300"
+                              />
+                            </div>
+                            <p className="text-xs text-teal-700 bg-white/80 rounded-lg px-3 py-2 border border-teal-100">
+                              Tăng ca bắt đầu tính từ{" "}
+                              <b>{addMinutesToTime(form.checkOutTime || "17:30", Number(form.otBufferMinutes) || 0)}</b>
+                              {" "}(giờ tan ca {form.checkOutTime || "17:30"} + {Number(form.otBufferMinutes) || 0} phút nghỉ). Ra trước mốc này không tính là tăng ca.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* ── Chuyên cần ── */}
