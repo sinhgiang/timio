@@ -93,6 +93,19 @@ model LateReminder {
   @@index([companyId, date])
 }
 
+// Đánh dấu đã nhắc "trước giờ vào ca" — bảng riêng với LateReminder (khác loại nhắc,
+// 1 người có thể vừa được nhắc TRƯỚC ca vừa (nếu vẫn không chấm công) bị nhắc TRỄ ca cùng ngày)
+model PreShiftReminder {
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       String   // YYYY-MM-DD (giờ VN)
+  sentAt     DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([companyId, date])
+}
+
 model Admin {
   id        String   @id @default(cuid())
   companyId String

@@ -1,3 +1,7 @@
+// DEPRECATED (25/8/2026): panel "Nhắc chấm công tự động hàng ngày" đã gộp vào
+// /api/company/late-reminder (xem lib/lateReminder.ts — field beforeShift). Không còn UI nào
+// gọi route này (đã bỏ <AutoReminderPanel/> khỏi SettingsClient.tsx). Giữ lại tạm để không phá
+// company nào còn autoReminderConfig cũ (đọc được) — có thể xoá hẳn sau khi yên tâm.
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";

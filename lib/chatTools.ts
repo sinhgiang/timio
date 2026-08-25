@@ -905,7 +905,7 @@ export async function executeChatTool(
           prisma.attendanceLog.findMany({ where: { date: today, employee: { companyId: ctx.companyId, ...branchFilter } }, select: { employeeId: true, checkInAt: true, status: true, minutesLate: true } }),
           prisma.lateReminder.findMany({ where: { companyId: ctx.companyId, date: today }, select: { employeeId: true, sentAt: true } }),
           prisma.leaveRequest.findMany({ where: { companyId: ctx.companyId, status: "approved", fromDate: { lte: today }, toDate: { gte: today } }, select: { employeeId: true } }),
-          prisma.company.findUnique({ where: { id: ctx.companyId }, select: { autoReminderConfig: true, lateReminderConfig: true } }),
+          prisma.company.findUnique({ where: { id: ctx.companyId }, select: { lateReminderConfig: true } }),
         ]);
         const logMap = new Map(logs.map((l) => [l.employeeId, l]));
         const remindMap = new Map(reminded.map((r) => [r.employeeId, r.sentAt]));
@@ -921,10 +921,17 @@ export async function executeChatTool(
           else if (log.status === "late" || log.status === "very_late") late.push({ name: e.name, soPhutTre: log.minutesLate, ...rem });
         }
         const onLeaveToday = employees.filter((e) => onLeave.has(e.id)).map((e) => e.name);
-        const parseEnabled = (raw: string | null) => { try { return raw ? Boolean(JSON.parse(raw).enabled) : false; } catch { return false; } };
+        // "Đang bật" = bật nhắc trễ ca HOẶC bật nhắc trước ca (2 toggle trong cùng 1 mục cài đặt)
+        const nhacDangBat = (() => {
+          try {
+            if (!company?.lateReminderConfig) return false;
+            const parsed = JSON.parse(company.lateReminderConfig) as { enabled?: boolean; beforeShift?: { enabled?: boolean } };
+            return Boolean(parsed.enabled) || Boolean(parsed.beforeShift?.enabled);
+          } catch { return false; }
+        })();
         return {
           date: today,
-          nhacTuDongDangBat: parseEnabled(company?.autoReminderConfig ?? null) || parseEnabled(company?.lateReminderConfig ?? null),
+          nhacTuDongDangBat: nhacDangBat,
           tong: { nhanVienActive: employees.length, chuaChamCong: notCheckedIn.length, diTre: late.length, dangNghiPhep: onLeaveToday.length, daTuNhacHomNay: reminded.length },
           chuaChamCong: notCheckedIn,
           diTre: late,

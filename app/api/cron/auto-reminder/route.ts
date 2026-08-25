@@ -1,3 +1,8 @@
+// DEPRECATED (25/8/2026): thay bằng /api/cron/late-reminder (chạy runPreShiftReminders +
+// runLateReminders — nhắc theo giờ vào ca CỦA TỪNG NGƯỜI thay vì 1 giờ cố định cho cả công ty).
+// .github/workflows/auto-reminder.yml đã tắt lịch tự động gọi route này. Sau đợt migrate dữ liệu
+// (script scripts/migrate-auto-reminder-to-before-shift.ts), mọi company autoReminderConfig.enabled
+// đều đã = false nên route này chỉ còn là no-op nếu ai đó gọi tay.
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendCompanyReminder, sanitizeReminderConfig } from "@/lib/reminderSend";

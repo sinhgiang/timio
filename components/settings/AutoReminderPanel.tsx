@@ -1,5 +1,7 @@
 "use client";
 
+// DEPRECATED (25/8/2026): gộp vào components/settings/LateReminderPanel.tsx (toggle "Trước ca").
+// Không còn render ở SettingsClient.tsx — giữ file lại tạm để tham chiếu, có thể xoá hẳn sau.
 import { useEffect, useState } from "react";
 import { Bell, Mail, Send, MessageCircle, Plus, X, Clock } from "lucide-react";
 

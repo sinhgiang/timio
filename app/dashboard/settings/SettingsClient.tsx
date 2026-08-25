@@ -6,7 +6,6 @@ import { signOut } from "next-auth/react";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import BranchQRCard from "@/components/settings/BranchQRCard";
-import AutoReminderPanel from "@/components/settings/AutoReminderPanel";
 import LateReminderPanel from "@/components/settings/LateReminderPanel";
 import PlanGate from "@/components/ui/PlanGate";
 import PenaltyScopePicker, { DEFAULT_PENALTY_SCOPE, type PenaltyScopeValue } from "@/components/settings/PenaltyScopePicker";
@@ -1728,10 +1727,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
         </p>
       </div>
 
-      {/* ── Auto Reminder (nhắc chấm công tự động) ── */}
-      <AutoReminderPanel zaloConnected={zaloConnected} />
-
-      {/* ── Late Reminder (nhắc trễ theo ca) ── */}
+      {/* ── Nhắc chấm công trước & trễ giờ vào ca (gộp "nhắc tự động hàng ngày" cũ vào đây) ── */}
       <LateReminderPanel zaloConnected={zaloConnected} />
 
       {/* ── Auto Payslip ── */}

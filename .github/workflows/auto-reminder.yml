@@ -1,13 +1,14 @@
-name: Hourly auto-reminder
+name: Hourly auto-reminder (deprecated)
 
-# Gọi endpoint nhắc chấm công mỗi giờ. Dùng lịch chạy MIỄN PHÍ của GitHub
-# Actions thay cho Vercel cron (gói Hobby chỉ cho cron 1 lần/ngày).
-# Endpoint tự khớp giờ + thứ theo config từng công ty, nên gọi mỗi giờ là đủ.
+# DEPRECATED (25/8/2026): "Nhắc chấm công tự động hàng ngày" (giờ cố định + chọn ngày thủ công)
+# đã được gộp vào "Nhắc chấm công trước & trễ giờ vào ca" (xem components/settings/LateReminderPanel.tsx
+# + lib/lateReminder.ts runPreShiftReminders, chạy trong .github/workflows/late-reminder.yml).
+# Tắt lịch chạy tự động ở đây để khỏi gọi API đã ẩn khỏi UI; giữ workflow_dispatch phòng khi cần
+# đối chiếu/rollback. File này + app/api/cron/auto-reminder, app/api/company/auto-reminder,
+# components/settings/AutoReminderPanel.tsx có thể xoá hẳn sau khi đã yên tâm không còn cần nữa.
 
 on:
-  schedule:
-    - cron: "0 * * * *" # mỗi giờ (theo UTC; endpoint tự quy đổi sang giờ VN)
-  workflow_dispatch: {} # cho phép bấm chạy tay để test
+  workflow_dispatch: {} # chỉ chạy khi bấm tay — KHÔNG còn lịch tự động
 
 jobs:
   ping:

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { runLateReminders, sanitizeLateReminderConfig } from "@/lib/lateReminder";
+import { runLateReminders, runPreShiftReminders, sanitizeLateReminderConfig } from "@/lib/lateReminder";
 
-// Chạy mỗi ~10 phút (GitHub Actions). Rà từng nhân viên: quá giờ vào ca + ân hạn + delay mà
-// chưa check-in → gửi nhắc riêng. Bỏ qua người nghỉ phép / ngày nghỉ; chỉ nhắc 1 lần/người/ngày.
+// Chạy mỗi ~10 phút (GitHub Actions). Rà từng nhân viên theo 2 chiều:
+//  - TRƯỚC giờ vào ca (beforeShift): còn N phút tới giờ vào ca mà chưa check-in → nhắc sớm.
+//  - TRỄ giờ vào ca (enabled): quá giờ vào ca + ân hạn + delay mà chưa check-in → nhắc trễ.
+// Bỏ qua người nghỉ phép / ngày nghỉ; mỗi loại chỉ nhắc 1 lần/người/ngày (2 loại tách bảng riêng).
 export async function GET(req: Request) {
   const secret = req.headers.get("x-cron-secret");
   if (secret !== process.env.CRON_SECRET && process.env.NODE_ENV === "production") {
@@ -15,7 +17,8 @@ export async function GET(req: Request) {
     select: { id: true, lateReminderConfig: true },
   });
 
-  const fired: Array<{ companyId: string; due: number; email: number; zalo: number; telegramGroups: number }> = [];
+  const fired: Array<{ companyId: string; kind: "before" | "late"; due: number; email: number; zalo: number; telegramGroups: number }> = [];
+  const failed: Array<{ companyId: string; kind: "before" | "late"; error: string }> = [];
 
   for (const c of companies) {
     let cfg;
@@ -24,12 +27,31 @@ export async function GET(req: Request) {
     } catch {
       continue;
     }
-    if (!cfg.enabled) continue;
-    const r = await runLateReminders(c.id, cfg);
-    if (r.due > 0) {
-      fired.push({ companyId: c.id, due: r.due, email: r.emailSent, zalo: r.zaloSent, telegramGroups: r.telegramGroups.length });
+
+    // Mỗi công ty/loại nhắc tách try/catch riêng — 1 công ty lỗi (vd bảng mới chưa kịp migrate)
+    // không được làm rớt cả vòng lặp, ảnh hưởng tới nhắc trễ của công ty khác.
+    if (cfg.beforeShift.enabled) {
+      try {
+        const rb = await runPreShiftReminders(c.id, cfg);
+        if (rb.due > 0) {
+          fired.push({ companyId: c.id, kind: "before", due: rb.due, email: rb.emailSent, zalo: rb.zaloSent, telegramGroups: rb.telegramGroups.length });
+        }
+      } catch (err) {
+        failed.push({ companyId: c.id, kind: "before", error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    if (cfg.enabled) {
+      try {
+        const rl = await runLateReminders(c.id, cfg);
+        if (rl.due > 0) {
+          fired.push({ companyId: c.id, kind: "late", due: rl.due, email: rl.emailSent, zalo: rl.zaloSent, telegramGroups: rl.telegramGroups.length });
+        }
+      } catch (err) {
+        failed.push({ companyId: c.id, kind: "late", error: err instanceof Error ? err.message : String(err) });
+      }
     }
   }
 
-  return NextResponse.json({ ok: true, companiesFired: fired.length, fired });
+  return NextResponse.json({ ok: true, companiesFired: fired.length, fired, failed });
 }
