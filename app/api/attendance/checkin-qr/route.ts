@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
+import { computeCheckoutOvertime, sanitizeOvertimeConfig } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
@@ -123,15 +124,14 @@ export async function POST(req: NextRequest) {
       const coScheduledMinutes = coH * 60 + coM;
       let coMinutesDiff = nowVNMinutes - coScheduledMinutes;
       if (coMinutesDiff < -720) coMinutesDiff += 1440;
-      const minutesOvertime = coMinutesDiff > 0 ? coMinutesDiff : 0;
 
-      const overtimeRates = employee.company.overtimeRates
-        ? (JSON.parse(employee.company.overtimeRates) as { weekday?: number; weekend?: number })
-        : { weekday: 1.5, weekend: 2.0 };
+      const overtimeCfg = sanitizeOvertimeConfig(
+        employee.company.overtimeRates ? JSON.parse(employee.company.overtimeRates) : null
+      );
       const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-      const multiplier = isWeekend ? (overtimeRates.weekend ?? 2.0) : (overtimeRates.weekday ?? 1.5);
-      const dailyRate = (employee.baseSalary ?? 0) / 26;
-      const overtimeAmount = minutesOvertime > 0 ? Math.floor((dailyRate / 8) * (minutesOvertime / 60) * multiplier) : 0;
+      const { minutesOvertime, overtimeAmount } = computeCheckoutOvertime(
+        coMinutesDiff, overtimeCfg, employee.baseSalary, employee.branch.standardWorkDays, isWeekend
+      );
 
       const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
       let earlyLeavePenalty = 0;

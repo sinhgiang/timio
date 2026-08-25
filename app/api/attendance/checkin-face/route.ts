@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
+import { computeCheckoutOvertime, sanitizeOvertimeConfig } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
@@ -127,18 +128,17 @@ export async function POST(req: NextRequest) {
       const coScheduledMinutes = coH * 60 + coM;
       let coMinutesDiff = nowVNMinutes - coScheduledMinutes;
       if (coMinutesDiff < -720) coMinutesDiff += 1440;
-      const minutesOvertime = coMinutesDiff > 0 ? coMinutesDiff : 0;
 
-      // Tính tiền tăng ca: (lương CB / 26 ngày / 8 giờ) * giờ OT * hệ số
-      const overtimeRates = employee.company.overtimeRates
-        ? (JSON.parse(employee.company.overtimeRates) as { weekday?: number; weekend?: number })
-        : { weekday: 1.5, weekend: 2.0 };
+      // Tính tiền tăng ca: (lương CB / số ngày công chuẩn / 8 giờ) * giờ OT * hệ số.
+      // Có ngưỡng phút tối thiểu (minMinutes) — ra muộn vài phút không tính là tăng ca.
+      const overtimeCfg = sanitizeOvertimeConfig(
+        employee.company.overtimeRates ? JSON.parse(employee.company.overtimeRates) : null
+      );
       const dayOfWeek = now.getDay(); // 0=CN, 6=T7
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const multiplier = isWeekend ? (overtimeRates.weekend ?? 2.0) : (overtimeRates.weekday ?? 1.5);
-      const dailyRate = (employee.baseSalary ?? 0) / (employee.branch.standardWorkDays ?? 26);
-      const hourlyRate = dailyRate / 8;
-      const overtimeAmount = minutesOvertime > 0 ? Math.floor(hourlyRate * (minutesOvertime / 60) * multiplier) : 0;
+      const { minutesOvertime, overtimeAmount } = computeCheckoutOvertime(
+        coMinutesDiff, overtimeCfg, employee.baseSalary, employee.branch.standardWorkDays, isWeekend
+      );
 
       // Ra sớm: phạt nếu checkout trước giờ tan ca
       const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
