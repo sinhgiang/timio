@@ -1212,11 +1212,58 @@ function ReviewsTab() {
 }
 
 // ─────────── TAB BẢNG TIN CÔNG TY ───────────
+type WorkerAnnLinkPreview = { title: string; description: string; image: string | null; embedUrl: string | null; provider: string; url: string };
+type WorkerAnnComment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string };
+type WorkerAnnReactionKey = "like" | "love" | "haha" | "wow" | "sad" | "angry";
+type WorkerAnn = {
+  id: string; title: string; content: string; type: string; pinned: boolean; publishedAt: string; companyName: string;
+  images: string[]; videoUrl: string | null; linkUrl: string | null; linkPreview: WorkerAnnLinkPreview | null; hashtags: string[];
+  reactionCounts: Partial<Record<WorkerAnnReactionKey, number>>; myReaction: WorkerAnnReactionKey | null; comments: WorkerAnnComment[];
+};
+const WORKER_REACTIONS: { key: WorkerAnnReactionKey; emoji: string; label: string }[] = [
+  { key: "like", emoji: "👍", label: "Thích" },
+  { key: "love", emoji: "❤️", label: "Yêu thích" },
+  { key: "haha", emoji: "😂", label: "Haha" },
+  { key: "wow", emoji: "😮", label: "Wow" },
+  { key: "sad", emoji: "😢", label: "Buồn" },
+  { key: "angry", emoji: "😡", label: "Phẫn nộ" },
+];
+
 function AnnouncementsTab() {
-  const [d, setD] = useState<{ items: { id: string; title: string; content: string; type: string; pinned: boolean; publishedAt: string; companyName: string }[] } | null>(null);
-  useEffect(() => { fetch("/api/worker/announcements").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  const [d, setD] = useState<{ items: WorkerAnn[] } | null>(null);
+  const load = useCallback(() => {
+    fetch("/api/worker/announcements").then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
   if (!d) return <TabLoading />;
   const cls = (t: string) => t === "urgent" ? "border-red-200 bg-red-50" : t === "warning" ? "border-amber-200 bg-amber-50" : "border-gray-100 bg-white";
+
+  async function react(a: WorkerAnn, emoji: WorkerAnnReactionKey) {
+    setD((prev) => prev ? {
+      items: prev.items.map((x) => {
+        if (x.id !== a.id) return x;
+        const was = x.myReaction;
+        const counts = { ...x.reactionCounts };
+        if (was) counts[was] = Math.max(0, (counts[was] || 1) - 1);
+        const myReaction = was === emoji ? null : emoji;
+        if (myReaction) counts[myReaction] = (counts[myReaction] || 0) + 1;
+        return { ...x, myReaction, reactionCounts: counts };
+      }),
+    } : prev);
+    await fetch(`/api/worker/announcements/${a.id}/reactions`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emoji }),
+    });
+    load();
+  }
+
+  async function comment(a: WorkerAnn, content: string) {
+    if (!content.trim()) return;
+    await fetch(`/api/worker/announcements/${a.id}/comments`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
+    });
+    load();
+  }
+
   return d.items.length === 0 ? <TabEmpty icon={<Megaphone size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có tin nội bộ nào." /> : (
     <div className="space-y-2.5">
       {d.items.map((a) => (
@@ -1226,9 +1273,92 @@ function AnnouncementsTab() {
             <p className="text-sm font-semibold text-gray-800">{a.title}</p>
           </div>
           <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{a.content}</p>
+
+          {a.images.length > 0 && (
+            <div className={`grid gap-1.5 mt-2.5 ${a.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+              {a.images.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={src} alt="" className="w-full max-h-72 object-cover rounded-lg border border-gray-100" />
+              ))}
+            </div>
+          )}
+          {a.videoUrl && <video src={a.videoUrl} controls className="w-full max-h-72 rounded-lg border border-gray-100 mt-2.5 bg-black" />}
+          {a.linkPreview && <WorkerLinkCard preview={a.linkPreview} />}
+
           <p className="text-[11px] text-gray-400 mt-2">{dmy(a.publishedAt)} · {a.companyName}</p>
+
+          <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-black/5">
+            <div className="flex items-center gap-0.5">
+              {WORKER_REACTIONS.map((r) => (
+                <button key={r.key} onClick={() => react(a, r.key)} title={r.label}
+                  className={`text-base px-1.5 py-1 rounded-lg transition-transform hover:scale-125 ${a.myReaction === r.key ? "bg-blue-50 ring-1 ring-blue-200" : ""}`}>
+                  {r.emoji}
+                </button>
+              ))}
+              {Object.values(a.reactionCounts).reduce((s, n) => s + (n || 0), 0) > 0 && (
+                <span className="text-xs text-gray-400 ml-1">{Object.values(a.reactionCounts).reduce((s, n) => s + (n || 0), 0)}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1 text-xs text-gray-400"><MessageCircle size={13} /> {a.comments.length}</div>
+          </div>
+
+          <WorkerCommentBox comments={a.comments} onComment={(c) => comment(a, c)} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function WorkerLinkCard({ preview }: { preview: WorkerAnnLinkPreview }) {
+  if (preview.embedUrl && preview.provider === "youtube") {
+    return (
+      <div className="mt-2.5 rounded-lg overflow-hidden border border-gray-100">
+        <div className="aspect-video">
+          <iframe src={preview.embedUrl} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <a href={preview.url} target="_blank" rel="noopener noreferrer" className="mt-2.5 flex gap-2.5 border border-gray-100 rounded-lg overflow-hidden bg-white">
+      {preview.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview.image} alt="" className="w-20 h-20 object-cover shrink-0" />
+      )}
+      <div className="py-2 pr-2.5 min-w-0 flex-1">
+        <p className="text-[10px] text-gray-400 uppercase">{preview.provider}</p>
+        <p className="text-xs font-medium text-gray-800 line-clamp-2">{preview.title}</p>
+      </div>
+    </a>
+  );
+}
+
+function WorkerCommentBox({ comments, onComment }: { comments: WorkerAnnComment[]; onComment: (content: string) => void }) {
+  const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
+  const visible = open ? comments : comments.slice(-2);
+  return (
+    <div className="mt-2">
+      {comments.length > 2 && !open && (
+        <button onClick={() => setOpen(true)} className="text-xs text-gray-400 mb-1.5">Xem tất cả {comments.length} bình luận</button>
+      )}
+      <div className="space-y-1.5">
+        {visible.map((c) => (
+          <div key={c.id} className="flex items-start gap-2 text-sm">
+            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0">
+              {c.authorName.slice(0, 1).toUpperCase()}
+            </div>
+            <div className="bg-white/70 rounded-2xl px-3 py-1.5 min-w-0">
+              <span className="font-medium text-gray-700 text-xs">{c.authorName}</span>
+              <p className="text-gray-600 break-words">{c.content}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={(e) => { e.preventDefault(); if (text.trim()) { onComment(text); setText(""); } }} className="flex items-center gap-2 mt-2">
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Viết bình luận..." className="flex-1 text-sm border border-gray-200 rounded-full px-3 py-1.5 focus:ring-2 focus:ring-blue-300 outline-none bg-white" />
+        <button type="submit" disabled={!text.trim()} className="text-blue-500 disabled:text-gray-300 p-1.5"><Send size={16} /></button>
+      </form>
     </div>
   );
 }

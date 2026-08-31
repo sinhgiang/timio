@@ -16,6 +16,7 @@
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "^5.22.0",
     "@types/qrcode": "^1.5.6",
+    "@vercel/blob": "^2.8.0",
     "@vladmandic/face-api": "^1.7.15",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",

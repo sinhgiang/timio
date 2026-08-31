@@ -963,9 +963,54 @@ model Announcement {
   createdBy   String?   // email admin
   createdAt   DateTime  @default(now())
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Bảng tin nội bộ kiểu "cộng đồng" (31/8/2026) — sếp đăng ảnh/video/link, nhân viên
+  // thả cảm xúc + bình luận, giống Facebook. Tái dùng field JSON-in-TEXT, không đổi kiểu cột cũ.
+  images      String?   // JSON string[] — URL ảnh (Vercel Blob), tối đa vài ảnh/bài
+  videoUrl    String?   // URL video đính kèm (Vercel Blob)
+  linkUrl     String?   // link dán vào bài (nếu có)
+  linkPreview String?   // JSON { title, description, image, embedUrl, provider } — xem lib/linkPreview.ts
+  hashtags    String?   // JSON string[] — tách từ nội dung (#tag), để lọc/hiển thị
+
+  company   Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  comments  AnnouncementComment[]
+  reactions AnnouncementReaction[]
 
   @@index([companyId, publishedAt])
+}
+
+// Bình luận trên bảng tin — từ admin/HR (dashboard) hoặc nhân viên (app /ho-so).
+// Lưu tên/avatar snapshot lúc bình luận (denormalized, giống pattern createdBy ở trên)
+// để hiện được ngay mà không cần join User/WorkerAccount.
+model AnnouncementComment {
+  id              String   @id @default(cuid())
+  announcementId  String
+  content         String
+  actorType       String   // "admin" | "worker"
+  actorKey        String   // "admin:<email>" hoặc "worker:<workerAccountId>" — định danh tác giả
+  authorName      String
+  authorAvatarUrl String?
+  createdAt       DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId, createdAt])
+}
+
+// Thả cảm xúc kiểu Facebook (like/love/haha/wow/sad/angry) — mỗi người 1 cảm xúc/bài,
+// bấm lại cùng emoji = bỏ, bấm emoji khác = đổi (xử lý ở lib/announcementSocial.ts).
+model AnnouncementReaction {
+  id             String   @id @default(cuid())
+  announcementId String
+  emoji          String   // "like" | "love" | "haha" | "wow" | "sad" | "angry"
+  actorType      String   // "admin" | "worker"
+  actorKey       String   // "admin:<email>" hoặc "worker:<workerAccountId>"
+  authorName     String
+  createdAt      DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, actorKey])
+  @@index([announcementId])
 }
 
 // Chi phí công tác / Expense claims
