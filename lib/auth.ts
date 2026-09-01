@@ -12,6 +12,44 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
     CredentialsProvider({
+      // Nút "Sign in with Google" CHÍNH THỨC (Google Identity Services, renderButton phía
+      // client) trả về một ID token (JWT) qua callback JS thay vì redirect OAuth thường —
+      // provider này nhận token đó và xác thực với Google trước khi tạo phiên đăng nhập.
+      // Vẫn dùng chung GoogleProvider phía trên cho ai muốn luồng redirect cũ.
+      id: "google-idtoken",
+      name: "Google",
+      credentials: { credential: {} },
+      async authorize(credentials) {
+        if (!credentials?.credential) return null;
+        // Xác thực chữ ký + hạn dùng ID token bằng endpoint chính thức của Google — đủ dùng
+        // cho quy mô đăng nhập của SaaS này, không cần thêm thư viện xác thực JWT riêng.
+        // https://developers.google.com/identity/sign-in/web/backend-auth
+        let res: Response;
+        try {
+          res = await fetch(
+            `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credentials.credential)}`
+          );
+        } catch {
+          return null;
+        }
+        if (!res.ok) return null;
+        const payload = (await res.json()) as {
+          aud?: string;
+          iss?: string;
+          email?: string;
+          email_verified?: string;
+          name?: string;
+          picture?: string;
+          sub?: string;
+        };
+        const validIssuer = payload.iss === "accounts.google.com" || payload.iss === "https://accounts.google.com";
+        if (!validIssuer || !payload.sub) return null;
+        if (payload.aud !== process.env.GOOGLE_CLIENT_ID) return null;
+        if (payload.email_verified !== "true" || !payload.email) return null;
+        return { id: payload.sub, email: payload.email, name: payload.name ?? payload.email, image: payload.picture ?? null };
+      },
+    }),
+    CredentialsProvider({
       id: "setup",
       name: "Setup",
       credentials: { email: {}, token: {} },
@@ -85,8 +123,9 @@ export const authOptions: NextAuthOptions = {
         return token; // skip DB lookup below
       }
 
-      // Google sign-in (first time) OR session update after company setup
-      if (account?.provider === "google" || (trigger === "update" && token.email)) {
+      // Google sign-in (first time, qua redirect OR nút chính thức bằng ID token) OR session
+      // update after company setup
+      if (account?.provider === "google" || account?.provider === "google-idtoken" || (trigger === "update" && token.email)) {
         const admin = await prisma.admin.findUnique({
           where: { email: token.email! },
           include: { company: true },
