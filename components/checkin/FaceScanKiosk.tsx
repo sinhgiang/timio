@@ -14,6 +14,7 @@ type Phase =
   | "qr_scan"
   | "scanning"
   | "success"
+  | "confirm_checkout"
   | "no_face"
   | "no_match"
   | "error";
@@ -25,6 +26,14 @@ interface CheckInResult {
   penaltyAmount: number;
   message: string;
   employeeName: string;
+}
+
+// Quét lại quá gần lần chấm công VÀO (server báo needsConfirmation, xem
+// app/api/attendance/checkin-face/route.ts) — hỏi lại thay vì tự động ghi nhận RA.
+interface ConfirmCheckoutInfo {
+  employeeId: string;
+  employeeName: string;
+  minutesSinceCheckIn: number;
 }
 
 interface KioskMessages {
@@ -72,6 +81,7 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
 
   const [phase, setPhase] = useState<Phase>("welcome");
   const [result, setResult] = useState<CheckInResult | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<ConfirmCheckoutInfo | null>(null);
   const [countdown, setCountdown] = useState(5);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [modelsReady, setModelsReady] = useState(false);
@@ -118,9 +128,16 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
             .replace("{minutes}", String(result.minutesLate));
           playCompanyAudio(company.slug, "checkin_ontime.mp3").then(() => speakVi(text));
         } else {
-          const text = msg.checkinLate
+          let text = msg.checkinLate
             .replace("{name}", result.employeeName)
             .replace("{minutes}", String(result.minutesLate));
+          // Đọc thêm số tiền bị trừ (lấy ĐỘNG từ kết quả API — đúng theo mức phạt admin cấu
+          // hình, không hardcode) + lời nhắc — nối vào CÙNG một câu vì speakVi() gọi lần sau
+          // sẽ cắt ngang câu đang phát (xem lib/speech.ts). Đọc số thô "100000 đồng", không
+          // dùng formatCurrency() vì ký hiệu "₫" đọc sai.
+          if (result.penaltyAmount > 0) {
+            text += ` Bạn bị trừ ${result.penaltyAmount} đồng. Lần sau nhớ chú ý giờ giấc hơn kẻo lại bị trừ tiền nhé!`;
+          }
           playCompanyAudio(company.slug, "checkin_late.mp3").then(() => speakVi(text));
         }
       } else {
@@ -132,10 +149,21 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
     }
   }, [phase, result]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Countdown tự reset về welcome
+  // Giọng nói hỏi xác nhận khi quét lại quá gần lần chấm công VÀO (Tính năng chống chấm nhầm RA)
   useEffect(() => {
-    if (!["success", "no_face", "no_match", "error"].includes(phase)) return;
-    let c = 5;
+    if (phase === "confirm_checkout" && pendingConfirm) {
+      const when = pendingConfirm.minutesSinceCheckIn <= 0
+        ? "vừa mới xong"
+        : `cách đây ${pendingConfirm.minutesSinceCheckIn} phút`;
+      speakVi(`${pendingConfirm.employeeName}, bạn vừa chấm công vào ${when}. Bạn có chắc muốn chấm công ra không?`);
+    }
+  }, [phase, pendingConfirm]);
+
+  // Countdown tự reset về welcome — "confirm_checkout" để lâu hơn (10s) vì cần thời gian đọc
+  // + quyết định; không bấm gì thì coi như HUỶ (an toàn — không tự ý chấm công RA khi im lặng).
+  useEffect(() => {
+    if (!["success", "no_face", "no_match", "error", "confirm_checkout"].includes(phase)) return;
+    let c = phase === "confirm_checkout" ? 10 : 5;
     setCountdown(c);
     const t = setInterval(() => {
       c--;
@@ -341,6 +369,7 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
     stopCamera();
     setPhase("welcome");
     setResult(null);
+    setPendingConfirm(null);
     setErrorMsg("");
     setBlinkState("waiting");
     setQrMsg("");
@@ -350,8 +379,10 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
     setMatchCount(0);
   }, [stopCamera]);
 
-  // Nhận diện xong → lấy GPS → check-in
-  const doCheckIn = useCallback(async (employeeId: string, employeeName: string) => {
+  // Nhận diện xong → lấy GPS → check-in (hoặc check-out nếu đã có giờ vào hôm nay).
+  // confirmCheckout: true khi người dùng đã bấm xác nhận ở màn "confirm_checkout" — bỏ qua
+  // cảnh báo quét lại quá gần lần vào ca (server tự phát hiện, xem checkin-face/route.ts).
+  const doCheckIn = useCallback(async (employeeId: string, employeeName: string, opts?: { confirmCheckout?: boolean }) => {
     stopCamera();
     setPhase("scanning");
 
@@ -365,12 +396,22 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
           employeeId,
           lat: gps?.lat ?? null,
           lng: gps?.lng ?? null,
+          confirmCheckout: opts?.confirmCheckout ?? false,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setErrorMsg(data.error ?? "Lỗi check-in");
         setPhase("error");
+        return;
+      }
+      if (data.needsConfirmation) {
+        setPendingConfirm({
+          employeeId,
+          employeeName,
+          minutesSinceCheckIn: Math.max(0, Math.round(data.minutesSinceCheckIn ?? 0)),
+        });
+        setPhase("confirm_checkout");
         return;
       }
       setResult({ ...data, employeeName });
@@ -380,6 +421,12 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
       setPhase("error");
     }
   }, [stopCamera]);
+
+  // Người dùng bấm "Đúng, chấm công RA" ở màn xác nhận
+  const confirmCheckoutNow = useCallback(() => {
+    if (!pendingConfirm) return;
+    void doCheckIn(pendingConfirm.employeeId, pendingConfirm.employeeName, { confirmCheckout: true });
+  }, [pendingConfirm, doCheckIn]);
 
   const startCamera = async () => {
     stopAudio(); // Dừng mọi audio đang phát trước khi chào
@@ -698,6 +745,36 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
             )}
 
             <p className="text-blue-400 text-sm mt-5">Tự động đóng sau {countdown}s</p>
+          </div>
+        )}
+
+        {/* CONFIRM CHECKOUT — quét lại quá gần lần chấm công VÀO, hỏi lại trước khi ghi RA */}
+        {phase === "confirm_checkout" && pendingConfirm && (
+          <div className="w-full max-w-sm bg-white/10 backdrop-blur rounded-3xl p-8 text-center border border-yellow-400/30">
+            <div className="flex justify-center mb-4">
+              <HelpCircle size={72} strokeWidth={1} className="text-yellow-300" />
+            </div>
+            <h2 className="text-white text-2xl font-bold mb-2">{pendingConfirm.employeeName}</h2>
+            <p className="text-yellow-200 text-base mb-6">
+              Bạn vừa chấm công VÀO{" "}
+              {pendingConfirm.minutesSinceCheckIn <= 0 ? "vừa mới xong" : `cách đây ${pendingConfirm.minutesSinceCheckIn} phút`}.
+              <br />Bạn có chắc muốn chấm công RA không?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={confirmCheckoutNow}
+                className="w-full py-3.5 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white text-lg font-bold rounded-2xl shadow-xl transition-all"
+              >
+                Đúng, chấm công RA
+              </button>
+              <button
+                onClick={resetToWelcome}
+                className="w-full py-3.5 bg-white/10 hover:bg-white/20 text-white text-lg font-bold rounded-2xl border border-white/20 transition-all"
+              >
+                Không, tôi mới vào
+              </button>
+            </div>
+            <p className="text-blue-400 text-sm mt-5">Tự động huỷ sau {countdown}s</p>
           </div>
         )}
 

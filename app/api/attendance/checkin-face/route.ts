@@ -23,9 +23,14 @@ function getClientIP(req: NextRequest): string {
   );
 }
 
+// Quét lại trong vòng bao nhiêu phút kể từ lần chấm VÀO thì coi là "có thể quét nhầm" và phải
+// hỏi lại thay vì tự động ghi nhận RA (case thực tế: vào 16:11, quét lại 16:13 vì không chắc
+// máy đã nhận — bị tự động chấm RA ngay, không ai hỏi lại).
+const CLOSE_SCAN_CONFIRM_MINUTES = 10;
+
 export async function POST(req: NextRequest) {
   try {
-    const { employeeId, lat, lng } = await req.json();
+    const { employeeId, lat, lng, confirmCheckout } = await req.json();
 
     if (!employeeId) {
       return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
@@ -114,6 +119,19 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+
+      // Quét lại quá gần lần chấm VÀO → hỏi lại thay vì tự động chấm RA (trừ khi client đã
+      // xác nhận, confirmCheckout: true, gửi sau khi người dùng bấm xác nhận trên kiosk).
+      if (existingLog.checkInAt && !confirmCheckout) {
+        const minutesSinceCheckIn = (now.getTime() - existingLog.checkInAt.getTime()) / 60000;
+        if (minutesSinceCheckIn < CLOSE_SCAN_CONFIRM_MINUTES) {
+          return NextResponse.json({
+            needsConfirmation: true,
+            minutesSinceCheckIn: Math.max(0, Math.round(minutesSinceCheckIn)),
+          });
+        }
+      }
+
       // Check-out — tính tăng ca nếu ra muộn hơn giờ tan ca
       let shiftData: { checkOutTime?: string } & EmployeeOvertimeOverride = {};
       try {
@@ -273,12 +291,22 @@ export async function POST(req: NextRequest) {
       message = shift.reason === "roster_off" ? "Đúng giờ (hôm nay xếp nghỉ)" : "Đúng giờ (ngày lễ — không tính phạt)";
     }
 
-    await prisma.attendanceLog.create({
-      data: {
+    // upsert (không phải create thuần) — phòng trường hợp đã có log hôm nay nhưng chưa có giờ
+    // vào thật (vd admin sửa tay đánh dấu "vắng" rồi nhân viên lại tới, xem admin-edit/route.ts)
+    // → create sẽ vỡ unique constraint [employeeId, date, session].
+    await prisma.attendanceLog.upsert({
+      where: { employeeId_date_session: { employeeId, date: today, session } },
+      create: {
         employeeId,
         branchId: employee.branchId,
         date: today,
         session,
+        checkInAt: now,
+        status,
+        minutesLate,
+        penaltyAmount,
+      },
+      update: {
         checkInAt: now,
         status,
         minutesLate,
