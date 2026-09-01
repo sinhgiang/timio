@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
   Megaphone, Plus, Pin, Pencil, Trash2, AlertTriangle, Info, Zap,
@@ -7,7 +8,10 @@ import {
 } from "lucide-react";
 
 type LinkPreview = { title: string; description: string; image: string | null; embedUrl: string | null; provider: string; url: string };
-type Comment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string };
+// employeeId: null nếu người bình luận là admin/quản lý (không có hồ sơ nhân viên để mở) hoặc
+// là nhân viên đã rời công ty/không map được — component tự ẩn link khi employeeId rỗng.
+type Comment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string; employeeId: string | null };
+type Reactor = { emoji: ReactionKey; authorName: string; employeeId: string | null };
 type ReactionKey = "like" | "love" | "haha" | "wow" | "sad" | "angry";
 
 type Announcement = {
@@ -26,6 +30,7 @@ type Announcement = {
   hashtags: string[];
   reactionCounts: Partial<Record<ReactionKey, number>>;
   myReaction: ReactionKey | null;
+  reactors: Reactor[];
   comments: Comment[];
 };
 
@@ -59,6 +64,12 @@ function autoGrow(el: HTMLTextAreaElement, floor: number) {
 }
 
 export default function AnnouncementsClient() {
+  const router = useRouter();
+  // Bấm tên người đã thích/bình luận (nếu là nhân viên, có hồ sơ) → mở hồ sơ nhân viên đó
+  // kiểu Facebook. Trang Nhân viên tự đọc ?open= rồi mở modal hồ sơ (xem EmployeesClient.tsx).
+  const openProfile = useCallback((employeeId: string) => {
+    router.push(`/dashboard/employees?open=${employeeId}`);
+  }, [router]);
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<FormState | null>(null);
@@ -210,11 +221,23 @@ export default function AnnouncementsClient() {
 
   async function comment(ann: Announcement, content: string) {
     if (!content.trim()) return;
-    await fetch(`/api/announcements/${ann.id}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
+    try {
+      const res = await fetch(`/api/announcements/${ann.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) {
+        // Trước đây lỗi bị nuốt im lặng — bấm gửi bình luận không thấy phản hồi gì, tưởng
+        // "không comment được". Giờ báo rõ lý do thay vì im lặng thất bại.
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Không gửi được bình luận — thử lại.");
+        return;
+      }
+    } catch {
+      alert("Lỗi kết nối — thử lại.");
+      return;
+    }
     fetch_();
   }
 
@@ -295,8 +318,8 @@ export default function AnnouncementsClient() {
                   </div>
                 </div>
 
-                <ReactionBar ann={ann} onReact={(e) => react(ann, e)} />
-                <CommentSection ann={ann} onComment={(c) => comment(ann, c)} />
+                <ReactionBar ann={ann} onReact={(e) => react(ann, e)} onOpenProfile={openProfile} />
+                <CommentSection ann={ann} onComment={(c) => comment(ann, c)} onOpenProfile={openProfile} />
               </div>
             );
           })}
@@ -454,10 +477,11 @@ function LinkCard({ preview }: { preview: LinkPreview }) {
   );
 }
 
-function ReactionBar({ ann, onReact }: { ann: Announcement; onReact: (e: ReactionKey) => void }) {
+function ReactionBar({ ann, onReact, onOpenProfile }: { ann: Announcement; onReact: (e: ReactionKey) => void; onOpenProfile: (employeeId: string) => void }) {
   const total = Object.values(ann.reactionCounts).reduce((s, n) => s + (n || 0), 0);
+  const [showWho, setShowWho] = useState(false);
   return (
-    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 relative">
       <div className="flex items-center gap-0.5">
         {REACTIONS.map((r) => (
           <button
@@ -469,16 +493,44 @@ function ReactionBar({ ann, onReact }: { ann: Announcement; onReact: (e: Reactio
             {r.emoji}
           </button>
         ))}
-        {total > 0 && <span className="text-xs text-gray-400 ml-1">{total}</span>}
+        {total > 0 && (
+          <button onClick={() => setShowWho((v) => !v)} className="text-xs text-gray-400 hover:text-gray-600 hover:underline ml-1">
+            {total}
+          </button>
+        )}
       </div>
       <div className="flex items-center gap-1 text-xs text-gray-400">
         <MessageCircle size={13} /> {ann.comments.length}
       </div>
+
+      {/* "Ai đã thích" kiểu Facebook — bấm số lượng cảm xúc để xem danh sách tên */}
+      {showWho && (
+        <>
+          <button className="fixed inset-0 z-10 cursor-default" onClick={() => setShowWho(false)} aria-label="Đóng" />
+          <div className="absolute left-0 bottom-full mb-1 z-20 bg-white rounded-xl border border-gray-200 shadow-lg py-1.5 min-w-[180px] max-h-56 overflow-y-auto">
+            {ann.reactors.map((r, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                <span className="text-base">{REACTIONS.find((x) => x.key === r.emoji)?.emoji}</span>
+                {r.employeeId ? (
+                  <button
+                    onClick={() => { onOpenProfile(r.employeeId!); setShowWho(false); }}
+                    className="text-gray-700 hover:text-blue-600 hover:underline truncate text-left"
+                  >
+                    {r.authorName}
+                  </button>
+                ) : (
+                  <span className="text-gray-700 truncate">{r.authorName}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function CommentSection({ ann, onComment }: { ann: Announcement; onComment: (content: string) => void }) {
+function CommentSection({ ann, onComment, onOpenProfile }: { ann: Announcement; onComment: (content: string) => void; onOpenProfile: (employeeId: string) => void }) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const visible = open ? ann.comments : ann.comments.slice(-2);
@@ -490,17 +542,35 @@ function CommentSection({ ann, onComment }: { ann: Announcement; onComment: (con
         </button>
       )}
       <div className="space-y-1.5">
-        {visible.map((c) => (
-          <div key={c.id} className="flex items-start gap-2 text-sm">
-            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0">
-              {c.authorName.slice(0, 1).toUpperCase()}
+        {visible.map((c) => {
+          // Bấm avatar/tên để xem hồ sơ — chỉ khi map được về 1 nhân viên (admin/quản lý bình
+          // luận thì không có hồ sơ nhân viên riêng nên giữ dạng chữ thường, không bấm được).
+          const clickable = Boolean(c.employeeId);
+          const initial = c.authorName.slice(0, 1).toUpperCase();
+          return (
+            <div key={c.id} className="flex items-start gap-2 text-sm">
+              {clickable ? (
+                <button onClick={() => onOpenProfile(c.employeeId!)} className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0 hover:ring-2 hover:ring-blue-300">
+                  {initial}
+                </button>
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0">
+                  {initial}
+                </div>
+              )}
+              <div className="bg-gray-50 rounded-2xl px-3 py-1.5 min-w-0">
+                {clickable ? (
+                  <button onClick={() => onOpenProfile(c.employeeId!)} className="font-medium text-gray-700 text-xs hover:text-blue-600 hover:underline">
+                    {c.authorName}
+                  </button>
+                ) : (
+                  <span className="font-medium text-gray-700 text-xs">{c.authorName}</span>
+                )}
+                <p className="text-gray-600 break-words">{c.content}</p>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-2xl px-3 py-1.5 min-w-0">
-              <span className="font-medium text-gray-700 text-xs">{c.authorName}</span>
-              <p className="text-gray-600 break-words">{c.content}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <form
         onSubmit={(e) => { e.preventDefault(); if (text.trim()) { onComment(text); setText(""); } }}

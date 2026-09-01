@@ -20,9 +20,9 @@ export async function GET() {
       id: true, title: true, content: true, type: true, pinned: true, publishedAt: true,
       images: true, videoUrl: true, linkUrl: true, linkPreview: true, hashtags: true,
       company: { select: { name: true } },
-      reactions: { select: { emoji: true, actorKey: true } },
+      reactions: { select: { emoji: true, actorKey: true, authorName: true } },
       comments: {
-        select: { id: true, content: true, authorName: true, authorAvatarUrl: true, createdAt: true, actorType: true },
+        select: { id: true, content: true, authorName: true, authorAvatarUrl: true, createdAt: true, actorType: true, actorKey: true },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -47,7 +47,9 @@ export async function GET() {
       hashtags: a.hashtags ? JSON.parse(a.hashtags) : [],
       reactionCounts: a.reactionCounts,
       myReaction: a.myReaction,
-      comments: a.comments,
+      // Không lộ actorKey ("admin:<email>" / "worker:<id>") ra app nhân viên — chỉ dùng nội bộ
+      // để resolve employeeId bên dashboard admin (xem app/api/announcements/route.ts).
+      comments: a.comments.map(({ actorKey: _actorKey, ...c }) => c),
     })),
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
 import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound, QrCode, RefreshCw, Smartphone } from "lucide-react";
@@ -218,6 +218,20 @@ export default function EmployeesClient({
   // dù DB đã lưu đúng. Nên: cập nhật localEmployees NGAY bằng data trả về từ API lúc lưu
   // (xem handleSubmit), còn router.refresh() vẫn giữ để đồng bộ nền cho các trường khác.
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+
+  // Mở sẵn hồ sơ 1 nhân viên khi vào trang kèm ?open=<id> — dùng để "bấm vào người đã
+  // thích/bình luận" từ Bảng tin nội bộ nhảy thẳng tới hồ sơ (xem AnnouncementsClient.tsx).
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId) return;
+    const found = localEmployees.find((e) => e.id === openId);
+    if (found) {
+      setProfileTarget(found);
+      router.replace("/dashboard/employees");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, localEmployees]);
   const [localBranches, setLocalBranches] = useState<Branch[]>(branches);
   const [localDepts, setLocalDepts] = useState<string[]>(allDepartments);
   const [localPositions, setLocalPositions] = useState<string[]>(allPositions);

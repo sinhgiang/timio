@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
       OR: [{ expiresAt: null }, { expiresAt: { gte: now } }],
     },
     include: {
-      reactions: { select: { emoji: true, actorKey: true } },
+      reactions: { select: { emoji: true, actorKey: true, authorName: true } },
       comments: {
-        select: { id: true, content: true, authorName: true, authorAvatarUrl: true, createdAt: true, actorType: true },
+        select: { id: true, content: true, authorName: true, authorAvatarUrl: true, createdAt: true, actorType: true, actorKey: true },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -27,11 +27,34 @@ export async function GET(req: NextRequest) {
   });
 
   const viewerKey = user?.email ? actorKeyOf({ type: "admin", email: user.email, name: user.email }) : null;
-  const items = summarizeSocial(announcements, viewerKey).map((a) => ({
+  const social = summarizeSocial(announcements, viewerKey);
+
+  // Kích ai đã thích/bình luận → xem hồ sơ nhân viên (kiểu Facebook): resolve actorKey
+  // "worker:<workerAccountId>" thành employeeId TRONG CÔNG TY NÀY (1 người có thể là nhân viên
+  // nhiều công ty qua nhiều lần đi làm — chỉ link tới bản ghi thuộc công ty đang xem).
+  const workerAccountIds = new Set<string>();
+  for (const a of social) {
+    for (const r of a.reactors) if (r.actorKey.startsWith("worker:")) workerAccountIds.add(r.actorKey.slice(7));
+    for (const c of a.comments) if (c.actorKey.startsWith("worker:")) workerAccountIds.add(c.actorKey.slice(7));
+  }
+  const empByWorkerAccount = new Map<string, string>();
+  if (workerAccountIds.size > 0) {
+    const emps = await prisma.employee.findMany({
+      where: { companyId, workerAccountId: { in: Array.from(workerAccountIds) } },
+      select: { id: true, workerAccountId: true },
+    });
+    for (const e of emps) if (e.workerAccountId) empByWorkerAccount.set(e.workerAccountId, e.id);
+  }
+  const employeeIdOf = (actorKey: string): string | null =>
+    actorKey.startsWith("worker:") ? empByWorkerAccount.get(actorKey.slice(7)) ?? null : null;
+
+  const items = social.map((a) => ({
     ...a,
     images: a.images ? JSON.parse(a.images) : [],
     linkPreview: a.linkPreview ? JSON.parse(a.linkPreview) : null,
     hashtags: a.hashtags ? JSON.parse(a.hashtags) : [],
+    reactors: a.reactors.map((r) => ({ emoji: r.emoji, authorName: r.authorName, employeeId: employeeIdOf(r.actorKey) })),
+    comments: a.comments.map(({ actorKey, ...c }) => ({ ...c, employeeId: employeeIdOf(actorKey) })),
   }));
 
   return NextResponse.json(items);

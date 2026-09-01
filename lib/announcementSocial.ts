@@ -72,25 +72,37 @@ export type SocialAnnouncement = {
   id: string;
   reactionCounts: Partial<Record<ReactionKey, number>>;
   myReaction: ReactionKey | null;
-  comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string }[];
+  // Danh sách ai đã thả cảm xúc (không chỉ đếm số) — để hiện kiểu Facebook "xem ai đã thích".
+  // actorKey giữ nguyên ("worker:<id>" | "admin:<email>") — nơi gọi (route) tự quyết có lộ ra
+  // client hay tự resolve thành employeeId rồi bỏ đi (xem app/api/announcements/route.ts).
+  reactors: { emoji: ReactionKey; authorName: string; actorKey: string }[];
+  comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string; actorKey: string }[];
 };
 
-// Gắn reactionCounts/myReaction/comments vào danh sách announcement đã lấy sẵn quan hệ
+// Gắn reactionCounts/myReaction/reactors/comments vào danh sách announcement đã lấy sẵn quan hệ
 // reactions+comments (include ở query gọi hàm này) — tránh N+1 query cho từng bài.
 export function summarizeSocial<
-  T extends { id: string; reactions: { emoji: string; actorKey: string }[]; comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: Date; actorType: string }[] },
+  T extends {
+    id: string;
+    reactions: { emoji: string; actorKey: string; authorName: string }[];
+    comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: Date; actorType: string; actorKey: string }[];
+  },
 >(items: T[], viewerActorKey: string | null): (T & SocialAnnouncement)[] {
   return items.map((item) => {
     const reactionCounts: Partial<Record<ReactionKey, number>> = {};
+    const reactors: SocialAnnouncement["reactors"] = [];
     let myReaction: ReactionKey | null = null;
     for (const r of item.reactions) {
-      if (isReactionKey(r.emoji)) reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
-      if (viewerActorKey && r.actorKey === viewerActorKey && isReactionKey(r.emoji)) myReaction = r.emoji;
+      if (!isReactionKey(r.emoji)) continue;
+      reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+      reactors.push({ emoji: r.emoji, authorName: r.authorName, actorKey: r.actorKey });
+      if (viewerActorKey && r.actorKey === viewerActorKey) myReaction = r.emoji;
     }
     return {
       ...item,
       reactionCounts,
       myReaction,
+      reactors,
       comments: item.comments.map((c) => ({
         id: c.id,
         content: c.content,
@@ -98,6 +110,7 @@ export function summarizeSocial<
         authorAvatarUrl: c.authorAvatarUrl,
         createdAt: c.createdAt.toISOString(),
         actorType: c.actorType,
+        actorKey: c.actorKey,
       })),
     };
   });
