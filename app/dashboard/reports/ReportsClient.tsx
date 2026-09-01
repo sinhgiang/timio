@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatCurrency, formatTime, getMonthDays } from "@/lib/utils";
+import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib/utils";
 import { getStatusColor } from "@/lib/attendance";
 import PlanGate from "@/components/ui/PlanGate";
+import { Pencil, X } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -71,6 +72,14 @@ interface Props {
   branchStats: BranchStat[];
   year: number;
   month: number;
+  canEdit: boolean;
+}
+
+interface EditTarget {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  dayLabel: string;
 }
 
 function calcUnpaidLeaveDays(leaves: LeaveRecord[], employeeId: string, year: number, month: number): number {
@@ -88,12 +97,60 @@ function calcUnpaidLeaveDays(leaves: LeaveRecord[], employeeId: string, year: nu
     }, 0);
 }
 
-export default function ReportsClient({ employees, logs, summaries, leaveRequests, branchStats, year, month }: Props) {
+export default function ReportsClient({ employees, logs, summaries, leaveRequests, branchStats, year, month, canEdit }: Props) {
   const router = useRouter();
   const [view, setView] = useState<"summary" | "detail" | "branches">("summary");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Sửa chấm công trực tiếp từng ngày (owner/manager/accountant — xem app/api/attendance/admin-edit)
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [editForm, setEditForm] = useState({ checkInAt: "", checkOutAt: "", note: "" });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const openEdit = (employeeId: string, employeeName: string, date: string, dayLabel: string, log: Log | undefined) => {
+    setEditTarget({ employeeId, employeeName, date, dayLabel });
+    setEditForm({
+      checkInAt: formatTimeInput(log?.checkInAt ?? null),
+      checkOutAt: formatTimeInput(log?.checkOutAt ?? null),
+      note: log?.note ?? "",
+    });
+    setEditError("");
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditLoading(true);
+    setEditError("");
+    const toISO = (time: string) => (time ? `${editTarget.date}T${time}:00+07:00` : null);
+    try {
+      const res = await fetch("/api/attendance/admin-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: editTarget.employeeId,
+          date: editTarget.date,
+          checkInAt: toISO(editForm.checkInAt),
+          checkOutAt: toISO(editForm.checkOutAt),
+          note: editForm.note,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error ?? "Lỗi lưu chấm công");
+        return;
+      }
+      setEditTarget(null);
+      router.refresh();
+    } catch {
+      setEditError("Lỗi kết nối — thử lại");
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const monthDays = getMonthDays(year, month);
   const pendingOTCount = logs.filter((l) => l.overtimeStatus === "pending").length;
@@ -209,6 +266,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 <th className="text-center px-3 py-2 text-gray-400 font-medium">Trễ (p)</th>
                 <th className="text-center px-3 py-2 text-gray-400 font-medium">Tăng ca (p)</th>
                 <th className="text-right px-4 py-2 text-gray-400 font-medium">Phạt / Thưởng</th>
+                {canEdit && <th className="text-center px-3 py-2 text-gray-400 font-medium">Sửa</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -278,6 +336,17 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       {log?.overtimeStatus === "approved" && log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
                       {!log?.penaltyAmount && log?.overtimeStatus !== "approved" && <span className="text-gray-200">—</span>}
                     </td>
+                    {canEdit && (
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          onClick={() => openEdit(emp.id, emp.name, day, `${dayNum}/${month}`, log)}
+                          className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Sửa giờ chấm công"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -669,6 +738,76 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
             </div>
           </div>
         </PlanGate>
+      )}
+
+      {/* ── Modal sửa chấm công trực tiếp ── */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <div>
+                <p className="font-semibold text-gray-800">Sửa chấm công</p>
+                <p className="text-xs text-gray-400 mt-0.5">{editTarget.employeeName} · Ngày {editTarget.dayLabel}</p>
+              </div>
+              <button
+                onClick={() => setEditTarget(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Giờ vào</label>
+                  <input
+                    type="time"
+                    value={editForm.checkInAt}
+                    onChange={(e) => setEditForm((f) => ({ ...f, checkInAt: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Giờ ra</label>
+                  <input
+                    type="time"
+                    value={editForm.checkOutAt}
+                    onChange={(e) => setEditForm((f) => ({ ...f, checkOutAt: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">Để trống giờ vào = tính ngày này là vắng mặt.</p>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chú (tuỳ chọn)</label>
+                <input
+                  type="text"
+                  value={editForm.note}
+                  onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
+                  placeholder="VD: Sửa do quét nhầm lần 2"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              {editError && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{editError}</p>}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {editLoading ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(null)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Huỷ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

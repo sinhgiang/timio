@@ -38,6 +38,17 @@ export function getTodayString(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: VN_TZ });
 }
 
+export function formatTimeInput(date: string | Date | null | undefined): string {
+  // Giờ VN dạng "HH:mm" — dùng đổ vào <input type="time"> khi sửa chấm công thủ công.
+  // sv-SE locale trả về 24h, luôn 2 chữ số, đúng định dạng input cần.
+  if (!date) return "";
+  return new Date(date).toLocaleTimeString("sv-SE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: VN_TZ,
+  });
+}
+
 export function getMonthDays(year: number, month: number): string[] {
   const days: string[] = [];
   const daysInMonth = new Date(year, month, 0).getDate();

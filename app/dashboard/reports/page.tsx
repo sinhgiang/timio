@@ -16,6 +16,7 @@ export default async function ReportsPage({
   if (!companyId) return null;
 
   const scopedBranchId = u?.role === "manager" && u?.branchId ? u.branchId : null;
+  const canEditAttendance = ["owner", "manager", "accountant"].includes(u?.role ?? "");
 
   const planRow = await prisma.company.findUnique({
     where: { id: companyId },
@@ -151,6 +152,7 @@ export default async function ReportsPage({
       branchStats={branchStats}
       year={year}
       month={month}
+      canEdit={canEditAttendance}
     />
   );
 }
