@@ -46,6 +46,18 @@ const REACTIONS: { key: ReactionKey; emoji: string; label: string }[] = [
 
 type FormState = Partial<Announcement> & { images?: string[] };
 
+const CONTENT_MIN_H = 96;
+const CONTENT_MAX_H = 400;
+
+// Tự cao theo nội dung, không thấp hơn `floor` (sàn do chị tự kéo tay), cuộn khi vượt CONTENT_MAX_H.
+function autoGrow(el: HTMLTextAreaElement, floor: number) {
+  el.style.height = "auto";
+  const needed = el.scrollHeight;
+  const target = Math.min(Math.max(needed, floor, CONTENT_MIN_H), CONTENT_MAX_H);
+  el.style.height = `${target}px`;
+  el.style.overflowY = needed > CONTENT_MAX_H ? "auto" : "hidden";
+}
+
 export default function AnnouncementsClient() {
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,6 +68,16 @@ export default function AnnouncementsClient() {
   const [linkLoading, setLinkLoading] = useState(false);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const vidInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const manualHeightRef = useRef(0); // sàn chiều cao nếu chị tự kéo tay to hơn — gõ tiếp không bị tự thu lại
+  const isAutoResizingRef = useRef(false);
+
+  // Đổi cỡ ô nội dung theo chữ, đánh dấu "đang tự đổi" để ResizeObserver không tưởng nhầm là chị vừa kéo tay.
+  const runAutoGrow = useCallback((el: HTMLTextAreaElement, floor: number) => {
+    isAutoResizingRef.current = true;
+    autoGrow(el, floor);
+    requestAnimationFrame(() => { isAutoResizingRef.current = false; });
+  }, []);
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -66,6 +88,21 @@ export default function AnnouncementsClient() {
   }, []);
 
   useEffect(() => { fetch_(); }, [fetch_]);
+
+  // Ô nội dung: tự cao theo chữ khi gõ (đến CONTENT_MAX_H thì mới cuộn), đồng thời kéo tay được
+  // (resize-y) — theo dõi lúc chị tự kéo để không tự thu nhỏ lại khi gõ tiếp.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || !form) return;
+    manualHeightRef.current = 0;
+    runAutoGrow(el, 0);
+    const ro = new ResizeObserver(() => {
+      if (!isAutoResizingRef.current) manualHeightRef.current = el.clientHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(form)]);
 
   async function save() {
     if (!form?.title || !form?.content) return;
@@ -290,7 +327,14 @@ export default function AnnouncementsClient() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung * <span className="text-gray-400 font-normal">(gõ #hashtag nếu muốn gắn thẻ)</span></label>
-                <textarea rows={4} value={form.content || ""} onChange={(e) => setForm({ ...form, content: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 outline-none resize-none" placeholder="Nội dung bài đăng... #thongbao" />
+                <textarea
+                  ref={contentRef}
+                  value={form.content || ""}
+                  onChange={(e) => { setForm({ ...form, content: e.target.value }); runAutoGrow(e.target, manualHeightRef.current); }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-400 outline-none resize-y"
+                  style={{ minHeight: CONTENT_MIN_H, maxHeight: CONTENT_MAX_H }}
+                  placeholder="Nội dung bài đăng... #thongbao"
+                />
               </div>
 
               {/* Ảnh */}
