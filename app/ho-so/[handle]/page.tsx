@@ -1277,8 +1277,9 @@ function AnnouncementsTab() {
           {a.images.length > 0 && (
             <div className={`grid gap-1.5 mt-2.5 ${a.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
               {a.images.map((src, i) => (
+                // object-contain + nền xám: hiện trọn ảnh gốc, không cắt mất phần trên/dưới
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={i} src={src} alt="" className="w-full max-h-72 object-cover rounded-lg border border-gray-100" />
+                <img key={i} src={src} alt="" className={`w-full ${a.images.length === 1 ? "max-h-[480px]" : "max-h-60"} object-contain rounded-lg border border-gray-100 bg-gray-50`} />
               ))}
             </div>
           )}

@@ -263,8 +263,9 @@ export default function AnnouncementsClient() {
                     {ann.images.length > 0 && (
                       <div className={`grid gap-1.5 mt-3 ${ann.images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                         {ann.images.map((src, i) => (
+                          // object-contain + nền xám: hiện trọn ảnh gốc, không cắt mất phần trên/dưới
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img key={i} src={src} alt="" className="w-full max-h-96 object-cover rounded-xl border border-gray-100" />
+                          <img key={i} src={src} alt="" className={`w-full ${ann.images.length === 1 ? "max-h-[560px]" : "max-h-80"} object-contain rounded-xl border border-gray-100 bg-gray-50`} />
                         ))}
                       </div>
                     )}
