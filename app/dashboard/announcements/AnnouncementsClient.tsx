@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
   Megaphone, Plus, Pin, Pencil, Trash2, AlertTriangle, Info, Zap,
-  Image as ImageIcon, Video, Link2, X, Loader2, Send, MessageCircle, User,
+  Image as ImageIcon, Video, Link2, X, Loader2, Send, MessageCircle, User, Share2,
 } from "lucide-react";
 
 type LinkPreview = { title: string; description: string; image: string | null; embedUrl: string | null; provider: string; url: string };
@@ -541,6 +541,47 @@ function SocialSection({ ann, onReact, onComment, onOpenProfile }: { ann: Announ
 
   const visibleComments = commentsOpen ? ann.comments : ann.comments.slice(-2);
 
+  // "Chia sẻ" — bài đăng là nội bộ (phải đăng nhập mới xem), không có link công khai để dán URL
+  // vào nút chia sẻ riêng của Facebook/Zalo. Dùng Web Share API của trình duyệt/thiết bị: bấm vào
+  // sẽ mở đúng bảng chia sẻ hệ thống, nếu máy có cài Zalo/Facebook/Instagram/TikTok thì các app đó
+  // tự hiện ra để chọn gửi nội dung (kèm ảnh đầu bài nếu trình duyệt hỗ trợ đính kèm file).
+  async function shareAnnouncement() {
+    const text = `${ann.title}\n\n${ann.content}`.trim();
+    const shareData: ShareData = { title: ann.title, text };
+
+    if (ann.images[0] && typeof navigator.canShare === "function") {
+      try {
+        const res = await fetch(ann.images[0]);
+        const blob = await res.blob();
+        const file = new File([blob], "anh-bai-dang.jpg", { type: blob.type || "image/jpeg" });
+        if (navigator.canShare({ files: [file] })) shareData.files = [file];
+      } catch {
+        // Không lấy được ảnh (mạng, CORS...) — vẫn chia sẻ được nội dung chữ, bỏ qua ảnh.
+      }
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return; // chị tự đóng bảng chia sẻ
+        if (shareData.files) {
+          // Một số trình duyệt kén định dạng file khi chia sẻ — thử lại chỉ với nội dung chữ.
+          try { await navigator.share({ title: ann.title, text }); } catch { /* bỏ qua */ }
+        }
+      }
+      return;
+    }
+
+    // Trình duyệt (thường là máy tính) chưa hỗ trợ Web Share API — sao chép nội dung để dán tay.
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Trình duyệt này chưa có bảng chia sẻ — đã sao chép nội dung bài đăng, dán vào Zalo/Facebook/Instagram để chia sẻ.");
+    } catch {
+      alert("Không chia sẻ được trên trình duyệt này.");
+    }
+  }
+
   return (
     <div className="mt-3">
       {/* Thanh tổng hợp: icon cảm xúc chồng mí + tổng số (bấm xem ai đã thích), số bình luận bên phải */}
@@ -629,6 +670,9 @@ function SocialSection({ ann, onReact, onComment, onOpenProfile }: { ann: Announ
         </div>
         <button onClick={focusComment} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
           <MessageCircle size={15} /> Bình luận
+        </button>
+        <button onClick={shareAnnouncement} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
+          <Share2 size={15} /> Chia sẻ
         </button>
       </div>
 
