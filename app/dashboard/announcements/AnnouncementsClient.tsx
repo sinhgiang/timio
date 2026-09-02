@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
   Megaphone, Plus, Pin, Pencil, Trash2, AlertTriangle, Info, Zap,
-  Image as ImageIcon, Video, Link2, X, Loader2, Send, MessageCircle,
+  Image as ImageIcon, Video, Link2, X, Loader2, Send, MessageCircle, User,
 } from "lucide-react";
 
 type LinkPreview = { title: string; description: string; image: string | null; embedUrl: string | null; provider: string; url: string };
@@ -318,8 +318,7 @@ export default function AnnouncementsClient() {
                   </div>
                 </div>
 
-                <ReactionBar ann={ann} onReact={(e) => react(ann, e)} onOpenProfile={openProfile} />
-                <CommentSection ann={ann} onComment={(c) => comment(ann, c)} onOpenProfile={openProfile} />
+                <SocialSection ann={ann} onReact={(e) => react(ann, e)} onComment={(c) => comment(ann, c)} onOpenProfile={openProfile} />
               </div>
             );
           })}
@@ -477,115 +476,226 @@ function LinkCard({ preview }: { preview: LinkPreview }) {
   );
 }
 
-function ReactionBar({ ann, onReact, onOpenProfile }: { ann: Announcement; onReact: (e: ReactionKey) => void; onOpenProfile: (employeeId: string) => void }) {
-  const total = Object.values(ann.reactionCounts).reduce((s, n) => s + (n || 0), 0);
-  const [showWho, setShowWho] = useState(false);
-  return (
-    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 relative">
-      <div className="flex items-center gap-0.5">
-        {REACTIONS.map((r) => (
-          <button
-            key={r.key}
-            onClick={() => onReact(r.key)}
-            title={r.label}
-            className={`text-base px-1.5 py-1 rounded-lg transition-transform hover:scale-125 ${ann.myReaction === r.key ? "bg-orange-50 ring-1 ring-orange-200" : ""}`}
-          >
-            {r.emoji}
-          </button>
-        ))}
-        {total > 0 && (
-          <button onClick={() => setShowWho((v) => !v)} className="text-xs text-gray-400 hover:text-gray-600 hover:underline ml-1">
-            {total}
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-1 text-xs text-gray-400">
-        <MessageCircle size={13} /> {ann.comments.length}
-      </div>
+// Số người tối đa liệt kê tên trong popover "ai đã thích" — vượt quá thì gộp "và N người khác"
+// (giống Facebook không load hết danh sách dài).
+const REACTORS_CAP = 20;
 
-      {/* "Ai đã thích" kiểu Facebook — bấm số lượng cảm xúc để xem danh sách tên */}
-      {showWho && (
-        <>
-          <button className="fixed inset-0 z-10 cursor-default" onClick={() => setShowWho(false)} aria-label="Đóng" />
-          <div className="absolute left-0 bottom-full mb-1 z-20 bg-white rounded-xl border border-gray-200 shadow-lg py-1.5 min-w-[180px] max-h-56 overflow-y-auto">
-            {ann.reactors.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                <span className="text-base">{REACTIONS.find((x) => x.key === r.emoji)?.emoji}</span>
-                {r.employeeId ? (
-                  <button
-                    onClick={() => { onOpenProfile(r.employeeId!); setShowWho(false); }}
-                    className="text-gray-700 hover:text-blue-600 hover:underline truncate text-left"
-                  >
-                    {r.authorName}
-                  </button>
-                ) : (
-                  <span className="text-gray-700 truncate">{r.authorName}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
+// "3 phút", "2 giờ", "hôm qua"... kiểu Facebook — không có helper tương đương sẵn trong codebase.
+function timeAgoVi(iso: string): string {
+  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (sec < 60) return "Vừa xong";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} phút`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour} giờ`;
+  const day = Math.floor(hour / 24);
+  if (day < 7) return `${day} ngày`;
+  const week = Math.floor(day / 7);
+  if (week < 4) return `${week} tuần`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month} tháng`;
+  return `${Math.floor(day / 365)} năm`;
 }
 
-function CommentSection({ ann, onComment, onOpenProfile }: { ann: Announcement; onComment: (content: string) => void; onOpenProfile: (employeeId: string) => void }) {
+// Gộp thanh cảm xúc + bình luận thành 1 component (thay ReactionBar + CommentSection cũ) — cần
+// chung 1 chỗ để nút "Bình luận" vừa mở khung bình luận vừa focus thẳng vào ô nhập (2 việc trên
+// state của cùng 1 khối). Layout mô phỏng bố cục Facebook (icon chồng mí, popover "ai đã thích"
+// gom theo loại cảm xúc, dải emoji khi hover nút Thích) nhưng GIỮ màu cam thương hiệu Timio —
+// theo yêu cầu của chị: chỉ lấy bố cục, không lấy theme tối/màu của Facebook.
+function SocialSection({ ann, onReact, onComment, onOpenProfile }: { ann: Announcement; onReact: (e: ReactionKey) => void; onComment: (content: string) => void; onOpenProfile: (employeeId: string) => void }) {
+  const total = Object.values(ann.reactionCounts).reduce((s, n) => s + (n || 0), 0);
+  const [showWho, setShowWho] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const [text, setText] = useState("");
-  const [open, setOpen] = useState(false);
-  const visible = open ? ann.comments : ann.comments.slice(-2);
+  const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (pickerTimer.current) clearTimeout(pickerTimer.current); }, []);
+
+  const myReactionInfo = ann.myReaction ? REACTIONS.find((r) => r.key === ann.myReaction) : null;
+
+  // Icon nổi bật trên thanh tổng hợp: emoji có nhiều người thả nhất trước, tối đa 3 (kiểu Facebook).
+  const topEmojis = Object.entries(ann.reactionCounts)
+    .filter(([, n]) => (n || 0) > 0)
+    .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+    .slice(0, 3)
+    .map(([key]) => REACTIONS.find((r) => r.key === key)?.emoji);
+
+  // Gom người đã thả cảm xúc theo loại emoji (mỗi loại 1 nhóm có tiêu đề đậm), giới hạn hiển thị
+  // tên ở REACTORS_CAP người rồi gộp phần dư thành "và N người khác".
+  const groups = REACTIONS.map((r) => ({ ...r, people: ann.reactors.filter((x) => x.emoji === r.key) })).filter((g) => g.people.length > 0);
+  let shownCount = 0;
+  const overflow = Math.max(0, total - REACTORS_CAP);
+
+  function focusComment() {
+    setCommentsOpen(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+  function openPicker() {
+    if (pickerTimer.current) clearTimeout(pickerTimer.current);
+    setShowPicker(true);
+  }
+  function closePickerDelayed() {
+    pickerTimer.current = setTimeout(() => setShowPicker(false), 250);
+  }
+
+  const visibleComments = commentsOpen ? ann.comments : ann.comments.slice(-2);
+
   return (
-    <div className="mt-2">
-      {ann.comments.length > 2 && !open && (
-        <button onClick={() => setOpen(true)} className="text-xs text-gray-400 hover:text-gray-600 mb-1.5">
-          Xem tất cả {ann.comments.length} bình luận
-        </button>
-      )}
-      <div className="space-y-1.5">
-        {visible.map((c) => {
-          // Bấm avatar/tên để xem hồ sơ — chỉ khi map được về 1 nhân viên (admin/quản lý bình
-          // luận thì không có hồ sơ nhân viên riêng nên giữ dạng chữ thường, không bấm được).
-          const clickable = Boolean(c.employeeId);
-          const initial = c.authorName.slice(0, 1).toUpperCase();
-          return (
-            <div key={c.id} className="flex items-start gap-2 text-sm">
-              {clickable ? (
-                <button onClick={() => onOpenProfile(c.employeeId!)} className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0 hover:ring-2 hover:ring-blue-300">
-                  {initial}
-                </button>
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0">
-                  {initial}
-                </div>
-              )}
-              <div className="bg-gray-50 rounded-2xl px-3 py-1.5 min-w-0">
-                {clickable ? (
-                  <button onClick={() => onOpenProfile(c.employeeId!)} className="font-medium text-gray-700 text-xs hover:text-blue-600 hover:underline">
-                    {c.authorName}
-                  </button>
-                ) : (
-                  <span className="font-medium text-gray-700 text-xs">{c.authorName}</span>
-                )}
-                <p className="text-gray-600 break-words">{c.content}</p>
+    <div className="mt-3">
+      {/* Thanh tổng hợp: icon cảm xúc chồng mí + tổng số (bấm xem ai đã thích), số bình luận bên phải */}
+      {(total > 0 || ann.comments.length > 0) && (
+        <div className="relative flex items-center justify-between pb-2 text-xs text-gray-500">
+          {total > 0 ? (
+            <button onClick={() => setShowWho((v) => !v)} className="flex items-center gap-1.5 hover:underline">
+              <span className="flex items-center">
+                {topEmojis.map((e, i) => (
+                  <span
+                    key={i}
+                    className="w-4 h-4 rounded-full bg-white border border-white shadow flex items-center justify-center text-[10px] leading-none"
+                    style={{ marginLeft: i === 0 ? 0 : -6, zIndex: (topEmojis.length || 0) - i }}
+                  >
+                    {e}
+                  </span>
+                ))}
+              </span>
+              <span>{total}</span>
+            </button>
+          ) : <span />}
+          {ann.comments.length > 0 && (
+            <button onClick={focusComment} className="hover:underline">{ann.comments.length} bình luận</button>
+          )}
+
+          {/* "Ai đã thích" — gom theo loại emoji, có tiêu đề đậm từng nhóm + đuôi tam giác trỏ lên thanh tổng hợp */}
+          {showWho && (
+            <>
+              <button className="fixed inset-0 z-10 cursor-default" onClick={() => setShowWho(false)} aria-label="Đóng" />
+              <div className="absolute left-0 top-full z-20 bg-white rounded-xl border border-gray-200 shadow-lg py-2 px-3 min-w-[200px] max-w-[260px] max-h-64 overflow-y-auto">
+                <div className="absolute -top-1 left-4 w-3 h-3 bg-white border-t border-l border-gray-200 rotate-45" />
+                {groups.map((g) => {
+                  const remain = REACTORS_CAP - shownCount;
+                  const people = g.people.slice(0, Math.max(0, remain));
+                  shownCount += g.people.length;
+                  if (people.length === 0) return null;
+                  return (
+                    <div key={g.key} className="mb-2 last:mb-0">
+                      <p className="text-xs font-bold text-gray-800 mb-1 flex items-center gap-1">
+                        <span>{g.emoji}</span> {g.label}
+                      </p>
+                      <div className="space-y-1">
+                        {people.map((p, i) =>
+                          p.employeeId ? (
+                            <button key={i} onClick={() => { onOpenProfile(p.employeeId!); setShowWho(false); }} className="block text-sm text-gray-700 hover:text-blue-600 hover:underline truncate text-left">
+                              {p.authorName}
+                            </button>
+                          ) : (
+                            <p key={i} className="text-sm text-gray-700 truncate">{p.authorName}</p>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {overflow > 0 && <p className="text-xs text-gray-400 mt-1">và {overflow} người khác</p>}
               </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Hàng nút hành động kiểu Facebook: Thích (hover/giữ hiện dải 6 emoji) / Bình luận */}
+      <div className="flex items-center border-t border-gray-50 pt-0.5">
+        <div className="relative flex-1" onMouseEnter={openPicker} onMouseLeave={closePickerDelayed}>
+          {showPicker && (
+            <div
+              className="absolute bottom-full left-0 mb-1 flex items-center gap-0.5 bg-white rounded-full border border-gray-200 shadow-lg px-1.5 py-1 z-20"
+              onMouseEnter={openPicker}
+              onMouseLeave={closePickerDelayed}
+            >
+              {REACTIONS.map((r) => (
+                <button key={r.key} title={r.label} onClick={() => { onReact(r.key); setShowPicker(false); }} className="text-2xl px-1 hover:scale-125 transition-transform">
+                  {r.emoji}
+                </button>
+              ))}
             </div>
-          );
-        })}
-      </div>
-      <form
-        onSubmit={(e) => { e.preventDefault(); if (text.trim()) { onComment(text); setText(""); } }}
-        className="flex items-center gap-2 mt-2"
-      >
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Viết bình luận..."
-          className="flex-1 text-sm border border-gray-200 rounded-full px-3 py-1.5 focus:ring-2 focus:ring-orange-300 outline-none"
-        />
-        <button type="submit" disabled={!text.trim()} className="text-orange-500 disabled:text-gray-300 p-1.5">
-          <Send size={16} />
+          )}
+          <button
+            onClick={() => onReact(ann.myReaction || "like")}
+            className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-gray-50 ${myReactionInfo ? "text-orange-600" : "text-gray-500"}`}
+          >
+            <span className="text-base leading-none">{myReactionInfo?.emoji || "👍"}</span>
+            {myReactionInfo?.label || "Thích"}
+          </button>
+        </div>
+        <button onClick={focusComment} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors">
+          <MessageCircle size={15} /> Bình luận
         </button>
-      </form>
+      </div>
+
+      {/* Bình luận */}
+      <div className="mt-2">
+        {ann.comments.length > 2 && !commentsOpen && (
+          <button onClick={() => setCommentsOpen(true)} className="text-xs text-gray-400 hover:text-gray-600 mb-1.5">
+            Xem tất cả {ann.comments.length} bình luận
+          </button>
+        )}
+        <div className="space-y-2">
+          {visibleComments.map((c) => {
+            // Bấm avatar/tên để xem hồ sơ — chỉ khi map được về 1 nhân viên (admin/quản lý bình
+            // luận thì không có hồ sơ nhân viên riêng nên giữ dạng chữ thường, không bấm được).
+            const clickable = Boolean(c.employeeId);
+            const initial = c.authorName.slice(0, 1).toUpperCase();
+            const avatar = c.authorAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={c.authorAvatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[11px] font-semibold text-gray-500 shrink-0">
+                {initial}
+              </div>
+            );
+            return (
+              <div key={c.id} className="flex items-start gap-2 text-sm">
+                {clickable ? (
+                  <button onClick={() => onOpenProfile(c.employeeId!)} className="rounded-full shrink-0 hover:ring-2 hover:ring-orange-300">
+                    {avatar}
+                  </button>
+                ) : avatar}
+                <div className="min-w-0">
+                  <div className="bg-gray-50 rounded-2xl px-3 py-1.5 inline-block max-w-full">
+                    {clickable ? (
+                      <button onClick={() => onOpenProfile(c.employeeId!)} className="block font-medium text-gray-700 text-xs hover:text-blue-600 hover:underline">
+                        {c.authorName}
+                      </button>
+                    ) : (
+                      <span className="block font-medium text-gray-700 text-xs">{c.authorName}</span>
+                    )}
+                    <p className="text-gray-600 break-words">{c.content}</p>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 ml-3">{timeAgoVi(c.createdAt)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (text.trim()) { onComment(text); setText(""); } }}
+          className="flex items-center gap-2 mt-2"
+        >
+          <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+            <User size={14} className="text-gray-400" strokeWidth={1.5} />
+          </div>
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Viết bình luận..."
+            className="flex-1 text-sm border border-gray-200 rounded-full px-3 py-1.5 focus:ring-2 focus:ring-orange-300 outline-none"
+          />
+          <button type="submit" disabled={!text.trim()} className="text-orange-500 disabled:text-gray-300 p-1.5">
+            <Send size={16} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
