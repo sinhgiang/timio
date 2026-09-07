@@ -304,6 +304,13 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                     : log.status === "absent" ? "Vắng"
                     : log.status
                     : null;
+                  // Giờ khai báo đưa vào tooltip (rê chuột mới hiện) thay vì hiện thẳng ra — nhãn Trạng thái
+                  // (Đúng giờ/Trễ) đã tự phản ánh có khớp giờ khai báo hay không, khỏi cần lặp lại 2 dòng/ô.
+                  const expectedTitle = showExpected && r.expectedCheckIn && r.expectedCheckOut
+                    ? `Giờ khai báo: ${r.expectedCheckIn}–${r.expectedCheckOut}`
+                    : undefined;
+                  const sessionColor =
+                    r.sessionLabel === "Sáng" ? "text-amber-500" : r.sessionLabel === "Tối" ? "text-indigo-500" : "text-blue-400";
                   return (
                     <tr key={`${day}-${r.session}`} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
                       {i === 0 && (
@@ -325,33 +332,19 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                               </span>
                             )}
                           </div>
-                          {multiSession && r.sessionLabel && (
-                            <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium">
-                              {r.sessionLabel}
-                            </span>
-                          )}
                         </td>
                       )}
-                      {i > 0 && (
-                        <td className="px-4 py-2 align-top">
-                          {r.sessionLabel && (
-                            <span className="inline-block px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium">
-                              {r.sessionLabel}
-                            </span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-4 py-2 font-mono text-gray-700 font-medium align-top">
+                      {/* Nhãn buổi (Sáng/Tối) gộp NGAY TRONG ô Giờ vào — không tách cột riêng, vì ô Ngày đã
+                          rowSpan chiếm 1 cột nên mỗi dòng buổi chỉ được phép có đúng số cột còn lại; tách
+                          thêm 1 cột ở đây từng làm giờ/trạng thái của buổi 2 (Tối) bị lệch sang phải 1 cột. */}
+                      <td className="px-4 py-2 font-mono text-gray-700 font-medium align-top" title={expectedTitle}>
+                        {multiSession && r.sessionLabel && (
+                          <span className={`mr-1.5 text-[10px] font-semibold ${sessionColor}`}>{r.sessionLabel}</span>
+                        )}
                         {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
-                        {r.expectedCheckIn && showExpected && (
-                          <div className="text-[10px] text-gray-400 font-normal whitespace-nowrap">dự kiến {r.expectedCheckIn}</div>
-                        )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-gray-500 align-top">
+                      <td className="px-4 py-2 font-mono text-gray-500 align-top" title={expectedTitle}>
                         {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}
-                        {r.expectedCheckOut && showExpected && (
-                          <div className="text-[10px] text-gray-400 font-normal whitespace-nowrap">dự kiến {r.expectedCheckOut}</div>
-                        )}
                       </td>
                       <td className="px-4 py-2 align-top">
                         {statusLabel ? (
