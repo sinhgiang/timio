@@ -119,6 +119,58 @@ export function findDayOverride(shiftOverrideRaw: string | null | undefined, at:
   }
 }
 
+/**
+ * Chuyển 1 ngày lịch VN dạng "YYYY-MM-DD" (vd AttendanceLog.date) → 1 Date đại diện 12:00 trưa
+ * giờ VN ngày đó. Dùng khi cần gọi findDayOverride() nhưng chỉ có sẵn chuỗi ngày (báo cáo,
+ * sửa chấm công) chứ không có 1 thời điểm chấm công cụ thể (`now`).
+ */
+export function dateStringToVNInstant(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1, 5, 0, 0)); // 05:00 UTC = 12:00 giờ VN (UTC+7)
+}
+
+// ─── Danh sách "dòng" chấm công dự kiến trong 1 ngày (dùng chung cho báo cáo trên màn hình
+// ReportsClient.tsx và xuất Excel/CSV reports/export/route.ts) ─────────────────────────────
+
+export interface DayRow {
+  session: string; // khớp AttendanceLog.session — "full" (ca thường/ngày làm khác) | "0","1",... (ca gãy)
+  sessionLabel: string | null; // "Sáng"/"Tối"... — chỉ có khi NV chấm ca gãy nhiều buổi/ngày
+  expectedCheckIn: string | null; // giờ vào KHAI BÁO cho buổi/ngày này — null nếu NV chấm ca thường (không ca gãy/ngày làm khác)
+  expectedCheckOut: string | null;
+  isOverrideDay: boolean; // true nếu hôm nay rơi vào "Ngày làm khác" đã khai cho NV này
+}
+
+/**
+ * Xác định các "dòng" chấm công dự kiến cho 1 ngày của 1 nhân viên, dựa trên Employee.shiftOverride:
+ *  - 1 dòng "Giờ riêng" (session="full", isOverrideDay=true) nếu hôm đó trùng dayOverrides
+ *  - N dòng (1 dòng/buổi, session="0","1",...) nếu nhân viên là ca gãy nhiều buổi (sessions)
+ *  - 1 dòng mặc định (session="full", mọi field giờ dự kiến = null) cho nhân viên bình thường —
+ *    giữ nguyên hành vi hiển thị/xuất báo cáo như trước khi có tính năng ca gãy/ngày làm khác.
+ */
+export function buildDayRows(shiftOverrideRaw: string | null | undefined, dateStr: string): DayRow[] {
+  const dayOverride = findDayOverride(shiftOverrideRaw, dateStringToVNInstant(dateStr));
+  if (dayOverride) {
+    return [{
+      session: "full",
+      sessionLabel: null,
+      expectedCheckIn: dayOverride.checkInTime,
+      expectedCheckOut: dayOverride.checkOutTime,
+      isOverrideDay: true,
+    }];
+  }
+  const sessions = parseShiftSessions(shiftOverrideRaw);
+  if (sessions) {
+    return sessions.map((s, i) => ({
+      session: String(i),
+      sessionLabel: s.label || `Buổi ${i + 1}`,
+      expectedCheckIn: s.checkInTime,
+      expectedCheckOut: s.checkOutTime,
+      isOverrideDay: false,
+    }));
+  }
+  return [{ session: "full", sessionLabel: null, expectedCheckIn: null, expectedCheckOut: null, isOverrideDay: false }];
+}
+
 function hhmmToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);

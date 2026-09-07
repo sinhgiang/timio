@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib/utils";
 import { getStatusColor } from "@/lib/attendance";
+import { buildDayRows } from "@/lib/shiftResolve";
 import PlanGate from "@/components/ui/PlanGate";
 import { Pencil, X } from "lucide-react";
 
@@ -14,12 +15,14 @@ interface Employee {
   department: string | null;
   branchName: string;
   baseSalary: number;
+  shiftOverride: string | null;
 }
 
 interface Log {
   id: string;
   employeeId: string;
   date: string;
+  session: string;
   checkInAt: string | null;
   checkOutAt: string | null;
   minutesLate: number;
@@ -29,6 +32,15 @@ interface Log {
   overtimeAmount: number;
   overtimeStatus: string;
   note: string | null;
+}
+
+const DOW_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+// Thứ trong tuần (giờ VN) của 1 ngày "YYYY-MM-DD" — tính trực tiếp từ số ngày/tháng/năm,
+// không qua `new Date(str).getDay()` (phụ thuộc múi giờ trình duyệt, có thể lệch ngày).
+function dowOfDate(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay();
 }
 
 interface Summary {
@@ -80,6 +92,8 @@ interface EditTarget {
   employeeName: string;
   date: string;
   dayLabel: string;
+  session: string;
+  sessionLabel: string | null;
 }
 
 function calcUnpaidLeaveDays(leaves: LeaveRecord[], employeeId: string, year: number, month: number): number {
@@ -110,8 +124,11 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState("");
 
-  const openEdit = (employeeId: string, employeeName: string, date: string, dayLabel: string, log: Log | undefined) => {
-    setEditTarget({ employeeId, employeeName, date, dayLabel });
+  const openEdit = (
+    employeeId: string, employeeName: string, date: string, dayLabel: string,
+    log: Log | undefined, session: string, sessionLabel: string | null
+  ) => {
+    setEditTarget({ employeeId, employeeName, date, dayLabel, session, sessionLabel });
     setEditForm({
       checkInAt: formatTimeInput(log?.checkInAt ?? null),
       checkOutAt: formatTimeInput(log?.checkOutAt ?? null),
@@ -133,6 +150,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
         body: JSON.stringify({
           employeeId: editTarget.employeeId,
           date: editTarget.date,
+          session: editTarget.session,
           checkInAt: toISO(editForm.checkInAt),
           checkOutAt: toISO(editForm.checkOutAt),
           note: editForm.note,
@@ -156,7 +174,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
   const pendingOTCount = logs.filter((l) => l.overtimeStatus === "pending").length;
 
   const logMap = new Map<string, Log>();
-  logs.forEach((l) => logMap.set(`${l.employeeId}-${l.date}`, l));
+  logs.forEach((l) => logMap.set(`${l.employeeId}-${l.date}-${l.session}`, l));
 
   const summaryMap = new Map<string, Summary>();
   summaries.forEach((s) => summaryMap.set(s.employeeId, s));
@@ -270,85 +288,127 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {monthDays.map((day) => {
-                const log = logMap.get(`${emp.id}-${day}`);
+              {monthDays.flatMap((day) => {
+                const rows = buildDayRows(emp.shiftOverride, day);
                 const dayNum = parseInt(day.split("-")[2]);
-                const dow = new Date(day).getDay();
+                const dow = dowOfDate(day);
                 const isWeekend = dow === 0 || dow === 6;
-                const statusLabel = log
-                  ? log.status === "on_time" ? "Đúng giờ"
-                  : log.status === "late" || log.status === "very_late" ? "Trễ"
-                  : log.status === "early_leave" ? "Về sớm"
-                  : log.status === "absent" ? "Vắng"
-                  : log.status
-                  : null;
-                return (
-                  <tr key={day} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
-                    <td className={`px-4 py-2 font-mono ${isWeekend ? "text-gray-400" : "text-gray-600"}`}>
-                      {dayNum}/{month}
-                      {isWeekend && <span className="ml-1 text-gray-300 text-xs">CN</span>}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-gray-700 font-medium">
-                      {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-gray-500">
-                      {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-2">
-                      {statusLabel ? (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log!.status)}`}>
-                          {statusLabel}
-                        </span>
-                      ) : isWeekend ? (
-                        <span className="text-gray-300">—</span>
-                      ) : (
-                        <span className="text-gray-300 text-xs">Chưa chấm</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-center text-xs">
-                      {log?.minutesLate ? <span className="text-orange-500 font-medium">{log.minutesLate}p</span> : <span className="text-gray-200">—</span>}
-                    </td>
-                    <td className="px-3 py-2 text-center text-xs">
-                      {log?.minutesOvertime ? (
-                        log.overtimeStatus === "pending" ? (
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-orange-500 font-medium">{log.minutesOvertime}p ⏳</span>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => handleOTAction(log.id, "approve")}
-                                className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 font-medium"
-                              >Duyệt</button>
-                              <button
-                                onClick={() => handleOTAction(log.id, "reject")}
-                                className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200"
-                              >Từ chối</button>
-                            </div>
-                          </div>
-                        ) : log.overtimeStatus === "approved" ? (
-                          <span className="text-blue-500 font-medium">{log.minutesOvertime}p ✓</span>
-                        ) : (
-                          <span className="text-gray-300 line-through">{log.minutesOvertime}p</span>
-                        )
-                      ) : <span className="text-gray-200">—</span>}
-                    </td>
-                    <td className="px-4 py-2 text-right text-xs">
-                      {log?.penaltyAmount ? <span className="text-red-500 font-medium">−{formatCurrency(log.penaltyAmount)}</span> : ""}
-                      {log?.overtimeStatus === "approved" && log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
-                      {!log?.penaltyAmount && log?.overtimeStatus !== "approved" && <span className="text-gray-200">—</span>}
-                    </td>
-                    {canEdit && (
-                      <td className="px-3 py-2 text-center">
-                        <button
-                          onClick={() => openEdit(emp.id, emp.name, day, `${dayNum}/${month}`, log)}
-                          className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Sửa giờ chấm công"
+                const multiSession = rows.length > 1;
+                return rows.map((r, i) => {
+                  const log = logMap.get(`${emp.id}-${day}-${r.session}`);
+                  const showExpected = !!log || !isWeekend; // ngày nghỉ + chưa chấm → không suy đoán giờ dự kiến
+                  const statusLabel = log
+                    ? log.status === "on_time" ? "Đúng giờ"
+                    : log.status === "late" || log.status === "very_late" ? "Trễ"
+                    : log.status === "early_leave" ? "Về sớm"
+                    : log.status === "absent" ? "Vắng"
+                    : log.status
+                    : null;
+                  return (
+                    <tr key={`${day}-${r.session}`} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
+                      {i === 0 && (
+                        <td
+                          rowSpan={rows.length}
+                          className={`px-4 py-2 font-mono align-top ${isWeekend ? "text-gray-400" : "text-gray-600"}`}
                         >
-                          <Pencil size={13} />
-                        </button>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{dayNum}/{month}</span>
+                            {(isWeekend || multiSession || r.isOverrideDay) && (
+                              <span className="text-gray-300 text-[10px]">{DOW_LABELS[dow]}</span>
+                            )}
+                            {r.isOverrideDay && (
+                              <span
+                                className="px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-medium whitespace-nowrap"
+                                title={`Ngày làm khác — giờ riêng ${r.expectedCheckIn}–${r.expectedCheckOut}`}
+                              >
+                                Giờ riêng
+                              </span>
+                            )}
+                          </div>
+                          {multiSession && r.sessionLabel && (
+                            <span className="mt-1 inline-block px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium">
+                              {r.sessionLabel}
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      {i > 0 && (
+                        <td className="px-4 py-2 align-top">
+                          {r.sessionLabel && (
+                            <span className="inline-block px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-medium">
+                              {r.sessionLabel}
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-4 py-2 font-mono text-gray-700 font-medium align-top">
+                        {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
+                        {r.expectedCheckIn && showExpected && (
+                          <div className="text-[10px] text-gray-400 font-normal whitespace-nowrap">dự kiến {r.expectedCheckIn}</div>
+                        )}
                       </td>
-                    )}
-                  </tr>
-                );
+                      <td className="px-4 py-2 font-mono text-gray-500 align-top">
+                        {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}
+                        {r.expectedCheckOut && showExpected && (
+                          <div className="text-[10px] text-gray-400 font-normal whitespace-nowrap">dự kiến {r.expectedCheckOut}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 align-top">
+                        {statusLabel ? (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log!.status)}`}>
+                            {statusLabel}
+                          </span>
+                        ) : isWeekend ? (
+                          <span className="text-gray-300">—</span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">Chưa chấm</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center text-xs align-top">
+                        {log?.minutesLate ? <span className="text-orange-500 font-medium">{log.minutesLate}p</span> : <span className="text-gray-200">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-center text-xs align-top">
+                        {log?.minutesOvertime ? (
+                          log.overtimeStatus === "pending" ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-orange-500 font-medium">{log.minutesOvertime}p ⏳</span>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleOTAction(log.id, "approve")}
+                                  className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 font-medium"
+                                >Duyệt</button>
+                                <button
+                                  onClick={() => handleOTAction(log.id, "reject")}
+                                  className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200"
+                                >Từ chối</button>
+                              </div>
+                            </div>
+                          ) : log.overtimeStatus === "approved" ? (
+                            <span className="text-blue-500 font-medium">{log.minutesOvertime}p ✓</span>
+                          ) : (
+                            <span className="text-gray-300 line-through">{log.minutesOvertime}p</span>
+                          )
+                        ) : <span className="text-gray-200">—</span>}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs align-top">
+                        {log?.penaltyAmount ? <span className="text-red-500 font-medium">−{formatCurrency(log.penaltyAmount)}</span> : ""}
+                        {log?.overtimeStatus === "approved" && log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
+                        {!log?.penaltyAmount && log?.overtimeStatus !== "approved" && <span className="text-gray-200">—</span>}
+                      </td>
+                      {canEdit && (
+                        <td className="px-3 py-2 text-center align-top">
+                          <button
+                            onClick={() => openEdit(emp.id, emp.name, day, `${dayNum}/${month}`, log, r.session, r.sessionLabel)}
+                            className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Sửa giờ chấm công"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                });
               })}
             </tbody>
           </table>
@@ -746,7 +806,9 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <div>
-                <p className="font-semibold text-gray-800">Sửa chấm công</p>
+                <p className="font-semibold text-gray-800">
+                  Sửa chấm công{editTarget.sessionLabel && <span className="text-blue-600"> · Buổi {editTarget.sessionLabel}</span>}
+                </p>
                 <p className="text-xs text-gray-400 mt-0.5">{editTarget.employeeName} · Ngày {editTarget.dayLabel}</p>
               </div>
               <button

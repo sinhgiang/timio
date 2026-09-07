@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { scopedBranchId } from "@/lib/branchScope";
+import { buildDayRows } from "@/lib/shiftResolve";
 import ExcelJS from "exceljs";
 import * as XLSX from "xlsx"; // chỉ dùng cho CSV
 
@@ -12,6 +13,13 @@ function fmtTime(val: Date | string | null | undefined): string {
   if (!val) return "—";
   const d = val instanceof Date ? val : new Date(val);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// Thứ trong tuần (giờ VN) của 1 ngày "YYYY-MM-DD" — tính trực tiếp từ số ngày/tháng/năm (UTC),
+// không qua `new Date(str).getDay()` (phụ thuộc múi giờ server, có thể lệch ngày).
+function dowOfDate(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay();
 }
 
 function statusLabel(status: string, minutesLate: number): string {
@@ -265,8 +273,19 @@ export async function GET(req: NextRequest) {
       }, 0);
   }
 
+  // Map theo BUỔI (session) — 1 khóa/buổi, để không bị ghi đè mất buổi khi 1 ngày có nhiều
+  // buổi (ca gãy, vd Sáng + Tối) — khớp logMap trong ReportsClient.tsx.
   const logMap = new Map<string, typeof logs[0]>();
-  logs.forEach((l) => logMap.set(`${l.employeeId}-${l.date}`, l));
+  logs.forEach((l) => logMap.set(`${l.employeeId}-${l.date}-${l.session}`, l));
+  // Map theo NGÀY (gộp mọi buổi trong ngày) — dùng để tính "đi làm/trễ" không đếm trùng ca gãy
+  // (1 ngày ca gãy 2 buổi vẫn chỉ tính 1 "ngày đi làm"), nhưng phút trễ/tiền phạt cộng dồn đủ.
+  const logsByEmpDate = new Map<string, typeof logs>();
+  logs.forEach((l) => {
+    const k = `${l.employeeId}-${l.date}`;
+    const arr = logsByEmpDate.get(k) ?? [];
+    arr.push(l);
+    logsByEmpDate.set(k, arr);
+  });
 
   // ════════════════════════════════════════════════════════════════════════════
   // 1. CHI TIẾT TỪNG NGƯỜI — bảng ngày
@@ -279,17 +298,25 @@ export async function GET(req: NextRequest) {
       const rows: Record<string, string | number>[] = [];
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${year}-${monthStr}-${String(d).padStart(2, "0")}`;
-        const log = logMap.get(`${emp.id}-${dateStr}`);
-        const dow = new Date(dateStr).getDay();
+        const dow = dowOfDate(dateStr);
         const isWeekend = dow === 0 || dow === 6;
-        rows.push({
-          "Ngày": `${d}/${month}/${year}`,
-          "Thứ": DOW[dow],
-          "Vào": log?.checkInAt ? fmtTime(log.checkInAt) : isWeekend ? "Nghỉ" : "—",
-          "Ra": log?.checkOutAt ? fmtTime(log.checkOutAt) : isWeekend ? "Nghỉ" : "—",
-          "Trạng thái": log ? statusLabel(log.status, log.minutesLate) : isWeekend ? "Nghỉ" : "Chưa chấm",
-          "Phạt (VND)": log?.penaltyAmount ?? 0,
-        });
+        const dayRows = buildDayRows(emp.shiftOverride, dateStr);
+        for (const r of dayRows) {
+          const log = logMap.get(`${emp.id}-${dateStr}-${r.session}`);
+          const thu = r.isOverrideDay
+            ? `${DOW[dow]} (Giờ riêng)`
+            : dayRows.length > 1 && r.sessionLabel
+              ? `${DOW[dow]} · ${r.sessionLabel}`
+              : DOW[dow];
+          rows.push({
+            "Ngày": `${d}/${month}/${year}`,
+            "Thứ": thu,
+            "Vào": log?.checkInAt ? fmtTime(log.checkInAt) : isWeekend ? "Nghỉ" : r.expectedCheckIn ? `— (dự kiến ${r.expectedCheckIn})` : "—",
+            "Ra": log?.checkOutAt ? fmtTime(log.checkOutAt) : isWeekend ? "Nghỉ" : r.expectedCheckOut ? `— (dự kiến ${r.expectedCheckOut})` : "—",
+            "Trạng thái": log ? statusLabel(log.status, log.minutesLate) : isWeekend ? "Nghỉ" : "Chưa chấm",
+            "Phạt (VND)": log?.penaltyAmount ?? 0,
+          });
+        }
       }
       const ws = XLSX.utils.json_to_sheet(rows);
       const csv = "﻿" + XLSX.utils.sheet_to_csv(ws);
@@ -344,58 +371,67 @@ export async function GET(req: NextRequest) {
     });
     headerRow.height = 22;
 
-    // Row 4+: Data
+    // Row 4+: Data — 1 ngày có thể ra nhiều dòng nếu NV ca gãy nhiều buổi/ngày (xem buildDayRows)
     let totalPenalty = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${monthStr}-${String(d).padStart(2, "0")}`;
-      const log = logMap.get(`${emp.id}-${dateStr}`);
-      const dow = new Date(dateStr).getDay();
+      const dow = dowOfDate(dateStr);
       const isWeekend = dow === 0 || dow === 6;
-      const status = log ? statusLabel(log.status, log.minutesLate) : isWeekend ? "Nghỉ" : "Chưa chấm";
-      const penalty = log?.penaltyAmount ?? 0;
-      totalPenalty += penalty;
+      const dayRows = buildDayRows(emp.shiftOverride, dateStr);
 
-      const row = ws.addRow({
-        ngay: `${d}/${month}/${year}`,
-        thu: DOW[dow],
-        vao: log?.checkInAt ? fmtTime(log.checkInAt) : isWeekend ? "Nghỉ" : "—",
-        ra: log?.checkOutAt ? fmtTime(log.checkOutAt) : isWeekend ? "Nghỉ" : "—",
-        trangthai: status,
-        phat: penalty > 0 ? penalty : 0,
-      });
-      row.height = 18;
+      for (const r of dayRows) {
+        const log = logMap.get(`${emp.id}-${dateStr}-${r.session}`);
+        const thu = r.isOverrideDay
+          ? `${DOW[dow]} (Giờ riêng)`
+          : dayRows.length > 1 && r.sessionLabel
+            ? `${DOW[dow]} · ${r.sessionLabel}`
+            : DOW[dow];
+        const status = log ? statusLabel(log.status, log.minutesLate) : isWeekend ? "Nghỉ" : "Chưa chấm";
+        const penalty = log?.penaltyAmount ?? 0;
+        totalPenalty += penalty;
 
-      // Màu nền hàng
-      const rowBg = isWeekend ? C.gray100 : d % 2 === 0 ? C.gray50 : C.white;
-      row.eachCell((cell) => {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-        cell.alignment = { vertical: "middle" };
-        applyDataBorder(cell);
-        if (isWeekend) cell.font = { color: { argb: C.gray400 }, italic: true };
-      });
+        const row = ws.addRow({
+          ngay: `${d}/${month}/${year}`,
+          thu,
+          vao: log?.checkInAt ? fmtTime(log.checkInAt) : isWeekend ? "Nghỉ" : r.expectedCheckIn ? `— (dự kiến ${r.expectedCheckIn})` : "—",
+          ra: log?.checkOutAt ? fmtTime(log.checkOutAt) : isWeekend ? "Nghỉ" : r.expectedCheckOut ? `— (dự kiến ${r.expectedCheckOut})` : "—",
+          trangthai: status,
+          phat: penalty > 0 ? penalty : 0,
+        });
+        row.height = 18;
 
-      // Màu cột Trạng thái
-      const statusCell = row.getCell(5);
-      if (!isWeekend && log) {
-        if (log.status === "on_time") {
-          statusCell.font = { color: { argb: C.green }, bold: true };
-        } else if (log.status === "late" || log.status === "very_late") {
-          statusCell.font = { color: { argb: C.orange }, bold: true };
-        } else {
-          statusCell.font = { color: { argb: C.red }, bold: true };
+        // Màu nền hàng
+        const rowBg = isWeekend ? C.gray100 : d % 2 === 0 ? C.gray50 : C.white;
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+          cell.alignment = { vertical: "middle" };
+          applyDataBorder(cell);
+          if (isWeekend) cell.font = { color: { argb: C.gray400 }, italic: true };
+        });
+
+        // Màu cột Trạng thái
+        const statusCell = row.getCell(5);
+        if (!isWeekend && log) {
+          if (log.status === "on_time") {
+            statusCell.font = { color: { argb: C.green }, bold: true };
+          } else if (log.status === "late" || log.status === "very_late") {
+            statusCell.font = { color: { argb: C.orange }, bold: true };
+          } else {
+            statusCell.font = { color: { argb: C.red }, bold: true };
+          }
         }
-      }
 
-      // Cột Phạt: đỏ nếu có tiền phạt
-      const penaltyCell = row.getCell(6);
-      penaltyCell.numFmt = "#,##0";
-      penaltyCell.alignment = { horizontal: "right", vertical: "middle" };
-      if (penalty > 0) {
-        penaltyCell.font = { color: { argb: C.red }, bold: true };
-        penaltyCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.redLight } };
-        penaltyCell.value = penalty;
-      } else {
-        penaltyCell.value = "";
+        // Cột Phạt: đỏ nếu có tiền phạt
+        const penaltyCell = row.getCell(6);
+        penaltyCell.numFmt = "#,##0";
+        penaltyCell.alignment = { horizontal: "right", vertical: "middle" };
+        if (penalty > 0) {
+          penaltyCell.font = { color: { argb: C.red }, bold: true };
+          penaltyCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.redLight } };
+          penaltyCell.value = penalty;
+        } else {
+          penaltyCell.value = "";
+        }
       }
     }
 
@@ -432,13 +468,13 @@ export async function GET(req: NextRequest) {
     let daysPresent = 0, daysLate = 0, totalMinutesLate = 0, totalPenalty = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${monthStr}-${String(d).padStart(2, "0")}`;
-      const log = logMap.get(`${emp.id}-${dateStr}`);
-      if (log?.checkInAt) {
-        daysPresent++;
-        if (log.minutesLate > 0) daysLate++;
-        totalMinutesLate += log.minutesLate;
-        totalPenalty += log.penaltyAmount;
-      }
+      const dayLogs = logsByEmpDate.get(`${emp.id}-${dateStr}`) ?? [];
+      // Ca gãy nhiều buổi/ngày → 1 ngày chỉ tính 1 "ngày đi làm"/"ngày trễ" (không đếm trùng theo
+      // buổi), nhưng phút trễ/tiền phạt cộng dồn tất cả buổi — khớp admin-edit/route.ts.
+      if (dayLogs.some((l) => l.checkInAt)) daysPresent++;
+      if (dayLogs.some((l) => l.minutesLate > 0)) daysLate++;
+      totalMinutesLate += dayLogs.reduce((s, l) => s + l.minutesLate, 0);
+      totalPenalty += dayLogs.reduce((s, l) => s + l.penaltyAmount, 0);
     }
     const baseSalary = emp.baseSalary ?? 0;
     const unpaidDays = calcUnpaidDays(emp.id);

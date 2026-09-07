@@ -122,11 +122,13 @@ export default async function ReportsPage({
         department: e.department,
         branchName: e.branch.name,
         baseSalary: e.baseSalary ?? 0,
+        shiftOverride: e.shiftOverride ?? null,
       }))}
       logs={logs.map((l) => ({
         id: l.id,
         employeeId: l.employeeId,
         date: l.date,
+        session: l.session,
         checkInAt: l.checkInAt?.toISOString() ?? null,
         checkOutAt: l.checkOutAt?.toISOString() ?? null,
         minutesLate: l.minutesLate,
