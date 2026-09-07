@@ -23,7 +23,7 @@ export default async function EmployeesPage() {
       where: { companyId, ...(scopedBranchId ? { id: scopedBranchId } : {}) },
       orderBy: { name: "asc" },
     }),
-    prisma.company.findUnique({ where: { id: companyId }, select: { customOptions: true, overtimeRates: true } }),
+    prisma.company.findUnique({ where: { id: companyId }, select: { customOptions: true, overtimeRates: true, slug: true } }),
     prisma.penaltyRule.findMany({ where: { companyId }, orderBy: { fromMinutes: "asc" } }),
     prisma.rewardRule.findMany({ where: { companyId } }),
   ]);
@@ -85,6 +85,7 @@ export default async function EmployeesPage() {
       allPositions={allPositions}
       savedShifts={savedShifts}
       companyId={companyId}
+      companySlug={company?.slug ?? ""}
       penaltyRules={penaltyRules.map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount, type: r.type }))}
       rewardRules={rewardRules.map((r) => ({ id: r.id, condition: r.condition, amount: r.amount, label: r.label }))}
       companyOvertimeMinMinutes={companyOvertimeMinMinutes}

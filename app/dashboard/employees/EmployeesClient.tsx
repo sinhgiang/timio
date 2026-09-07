@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
-import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound, QrCode, RefreshCw, Smartphone } from "lucide-react";
+import { Upload, Download, X, CheckCircle2, AlertTriangle, ScanFace, Eye, Lock, Camera, KeyRound, QrCode, RefreshCw, Smartphone, ExternalLink } from "lucide-react";
 import PlanGate from "@/components/ui/PlanGate";
 
 const FaceCapture = dynamic(() => import("@/components/admin/FaceCapture"), { ssr: false });
@@ -142,6 +142,7 @@ interface Props {
   allPositions: string[];
   savedShifts: string[];
   companyId: string;
+  companySlug: string;
   penaltyRules: CompanyPenaltyRule[];
   rewardRules: CompanyRewardRule[];
   companyOvertimeMinMinutes: number;
@@ -150,7 +151,7 @@ interface Props {
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 export default function EmployeesClient({
-  employees, branches, allDepartments, allPositions, savedShifts, companyId,
+  employees, branches, allDepartments, allPositions, savedShifts, companyId, companySlug,
   penaltyRules, rewardRules, companyOvertimeMinMinutes,
 }: Props) {
   const router = useRouter();
@@ -836,6 +837,29 @@ export default function EmployeesClient({
                   >
                     <RefreshCw size={14} /> Đổi mã
                   </button>
+                </div>
+                {/* Nhắc rõ mã này KHÔNG quét bằng camera điện thoại thường (không mở link/hành
+                    động gì khi quét bằng app camera thông thường — chỉ hiện chuỗi ký tự thô).
+                    Đây là câu hỏi thật user đã hỏi ("sao không truy cập được") — vì họ tự thử
+                    quét bằng điện thoại cá nhân. Mã này chỉ dùng để MÁY CHẤM CÔNG (kiosk) quét
+                    ngược lại nhân viên, xem components/checkin/FaceScanKiosk.tsx (nút "Quét mã QR"
+                    dùng camera sau của kiosk, không phải app camera của điện thoại nhân viên/admin). */}
+                <div className="text-left bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mt-3">
+                  <p className="text-xs text-amber-800 font-medium mb-1">Lưu ý cách dùng</p>
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    Mã này <b>không phải để quét bằng camera điện thoại</b> — quét vậy chỉ hiện chuỗi ký tự, không làm gì được.
+                    In (hoặc mở ảnh) mã này ra, đưa vào <b>camera của máy chấm công</b>: tại máy chấm công bấm nút &quot;Quét mã QR&quot;, rồi đưa mã vào khung hình để chấm công.
+                  </p>
+                  {companySlug && (
+                    <a
+                      href={`/checkin/${companySlug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-[11px] font-medium text-amber-800 underline hover:text-amber-900"
+                    >
+                      <ExternalLink size={11} /> Mở máy chấm công để thử ngay
+                    </a>
+                  )}
                 </div>
                 <p className="text-xs text-gray-400 mt-3">In QR này dán lên thẻ nhân viên. Bấm &quot;Đổi mã&quot; để vô hiệu hóa QR cũ.</p>
               </div>
