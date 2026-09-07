@@ -811,7 +811,12 @@ export default function EmployeesClient({
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-bold text-gray-800 text-lg">Mã QR check-in</h3>
+                {/* Đổi tên có chủ đích: user phản hồi tên cũ "Mã QR check-in" khiến hiểu lầm là
+                    quét bằng điện thoại cá nhân là check-in được luôn (giống QR chi nhánh ở
+                    Cài đặt — BranchQRCard.tsx). Đây là 2 luồng KHÁC NHAU cố ý (giữ nguyên theo
+                    lựa chọn của user): mã này CHỈ dùng để camera máy chấm công quét ngược lại
+                    tấm thẻ, không phải nhân viên tự quét — chống gian lận chấm công hộ từ xa. */}
+                <h3 className="font-bold text-gray-800 text-lg">Thẻ QR — quét tại máy chấm công</h3>
                 <p className="text-sm text-gray-500">{qrTarget.name}</p>
               </div>
               <button onClick={() => setQrTarget(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
@@ -845,10 +850,11 @@ export default function EmployeesClient({
                     ngược lại nhân viên, xem components/checkin/FaceScanKiosk.tsx (nút "Quét mã QR"
                     dùng camera sau của kiosk, không phải app camera của điện thoại nhân viên/admin). */}
                 <div className="text-left bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mt-3">
-                  <p className="text-xs text-amber-800 font-medium mb-1">Lưu ý cách dùng</p>
+                  <p className="text-xs text-amber-800 font-medium mb-1">⚠ Chỉ quét được TẠI máy chấm công</p>
                   <p className="text-[11px] text-amber-700 leading-relaxed">
-                    Mã này <b>không phải để quét bằng camera điện thoại</b> — quét vậy chỉ hiện chuỗi ký tự, không làm gì được.
-                    In (hoặc mở ảnh) mã này ra, đưa vào <b>camera của máy chấm công</b>: tại máy chấm công bấm nút &quot;Quét mã QR&quot;, rồi đưa mã vào khung hình để chấm công.
+                    Đây vẫn là mã check-in thật, nhưng phải quét <b>bằng camera của máy chấm công</b> (không phải camera điện thoại cá nhân — quét bằng điện thoại chỉ hiện chuỗi ký tự, không check-in được).
+                    Cách dùng: in thẻ này ra, tại máy chấm công bấm nút &quot;Quét mã QR&quot;, rồi đưa thẻ vào khung hình.
+                    Thiết kế cố ý như vậy để chống nhờ người khác chụp mã quét hộ từ xa.
                   </p>
                   {companySlug && (
                     <a
@@ -861,7 +867,7 @@ export default function EmployeesClient({
                     </a>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-3">In QR này dán lên thẻ nhân viên. Bấm &quot;Đổi mã&quot; để vô hiệu hóa QR cũ.</p>
+                <p className="text-xs text-gray-400 mt-3">In thẻ QR này dán lên thẻ nhân viên — chỉ dùng để quét TẠI máy chấm công. Bấm &quot;Đổi mã&quot; để vô hiệu hóa QR cũ.</p>
               </div>
             ) : (
               <p className="text-center text-red-500 py-8">Không lấy được mã QR</p>
@@ -2027,7 +2033,7 @@ export default function EmployeesClient({
                         <button
                           onClick={() => openQR({ id: emp.id, name: emp.name })}
                           className="flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-600 rounded-lg text-[10px] font-medium hover:bg-purple-100 border border-purple-100 transition-colors"
-                          title="Xem / tải mã QR check-in"
+                          title="Xem/tải thẻ QR — quét TẠI máy chấm công, không quét bằng điện thoại cá nhân"
                         >
                           <QrCode size={11} strokeWidth={1.5} /> Xem QR
                         </button>
