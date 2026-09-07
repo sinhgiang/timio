@@ -306,11 +306,13 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                     : null;
                   // Giờ khai báo đưa vào tooltip (rê chuột mới hiện) thay vì hiện thẳng ra — nhãn Trạng thái
                   // (Đúng giờ/Trễ) đã tự phản ánh có khớp giờ khai báo hay không, khỏi cần lặp lại 2 dòng/ô.
+                  // Nhãn buổi (Sáng/Tối) KHÔNG hiện chữ ra bảng nữa (theo phản hồi user: "nhìn giờ là biết rồi,
+                  // khỏi cần biết sáng hay tối") — chỉ còn trong tooltip này để tra cứu khi cần, thứ tự dòng
+                  // (dòng trên luôn là buổi 1, dòng dưới là buổi 2...) đã đủ để phân biệt trực quan.
+                  const sessionPrefix = multiSession && r.sessionLabel ? `${r.sessionLabel} — ` : "";
                   const expectedTitle = showExpected && r.expectedCheckIn && r.expectedCheckOut
-                    ? `Giờ khai báo: ${r.expectedCheckIn}–${r.expectedCheckOut}`
+                    ? `${sessionPrefix}Giờ khai báo: ${r.expectedCheckIn}–${r.expectedCheckOut}`
                     : undefined;
-                  const sessionColor =
-                    r.sessionLabel === "Sáng" ? "text-amber-500" : r.sessionLabel === "Tối" ? "text-indigo-500" : "text-blue-400";
                   return (
                     <tr key={`${day}-${r.session}`} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
                       {i === 0 && (
@@ -334,13 +336,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                           </div>
                         </td>
                       )}
-                      {/* Nhãn buổi (Sáng/Tối) gộp NGAY TRONG ô Giờ vào — không tách cột riêng, vì ô Ngày đã
-                          rowSpan chiếm 1 cột nên mỗi dòng buổi chỉ được phép có đúng số cột còn lại; tách
-                          thêm 1 cột ở đây từng làm giờ/trạng thái của buổi 2 (Tối) bị lệch sang phải 1 cột. */}
+                      {/* Ô Ngày đã rowSpan chiếm 1 cột nên mỗi dòng buổi chỉ được phép có đúng số cột còn lại —
+                          tách thêm 1 cột ở đây từng làm giờ/trạng thái của buổi 2 (Tối) bị lệch sang phải 1 cột.
+                          Nhãn Sáng/Tối không hiện chữ nữa, chỉ còn trong title (rê chuột) — xem comment ở trên. */}
                       <td className="px-4 py-2 font-mono text-gray-700 font-medium align-top" title={expectedTitle}>
-                        {multiSession && r.sessionLabel && (
-                          <span className={`mr-1.5 text-[10px] font-semibold ${sessionColor}`}>{r.sessionLabel}</span>
-                        )}
                         {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-2 font-mono text-gray-500 align-top" title={expectedTitle}>
