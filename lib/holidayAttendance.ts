@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { buildDayRows } from "@/lib/shiftResolve";
 
 /**
  * Đánh dấu 1 ngày là "nghỉ lễ ĐÃ ĐƯỢC DUYỆT" cho 1 nhân viên: KHÔNG tính vắng, KHÔNG trừ lương.
@@ -12,45 +13,59 @@ import { prisma } from "@/lib/prisma";
  * phải tự ý nghỉ) và cộng thẳng vào MonthlySummary.daysPresent (đúng cơ chế daysPresent đang
  * dùng để tính lương ở checkin/route.ts — xem lib/attendance.ts investigation).
  *
- * Nếu ngày đó nhân viên đã có chấm công thật (status khác "absent") thì KHÔNG ghi đè — họ đã
- * được tính có mặt bình thường rồi, không cần can thiệp (idempotent — gọi lại nhiều lần an toàn).
+ * Ca gãy nhiều buổi/ngày (Employee.shiftOverride.sessions): dùng chung buildDayRows() (xem
+ * lib/shiftResolve.ts, cũng là nguồn cho báo cáo Chi tiết trên ReportsClient.tsx) để ghi ĐỦ
+ * từng buổi ("0","1",...) thay vì chỉ session "full" — nếu không, buổi thứ 2 trở đi vẫn bị
+ * tính vắng dù buổi đầu đã lên "Nghỉ lễ". daysPresent chỉ cộng +1 CHO CẢ NGÀY (không phải +1
+ * mỗi buổi), khớp quy ước isFirstLogOfDay đang dùng ở checkin/route.ts và checkin-face/route.ts.
  *
- * Giới hạn đã biết: chỉ ghi vào session "full" — nhân viên ca gãy nhiều buổi/ngày
- * (Employee.shiftOverride.sessions) sẽ cần can thiệp riêng cho từng buổi, chưa xử lý ở đây.
+ * Nếu 1 buổi đã có chấm công thật (status khác "absent") thì buổi đó KHÔNG bị ghi đè — coi như
+ * đã có mặt bình thường; đồng thời ngày đó cũng không cộng thêm daysPresent khống (buổi có mặt
+ * thật đã tự cộng qua luồng check-in rồi). Idempotent — gọi lại nhiều lần an toàn.
  */
 export async function markHolidayAttendance(employeeId: string, date: string, note: string): Promise<void> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
-    select: { branchId: true, branch: { select: { checkInTime: true, checkOutTime: true } } },
+    select: { branchId: true, shiftOverride: true, branch: { select: { checkInTime: true, checkOutTime: true } } },
   });
   if (!employee) return;
 
-  const existing = await prisma.attendanceLog.findUnique({
-    where: { employeeId_date_session: { employeeId, date, session: "full" } },
-  });
-  if (existing && existing.status !== "absent") return; // đã có mặt thật (checkin/correction) — không đụng vào
-
-  // Gán sẵn checkInAt/checkOutAt theo giờ ca chuẩn của chi nhánh — để log trông "đã khép ngày"
-  // (có checkOutAt) nên nếu nhân viên lỡ vẫn quét chấm công ngày này, kiosk sẽ báo "đã chấm công
-  // đủ hôm nay" thay vì hiểu nhầm thao tác đó là check-out và tính sai giờ/phạt ra sớm.
+  // 1 dòng "full" (NV bình thường) hoặc N dòng theo buổi (NV ca gãy) — xem lib/shiftResolve.ts
+  const rows = buildDayRows(employee.shiftOverride, date);
   const ci = employee.branch.checkInTime || "08:00";
   const co = employee.branch.checkOutTime || "17:00";
-  const checkInAt = new Date(`${date}T${ci}:00+07:00`);
-  const checkOutAt = new Date(`${date}T${co}:00+07:00`);
+  let alreadyPresent = false; // true nếu ÍT NHẤT 1 buổi trong ngày đã có chấm công thật
 
-  if (existing) {
-    await prisma.attendanceLog.update({
-      where: { id: existing.id },
-      data: { status: "holiday", checkInAt, checkOutAt, minutesLate: 0, penaltyAmount: 0, note },
+  for (const row of rows) {
+    const existing = await prisma.attendanceLog.findUnique({
+      where: { employeeId_date_session: { employeeId, date, session: row.session } },
     });
-  } else {
-    await prisma.attendanceLog.create({
-      data: {
-        employeeId, branchId: employee.branchId, date, session: "full",
-        status: "holiday", checkInAt, checkOutAt, minutesLate: 0, penaltyAmount: 0, note,
-      },
-    });
+    if (existing && existing.status !== "absent") { alreadyPresent = true; continue; } // buổi này đã có mặt thật — không đụng vào
+
+    // Gán sẵn checkInAt/checkOutAt theo giờ ca (buổi riêng nếu ca gãy, không thì giờ chuẩn chi
+    // nhánh) — để log trông "đã khép ngày" (có checkOutAt) nên nếu nhân viên lỡ vẫn quét chấm
+    // công buổi này, kiosk sẽ báo "đã chấm công đủ hôm nay" thay vì tính sai giờ/phạt ra sớm.
+    const inHHMM = row.expectedCheckIn || ci;
+    const outHHMM = row.expectedCheckOut || co;
+    const checkInAt = new Date(`${date}T${inHHMM}:00+07:00`);
+    const checkOutAt = new Date(`${date}T${outHHMM}:00+07:00`);
+
+    if (existing) {
+      await prisma.attendanceLog.update({
+        where: { id: existing.id },
+        data: { status: "holiday", checkInAt, checkOutAt, minutesLate: 0, penaltyAmount: 0, note },
+      });
+    } else {
+      await prisma.attendanceLog.create({
+        data: {
+          employeeId, branchId: employee.branchId, date, session: row.session,
+          status: "holiday", checkInAt, checkOutAt, minutesLate: 0, penaltyAmount: 0, note,
+        },
+      });
+    }
   }
+
+  if (alreadyPresent) return; // ngày đã được tính có mặt thật ở buổi khác — không cộng thêm ngày công khống
 
   const [y, m] = date.split("-").map(Number);
   await prisma.monthlySummary.upsert({
@@ -111,8 +126,16 @@ export async function revertHolidayAttendanceRange(companyId: string, dates: str
     where: { date: { in: dates }, status: "holiday", employee: { companyId } },
     select: { id: true, employeeId: true, date: true },
   });
+  await prisma.attendanceLog.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } });
+
+  // markHolidayAttendance chỉ cộng +1 daysPresent CHO CẢ NGÀY (không phải mỗi buổi) — NV ca gãy
+  // có thể có 2 dòng "holiday" cùng 1 ngày, nên gỡ cũng phải trừ đúng 1 lần/ngày, gộp theo
+  // employeeId+date trước khi decrement, không phải theo từng dòng.
+  const seenDay = new Set<string>();
   for (const row of rows) {
-    await prisma.attendanceLog.delete({ where: { id: row.id } });
+    const key = `${row.employeeId}|${row.date}`;
+    if (seenDay.has(key)) continue;
+    seenDay.add(key);
     const [y, m] = row.date.split("-").map(Number);
     await prisma.monthlySummary.updateMany({
       where: { employeeId: row.employeeId, year: y, month: m, daysPresent: { gt: 0 } },

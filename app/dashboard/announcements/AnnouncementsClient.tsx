@@ -4,13 +4,13 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
   Megaphone, Plus, Pin, Pencil, Trash2, AlertTriangle, Info, Zap,
-  Image as ImageIcon, Video, Link2, X, Loader2, Send, MessageCircle, User, Share2,
+  Image as ImageIcon, Video, Link2, X, Loader2, Send, MessageCircle, User, Share2, Check,
 } from "lucide-react";
 
 type LinkPreview = { title: string; description: string; image: string | null; embedUrl: string | null; provider: string; url: string };
 // employeeId: null nếu người bình luận là admin/quản lý (không có hồ sơ nhân viên để mở) hoặc
 // là nhân viên đã rời công ty/không map được — component tự ẩn link khi employeeId rỗng.
-type Comment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string; employeeId: string | null };
+type Comment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; updatedAt: string | null; actorType: string; employeeId: string | null; isMine: boolean };
 type Reactor = { emoji: ReactionKey; authorName: string; employeeId: string | null };
 type ReactionKey = "like" | "love" | "haha" | "wow" | "sad" | "angry";
 
@@ -241,6 +241,42 @@ export default function AnnouncementsClient() {
     fetch_();
   }
 
+  async function editComment(ann: Announcement, commentId: string, content: string) {
+    if (!content.trim()) return;
+    try {
+      const res = await fetch(`/api/announcements/${ann.id}/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Không sửa được bình luận — thử lại.");
+        return;
+      }
+    } catch {
+      alert("Lỗi kết nối — thử lại.");
+      return;
+    }
+    fetch_();
+  }
+
+  async function deleteComment(ann: Announcement, commentId: string) {
+    if (!confirm("Xoá bình luận này?")) return;
+    try {
+      const res = await fetch(`/api/announcements/${ann.id}/comments/${commentId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Không xoá được bình luận — thử lại.");
+        return;
+      }
+    } catch {
+      alert("Lỗi kết nối — thử lại.");
+      return;
+    }
+    fetch_();
+  }
+
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -318,7 +354,7 @@ export default function AnnouncementsClient() {
                   </div>
                 </div>
 
-                <SocialSection ann={ann} onReact={(e) => react(ann, e)} onComment={(c) => comment(ann, c)} onOpenProfile={openProfile} />
+                <SocialSection ann={ann} onReact={(e) => react(ann, e)} onComment={(c) => comment(ann, c)} onEditComment={(id, c) => editComment(ann, id, c)} onDeleteComment={(id) => deleteComment(ann, id)} onOpenProfile={openProfile} />
               </div>
             );
           })}
@@ -502,12 +538,14 @@ function timeAgoVi(iso: string): string {
 // state của cùng 1 khối). Layout mô phỏng bố cục Facebook (icon chồng mí, popover "ai đã thích"
 // gom theo loại cảm xúc, dải emoji khi hover nút Thích) nhưng GIỮ màu cam thương hiệu Timio —
 // theo yêu cầu của chị: chỉ lấy bố cục, không lấy theme tối/màu của Facebook.
-function SocialSection({ ann, onReact, onComment, onOpenProfile }: { ann: Announcement; onReact: (e: ReactionKey) => void; onComment: (content: string) => void; onOpenProfile: (employeeId: string) => void }) {
+function SocialSection({ ann, onReact, onComment, onEditComment, onDeleteComment, onOpenProfile }: { ann: Announcement; onReact: (e: ReactionKey) => void; onComment: (content: string) => void; onEditComment: (commentId: string, content: string) => void; onDeleteComment: (commentId: string) => void; onOpenProfile: (employeeId: string) => void }) {
   const total = Object.values(ann.reactionCounts).reduce((s, n) => s + (n || 0), 0);
   const [showWho, setShowWho] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [text, setText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => () => { if (pickerTimer.current) clearTimeout(pickerTimer.current); }, []);
@@ -704,18 +742,45 @@ function SocialSection({ ann, onReact, onComment, onOpenProfile }: { ann: Announ
                     {avatar}
                   </button>
                 ) : avatar}
-                <div className="min-w-0">
-                  <div className="bg-gray-50 rounded-2xl px-3 py-1.5 inline-block max-w-full">
-                    {clickable ? (
-                      <button onClick={() => onOpenProfile(c.employeeId!)} className="block font-medium text-gray-700 text-xs hover:text-blue-600 hover:underline">
-                        {c.authorName}
+                <div className="min-w-0 flex-1">
+                  {editingId === c.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        autoFocus
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && editText.trim()) { onEditComment(c.id, editText); setEditingId(null); } if (e.key === "Escape") setEditingId(null); }}
+                        className="flex-1 text-sm border border-orange-300 rounded-full px-3 py-1.5 focus:ring-2 focus:ring-orange-300 outline-none"
+                      />
+                      <button onClick={() => { if (editText.trim()) { onEditComment(c.id, editText); setEditingId(null); } }} disabled={!editText.trim()} className="text-orange-500 disabled:text-gray-300 p-1">
+                        <Check size={16} />
                       </button>
-                    ) : (
-                      <span className="block font-medium text-gray-700 text-xs">{c.authorName}</span>
-                    )}
-                    <p className="text-gray-600 break-words">{c.content}</p>
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 ml-3">{timeAgoVi(c.createdAt)}</p>
+                      <button onClick={() => setEditingId(null)} className="text-gray-400 p-1"><X size={16} /></button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-gray-50 rounded-2xl px-3 py-1.5 inline-block max-w-full">
+                        {clickable ? (
+                          <button onClick={() => onOpenProfile(c.employeeId!)} className="block font-medium text-gray-700 text-xs hover:text-blue-600 hover:underline">
+                            {c.authorName}
+                          </button>
+                        ) : (
+                          <span className="block font-medium text-gray-700 text-xs">{c.authorName}</span>
+                        )}
+                        <p className="text-gray-600 break-words">{c.content}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 ml-3 text-[11px] text-gray-400">
+                        <span>{timeAgoVi(c.createdAt)}</span>
+                        {c.updatedAt && <span>· Đã chỉnh sửa</span>}
+                        {c.isMine && (
+                          <>
+                            <button onClick={() => { setEditingId(c.id); setEditText(c.content); }} className="hover:text-orange-600 hover:underline">Sửa</button>
+                            <button onClick={() => onDeleteComment(c.id)} className="hover:text-red-500 hover:underline">Xoá</button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             );

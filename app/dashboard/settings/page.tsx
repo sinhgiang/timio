@@ -64,6 +64,12 @@ export default async function SettingsPage() {
         kioskMessages: company?.kioskMessages ?? null,
         paydayOfMonth: (company as { paydayOfMonth?: number })?.paydayOfMonth ?? 5,
         faceLiveness: (company as { faceLiveness?: boolean })?.faceLiveness ?? false,
+        ewaEnabled: company?.ewaEnabled ?? false,
+        ewaApprovalMode: company?.ewaApprovalMode ?? "manual",
+        ewaMaxPercent: company?.ewaMaxPercent ?? 50,
+        ewaFeeType: company?.ewaFeeType ?? "fixed",
+        ewaFeeValue: company?.ewaFeeValue ?? 10000,
+        ewaMaxPerMonth: company?.ewaMaxPerMonth ?? 4,
       }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}

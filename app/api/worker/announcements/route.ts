@@ -22,7 +22,8 @@ export async function GET() {
       company: { select: { name: true } },
       reactions: { select: { emoji: true, actorKey: true, authorName: true } },
       comments: {
-        select: { id: true, content: true, authorName: true, authorAvatarUrl: true, createdAt: true, actorType: true, actorKey: true },
+        where: { deletedAt: null },
+        select: { id: true, content: true, authorName: true, authorAvatarUrl: true, createdAt: true, updatedAt: true, actorType: true, actorKey: true },
         orderBy: { createdAt: "asc" },
       },
     },

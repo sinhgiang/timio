@@ -33,6 +33,11 @@ import {
   Mail,
   ArrowRightLeft,
   LogOut,
+  Wallet,
+  Smartphone,
+  Info,
+  Settings2,
+  CheckCircle2,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -65,7 +70,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null; faceLiveness?: boolean };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null; faceLiveness?: boolean; ewaEnabled?: boolean; ewaApprovalMode?: string; ewaMaxPercent?: number; ewaFeeType?: string; ewaFeeValue?: number; ewaMaxPerMonth?: number };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -230,6 +235,35 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [paydaySaving, setPaydaySaving] = useState(false);
   const [paydayMsg, setPaydayMsg] = useState("");
 
+  // Ứng lương sớm (EWA) — nhân viên tự ứng qua app; xem/duyệt yêu cầu tại /dashboard/salary-advances
+  const [ewaCfg, setEwaCfg] = useState({
+    ewaEnabled: company.ewaEnabled ?? false,
+    ewaApprovalMode: company.ewaApprovalMode ?? "manual",
+    ewaMaxPercent: company.ewaMaxPercent ?? 50,
+    ewaFeeType: company.ewaFeeType ?? "fixed",
+    ewaFeeValue: company.ewaFeeValue ?? 10000,
+    ewaMaxPerMonth: company.ewaMaxPerMonth ?? 4,
+  });
+  const [ewaSaving, setEwaSaving] = useState(false);
+  const [ewaSaved, setEwaSaved] = useState(false);
+  const isOwner = role === "owner";
+
+  const saveEwaCfg = async () => {
+    setEwaSaving(true); setEwaSaved(false);
+    const res = await fetch("/api/company/ewa-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(ewaCfg),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setEwaCfg(updated);
+      setEwaSaved(true);
+      setTimeout(() => setEwaSaved(false), 2500);
+    }
+    setEwaSaving(false);
+  };
+
   const savePayday = async () => {
     setPaydaySaving(true); setPaydayMsg("");
     const res = await fetch("/api/company/payday", {
@@ -335,6 +369,17 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [holidayLoading, setHolidayLoading] = useState(false);
   const [holidayMsg, setHolidayMsg] = useState("");
+
+  // Đếm số ngày (bao gồm cả 2 đầu) giữa "Từ ngày" và "Đến ngày" — dùng để tự động điền
+  // "Tổng số ngày"/"Tối đa/NV" thay vì bắt admin tự đếm & gõ tay (theo phản hồi user).
+  const daysBetween = (from: string, to: string): number => {
+    if (!from) return 0;
+    const end = to || from;
+    const a = new Date(`${from}T00:00:00Z`).getTime();
+    const b = new Date(`${end}T00:00:00Z`).getTime();
+    if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 0;
+    return Math.round((b - a) / 86400000) + 1;
+  };
 
   const loadHolidays = async (year: number) => {
     const res = await fetch(`/api/holidays?year=${year}`);
@@ -861,6 +906,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     { key: "qr",        label: "QR & Link",     Icon: QrCode },
     { key: "penalty",   label: "Phạt & Thưởng", Icon: Clock },
     { key: "holiday",   label: "Ngày lễ",        Icon: CalendarDays },
+    { key: "ewa",       label: "Ứng lương sớm",  Icon: Wallet },
     { key: "notify",    label: "Thông báo",      Icon: MessageSquare },
     { key: "kiosk",     label: "Kiosk",          Icon: Monitor },
     { key: "signature", label: "Chữ ký & Dấu",  Icon: PenLine },
@@ -1431,11 +1477,31 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               <div className="flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[130px]">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Từ ngày</label>
-                  <input type="date" value={holidayForm.date} onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
+                  <input
+                    type="date"
+                    value={holidayForm.date}
+                    onChange={(e) => {
+                      const date = e.target.value;
+                      const n = daysBetween(date, holidayForm.endDate);
+                      setHolidayForm({ ...holidayForm, date, ...(n ? { totalDays: String(n), maxDays: String(n) } : {}) });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    required
+                  />
                 </div>
                 <div className="flex-1 min-w-[130px]">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Đến ngày <span className="text-gray-400 font-normal">(để trống nếu chỉ 1 ngày)</span></label>
-                  <input type="date" value={holidayForm.endDate} onChange={(e) => setHolidayForm({ ...holidayForm, endDate: e.target.value })} min={holidayForm.date || undefined} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                  <input
+                    type="date"
+                    value={holidayForm.endDate}
+                    onChange={(e) => {
+                      const endDate = e.target.value;
+                      const n = daysBetween(holidayForm.date, endDate);
+                      setHolidayForm({ ...holidayForm, endDate, ...(n ? { totalDays: String(n), maxDays: String(n) } : {}) });
+                    }}
+                    min={holidayForm.date || undefined}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
                 </div>
                 <div className="flex-1 min-w-[160px]">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Tên đợt nghỉ</label>
@@ -1443,12 +1509,12 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                 </div>
                 {holidayForm.mode === "fixed" ? (
                   <div className="w-32">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Tổng số ngày</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tổng số ngày <span className="text-gray-400 font-normal">(tự động)</span></label>
                     <input type="number" min="0" step="0.5" value={holidayForm.totalDays} onChange={(e) => setHolidayForm({ ...holidayForm, totalDays: e.target.value })} placeholder="VD: 4" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                   </div>
                 ) : (
                   <div className="w-32">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Tối đa/NV</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tối đa/NV <span className="text-gray-400 font-normal">(tự động)</span></label>
                     <input type="number" min="0" step="0.5" value={holidayForm.maxDays} onChange={(e) => setHolidayForm({ ...holidayForm, maxDays: e.target.value })} placeholder="VD: 2" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
                   </div>
                 )}
@@ -1530,6 +1596,78 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
         </div>
         </PlanGate>
+      )}
+
+      {activeSection === "ewa" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center"><Smartphone size={18} className="text-amber-600" strokeWidth={1.5} /></div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Ứng lương sớm qua app nhân viên</p>
+              <p className="text-xs text-gray-400">
+                {ewaCfg.ewaEnabled
+                  ? `Đang bật · duyệt ${ewaCfg.ewaApprovalMode === "auto" ? "tự động" : "thủ công"} · tối đa ${ewaCfg.ewaMaxPercent}% lương đã kiếm`
+                  : "Đang tắt — nhân viên chưa ứng được"}
+              </p>
+            </div>
+            <span className={`ml-auto text-xs font-medium px-2.5 py-1 rounded-full ${ewaCfg.ewaEnabled ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"}`}>
+              {ewaCfg.ewaEnabled ? "BẬT" : "TẮT"}
+            </span>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-50 space-y-3">
+            {!isOwner ? (
+              <p className="text-xs text-gray-500 flex items-center gap-1.5 bg-gray-50 rounded-lg px-3 py-2"><Info size={13} /> Chỉ chủ công ty được thay đổi cấu hình ứng lương.</p>
+            ) : (
+              <>
+                <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+                  <input type="checkbox" checked={ewaCfg.ewaEnabled} onChange={(e) => setEwaCfg({ ...ewaCfg, ewaEnabled: e.target.checked })} className="w-4 h-4 accent-amber-600" />
+                  Cho phép nhân viên ứng lương sớm trong app
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cách duyệt</label>
+                    <select value={ewaCfg.ewaApprovalMode} onChange={(e) => setEwaCfg({ ...ewaCfg, ewaApprovalMode: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="manual">Công ty duyệt tay</option>
+                      <option value="auto">Tự động duyệt trong hạn mức</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ứng tối đa (% lương đã kiếm)</label>
+                    <input type="number" min={1} max={100} value={ewaCfg.ewaMaxPercent} onChange={(e) => setEwaCfg({ ...ewaCfg, ewaMaxPercent: Math.floor(Number(e.target.value)) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Loại phí (nhân viên trả)</label>
+                    <select value={ewaCfg.ewaFeeType} onChange={(e) => setEwaCfg({ ...ewaCfg, ewaFeeType: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="fixed">Cố định (đồng/lần)</option>
+                      <option value="percent">Theo % số tiền ứng</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{ewaCfg.ewaFeeType === "percent" ? "Phí (phần nghìn, vd 15 = 1.5%)" : "Phí mỗi lần (đồng)"}</label>
+                    <input type="number" min={0} step={ewaCfg.ewaFeeType === "percent" ? 1 : 1000} value={ewaCfg.ewaFeeValue} onChange={(e) => setEwaCfg({ ...ewaCfg, ewaFeeValue: Math.floor(Number(e.target.value)) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Số lần ứng tối đa/tháng</label>
+                    <input type="number" min={1} max={31} value={ewaCfg.ewaMaxPerMonth} onChange={(e) => setEwaCfg({ ...ewaCfg, ewaMaxPerMonth: Math.floor(Number(e.target.value)) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-400 flex items-start gap-1.5"><Info size={12} className="mt-0.5 shrink-0" /> Tiền ứng là <b>tiền công ty ứng trước</b> phần lương nhân viên đã đi làm — đến kỳ lương sẽ tự trừ lại. Timio chỉ tính toán, không giữ tiền.</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={saveEwaCfg} disabled={ewaSaving} className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50">
+                    <Settings2 size={14} /> {ewaSaving ? "Đang lưu..." : "Lưu cấu hình"}
+                  </button>
+                  {ewaSaved && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle2 size={13} /> Đã lưu</span>}
+                </div>
+              </>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-50">
+            Duyệt yêu cầu &amp; xác nhận đã chuyển tiền tại trang{" "}
+            <Link href="/dashboard/salary-advances" className="text-blue-600 font-medium hover:underline">Tạm ứng lương</Link>.
+          </p>
+        </div>
       )}
 
       {activeSection === "notify" && <>

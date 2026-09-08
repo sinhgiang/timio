@@ -999,7 +999,9 @@ model AnnouncementComment {
   actorKey        String   // "admin:<email>" hoặc "worker:<workerAccountId>" — định danh tác giả
   authorName      String
   authorAvatarUrl String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime? // null = chưa sửa lần nào; có giá trị → hiện tag "Đã chỉnh sửa" (kiểu Facebook)
+  deletedAt       DateTime? // xoá mềm — giữ hàng để không lệch số đếm/thread, ẩn nội dung ở API
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 

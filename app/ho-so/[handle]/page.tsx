@@ -5,7 +5,7 @@ import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
-  CalendarDays, Receipt, GraduationCap, Package, Megaphone,
+  CalendarDays, Receipt, GraduationCap, Package, Megaphone, Check, Gift, Ticket,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
@@ -78,7 +78,7 @@ const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
   { key: "profile", label: "Hồ sơ của tôi", Icon: IdCard },
   { key: "attendance", label: "Chấm công", Icon: Clock },
   { key: "shifts", label: "Lịch ca", Icon: CalendarDays },
-  { key: "requests", label: "Đơn từ", Icon: FileText },
+  { key: "requests", label: "Đơn xin", Icon: FileText },
   { key: "leave", label: "Nghỉ phép", Icon: Umbrella },
   { key: "payslip", label: "Phiếu lương", Icon: Receipt },
   { key: "income", label: "Tạm ứng lương (EWA)", Icon: Wallet },
@@ -876,11 +876,21 @@ function IncomeTab() {
 }
 
 // ─────────── TAB CHẤM CÔNG ───────────
+type WSess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string };
+type WDay = { date: string; employeeId: string; companyName: string; sessions: WSess[] };
+
 function AttendanceTab({ onNew }: { onNew: () => void }) {
-  const [d, setD] = useState<{ summary: { total: number; onTime: number; late: number }; logs: { date: string; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string; companyName: string }[] } | null>(null);
+  const [d, setD] = useState<{ summary: { total: number; onTime: number; late: number }; days: WDay[] } | null>(null);
   useEffect(() => { fetch("/api/worker/attendance").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
   if (!d) return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>;
   const hhmm = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const statusOf = (s: WSess) => s.status === "holiday"
+    ? { text: "Nghỉ lễ", cls: "bg-blue-50 text-blue-600" }
+    : !s.checkInAt
+      ? { text: "Vắng", cls: "bg-gray-100 text-gray-500" }
+      : s.minutesLate > 0
+        ? { text: `Trễ ${s.minutesLate} phút`, cls: "bg-amber-50 text-amber-600" }
+        : { text: "Đúng giờ", cls: "bg-green-50 text-green-600" };
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
@@ -890,15 +900,36 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
       </div>
       <button onClick={onNew} className="w-full flex items-center justify-center gap-2 border border-blue-200 text-blue-600 bg-blue-50 rounded-xl py-2.5 text-sm font-medium hover:bg-blue-100"><Pencil size={15} /> Thấy chấm công chưa đúng? Tạo đơn sửa</button>
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <p className="text-sm font-semibold text-gray-700 mb-2">Lịch sử gần đây</p>
-        {d.logs.length === 0 ? <p className="text-sm text-gray-400">Chưa có dữ liệu chấm công.</p> : (
-          <div className="divide-y divide-gray-50">
-            {d.logs.map((l, i) => (
-              <div key={i} className="flex items-center justify-between py-2 text-sm">
-                <div><p className="text-gray-700">{new Date(l.date).toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</p><p className="text-[11px] text-gray-400">{l.companyName}</p></div>
-                <div className="text-right"><p className="text-gray-600 text-xs">Vào {hhmm(l.checkInAt)} · Ra {hhmm(l.checkOutAt)}</p>{l.status === "holiday" ? <p className="text-[11px] text-blue-600">Nghỉ lễ</p> : l.minutesLate > 0 ? <p className="text-[11px] text-amber-600">Trễ {l.minutesLate} phút</p> : <p className="text-[11px] text-green-600">Đúng giờ</p>}</div>
-              </div>
-            ))}
+        <p className="text-sm font-semibold text-gray-700 mb-3">Lịch sử gần đây</p>
+        {d.days.length === 0 ? <p className="text-sm text-gray-400">Chưa có dữ liệu chấm công.</p> : (
+          <div className="space-y-3">
+            {d.days.map((day, i) => {
+              const multi = day.sessions.length > 1;
+              return (
+                <div key={i} className="rounded-xl border border-gray-100 overflow-hidden">
+                  <div className="flex items-center justify-between bg-gray-50 px-3 py-1.5">
+                    <p className="text-xs font-semibold text-gray-600">{new Date(day.date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" })}</p>
+                    <p className="text-[11px] text-gray-400">{day.companyName}</p>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {day.sessions.map((s, j) => {
+                      const st = statusOf(s);
+                      return (
+                        <div key={j} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            {multi && <span className="shrink-0 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-md px-1.5 py-0.5">{s.sessionLabel ?? `Buổi ${j + 1}`}</span>}
+                            <span className="text-gray-700 font-mono text-xs">
+                              <span className="text-gray-400">Vào</span> {hhmm(s.checkInAt)} <span className="text-gray-300 mx-0.5">·</span> <span className="text-gray-400">Ra</span> {hhmm(s.checkOutAt)}
+                            </span>
+                          </div>
+                          <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${st.cls}`}>{st.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -951,12 +982,21 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
   };
 
   return (
-    <div className="border border-indigo-100 bg-indigo-50/40 rounded-xl p-3.5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-gray-800">🎉 {h.name}</p>
-        <span className="text-[11px] text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap">Còn {remaining}/{h.maxDays} ngày</span>
+    <div className="rounded-2xl overflow-hidden border border-indigo-100 shadow-sm bg-white">
+      {/* Đầu vé kiểu coupon — vạch đứt nét ngăn với phần chọn ngày bên dưới */}
+      <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-white">
+        <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Ticket size={19} strokeWidth={1.5} /></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{h.name}</p>
+          <p className="text-[11px] text-indigo-100">{new Date(h.startDate).toLocaleDateString("vi-VN")} → {new Date(h.endDate).toLocaleDateString("vi-VN")}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-lg font-extrabold leading-none">{remaining}<span className="text-xs font-semibold text-indigo-200">/{h.maxDays}</span></p>
+          <p className="text-[10px] text-indigo-200 uppercase tracking-wide">ngày còn</p>
+        </div>
       </div>
-      <p className="text-xs text-gray-500 mt-0.5">Chọn ngày trong khoảng {new Date(h.startDate).toLocaleDateString("vi-VN")} → {new Date(h.endDate).toLocaleDateString("vi-VN")} (có thể chọn rời rạc)</p>
+      <div className="border-t border-dashed border-indigo-200 px-3.5 pt-3 pb-3.5 bg-indigo-50/40">
+      <p className="text-xs text-gray-500">Chọn ngày muốn nghỉ (có thể chọn rời rạc):</p>
       <div className="flex flex-wrap gap-1.5 mt-2.5">
         {days.map((d) => {
           const used = h.usedDates.includes(d);
@@ -988,6 +1028,7 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
         </>
       )}
       {err && <p className="text-[11px] text-red-500 mt-1.5">{err}</p>}
+      </div>
     </div>
   );
 }
@@ -1014,16 +1055,22 @@ function LeaveTab({ onNew }: { onNew: () => void }) {
       <button onClick={onNew} className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-xl py-3 text-sm font-semibold hover:bg-blue-700"><Plus size={16} /> Tạo đơn nghỉ phép</button>
 
       {fixedHolidays.length > 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-          <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5"><CalendarDays size={15} className="text-blue-500" /> Ngày lễ công ty (tự động, không cần xin)</p>
-          <div className="space-y-1.5">
-            {fixedHolidays.map((h) => (
-              <div key={h.id} className="text-xs text-gray-600 flex items-center justify-between">
-                <span>🎉 {h.name}</span>
-                <span className="text-gray-400">{new Date(h.startDate).toLocaleDateString("vi-VN")}{h.endDate !== h.startDate ? ` → ${new Date(h.endDate).toLocaleDateString("vi-VN")}` : ""}</span>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-500 px-1 flex items-center gap-1.5"><CalendarDays size={13} className="text-blue-500" /> Ngày lễ công ty — tự động, không cần xin</p>
+          {fixedHolidays.map((h) => (
+            <div key={h.id} className="flex items-stretch bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-3 flex-1 min-w-0 px-3.5 py-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><Gift size={16} className="text-blue-500" strokeWidth={1.5} /></div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{h.name}</p>
+                  <p className="text-[11px] text-gray-400">{new Date(h.startDate).toLocaleDateString("vi-VN")}{h.endDate !== h.startDate ? ` → ${new Date(h.endDate).toLocaleDateString("vi-VN")}` : ""}</p>
+                </div>
               </div>
-            ))}
-          </div>
+              <div className="flex items-center px-3 border-l border-dashed border-blue-200 bg-blue-50/60 shrink-0">
+                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wide text-center leading-tight">Tự động<br />nghỉ lễ</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -1260,7 +1307,7 @@ function PayslipTab() {
             <div className="border-t border-gray-100 my-1" />
             <Row l="Thực nhận" v={p.netTakeHome} strong />
           </div>
-          <p className="text-[11px] text-gray-400 text-center">Số liệu do công ty chốt. Thấy sai? Tạo đơn ở tab “Đơn từ”.</p>
+          <p className="text-[11px] text-gray-400 text-center">Số liệu do công ty chốt. Thấy sai? Tạo đơn ở tab “Đơn xin”.</p>
         </>
       )}
     </div>
@@ -1336,7 +1383,7 @@ function ReviewsTab() {
 
 // ─────────── TAB BẢNG TIN CÔNG TY ───────────
 type WorkerAnnLinkPreview = { title: string; description: string; image: string | null; embedUrl: string | null; provider: string; url: string };
-type WorkerAnnComment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string };
+type WorkerAnnComment = { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; updatedAt: string | null; actorType: string; isMine: boolean };
 type WorkerAnnReactionKey = "like" | "love" | "haha" | "wow" | "sad" | "angry";
 type WorkerAnn = {
   id: string; title: string; content: string; type: string; pinned: boolean; publishedAt: string; companyName: string;
@@ -1387,6 +1434,22 @@ function AnnouncementsTab() {
     load();
   }
 
+  async function editComment(a: WorkerAnn, commentId: string, content: string) {
+    if (!content.trim()) return;
+    const r = await fetch(`/api/worker/announcements/${a.id}/comments/${commentId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }),
+    });
+    if (!r.ok) { const j = await r.json().catch(() => null); alert(j?.error || "Không sửa được bình luận — thử lại."); return; }
+    load();
+  }
+
+  async function deleteComment(a: WorkerAnn, commentId: string) {
+    if (!confirm("Xoá bình luận này?")) return;
+    const r = await fetch(`/api/worker/announcements/${a.id}/comments/${commentId}`, { method: "DELETE" });
+    if (!r.ok) { const j = await r.json().catch(() => null); alert(j?.error || "Không xoá được bình luận — thử lại."); return; }
+    load();
+  }
+
   return d.items.length === 0 ? <TabEmpty icon={<Megaphone size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có tin nội bộ nào." /> : (
     <div className="space-y-2.5">
       {d.items.map((a) => (
@@ -1426,7 +1489,7 @@ function AnnouncementsTab() {
             <div className="flex items-center gap-1 text-xs text-gray-400"><MessageCircle size={13} /> {a.comments.length}</div>
           </div>
 
-          <WorkerCommentBox comments={a.comments} onComment={(c) => comment(a, c)} />
+          <WorkerCommentBox comments={a.comments} onComment={(c) => comment(a, c)} onEdit={(id, c) => editComment(a, id, c)} onDelete={(id) => deleteComment(a, id)} />
         </div>
       ))}
     </div>
@@ -1457,10 +1520,16 @@ function WorkerLinkCard({ preview }: { preview: WorkerAnnLinkPreview }) {
   );
 }
 
-function WorkerCommentBox({ comments, onComment }: { comments: WorkerAnnComment[]; onComment: (content: string) => void }) {
+function WorkerCommentBox({ comments, onComment, onEdit, onDelete }: { comments: WorkerAnnComment[]; onComment: (content: string) => void; onEdit: (commentId: string, content: string) => void; onDelete: (commentId: string) => void }) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const visible = open ? comments : comments.slice(-2);
+
+  const startEdit = (c: WorkerAnnComment) => { setEditingId(c.id); setEditText(c.content); };
+  const saveEdit = () => { if (editingId && editText.trim()) onEdit(editingId, editText); setEditingId(null); };
+
   return (
     <div className="mt-2">
       {comments.length > 2 && !open && (
@@ -1468,13 +1537,40 @@ function WorkerCommentBox({ comments, onComment }: { comments: WorkerAnnComment[
       )}
       <div className="space-y-1.5">
         {visible.map((c) => (
-          <div key={c.id} className="flex items-start gap-2 text-sm">
+          <div key={c.id} className="flex items-start gap-2 text-sm group">
             <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 shrink-0">
               {c.authorName.slice(0, 1).toUpperCase()}
             </div>
-            <div className="bg-white/70 rounded-2xl px-3 py-1.5 min-w-0">
-              <span className="font-medium text-gray-700 text-xs">{c.authorName}</span>
-              <p className="text-gray-600 break-words">{c.content}</p>
+            <div className="min-w-0 flex-1">
+              {editingId === c.id ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
+                    className="flex-1 text-sm border border-blue-300 rounded-full px-3 py-1.5 focus:ring-2 focus:ring-blue-300 outline-none bg-white"
+                  />
+                  <button onClick={saveEdit} disabled={!editText.trim()} className="text-blue-500 disabled:text-gray-300 p-1"><Check size={16} /></button>
+                  <button onClick={() => setEditingId(null)} className="text-gray-400 p-1"><X size={16} /></button>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-white/70 rounded-2xl px-3 py-1.5 min-w-0 inline-block max-w-full">
+                    <span className="font-medium text-gray-700 text-xs">{c.authorName}</span>
+                    <p className="text-gray-600 break-words">{c.content}</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 pl-3 text-[11px] text-gray-400">
+                    {c.updatedAt && <span>Đã chỉnh sửa</span>}
+                    {c.isMine && (
+                      <>
+                        <button onClick={() => startEdit(c)} className="hover:text-blue-500 hover:underline">Sửa</button>
+                        <button onClick={() => onDelete(c.id)} className="hover:text-red-500 hover:underline">Xoá</button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))}

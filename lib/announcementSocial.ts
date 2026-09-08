@@ -51,6 +51,29 @@ export async function addComment(announcementId: string, actor: Actor, content: 
   });
 }
 
+// Sửa/xoá bình luận (kiểu Facebook) — chỉ chính chủ (actorKey trùng) mới được sửa/xoá bình luận
+// của mình; route gọi vào PHẢI dùng actorKeyOf(actor đang đăng nhập) chứ không nhận actorKey từ
+// body/query để tránh giả mạo sửa bình luận người khác.
+export async function editComment(commentId: string, actorKey: string, content: string) {
+  const text = content.trim().slice(0, 2000);
+  if (!text) throw new Error("Nội dung bình luận trống");
+  const existing = await prisma.announcementComment.findUnique({ where: { id: commentId } });
+  if (!existing || existing.deletedAt) throw new Error("Không tìm thấy bình luận");
+  if (existing.actorKey !== actorKey) throw new Error("Bạn không có quyền sửa bình luận này");
+  return prisma.announcementComment.update({
+    where: { id: commentId },
+    data: { content: text, updatedAt: new Date() },
+  });
+}
+
+export async function deleteComment(commentId: string, actorKey: string) {
+  const existing = await prisma.announcementComment.findUnique({ where: { id: commentId } });
+  if (!existing || existing.deletedAt) throw new Error("Không tìm thấy bình luận");
+  if (existing.actorKey !== actorKey) throw new Error("Bạn không có quyền xoá bình luận này");
+  // Xoá mềm (giữ hàng) — tránh lệch @@index/thread nếu sau này cần hiện "1 bình luận đã bị xoá".
+  await prisma.announcementComment.update({ where: { id: commentId }, data: { deletedAt: new Date() } });
+}
+
 // Trả về reaction hiện tại (null nếu vừa bị bỏ) để client cập nhật UI ngay không cần load lại.
 export async function toggleReaction(announcementId: string, actor: Actor, emoji: ReactionKey) {
   const key = actorKeyOf(actor);
@@ -76,7 +99,7 @@ export type SocialAnnouncement = {
   // actorKey giữ nguyên ("worker:<id>" | "admin:<email>") — nơi gọi (route) tự quyết có lộ ra
   // client hay tự resolve thành employeeId rồi bỏ đi (xem app/api/announcements/route.ts).
   reactors: { emoji: ReactionKey; authorName: string; actorKey: string }[];
-  comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; actorType: string; actorKey: string }[];
+  comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: string; updatedAt: string | null; actorType: string; actorKey: string; isMine: boolean }[];
 };
 
 // Gắn reactionCounts/myReaction/reactors/comments vào danh sách announcement đã lấy sẵn quan hệ
@@ -85,7 +108,7 @@ export function summarizeSocial<
   T extends {
     id: string;
     reactions: { emoji: string; actorKey: string; authorName: string }[];
-    comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: Date; actorType: string; actorKey: string }[];
+    comments: { id: string; content: string; authorName: string; authorAvatarUrl: string | null; createdAt: Date; updatedAt: Date | null; actorType: string; actorKey: string }[];
   },
 >(items: T[], viewerActorKey: string | null): (T & SocialAnnouncement)[] {
   return items.map((item) => {
@@ -109,8 +132,10 @@ export function summarizeSocial<
         authorName: c.authorName,
         authorAvatarUrl: c.authorAvatarUrl,
         createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt ? c.updatedAt.toISOString() : null,
         actorType: c.actorType,
         actorKey: c.actorKey,
+        isMine: viewerActorKey != null && c.actorKey === viewerActorKey,
       })),
     };
   });

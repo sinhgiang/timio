@@ -539,7 +539,7 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
                   <div className="h-2 rounded-full bg-white/20 overflow-hidden mt-2"><div className="h-full rounded-full bg-white/90" style={{ width: "80%" }} /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  {[["Đơn từ", "2 chờ duyệt"], ["Phiếu lương", "Tháng này"], ["Chấm công", "30 ngày"]].map(([a, b]) => (
+                  {[["Đơn xin", "2 chờ duyệt"], ["Phiếu lương", "Tháng này"], ["Chấm công", "30 ngày"]].map(([a, b]) => (
                     <div key={a} className="bg-gray-50 rounded-xl py-2"><p className="text-[11px] font-semibold text-gray-700">{a}</p><p className="text-[9px] text-gray-400">{b}</p></div>
                   ))}
                 </div>
