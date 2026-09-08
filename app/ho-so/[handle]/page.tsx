@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
@@ -886,13 +886,15 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
   const hhmm = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—";
   // Trễ mà có bị trừ tiền (penaltyAmount > 0) thì hiện thẳng số tiền trừ ngay đây — khớp với dòng
   // "Phạt" tổng cộng ở tab Phiếu lương — để NV nhìn 1 cái là biết ngày nào bị trừ, trừ bao nhiêu.
-  const statusOf = (s: WSess) => s.status === "holiday"
-    ? { text: "Nghỉ lễ", cls: "bg-blue-50 text-blue-600" }
+  // Tách riêng badge (vàng cam) và số tiền (đỏ, dòng dưới) — để dùng chung 1 lưới cột nên các dòng
+  // Sáng/Tối trong cùng 1 ngày thẳng hàng nhau, không lệch tuỳ độ dài chữ.
+  const statusOf = (s: WSess): { text: string; cls: string; amount: string | null } => s.status === "holiday"
+    ? { text: "Nghỉ lễ", cls: "bg-blue-50 text-blue-600", amount: null }
     : !s.checkInAt
-      ? { text: "Vắng", cls: "bg-gray-100 text-gray-500" }
+      ? { text: "Vắng", cls: "bg-gray-100 text-gray-500", amount: null }
       : s.minutesLate > 0
-        ? { text: `Trễ ${s.minutesLate} phút${s.penaltyAmount > 0 ? ` · −${vnd(s.penaltyAmount)}đ` : ""}`, cls: "bg-amber-50 text-amber-600" }
-        : { text: "Đúng giờ", cls: "bg-green-50 text-green-600" };
+        ? { text: `Trễ ${s.minutesLate} phút`, cls: "bg-amber-50 text-amber-600", amount: s.penaltyAmount > 0 ? `−${vnd(s.penaltyAmount)}đ` : null }
+        : { text: "Đúng giờ", cls: "bg-green-50 text-green-600", amount: null };
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
@@ -913,19 +915,24 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
                     <p className="text-xs font-semibold text-gray-600">{new Date(day.date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" })}</p>
                     <p className="text-[11px] text-gray-400">{day.companyName}</p>
                   </div>
-                  <div className="divide-y divide-gray-50">
+                  {/* Lưới 3 cột dùng chung cho mọi buổi trong ngày (nhãn buổi | giờ vào-ra | trạng thái+tiền)
+                      — CSS Grid tự căn cột đều nhau giữa các buổi Sáng/Tối, không lệch như flex mỗi dòng riêng. */}
+                  <div className="grid grid-cols-[auto_1fr_auto] gap-x-2.5 gap-y-2.5 px-3 py-2.5 text-sm">
                     {day.sessions.map((s, j) => {
                       const st = statusOf(s);
                       return (
-                        <div key={j} className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 px-3 py-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            {multi && <span className="shrink-0 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-md px-1.5 py-0.5">{s.sessionLabel ?? `Buổi ${j + 1}`}</span>}
-                            <span className="text-gray-700 font-mono text-xs">
-                              <span className="text-gray-400">Vào</span> {hhmm(s.checkInAt)} <span className="text-gray-300 mx-0.5">·</span> <span className="text-gray-400">Ra</span> {hhmm(s.checkOutAt)}
-                            </span>
+                        <Fragment key={j}>
+                          {multi ? (
+                            <span className="self-center shrink-0 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-md px-1.5 py-0.5">{s.sessionLabel ?? `Buổi ${j + 1}`}</span>
+                          ) : <span />}
+                          <span className="self-center text-gray-700 font-mono text-xs tabular-nums">
+                            <span className="text-gray-400">Vào</span> {hhmm(s.checkInAt)} <span className="text-gray-300 mx-0.5">·</span> <span className="text-gray-400">Ra</span> {hhmm(s.checkOutAt)}
+                          </span>
+                          <div className="flex flex-col items-end justify-center gap-0.5">
+                            <span className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${st.cls}`}>{st.text}</span>
+                            {st.amount && <span className="text-[11px] font-semibold text-red-500">{st.amount}</span>}
                           </div>
-                          <span className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${st.cls}`}>{st.text}</span>
-                        </div>
+                        </Fragment>
                       );
                     })}
                   </div>
