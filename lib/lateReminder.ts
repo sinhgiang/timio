@@ -7,6 +7,7 @@ import { buildReminderHtml } from "@/lib/chatTools";
 import { getTodayString } from "@/lib/utils";
 import { sendExpoPush } from "@/lib/push";
 import type { ReminderChannels } from "@/lib/reminderSend";
+import { findHolidayForDate } from "@/lib/holidayAttendance";
 
 export interface BeforeShiftConfig {
   enabled: boolean;
@@ -206,9 +207,10 @@ export async function computeDueEmployees(
 
   const branchInfo = new Map<string, { name: string; chatId: string | null; names: string[] }>();
 
-  // Ngày lễ toàn công ty → không nhắc ai cả
-  const holiday = await prisma.holiday.findFirst({ where: { companyId, date: today }, select: { name: true } });
-  if (holiday) return { holidayName: holiday.name, due: [], branchInfo };
+  // Ngày lễ toàn công ty (và KHÔNG tính phạt — nếu "vẫn đi làm/vẫn tính muộn" thì đây thực chất
+  // vẫn là ngày làm việc bình thường, vẫn phải nhắc như mọi ngày) → không nhắc ai cả
+  const holiday = await findHolidayForDate(companyId, today);
+  if (holiday && !holiday.penalizeLate) return { holidayName: holiday.name, due: [], branchInfo };
 
   const [employees, logs, leaves, reminded, assignments] = await Promise.all([
     prisma.employee.findMany({
@@ -420,9 +422,10 @@ export async function computeDuePreShift(
   const branchInfo = new Map<string, { name: string; chatId: string | null; names: string[] }>();
   const leadMinutes = cfg.beforeShift.leadMinutes;
 
-  // Ngày lễ toàn công ty → không nhắc ai cả
-  const holiday = await prisma.holiday.findFirst({ where: { companyId, date: today }, select: { name: true } });
-  if (holiday) return { holidayName: holiday.name, due: [], branchInfo };
+  // Ngày lễ toàn công ty (và KHÔNG tính phạt — nếu "vẫn đi làm/vẫn tính muộn" thì đây thực chất
+  // vẫn là ngày làm việc bình thường, vẫn phải nhắc như mọi ngày) → không nhắc ai cả
+  const holiday = await findHolidayForDate(companyId, today);
+  if (holiday && !holiday.penalizeLate) return { holidayName: holiday.name, due: [], branchInfo };
 
   const [employees, logs, leaves, reminded, assignments] = await Promise.all([
     prisma.employee.findMany({

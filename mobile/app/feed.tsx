@@ -114,7 +114,7 @@ export default function FeedScreen() {
             <View style={s.holidayCard}>
               {holidays.map((h, i) => (
                 <View key={i} style={[s.holidayRow, i > 0 && s.holidayRowBorder]}>
-                  <Text style={s.holidayDate}>{formatDate(h.date)}</Text>
+                  <Text style={s.holidayDate}>{h.endDate && h.endDate !== h.date ? `${formatDate(h.date)} - ${formatDate(h.endDate)}` : formatDate(h.date)}</Text>
                   <Text style={s.holidayName}>{h.name}</Text>
                 </View>
               ))}
@@ -178,6 +178,6 @@ const s = StyleSheet.create({
   },
   holidayRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, gap: 16 },
   holidayRowBorder: { borderTopWidth: 1, borderTopColor: "#f3f4f6" },
-  holidayDate: { fontSize: 14, fontWeight: "700", color: "#1d4ed8", width: 90 },
+  holidayDate: { fontSize: 13, fontWeight: "700", color: "#1d4ed8", width: 108 },
   holidayName: { fontSize: 14, color: "#374151", flex: 1 },
 });

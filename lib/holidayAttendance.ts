@@ -72,3 +72,51 @@ export function dateRange(from: string, to: string): string[] {
   }
   return out;
 }
+
+/**
+ * Tìm ngày lễ (nếu có) của công ty mà `date` rơi vào trong khoảng [date, endDate || date] của nó.
+ * Dùng CHUNG cho mọi nơi cần biết "hôm nay có phải ngày lễ không" (chấm công, nhắc trễ...) —
+ * thay cho so khớp đúng 1 ngày (`date: today`) trước đây, vốn CHỈ đúng với ngày lễ 1 ngày. Từ khi
+ * ngày lễ có thể là 1 khoảng (endDate, mode "fixed"), so khớp đúng 1 ngày sẽ bỏ sót mọi ngày sau
+ * ngày bắt đầu trong khoảng — vd lễ 2 ngày 02-03/9 chỉ được nhận diện đúng ngày 02, ngày 03 bị coi
+ * như ngày thường (mất miễn phạt trễ / mất bỏ qua nhắc trễ).
+ */
+export async function findHolidayForDate(
+  companyId: string,
+  date: string
+): Promise<{ name: string; penalizeLate: boolean } | null> {
+  return prisma.holiday.findFirst({
+    where: {
+      companyId,
+      date: { lte: date },
+      OR: [{ endDate: { gte: date } }, { endDate: null, date }],
+    },
+    select: { name: true, penalizeLate: true },
+  });
+}
+
+/**
+ * Gỡ toàn bộ log "nghỉ lễ tự động" (status="holiday", do markHolidayAttendance tạo — giá trị này
+ * KHÔNG do bất kỳ luồng chấm công thật nào ghi, nên gặp là chắc chắn của hàm này) cho các ngày chỉ
+ * định trong công ty. Dùng khi:
+ * - Sửa/xoá 1 "Ngày lễ cố định": dọn log cũ trước khi áp lại theo cấu hình mới, tránh sót ngày
+ *   công ảo (daysPresent cộng khống) hoặc log giả khiến kiosk từ chối chấm công thật ("đã chấm
+ *   công đủ hôm nay") trên ngày lẽ ra không còn là lễ nữa.
+ * - Bật lại "vẫn tính muộn/phạt" (penalizeLate=true) cho ngày lễ đang mở toàn công ty đi làm bình
+ *   thường: log giả (đã tự điền checkInAt/checkOutAt) đang chặn nhân viên quét chấm công thật.
+ */
+export async function revertHolidayAttendanceRange(companyId: string, dates: string[]): Promise<void> {
+  if (dates.length === 0) return;
+  const rows = await prisma.attendanceLog.findMany({
+    where: { date: { in: dates }, status: "holiday", employee: { companyId } },
+    select: { id: true, employeeId: true, date: true },
+  });
+  for (const row of rows) {
+    await prisma.attendanceLog.delete({ where: { id: row.id } });
+    const [y, m] = row.date.split("-").map(Number);
+    await prisma.monthlySummary.updateMany({
+      where: { employeeId: row.employeeId, year: y, month: m, daysPresent: { gt: 0 } },
+      data: { daysPresent: { decrement: 1 } },
+    });
+  }
+}

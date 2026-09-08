@@ -5,6 +5,7 @@ import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeThresho
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
+import { findHolidayForDate } from "@/lib/holidayAttendance";
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000; // metres
@@ -225,7 +226,7 @@ export async function POST(req: NextRequest) {
     let shift: { checkInTime: string; gracePeriod: number; suppressPenalty: boolean; reason: "roster_off" | "holiday_no_penalty" | null };
     if (sessionCfg) {
       // Ca gãy nhiều buổi/ngày — dùng giờ riêng của buổi này; Lịch phân ca không áp dụng cho ca gãy
-      const todayHoliday = await prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } });
+      const todayHoliday = await findHolidayForDate(employee.companyId, today);
       const holidayNoPenalty = !!(todayHoliday && !todayHoliday.penalizeLate);
       shift = {
         checkInTime: sessionCfg.checkInTime,
@@ -235,7 +236,7 @@ export async function POST(req: NextRequest) {
       };
     } else if (dayOverride) {
       // Ngày làm khác — dùng giờ riêng của ngày này; Lịch phân ca không áp dụng (giống ca gãy)
-      const todayHoliday = await prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } });
+      const todayHoliday = await findHolidayForDate(employee.companyId, today);
       const holidayNoPenalty = !!(todayHoliday && !todayHoliday.penalizeLate);
       shift = {
         checkInTime: dayOverride.checkInTime,
@@ -247,7 +248,7 @@ export async function POST(req: NextRequest) {
       // Ca theo ngày (Lịch phân ca) + ngày lễ → xác định giờ vào chuẩn + có né phạt không
       const [todaysAssignments, todayHoliday] = await Promise.all([
         prisma.shiftAssignment.findMany({ where: { employeeId, date: today }, select: { shiftLabel: true, checkIn: true } }),
-        prisma.holiday.findFirst({ where: { companyId: employee.companyId, date: today }, select: { penalizeLate: true } }),
+        findHolidayForDate(employee.companyId, today),
       ]);
       shift = resolveShift({
         now,

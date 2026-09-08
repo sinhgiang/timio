@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
-type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity";
+type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity" | "holiday";
 
 interface LeaveItem {
   id: string;
@@ -25,12 +25,14 @@ const TYPE_COLORS: Record<LeaveType, { bg: string; text: string; dot: string }> 
   wedding:  { bg: "bg-rose-100",   text: "text-rose-700",   dot: "bg-rose-400" },
   funeral:  { bg: "bg-slate-100",  text: "text-slate-700",  dot: "bg-slate-400" },
   paternity:{ bg: "bg-teal-100",   text: "text-teal-700",   dot: "bg-teal-500" },
+  holiday:  { bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-500" },
 };
 
 const TYPE_LABELS: Record<LeaveType, string> = {
   annual: "Phép năm", sick: "Nghỉ ốm", unpaid: "Không lương",
   maternity: "Thai sản", other: "Khác",
   wedding: "Nghỉ cưới", funeral: "Nghỉ tang", paternity: "Nghỉ con sinh",
+  holiday: "Nghỉ lễ",
 };
 
 const DAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];

@@ -113,7 +113,7 @@ async function notifyAdminNewLeave(opts: {
 
   const siteUrl = process.env.NEXTAUTH_URL ?? "https://timio.vn";
   const dashboardUrl = `${siteUrl}/dashboard/leave`;
-  const typeLabel: Record<string, string> = { annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương", maternity: "Thai sản", other: "Khác", wedding: "Nghỉ cưới", funeral: "Nghỉ tang", paternity: "Nghỉ con sinh" };
+  const typeLabel: Record<string, string> = { annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương", maternity: "Thai sản", other: "Khác", wedding: "Nghỉ cưới", funeral: "Nghỉ tang", paternity: "Nghỉ con sinh", holiday: "Nghỉ lễ" };
 
   const token = company?.telegramBotToken;
   const tgMsg =

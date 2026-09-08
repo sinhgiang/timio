@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<string, { label: string; bg: string; color: string }
   late:     { label: "Đi trễ",   bg: "#fef9c3", color: "#92400e" },
   absent:   { label: "Vắng",     bg: "#fee2e2", color: "#dc2626" },
   leave:    { label: "Nghỉ phép",bg: "#ede9fe", color: "#6d28d9" },
+  holiday:  { label: "Nghỉ lễ",  bg: "#dbeafe", color: "#1d4ed8" },
 };
 
 const FILTERS = [

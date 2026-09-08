@@ -1171,8 +1171,8 @@ export async function executeChatTool(
       case "get_holidays": {
         const [ty] = todayVN().split("-").map(Number);
         const year = Number(input.year) || ty;
-        const rows = await prisma.holiday.findMany({ where: { companyId: ctx.companyId, date: { gte: `${year}-01-01`, lte: `${year}-12-31` } }, select: { date: true, name: true, penalizeLate: true }, orderBy: { date: "asc" }, take: 60 });
-        return { year, count: rows.length, items: rows.map((r) => ({ ngay: r.date, ten: r.name, vanTinhPhatTre: r.penalizeLate })) };
+        const rows = await prisma.holiday.findMany({ where: { companyId: ctx.companyId, date: { gte: `${year}-01-01`, lte: `${year}-12-31` } }, select: { date: true, endDate: true, name: true, penalizeLate: true, mode: true, totalDays: true, maxDays: true }, orderBy: { date: "asc" }, take: 60 });
+        return { year, count: rows.length, items: rows.map((r) => ({ ngay: r.date, ngayKetThuc: r.endDate, ten: r.name, vanTinhPhatTre: r.penalizeLate, chedo: r.mode === "flexible" ? "tu_chon_ngay" : "co_dinh", tongSoNgay: r.totalDays, soNgayToiDaTuChon: r.maxDays })) };
       }
 
       case "get_recruitment": {

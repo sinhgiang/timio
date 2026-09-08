@@ -37,6 +37,7 @@ export async function GET() {
       checkInAt: l.checkInAt ? l.checkInAt.toISOString() : null,
       checkOutAt: l.checkOutAt ? l.checkOutAt.toISOString() : null,
       minutesLate: l.minutesLate,
+      status: l.status,
       companyName: nameByEmp.get(l.employeeId) ?? "Công ty",
     })),
   });

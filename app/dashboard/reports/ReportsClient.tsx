@@ -302,6 +302,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                     : log.status === "late" || log.status === "very_late" ? "Trễ"
                     : log.status === "early_leave" ? "Về sớm"
                     : log.status === "absent" ? "Vắng"
+                    : log.status === "holiday" ? "Nghỉ lễ"
                     : log.status
                     : null;
                   // Giờ khai báo đưa vào tooltip (rê chuột mới hiện) thay vì hiện thẳng ra — nhãn Trạng thái

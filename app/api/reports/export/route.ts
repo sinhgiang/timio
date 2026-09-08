@@ -26,6 +26,7 @@ function statusLabel(status: string, minutesLate: number): string {
   if (status === "on_time") return "Đúng giờ";
   if (status === "late" || status === "very_late") return `Trễ ${minutesLate}p`;
   if (status === "absent") return "Vắng";
+  if (status === "holiday") return "Nghỉ lễ";
   return "Chưa chấm";
 }
 
@@ -40,6 +41,7 @@ const C = {
   green:    "16A34A",
   orange:   "D97706",
   red:      "DC2626",
+  blue:     "1D4ED8",
   gray400:  "9CA3AF",
   redLight: "FEF2F2",
 };
@@ -416,6 +418,8 @@ export async function GET(req: NextRequest) {
             statusCell.font = { color: { argb: C.green }, bold: true };
           } else if (log.status === "late" || log.status === "very_late") {
             statusCell.font = { color: { argb: C.orange }, bold: true };
+          } else if (log.status === "holiday") {
+            statusCell.font = { color: { argb: C.blue }, bold: true };
           } else {
             statusCell.font = { color: { argb: C.red }, bold: true };
           }

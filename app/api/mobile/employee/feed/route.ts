@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       prisma.holiday.findMany({
         where: { companyId: employee.companyId, date: { startsWith: year } },
         orderBy: { date: "asc" },
-        select: { date: true, name: true },
+        select: { date: true, endDate: true, name: true },
       }),
     ]);
 

@@ -183,6 +183,7 @@ export function getStatusLabel(status: string): string {
     late: "Trễ",
     very_late: "Trễ nhiều",
     absent: "Vắng",
+    holiday: "Nghỉ lễ",
   };
   return labels[status] ?? status;
 }
@@ -193,6 +194,7 @@ export function getStatusColor(status: string): string {
     late: "bg-yellow-100 text-yellow-800",
     very_late: "bg-red-100 text-red-800",
     absent: "bg-gray-100 text-gray-600",
+    holiday: "bg-blue-100 text-blue-800",
   };
   return colors[status] ?? "bg-gray-100 text-gray-600";
 }

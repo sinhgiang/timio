@@ -21,6 +21,7 @@ function statusLabel(status: string | null): string {
     case "absent": return "Vắng";
     case "leave": return "Nghỉ phép";
     case "early": return "Về sớm";
+    case "holiday": return "Nghỉ lễ";
     default: return status ? status : "—";
   }
 }

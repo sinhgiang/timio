@@ -35,7 +35,7 @@ export default async function LeaveCalendarPage() {
     id: l.id,
     employeeName: l.employee.name,
     department: l.employee.department ?? "",
-    type: l.type as "annual" | "sick" | "unpaid" | "maternity" | "other",
+    type: l.type as "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity" | "holiday",
     fromDate: l.fromDate,
     toDate: l.toDate,
     days: l.days,

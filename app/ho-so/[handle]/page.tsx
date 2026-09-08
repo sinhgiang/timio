@@ -877,7 +877,7 @@ function IncomeTab() {
 
 // ─────────── TAB CHẤM CÔNG ───────────
 function AttendanceTab({ onNew }: { onNew: () => void }) {
-  const [d, setD] = useState<{ summary: { total: number; onTime: number; late: number }; logs: { date: string; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; companyName: string }[] } | null>(null);
+  const [d, setD] = useState<{ summary: { total: number; onTime: number; late: number }; logs: { date: string; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string; companyName: string }[] } | null>(null);
   useEffect(() => { fetch("/api/worker/attendance").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
   if (!d) return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>;
   const hhmm = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—";
@@ -896,7 +896,7 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
             {d.logs.map((l, i) => (
               <div key={i} className="flex items-center justify-between py-2 text-sm">
                 <div><p className="text-gray-700">{new Date(l.date).toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" })}</p><p className="text-[11px] text-gray-400">{l.companyName}</p></div>
-                <div className="text-right"><p className="text-gray-600 text-xs">Vào {hhmm(l.checkInAt)} · Ra {hhmm(l.checkOutAt)}</p>{l.minutesLate > 0 ? <p className="text-[11px] text-amber-600">Trễ {l.minutesLate} phút</p> : <p className="text-[11px] text-green-600">Đúng giờ</p>}</div>
+                <div className="text-right"><p className="text-gray-600 text-xs">Vào {hhmm(l.checkInAt)} · Ra {hhmm(l.checkOutAt)}</p>{l.status === "holiday" ? <p className="text-[11px] text-blue-600">Nghỉ lễ</p> : l.minutesLate > 0 ? <p className="text-[11px] text-amber-600">Trễ {l.minutesLate} phút</p> : <p className="text-[11px] text-green-600">Đúng giờ</p>}</div>
               </div>
             ))}
           </div>

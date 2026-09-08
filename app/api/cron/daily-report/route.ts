@@ -5,6 +5,7 @@ import { sendZaloMessage, getValidOaToken } from "@/lib/zalo";
 import { sendEmail } from "@/lib/email";
 import { contractExpiryEmail, dailyReportEmail } from "@/lib/emailTemplates";
 import { getTodayString } from "@/lib/utils";
+import { findHolidayForDate } from "@/lib/holidayAttendance";
 
 export async function GET(req: Request) {
   const secret = req.headers.get("x-cron-secret");
@@ -43,6 +44,12 @@ export async function GET(req: Request) {
   });
 
   for (const company of reportCompanies) {
+    // Ngày lễ nghỉ hẳn (không tính phạt) → toàn bộ nhân viên đã được tự động đánh dấu "holiday",
+    // không còn ai "đúng giờ/trễ/chưa vào" theo nghĩa thường → bỏ qua báo cáo chấm công hôm nay
+    // cho công ty này, giống hành vi của cron nhắc trễ (lib/lateReminder.ts).
+    const todayHoliday = await findHolidayForDate(company.id, today);
+    if (todayHoliday && !todayHoliday.penalizeLate) continue;
+
     // Tính thống kê từng chi nhánh
     const branchStats = new Map<string, { name: string; total: number; onTime: number; late: number; notYet: number }>();
     for (const b of company.branches) {

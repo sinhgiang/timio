@@ -438,6 +438,7 @@ export interface FeedAnnouncement {
 
 export interface FeedHoliday {
   date: string;
+  endDate: string | null;
   name: string;
 }
 

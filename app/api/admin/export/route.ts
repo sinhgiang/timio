@@ -234,6 +234,7 @@ export async function GET() {
       unpaid: "Không lương",
       maternity: "Thai sản",
       other: "Khác",
+      holiday: "Nghỉ lễ",
     };
     const leaveStatusLabels: Record<string, string> = {
       pending: "Chờ duyệt",

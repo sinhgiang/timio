@@ -438,6 +438,7 @@ const TYPE_LABELS: Record<string, string> = {
   wedding: "Nghỉ cưới",
   funeral: "Nghỉ tang",
   paternity: "Nghỉ con sinh",
+  holiday: "Nghỉ lễ",
 };
 
 export function leaveRequestEmail(opts: {
