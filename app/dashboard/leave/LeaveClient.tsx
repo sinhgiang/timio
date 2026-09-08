@@ -20,6 +20,7 @@ interface LeaveRequest {
   note: string | null;
   createdAt: string;
   holidayName?: string | null; // tên đợt lễ (chỉ có khi type="holiday")
+  holidayDescription?: string | null; // mô tả chi tiết đợt lễ do sếp khai (chỉ có khi type="holiday")
   dates?: string[] | null; // các ngày cụ thể NV tự chọn (chỉ có khi type="holiday" và không liền kề)
   employeeSignature?: string | null;
   handoverEmployeeId: string | null;
@@ -333,12 +334,17 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
                   {/* Nghỉ lễ tự chọn: NV chọn ngày cụ thể trong khoảng — hiện rõ tên đợt lễ +
                       các ngày đã chọn (có thể không liền kề) để sếp duyệt đúng ý NV. */}
                   {r.type === "holiday" && (
-                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                      {r.holidayName && (
-                        <span className="text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full">🎉 {r.holidayName}</span>
-                      )}
-                      {r.dates && r.dates.length > 0 && (
-                        <span className="text-xs text-gray-500">Ngày chọn: {r.dates.map(fmtDate).join(", ")}</span>
+                    <div className="mb-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {r.holidayName && (
+                          <span className="text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full">🎉 {r.holidayName}</span>
+                        )}
+                        {r.dates && r.dates.length > 0 && (
+                          <span className="text-xs text-gray-500">Ngày chọn: {r.dates.map(fmtDate).join(", ")}</span>
+                        )}
+                      </div>
+                      {r.holidayDescription && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{r.holidayDescription}</p>
                       )}
                     </div>
                   )}

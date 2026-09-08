@@ -94,6 +94,7 @@ interface Holiday {
   id: string;
   date: string;
   name: string;
+  description?: string | null;
   isNational: boolean;
   penalizeLate?: boolean;
   mode?: string;
@@ -366,7 +367,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   // mode "fixed": áp dụng CẢ công ty tự động (không cần NV làm đơn) — vd nghỉ 2/9 cả công ty.
   // mode "flexible": chỉ khai báo khoảng thời gian + số ngày tối đa; NV tự chọn ngày cụ thể
   // trong app "Nghỉ phép" rồi gửi đơn cho sếp duyệt (xem app/ho-so + /api/worker/holidays).
-  const emptyHolidayForm = { date: "", endDate: "", name: "", mode: "fixed" as "fixed" | "flexible", totalDays: "", maxDays: "", isNational: false };
+  const emptyHolidayForm = { date: "", endDate: "", name: "", description: "", mode: "fixed" as "fixed" | "flexible", totalDays: "", maxDays: "", isNational: false };
   const [holidayForm, setHolidayForm] = useState(emptyHolidayForm);
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [holidayLoading, setHolidayLoading] = useState(false);
@@ -412,7 +413,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     setHolidayLoading(true);
     setHolidayMsg("");
     const payload = {
-      date: holidayForm.date, endDate: holidayForm.endDate || null, name: holidayForm.name, isNational: holidayForm.isNational,
+      date: holidayForm.date, endDate: holidayForm.endDate || null, name: holidayForm.name, description: holidayForm.description || null, isNational: holidayForm.isNational,
       mode: holidayForm.mode,
       totalDays: holidayForm.mode === "fixed" ? holidayForm.totalDays : null,
       maxDays: holidayForm.mode === "flexible" ? holidayForm.maxDays : null,
@@ -449,6 +450,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       date: h.date,
       endDate: h.endDate || "",
       name: h.name,
+      description: h.description || "",
       mode: (h.mode === "flexible" ? "flexible" : "fixed"),
       totalDays: h.totalDays != null ? String(h.totalDays) : "",
       maxDays: h.maxDays != null ? String(h.maxDays) : "",
@@ -480,7 +482,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        date: h.date, name: h.name, isNational: h.isNational, penalizeLate: next,
+        date: h.date, name: h.name, description: h.description ?? null, isNational: h.isNational, penalizeLate: next,
         mode: h.mode ?? "fixed", endDate: h.endDate ?? null, totalDays: h.totalDays ?? null, maxDays: h.maxDays ?? null,
       }),
     });
@@ -968,7 +970,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       </nav>
 
       {/* ── Content ── */}
-      <div className={`flex-1 p-6 ${activeSection === "qr" ? "max-w-6xl" : "max-w-3xl"}`}>
+      {/* "qr" và "holiday" cần bề ngang rộng hơn (bảng nhiều cột / QR lớn) — các mục còn lại là
+          form nhập liệu nên giữ hẹp (max-w-3xl) để dễ đọc, không dàn chữ quá dài theo hàng ngang. */}
+      <div className={`flex-1 p-6 ${activeSection === "qr" || activeSection === "holiday" ? "max-w-6xl" : "max-w-3xl"}`}>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">
             {activeSection === "account" ? "Tài khoản" : SETTINGS_NAV.find(s => s.key === activeSection)?.label ?? "Cài đặt"}
@@ -1563,6 +1567,24 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                   </div>
                 </div>
               )}
+
+              {/* Mô tả chi tiết — khác với "Tên đợt nghỉ" (tiêu đề ngắn): chỗ này sếp viết rõ đợt
+                  nghỉ này về việc gì, ai được nghỉ, lưu ý gì... Hiện cho NV ở /ho-so + tự động làm
+                  "Lý do xin nghỉ" trong đơn khi NV chọn ngày (kind="holiday" không thu lý do riêng
+                  từ NV — theo phản hồi user). */}
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Mô tả chi tiết <span className="text-gray-400 font-normal">(tùy chọn — NV sẽ thấy, và dùng làm lý do trong đơn xin nghỉ)</span>
+                </label>
+                <textarea
+                  value={holidayForm.description}
+                  onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })}
+                  placeholder="VD: Công ty nghỉ Tết Nguyên đán, nhân viên sắp xếp về quê trước ngày 25 âm lịch..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-y"
+                />
+              </div>
+
               <p className="text-xs text-gray-400 mt-2">
                 {holidayForm.mode === "fixed"
                   ? "Toàn bộ nhân viên đang hoạt động sẽ tự động được ghi nhận nghỉ (không tính vắng, không trừ lương) đúng các ngày này ngay khi bấm Lưu."
@@ -1575,21 +1597,24 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
             </form>
           )}
 
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden overflow-x-auto">
+          {/* Bảng dùng hết bề ngang khả dụng của cột nội dung (xem max-w-6xl riêng cho "holiday" ở
+              trên) thay vì bị ép hẹp rồi cuộn ngang — cột "Đợt nghỉ" giờ có chỗ hiện thêm mô tả
+              chi tiết ngay dưới tên, không cần mở từng dòng mới xem được (theo phản hồi user). */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-red-50">
-                <tr>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Thời gian</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Tên đợt nghỉ</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Chế độ</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Đi làm ngày này</th>
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Thời gian</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-[38%]">Đợt nghỉ</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Chế độ</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Đi làm ngày này</th>
                   <th className="text-right px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {holidays.filter((h) => h.date.startsWith(String(holidayYear))).map((h) => (
-                  <tr key={h.id}>
-                    <td className="px-5 py-3 text-gray-700 whitespace-nowrap">
+                  <tr key={h.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-5 py-4 text-gray-700 whitespace-nowrap align-top">
                       {/* "flexible": date/endDate giờ chỉ là ngày neo nội bộ (không còn khai tay) —
                           hiện "Cả năm X" thay vì dải ngày vô nghĩa với sếp. */}
                       {h.mode === "flexible" ? (
@@ -1597,14 +1622,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                           <CalendarRange size={13} className="text-indigo-400" /> Cả năm {h.date.slice(0, 4)}
                         </span>
                       ) : (
-                        <span className="font-mono">{h.date}{h.endDate && h.endDate !== h.date ? ` → ${h.endDate}` : ""}</span>
+                        <span className="font-mono text-xs">{h.date}{h.endDate && h.endDate !== h.date ? ` → ${h.endDate}` : ""}</span>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-gray-700">
-                      {h.name}
-                      {h.isNational && <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Quốc gia</span>}
+                    <td className="px-5 py-4 text-gray-700 align-top">
+                      <p className="font-semibold text-gray-800">
+                        {h.name}
+                        {h.isNational && <span className="ml-1.5 text-xs font-normal bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Quốc gia</span>}
+                      </p>
+                      {h.description && (
+                        <p className="text-xs text-gray-400 mt-1 leading-relaxed line-clamp-2">{h.description}</p>
+                      )}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-4 align-top">
                       {/* Gộp icon + nhãn + số liệu vào 1 pill duy nhất (thay vì 2 dòng như trước) —
                           gọn gàng, dễ hiểu ngay trong 1 lần nhìn (theo phản hồi user). */}
                       {h.mode === "flexible" ? (
@@ -1619,7 +1649,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-4 align-top">
                       <button
                         onClick={() => toggleHolidayPenalize(h)}
                         title="Ngày lễ này: nếu nhân viên vẫn đi làm, có tính muộn + phạt không?"
@@ -1632,9 +1662,9 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                         {h.penalizeLate ? "Vẫn tính muộn/phạt" : "Không phạt (nghỉ lễ)"}
                       </button>
                     </td>
-                    <td className="px-5 py-3 text-right whitespace-nowrap">
-                      <button onClick={() => startEditHoliday(h)} className="text-blue-500 hover:text-blue-700 text-xs mr-3">Sửa</button>
-                      <button onClick={() => deleteHoliday(h.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
+                    <td className="px-5 py-4 text-right whitespace-nowrap align-top">
+                      <button onClick={() => startEditHoliday(h)} className="text-blue-500 hover:text-blue-700 text-xs font-medium mr-3">Sửa</button>
+                      <button onClick={() => deleteHoliday(h.id)} className="text-red-400 hover:text-red-600 text-xs font-medium">Xóa</button>
                     </td>
                   </tr>
                 ))}

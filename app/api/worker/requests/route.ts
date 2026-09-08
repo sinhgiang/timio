@@ -31,7 +31,7 @@ export async function GET() {
   const coByEmp = new Map(emps.map((e) => [e.id, e.company?.name ?? "Công ty"]));
 
   const [leaves, earlies, corrections, overtimes] = await Promise.all([
-    prisma.leaveRequest.findMany({ where: { employeeId: { in: empIds } }, include: { holiday: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.leaveRequest.findMany({ where: { employeeId: { in: empIds } }, include: { holiday: { select: { name: true, description: true } } }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.earlyLeaveRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.correctionRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.overtimeRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
@@ -43,7 +43,10 @@ export async function GET() {
     const isHoliday = l.type === "holiday";
     const pickedDates = isHoliday && l.dates ? (JSON.parse(l.dates) as string[]) : null;
     const label = isHoliday && l.holiday?.name ? `${LEAVE_TYPE_LABELS[l.type]} · ${l.holiday.name}` : (LEAVE_TYPE_LABELS[l.type] ?? l.type);
-    rows.push({ id: l.id, kind: "leave", kindLabel: "Nghỉ phép", when: pickedDates ? pickedDates.join(", ") : `${l.fromDate} → ${l.toDate}`, detail: `${label} · ${l.days} ngày${l.reason ? " · " + l.reason : ""}`, status: l.status, note: l.note, companyName: coByEmp.get(l.employeeId) ?? "", createdAt: l.createdAt.toISOString() });
+    // Nghỉ lễ tự chọn không thu "Lý do" từ NV — dùng mô tả chi tiết đợt lễ (sếp khai) thay thế, để
+    // danh sách đơn không hiện trống trơn.
+    const extra = l.reason || (isHoliday ? l.holiday?.description : null);
+    rows.push({ id: l.id, kind: "leave", kindLabel: "Nghỉ phép", when: pickedDates ? pickedDates.join(", ") : `${l.fromDate} → ${l.toDate}`, detail: `${label} · ${l.days} ngày${extra ? " · " + extra : ""}`, status: l.status, note: l.note, companyName: coByEmp.get(l.employeeId) ?? "", createdAt: l.createdAt.toISOString() });
   }
   for (const e of earlies) rows.push({ id: e.id, kind: "early_leave", kindLabel: "Về sớm", when: e.date, detail: `Về lúc ${e.leaveTime}${e.reason ? " · " + e.reason : ""}`, status: e.status, note: e.note, companyName: coByEmp.get(e.employeeId) ?? "", createdAt: e.createdAt.toISOString() });
   for (const c of corrections) rows.push({ id: c.id, kind: "correction", kindLabel: "Điều chỉnh chấm công", when: c.date, detail: `${CORR_TYPE_LABELS[c.type] ?? c.type}${c.requestedCheckIn ? " · vào " + c.requestedCheckIn : ""}${c.requestedCheckOut ? " · ra " + c.requestedCheckOut : ""} · ${c.reason}`, status: c.status, note: c.adminNote, companyName: coByEmp.get(c.employeeId) ?? "", createdAt: c.createdAt.toISOString() });

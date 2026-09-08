@@ -17,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json();
   const {
-    date, name, isNational = false, penalizeLate = false,
+    date, name, description = null, isNational = false, penalizeLate = false,
     mode = "fixed", endDate = null, totalDays = null, maxDays = null,
   } = body;
   if (!date || !name) return NextResponse.json({ error: "Thiếu ngày hoặc tên" }, { status: 400 });
@@ -37,12 +37,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
+  const descTrim = typeof description === "string" ? description.trim().slice(0, 2000) : "";
   let holiday;
   try {
     holiday = await prisma.holiday.update({
       where: { id: existing.id },
       data: {
-        date, name, isNational, penalizeLate: Boolean(penalizeLate),
+        date, name, description: descTrim || null, isNational, penalizeLate: Boolean(penalizeLate),
         mode, endDate: endDate || null,
         totalDays: totalDays != null && totalDays !== "" ? Number(totalDays) : null,
         maxDays: maxDays != null && maxDays !== "" ? Number(maxDays) : null,

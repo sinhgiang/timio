@@ -307,6 +307,9 @@ model Holiday {
   companyId  String
   date       String  // YYYY-MM-DD — ngày bắt đầu (mode "fixed": áp dụng cả công ty; mode "flexible": đầu khoảng NV được chọn)
   name       String
+  description String? // Mô tả chi tiết đợt nghỉ (sếp viết thêm, khác với `name` là tiêu đề ngắn) —
+                       // hiện cho NV ở /ho-so + tự động làm "Lý do xin nghỉ" trong đơn khi NV chọn
+                       // ngày nghỉ lễ (kind="holiday") không cần gõ lý do riêng.
   isNational Boolean @default(true)
   penalizeLate Boolean @default(false) // true = ngày lễ này vẫn tính muộn/phạt như thường; false = không phạt
   mode       String  @default("fixed") // "fixed" = nghỉ cố định đúng ngày/khoảng cho cả công ty | "flexible" = NV tự chọn ngày trong khoảng

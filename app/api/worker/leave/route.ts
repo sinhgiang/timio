@@ -26,7 +26,10 @@ export async function GET() {
 
   const requests = await prisma.leaveRequest.findMany({
     where: { employeeId: { in: empIds } },
-    select: { id: true, employeeId: true, type: true, fromDate: true, toDate: true, days: true, reason: true, status: true, note: true, createdAt: true },
+    select: {
+      id: true, employeeId: true, type: true, fromDate: true, toDate: true, days: true, reason: true, status: true, note: true, createdAt: true,
+      holiday: { select: { name: true, description: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 30,
   });
@@ -37,6 +40,10 @@ export async function GET() {
       id: r.id, typeLabel: TYPE_LABEL[r.type] ?? r.type,
       fromDate: r.fromDate, toDate: r.toDate, days: r.days,
       reason: r.reason, status: r.status, note: r.note,
+      // Nghỉ lễ tự chọn: NV không gõ "Lý do" (xem POST /api/worker/requests) — tiêu đề + mô tả chi
+      // tiết đợt lễ do sếp khai đóng vai trò lý do, hiện luôn ở đây thay vì để trống.
+      holidayName: r.holiday?.name ?? null,
+      holidayDescription: r.holiday?.description ?? null,
       companyName: nameByEmp.get(r.employeeId) ?? "Công ty",
     })),
   });

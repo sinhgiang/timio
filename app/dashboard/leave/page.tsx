@@ -52,7 +52,7 @@ export default async function LeavePage() {
             branch: { select: { name: true } },
           },
         },
-        holiday: { select: { name: true } },
+        holiday: { select: { name: true, description: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -90,6 +90,7 @@ export default async function LeavePage() {
           handoverEmployeeName,
           handoverConfirmedAt: r.handoverConfirmedAt?.toISOString() ?? null,
           holidayName: r.holiday?.name ?? null,
+          holidayDescription: r.holiday?.description ?? null,
           dates: r.dates ? (JSON.parse(r.dates) as string[]) : null,
           employee: {
             id: r.employee.id,

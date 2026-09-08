@@ -947,7 +947,7 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
 }
 
 // ─────────── ĐỢT NGHỈ LỄ (chọn ngày trong khoảng công ty cho phép) ───────────
-type WHoliday = { id: string; companyId: string; employeeId: string | null; name: string; mode: "fixed" | "flexible"; startDate: string; endDate: string; totalDays: number | null; maxDays: number | null; usedDates: string[] };
+type WHoliday = { id: string; companyId: string; employeeId: string | null; name: string; description?: string | null; mode: "fixed" | "flexible"; startDate: string; endDate: string; totalDays: number | null; maxDays: number | null; usedDates: string[] };
 
 function datesInRange(from: string, to: string): string[] {
   const out: string[] = [];
@@ -1099,6 +1099,11 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
           <p className="text-[10px] text-indigo-200 uppercase tracking-wide">ngày còn</p>
         </div>
       </div>
+      {/* Mô tả chi tiết sếp khai khi tạo đợt lễ — hiện ngay để NV biết rõ đợt nghỉ này về việc gì
+          trước khi chọn ngày (theo phản hồi user). */}
+      {h.description && (
+        <div className="px-3.5 pt-2.5 pb-1 bg-indigo-50/40 text-xs text-indigo-800/80 leading-relaxed">{h.description}</div>
+      )}
       <div className="border-t border-dashed border-indigo-200 px-3.5 pt-3 pb-3.5 bg-indigo-50/40">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-xs text-gray-500 flex-1 min-w-[180px]">Công ty xếp cho bạn nghỉ <b className="text-gray-700">{h.maxDays} ngày</b> — chọn từng ngày lẻ, hoặc 1 khoảng nhiều ngày liền nhau, mỗi lần bấm Thêm:</p>
@@ -1225,7 +1230,7 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
 
 // ─────────── TAB NGHỈ PHÉP ───────────
 function LeaveTab({ onNew }: { onNew: () => void }) {
-  const [d, setD] = useState<{ leaveBalance: number; requests: { id: string; typeLabel: string; fromDate: string; toDate: string; days: number; reason: string | null; status: string; note: string | null; companyName: string }[] } | null>(null);
+  const [d, setD] = useState<{ leaveBalance: number; requests: { id: string; typeLabel: string; fromDate: string; toDate: string; days: number; reason: string | null; status: string; note: string | null; companyName: string; holidayName?: string | null; holidayDescription?: string | null }[] } | null>(null);
   const [hd, setHd] = useState<{ holidays: WHoliday[] } | null>(null);
   const loadLeave = () => fetch("/api/worker/leave").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {});
   const loadHolidays = () => fetch("/api/worker/holidays").then((r) => r.ok ? r.json() : null).then(setHd).catch(() => {});
@@ -1254,6 +1259,7 @@ function LeaveTab({ onNew }: { onNew: () => void }) {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">{h.name}</p>
                   <p className="text-[11px] text-gray-400">{new Date(h.startDate).toLocaleDateString("vi-VN")}{h.endDate !== h.startDate ? ` → ${new Date(h.endDate).toLocaleDateString("vi-VN")}` : ""}</p>
+                  {h.description && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{h.description}</p>}
                 </div>
               </div>
               <div className="flex items-center px-3 border-l border-dashed border-blue-200 bg-blue-50/60 shrink-0">
@@ -1277,9 +1283,15 @@ function LeaveTab({ onNew }: { onNew: () => void }) {
           <div className="space-y-2.5">
             {d.requests.map((r) => (
               <div key={r.id} className="border border-gray-100 rounded-xl p-3">
-                <div className="flex items-center justify-between"><p className="text-sm font-medium text-gray-800">{r.typeLabel} · {r.days} ngày</p>{badge(r.status)}</div>
+                <div className="flex items-center justify-between"><p className="text-sm font-medium text-gray-800">{r.typeLabel}{r.holidayName ? ` · ${r.holidayName}` : ""} · {r.days} ngày</p>{badge(r.status)}</div>
                 <p className="text-xs text-gray-500 mt-0.5">{new Date(r.fromDate).toLocaleDateString("vi-VN")} → {new Date(r.toDate).toLocaleDateString("vi-VN")}</p>
-                {r.reason && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{r.reason}</p>}
+                {/* Nghỉ lễ tự chọn không thu "Lý do" từ NV — hiện mô tả chi tiết đợt lễ (sếp khai)
+                    thay thế, để đơn không trông trống trơn (theo phản hồi user). */}
+                {r.reason ? (
+                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{r.reason}</p>
+                ) : r.holidayDescription ? (
+                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{r.holidayDescription}</p>
+                ) : null}
                 {r.note && <p className="text-[11px] text-gray-500 mt-1 bg-gray-50 rounded px-2 py-1">Sếp: {r.note}</p>}
               </div>
             ))}

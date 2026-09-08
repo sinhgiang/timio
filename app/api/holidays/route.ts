@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   //   gian nữa (theo phản hồi user) — nhân viên tự chọn ngày phù hợp trong năm ở app "Nghỉ phép"
   //   (xem /api/worker/holidays + kind="holiday" ở /api/worker/requests) rồi gửi để sếp duyệt.
   const {
-    name, isNational = false, penalizeLate = false,
+    name, description = null, isNational = false, penalizeLate = false,
     mode = "fixed", totalDays = null, maxDays = null, year = new Date().getFullYear(),
   } = body;
   let { date, endDate = null } = body;
@@ -89,16 +89,17 @@ export async function POST(req: NextRequest) {
   // đều có thể để sót log giả từ lần lưu trước, xem revertHolidayAttendanceRange).
   const before = await prisma.holiday.findUnique({ where: { companyId_date: { companyId, date } } });
 
+  const descTrim = typeof description === "string" ? description.trim().slice(0, 2000) : "";
   const holiday = await prisma.holiday.upsert({
     where: { companyId_date: { companyId, date } },
     create: {
-      companyId, date, name, isNational, penalizeLate: Boolean(penalizeLate),
+      companyId, date, name, description: descTrim || null, isNational, penalizeLate: Boolean(penalizeLate),
       mode, endDate: endDate || null,
       totalDays: totalDays != null && totalDays !== "" ? Number(totalDays) : null,
       maxDays: maxDays != null && maxDays !== "" ? Number(maxDays) : null,
     },
     update: {
-      name, isNational, penalizeLate: Boolean(penalizeLate),
+      name, description: descTrim || null, isNational, penalizeLate: Boolean(penalizeLate),
       mode, endDate: endDate || null,
       totalDays: totalDays != null && totalDays !== "" ? Number(totalDays) : null,
       maxDays: maxDays != null && maxDays !== "" ? Number(maxDays) : null,

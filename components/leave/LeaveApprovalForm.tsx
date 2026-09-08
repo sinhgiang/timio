@@ -16,6 +16,8 @@ interface LeaveRequest {
   note: string | null;
   status: LeaveStatus;
   createdAt: string;
+  holidayName?: string | null; // tên đợt lễ (chỉ có khi type="holiday")
+  holidayDescription?: string | null; // mô tả chi tiết đợt lễ do sếp khai (chỉ có khi type="holiday")
   employeeSignature?: string | null;
   handoverEmployeeId?: string | null;
   handoverEmployeeName?: string | null;
@@ -234,10 +236,24 @@ export default function LeaveApprovalForm({
                 <span className="font-bold border-b-2 border-blue-300 px-1">{fmtDate(request.toDate)}</span>.
               </p>
 
-              {/* Lý do */}
+              {/* Lý do — nghỉ lễ tự chọn (kind="holiday") không thu Lý do từ NV (theo phản hồi
+                  user), nên khi trống thì tự động lấy Tên đợt + Mô tả chi tiết sếp đã khai lúc
+                  tạo ngày lễ làm lý do hiển thị, thay vì để trống "(chưa điền)" khiến sếp không
+                  biết nên duyệt hay không. */}
               <p className="font-bold mt-3 mb-1">Lý do xin nghỉ:</p>
               <div className="print-reason-box w-full px-3 py-2 border border-gray-200 bg-gray-50 text-sm leading-relaxed rounded min-h-[60px] whitespace-pre-wrap">
-                {parsed["Lý do"] || <span className="text-gray-400 italic">(chưa điền)</span>}
+                {parsed["Lý do"] ? (
+                  parsed["Lý do"]
+                ) : request.type === "holiday" && (request.holidayName || request.holidayDescription) ? (
+                  <>
+                    {request.holidayName && <span className="font-semibold text-gray-800">🎉 {request.holidayName}</span>}
+                    {request.holidayDescription && (
+                      <p className={request.holidayName ? "mt-1" : ""}>{request.holidayDescription}</p>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-400 italic">(chưa điền)</span>
+                )}
               </div>
 
               {/* Bàn giao */}
