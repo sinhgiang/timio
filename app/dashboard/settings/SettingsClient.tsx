@@ -90,6 +90,10 @@ interface Holiday {
   name: string;
   isNational: boolean;
   penalizeLate?: boolean;
+  mode?: string;
+  endDate?: string | null;
+  totalDays?: number | null;
+  maxDays?: number | null;
 }
 
 interface HolidayProps extends Props {
@@ -324,7 +328,10 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   // Holidays
   const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
   const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
-  const [holidayForm, setHolidayForm] = useState({ date: "", name: "" });
+  // mode "fixed": áp dụng CẢ công ty tự động (không cần NV làm đơn) — vd nghỉ 2/9 cả công ty.
+  // mode "flexible": chỉ khai báo khoảng thời gian + số ngày tối đa; NV tự chọn ngày cụ thể
+  // trong app "Nghỉ phép" rồi gửi đơn cho sếp duyệt (xem app/ho-so + /api/worker/holidays).
+  const [holidayForm, setHolidayForm] = useState({ date: "", endDate: "", name: "", mode: "fixed" as "fixed" | "flexible", totalDays: "", maxDays: "" });
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [holidayLoading, setHolidayLoading] = useState(false);
   const [holidayMsg, setHolidayMsg] = useState("");
@@ -353,12 +360,28 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   const addHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
     setHolidayLoading(true);
-    await fetch("/api/holidays", {
+    setHolidayMsg("");
+    const res = await fetch("/api/holidays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: holidayForm.date, name: holidayForm.name, isNational: false }),
+      body: JSON.stringify({
+        date: holidayForm.date, endDate: holidayForm.endDate || null, name: holidayForm.name, isNational: false,
+        mode: holidayForm.mode,
+        totalDays: holidayForm.mode === "fixed" ? holidayForm.totalDays : null,
+        maxDays: holidayForm.mode === "flexible" ? holidayForm.maxDays : null,
+      }),
     });
-    setHolidayForm({ date: "", name: "" });
+    if (res.ok) {
+      setHolidayMsg(
+        holidayForm.mode === "fixed"
+          ? "✅ Đã lưu — hệ thống đã tự động ghi nhận nghỉ lễ cho toàn bộ nhân viên đang hoạt động."
+          : "✅ Đã lưu — nhân viên có thể vào app tự chọn ngày trong khoảng này."
+      );
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setHolidayMsg(`❌ ${d.error ?? "Lưu thất bại"}`);
+    }
+    setHolidayForm({ date: "", endDate: "", name: "", mode: "fixed", totalDays: "", maxDays: "" });
     setShowHolidayForm(false);
     await loadHolidays(holidayYear);
     setHolidayLoading(false);
@@ -369,14 +392,19 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     setHolidays((prev) => prev.filter((h) => h.id !== id));
   };
 
-  // Bật/tắt "vẫn tính muộn/phạt" cho 1 ngày lễ (upsert theo date)
+  // Bật/tắt "vẫn tính muộn/phạt" cho 1 ngày lễ (upsert theo date) — PHẢI gửi kèm đủ mode/endDate/
+  // totalDays/maxDays hiện có, nếu không API sẽ ghi đè các field này về mặc định (mode="fixed",
+  // mất endDate/totalDays/maxDays) vì POST /api/holidays luôn upsert toàn bộ record theo date.
   const toggleHolidayPenalize = async (h: Holiday) => {
     const next = !h.penalizeLate;
     setHolidays((prev) => prev.map((x) => (x.id === h.id ? { ...x, penalizeLate: next } : x)));
     await fetch("/api/holidays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: h.date, name: h.name, isNational: h.isNational, penalizeLate: next }),
+      body: JSON.stringify({
+        date: h.date, name: h.name, isNational: h.isNational, penalizeLate: next,
+        mode: h.mode ?? "fixed", endDate: h.endDate ?? null, totalDays: h.totalDays ?? null, maxDays: h.maxDays ?? null,
+      }),
     });
   };
 
@@ -1380,27 +1408,70 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           {holidayMsg && <p className="text-sm text-green-600 font-medium mb-3">{holidayMsg}</p>}
 
           {showHolidayForm && (
-            <form onSubmit={addHoliday} className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Ngày</label>
-                <input type="date" value={holidayForm.date} onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
+            <form onSubmit={addHoliday} className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+              <div className="flex gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setHolidayForm({ ...holidayForm, mode: "fixed" })}
+                  className={`flex-1 text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${holidayForm.mode === "fixed" ? "bg-blue-50 border-blue-300 text-blue-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                >
+                  <div className="font-medium">🏢 Nghỉ cố định</div>
+                  <div className="text-xs mt-0.5 opacity-80">Áp dụng cả công ty tự động, không cần NV làm đơn</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHolidayForm({ ...holidayForm, mode: "flexible" })}
+                  className={`flex-1 text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${holidayForm.mode === "flexible" ? "bg-blue-50 border-blue-300 text-blue-700" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}
+                >
+                  <div className="font-medium">🙋 Nghỉ tự chọn</div>
+                  <div className="text-xs mt-0.5 opacity-80">NV tự chọn ngày trong khoảng, sếp duyệt từng đơn</div>
+                </button>
               </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Tên ngày lễ</label>
-                <input type="text" value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} placeholder="VD: Nghỉ lễ công ty" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
+
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[130px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Từ ngày</label>
+                  <input type="date" value={holidayForm.date} onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
+                </div>
+                <div className="flex-1 min-w-[130px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Đến ngày <span className="text-gray-400 font-normal">(để trống nếu chỉ 1 ngày)</span></label>
+                  <input type="date" value={holidayForm.endDate} onChange={(e) => setHolidayForm({ ...holidayForm, endDate: e.target.value })} min={holidayForm.date || undefined} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                </div>
+                <div className="flex-1 min-w-[160px]">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tên đợt nghỉ</label>
+                  <input type="text" value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} placeholder="VD: Nghỉ lễ 2/9" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
+                </div>
+                {holidayForm.mode === "fixed" ? (
+                  <div className="w-32">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tổng số ngày</label>
+                    <input type="number" min="0" step="0.5" value={holidayForm.totalDays} onChange={(e) => setHolidayForm({ ...holidayForm, totalDays: e.target.value })} placeholder="VD: 4" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                  </div>
+                ) : (
+                  <div className="w-32">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tối đa/NV</label>
+                    <input type="number" min="0" step="0.5" value={holidayForm.maxDays} onChange={(e) => setHolidayForm({ ...holidayForm, maxDays: e.target.value })} placeholder="VD: 2" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
+                  </div>
+                )}
               </div>
-              <button type="button" onClick={() => setShowHolidayForm(false)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
-              <button type="submit" disabled={holidayLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
+              <p className="text-xs text-gray-400 mt-2">
+                {holidayForm.mode === "fixed"
+                  ? "Toàn bộ nhân viên đang hoạt động sẽ tự động được ghi nhận nghỉ (không tính vắng, không trừ lương) đúng các ngày này ngay khi bấm Lưu."
+                  : "Nhân viên vào app \"Nghỉ phép\" sẽ thấy khoảng ngày này và tự chọn tối đa số ngày ở trên (có thể chọn rời rạc), gửi đơn để sếp duyệt."}
+              </p>
+              <div className="flex justify-end gap-2 mt-3">
+                <button type="button" onClick={() => setShowHolidayForm(false)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
+                <button type="submit" disabled={holidayLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
+              </div>
             </form>
           )}
 
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-red-50">
                 <tr>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Ngày</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Tên ngày lễ</th>
-                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Loại</th>
+                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Khoảng ngày</th>
+                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Tên đợt nghỉ</th>
+                  <th className="text-left px-5 py-3 text-gray-500 font-medium">Chế độ</th>
                   <th className="text-left px-5 py-3 text-gray-500 font-medium">Đi làm ngày này</th>
                   <th className="text-right px-5 py-3"></th>
                 </tr>
@@ -1408,12 +1479,25 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               <tbody className="divide-y divide-gray-50">
                 {holidays.filter((h) => h.date.startsWith(String(holidayYear))).map((h) => (
                   <tr key={h.id}>
-                    <td className="px-5 py-3 font-mono text-gray-700">{h.date}</td>
-                    <td className="px-5 py-3 text-gray-700">{h.name}</td>
+                    <td className="px-5 py-3 font-mono text-gray-700 whitespace-nowrap">
+                      {h.date}{h.endDate && h.endDate !== h.date ? ` → ${h.endDate}` : ""}
+                    </td>
+                    <td className="px-5 py-3 text-gray-700">
+                      {h.name}
+                      {h.isNational && <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Quốc gia</span>}
+                    </td>
                     <td className="px-5 py-3">
-                      {h.isNational
-                        ? <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Quốc gia</span>
-                        : <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Công ty</span>}
+                      {h.mode === "flexible" ? (
+                        <div>
+                          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">🙋 Tự chọn</span>
+                          {h.maxDays != null && <div className="text-xs text-gray-400 mt-0.5">Tối đa {h.maxDays} ngày/NV</div>}
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🏢 Cố định</span>
+                          {h.totalDays != null && <div className="text-xs text-gray-400 mt-0.5">{h.totalDays} ngày</div>}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <button

@@ -305,12 +305,17 @@ model RewardRule {
 model Holiday {
   id         String  @id @default(cuid())
   companyId  String
-  date       String  // YYYY-MM-DD
+  date       String  // YYYY-MM-DD — ngày bắt đầu (mode "fixed": áp dụng cả công ty; mode "flexible": đầu khoảng NV được chọn)
   name       String
   isNational Boolean @default(true)
   penalizeLate Boolean @default(false) // true = ngày lễ này vẫn tính muộn/phạt như thường; false = không phạt
+  mode       String  @default("fixed") // "fixed" = nghỉ cố định đúng ngày/khoảng cho cả công ty | "flexible" = NV tự chọn ngày trong khoảng
+  endDate    String? // YYYY-MM-DD — ngày kết thúc khoảng; null = chỉ 1 ngày (= date)
+  totalDays  Float?  // mode=fixed: tổng số ngày nghỉ công bố (hiển thị) — áp dụng đúng mọi ngày trong [date, endDate] cho toàn bộ NV đang hoạt động
+  maxDays    Float?  // mode=flexible: số ngày tối đa 1 NV được tự chọn trong khoảng [date, endDate]
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leaveRequests LeaveRequest[]
 
   @@unique([companyId, date])
 }
@@ -319,7 +324,7 @@ model LeaveRequest {
   id         String   @id @default(cuid())
   employeeId String
   companyId  String
-  type       String   @default("annual") // "annual" | "sick" | "unpaid" | "maternity" | "other"
+  type       String   @default("annual") // "annual" | "sick" | "unpaid" | "maternity" | "other" | "holiday"
   fromDate   String   // YYYY-MM-DD
   toDate     String   // YYYY-MM-DD
   days       Float
@@ -330,9 +335,14 @@ model LeaveRequest {
   handoverConfirmedAt  DateTime? // thời điểm người nhận xác nhận
   employeeSignature    String?  // base64 PNG chữ ký nhân viên từ kiosk
   createdAt  DateTime @default(now())
+  // Nghỉ lễ tự chọn (Holiday.mode="flexible"): liên kết tới đợt lễ + các ngày cụ thể NV chọn
+  // (có thể không liền kề nhau, nên không dùng fromDate..toDate là đủ — xem `dates`).
+  holidayId  String?
+  dates      String?  // JSON string[] "YYYY-MM-DD" — chỉ set khi type="holiday"; null thì dùng fromDate..toDate liên tục như các loại nghỉ khác
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  holiday  Holiday? @relation(fields: [holidayId], references: [id], onDelete: SetNull)
 }
 
 model AttendanceCorrection {

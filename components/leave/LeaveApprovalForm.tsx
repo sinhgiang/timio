@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Printer, X, CheckCircle2, XCircle } from "lucide-react";
 
-type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity";
+type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity" | "holiday";
 type LeaveStatus = "pending" | "approved" | "rejected";
 
 interface LeaveRequest {
@@ -42,6 +42,7 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   wedding: "Nghỉ cưới",
   funeral: "Nghỉ tang",
   paternity: "Nghỉ con sinh",
+  holiday: "Nghỉ lễ",
 };
 
 interface Props {

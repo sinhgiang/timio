@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 
 const LeaveApprovalForm = dynamic(() => import("@/components/leave/LeaveApprovalForm"), { ssr: false });
 
-type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity";
+type LeaveType = "annual" | "sick" | "unpaid" | "maternity" | "other" | "wedding" | "funeral" | "paternity" | "holiday";
 type LeaveStatus = "pending" | "approved" | "rejected";
 
 interface LeaveRequest {
@@ -19,6 +19,8 @@ interface LeaveRequest {
   status: LeaveStatus;
   note: string | null;
   createdAt: string;
+  holidayName?: string | null; // tên đợt lễ (chỉ có khi type="holiday")
+  dates?: string[] | null; // các ngày cụ thể NV tự chọn (chỉ có khi type="holiday" và không liền kề)
   employeeSignature?: string | null;
   handoverEmployeeId: string | null;
   handoverEmployeeName: string | null;
@@ -46,6 +48,7 @@ const TYPE_LABELS: Record<LeaveType, string> = {
   wedding: "Nghỉ cưới",
   funeral: "Nghỉ tang",
   paternity: "Nghỉ con sinh",
+  holiday: "Nghỉ lễ",
 };
 
 const STATUS_CONFIG: Record<LeaveStatus, { label: string; cls: string }> = {
@@ -326,6 +329,19 @@ export default function LeaveClient({ company, requests: initialRequests }: Prop
                       </span>
                     )}
                   </div>
+
+                  {/* Nghỉ lễ tự chọn: NV chọn ngày cụ thể trong khoảng — hiện rõ tên đợt lễ +
+                      các ngày đã chọn (có thể không liền kề) để sếp duyệt đúng ý NV. */}
+                  {r.type === "holiday" && (
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {r.holidayName && (
+                        <span className="text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full">🎉 {r.holidayName}</span>
+                      )}
+                      {r.dates && r.dates.length > 0 && (
+                        <span className="text-xs text-gray-500">Ngày chọn: {r.dates.map(fmtDate).join(", ")}</span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Bàn giao */}
                   {r.handoverEmployeeName && (

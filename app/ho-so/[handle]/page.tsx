@@ -906,14 +906,105 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
   );
 }
 
+// ─────────── ĐỢT NGHỈ LỄ (chọn ngày trong khoảng công ty cho phép) ───────────
+type WHoliday = { id: string; companyId: string; employeeId: string | null; name: string; mode: "fixed" | "flexible"; startDate: string; endDate: string; totalDays: number | null; maxDays: number | null; usedDates: string[] };
+
+function datesInRange(from: string, to: string): string[] {
+  const out: string[] = [];
+  let cur = from;
+  for (let i = 0; i < 62 && cur <= to; i++) {
+    out.push(cur);
+    const dt = new Date(`${cur}T00:00:00Z`);
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    cur = dt.toISOString().slice(0, 10);
+  }
+  return out;
+}
+
+function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [reason, setReason] = useState("");
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState("");
+  const days = datesInRange(h.startDate, h.endDate);
+  const remaining = Math.max(0, (h.maxDays ?? 0) - h.usedDates.length - picked.length);
+
+  const toggle = (d: string) => {
+    if (h.usedDates.includes(d)) return;
+    setErr("");
+    setPicked((p) => (p.includes(d) ? p.filter((x) => x !== d) : p.length < (h.maxDays ?? 0) - h.usedDates.length ? [...p, d] : p));
+  };
+
+  const send = async () => {
+    if (picked.length === 0) { setErr("Chọn ít nhất 1 ngày."); return; }
+    setSending(true); setErr("");
+    try {
+      const r = await fetch("/api/worker/requests", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "holiday", companyId: h.companyId, holidayId: h.id, dates: picked, reason: reason || undefined }),
+      });
+      const j = await r.json();
+      if (r.ok && j.ok) { setPicked([]); setReason(""); onSent(); }
+      else setErr(j.error || "Không gửi được.");
+    } catch { setErr("Lỗi kết nối."); }
+    setSending(false);
+  };
+
+  return (
+    <div className="border border-indigo-100 bg-indigo-50/40 rounded-xl p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-gray-800">🎉 {h.name}</p>
+        <span className="text-[11px] text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap">Còn {remaining}/{h.maxDays} ngày</span>
+      </div>
+      <p className="text-xs text-gray-500 mt-0.5">Chọn ngày trong khoảng {new Date(h.startDate).toLocaleDateString("vi-VN")} → {new Date(h.endDate).toLocaleDateString("vi-VN")} (có thể chọn rời rạc)</p>
+      <div className="flex flex-wrap gap-1.5 mt-2.5">
+        {days.map((d) => {
+          const used = h.usedDates.includes(d);
+          const sel = picked.includes(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              disabled={used}
+              onClick={() => toggle(d)}
+              title={used ? "Đã chọn ngày này ở đơn khác (đang chờ/đã duyệt)" : d}
+              className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors ${
+                used ? "bg-gray-100 border-gray-200 text-gray-300 line-through cursor-not-allowed"
+                : sel ? "bg-indigo-600 border-indigo-600 text-white"
+                : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+              }`}
+            >
+              {new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+            </button>
+          );
+        })}
+      </div>
+      {picked.length > 0 && (
+        <>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do (tùy chọn)" className="w-full mt-2.5 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-300 outline-none bg-white" />
+          <button onClick={send} disabled={sending} className="w-full mt-2 bg-indigo-600 text-white rounded-lg py-2 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50">
+            {sending ? "Đang gửi..." : `Gửi đơn xin nghỉ ${picked.length} ngày`}
+          </button>
+        </>
+      )}
+      {err && <p className="text-[11px] text-red-500 mt-1.5">{err}</p>}
+    </div>
+  );
+}
+
 // ─────────── TAB NGHỈ PHÉP ───────────
 function LeaveTab({ onNew }: { onNew: () => void }) {
   const [d, setD] = useState<{ leaveBalance: number; requests: { id: string; typeLabel: string; fromDate: string; toDate: string; days: number; reason: string | null; status: string; note: string | null; companyName: string }[] } | null>(null);
-  useEffect(() => { fetch("/api/worker/leave").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
+  const [hd, setHd] = useState<{ holidays: WHoliday[] } | null>(null);
+  const loadLeave = () => fetch("/api/worker/leave").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {});
+  const loadHolidays = () => fetch("/api/worker/holidays").then((r) => r.ok ? r.json() : null).then(setHd).catch(() => {});
+  useEffect(() => { loadLeave(); loadHolidays(); }, []);
   if (!d) return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>;
   const badge = (s: string) => s === "approved" ? <span className="inline-flex items-center gap-1 text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full"><CheckCircle2 size={11} /> Đã duyệt</span>
     : s === "rejected" ? <span className="inline-flex items-center gap-1 text-[11px] text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><XCircle size={11} /> Từ chối</span>
     : <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"><Clock size={11} /> Chờ duyệt</span>;
+  const fixedHolidays = hd?.holidays.filter((h) => h.mode === "fixed") ?? [];
+  const flexibleHolidays = hd?.holidays.filter((h) => h.mode === "flexible" && h.employeeId) ?? [];
   return (
     <div className="space-y-3">
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white flex items-center gap-4">
@@ -921,6 +1012,28 @@ function LeaveTab({ onNew }: { onNew: () => void }) {
         <div><p className="text-3xl font-extrabold">{d.leaveBalance}<span className="text-base font-semibold text-blue-200"> ngày</span></p><p className="text-sm text-blue-100">Phép năm còn lại</p></div>
       </div>
       <button onClick={onNew} className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-xl py-3 text-sm font-semibold hover:bg-blue-700"><Plus size={16} /> Tạo đơn nghỉ phép</button>
+
+      {fixedHolidays.length > 0 && (
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+          <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5"><CalendarDays size={15} className="text-blue-500" /> Ngày lễ công ty (tự động, không cần xin)</p>
+          <div className="space-y-1.5">
+            {fixedHolidays.map((h) => (
+              <div key={h.id} className="text-xs text-gray-600 flex items-center justify-between">
+                <span>🎉 {h.name}</span>
+                <span className="text-gray-400">{new Date(h.startDate).toLocaleDateString("vi-VN")}{h.endDate !== h.startDate ? ` → ${new Date(h.endDate).toLocaleDateString("vi-VN")}` : ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {flexibleHolidays.length > 0 && (
+        <div className="space-y-2.5">
+          <p className="text-sm font-semibold text-gray-700 px-1">Đợt nghỉ lễ đang mở — tự chọn ngày</p>
+          {flexibleHolidays.map((h) => <HolidayPicker key={h.id} h={h} onSent={() => { loadLeave(); loadHolidays(); }} />)}
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
         <p className="text-sm font-semibold text-gray-700 mb-2">Đơn nghỉ phép</p>
         {d.requests.length === 0 ? <p className="text-sm text-gray-400">Chưa có đơn nào. Bấm <b>“Tạo đơn nghỉ phép”</b> ở trên để xin nghỉ ngay trong app — công ty sẽ nhận và duyệt.</p> : (

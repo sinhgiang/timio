@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sendTelegram, buildLeaveApprovedAlert } from "@/lib/telegram";
 import { employeeInScope } from "@/lib/branchScope";
 import { notifyWorkerByEmployee } from "@/lib/workerNotify";
+import { markHolidayAttendance, dateRange } from "@/lib/holidayAttendance";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -41,6 +42,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     include: { employee: { select: { name: true } } },
   });
 
+  // Nghỉ lễ tự chọn (type="holiday", Holiday.mode="flexible") — khi duyệt, ghi rõ luôn các
+  // ngày NV đã chọn là "đã được duyệt nghỉ lễ" vào AttendanceLog (status="holiday") + cộng vào
+  // MonthlySummary.daysPresent, để KHÔNG bị tính vắng/trừ lương ngày đó (xem lib/holidayAttendance.ts
+  // — lấp lỗ hổng: hệ thống hiện không tự liên kết LeaveRequest đã duyệt với chấm công).
+  if (status === "approved" && request.status === "pending" && request.type === "holiday") {
+    const days = request.dates ? (JSON.parse(request.dates) as string[]) : dateRange(request.fromDate, request.toDate);
+    for (const d of days) {
+      await markHolidayAttendance(request.employeeId, d, `Nghỉ lễ đã duyệt (đơn #${request.id.slice(-6)})`);
+    }
+  }
+
   // Thông báo cho nhân viên (in-app + email)
   if (request.status === "pending" && (status === "approved" || status === "rejected")) {
     const range = `${new Date(request.fromDate).toLocaleDateString("vi-VN")} → ${new Date(request.toDate).toLocaleDateString("vi-VN")}`;
@@ -63,6 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương",
         maternity: "Thai sản", other: "Khác",
         wedding: "Nghỉ cưới", funeral: "Nghỉ tang", paternity: "Nghỉ con sinh",
+        holiday: "Nghỉ lễ",
       };
       void sendTelegram(
         company.telegramBotToken,

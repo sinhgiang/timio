@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 const LEAVE_TYPE_LABELS: Record<string, string> = {
   annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương",
   maternity: "Nghỉ thai sản", wedding: "Nghỉ cưới", funeral: "Nghỉ tang", other: "Khác",
+  holiday: "Nghỉ lễ",
 };
 const CORR_TYPE_LABELS: Record<string, string> = { check_in: "Giờ vào", check_out: "Giờ ra", both: "Cả vào & ra" };
 const daysBetween = (a: string, b: string) => Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000) + 1);
@@ -30,7 +31,7 @@ export async function GET() {
   const coByEmp = new Map(emps.map((e) => [e.id, e.company?.name ?? "Công ty"]));
 
   const [leaves, earlies, corrections, overtimes] = await Promise.all([
-    prisma.leaveRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.leaveRequest.findMany({ where: { employeeId: { in: empIds } }, include: { holiday: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.earlyLeaveRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.correctionRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.overtimeRequest.findMany({ where: { employeeId: { in: empIds } }, orderBy: { createdAt: "desc" }, take: 50 }),
@@ -38,7 +39,12 @@ export async function GET() {
 
   type Row = { id: string; kind: string; kindLabel: string; when: string; detail: string; status: string; note: string | null; companyName: string; createdAt: string };
   const rows: Row[] = [];
-  for (const l of leaves) rows.push({ id: l.id, kind: "leave", kindLabel: "Nghỉ phép", when: `${l.fromDate} → ${l.toDate}`, detail: `${LEAVE_TYPE_LABELS[l.type] ?? l.type} · ${l.days} ngày${l.reason ? " · " + l.reason : ""}`, status: l.status, note: l.note, companyName: coByEmp.get(l.employeeId) ?? "", createdAt: l.createdAt.toISOString() });
+  for (const l of leaves) {
+    const isHoliday = l.type === "holiday";
+    const pickedDates = isHoliday && l.dates ? (JSON.parse(l.dates) as string[]) : null;
+    const label = isHoliday && l.holiday?.name ? `${LEAVE_TYPE_LABELS[l.type]} · ${l.holiday.name}` : (LEAVE_TYPE_LABELS[l.type] ?? l.type);
+    rows.push({ id: l.id, kind: "leave", kindLabel: "Nghỉ phép", when: pickedDates ? pickedDates.join(", ") : `${l.fromDate} → ${l.toDate}`, detail: `${label} · ${l.days} ngày${l.reason ? " · " + l.reason : ""}`, status: l.status, note: l.note, companyName: coByEmp.get(l.employeeId) ?? "", createdAt: l.createdAt.toISOString() });
+  }
   for (const e of earlies) rows.push({ id: e.id, kind: "early_leave", kindLabel: "Về sớm", when: e.date, detail: `Về lúc ${e.leaveTime}${e.reason ? " · " + e.reason : ""}`, status: e.status, note: e.note, companyName: coByEmp.get(e.employeeId) ?? "", createdAt: e.createdAt.toISOString() });
   for (const c of corrections) rows.push({ id: c.id, kind: "correction", kindLabel: "Điều chỉnh chấm công", when: c.date, detail: `${CORR_TYPE_LABELS[c.type] ?? c.type}${c.requestedCheckIn ? " · vào " + c.requestedCheckIn : ""}${c.requestedCheckOut ? " · ra " + c.requestedCheckOut : ""} · ${c.reason}`, status: c.status, note: c.adminNote, companyName: coByEmp.get(c.employeeId) ?? "", createdAt: c.createdAt.toISOString() });
   for (const o of overtimes) rows.push({ id: o.id, kind: "overtime", kindLabel: "Tăng ca", when: o.date, detail: `${o.startTime}–${o.endTime} · ${o.hours}g${o.reason ? " · " + o.reason : ""}`, status: o.status, note: o.note, companyName: coByEmp.get(o.employeeId) ?? "", createdAt: o.createdAt.toISOString() });
@@ -71,6 +77,45 @@ export async function POST(req: NextRequest) {
       if (toDate < fromDate) return NextResponse.json({ error: "Ngày kết thúc phải sau ngày bắt đầu." }, { status: 400 });
       const created = await prisma.leaveRequest.create({
         data: { employeeId: target.id, companyId: target.companyId, type: clip(body.type, 20) || "annual", fromDate, toDate, days: daysBetween(fromDate, toDate), reason: clip(body.reason, 300) || null, status: "pending" },
+      });
+      return NextResponse.json({ ok: true, id: created.id });
+    }
+    if (kind === "holiday") {
+      // Nghỉ lễ tự chọn (Holiday.mode="flexible"): NV chọn ngày cụ thể trong khoảng công ty cho
+      // phép, tối đa Holiday.maxDays ngày — có thể chọn rời rạc, không nhất thiết liền kề.
+      const holidayId = clip(body.holidayId, 50);
+      if (!holidayId) return NextResponse.json({ error: "Chọn đợt nghỉ lễ." }, { status: 400 });
+      const datesRaw: unknown[] = Array.isArray(body.dates) ? body.dates : [];
+      const dates = Array.from(new Set(datesRaw.map((d) => clip(d, 10)).filter(Boolean))).sort();
+      if (dates.length === 0) return NextResponse.json({ error: "Chọn ít nhất 1 ngày muốn nghỉ." }, { status: 400 });
+
+      const holiday = await prisma.holiday.findFirst({ where: { id: holidayId, companyId: target.companyId, mode: "flexible" } });
+      if (!holiday) return NextResponse.json({ error: "Không tìm thấy đợt nghỉ lễ này." }, { status: 404 });
+      const rangeEnd = holiday.endDate || holiday.date;
+      const outOfRange = dates.find((d) => d < holiday.date || d > rangeEnd);
+      if (outOfRange) return NextResponse.json({ error: `Ngày ${outOfRange} không nằm trong khoảng được chọn (${holiday.date} → ${rangeEnd}).` }, { status: 400 });
+
+      if (holiday.maxDays != null) {
+        const existingUsed = await prisma.leaveRequest.findMany({
+          where: { holidayId: holiday.id, employeeId: target.id, status: { in: ["pending", "approved"] } },
+          select: { dates: true },
+        });
+        const usedDates = new Set<string>();
+        for (const r of existingUsed) if (r.dates) (JSON.parse(r.dates) as string[]).forEach((d) => usedDates.add(d));
+        const dup = dates.find((d) => usedDates.has(d));
+        if (dup) return NextResponse.json({ error: `Bạn đã chọn ngày ${dup} rồi (đang chờ hoặc đã duyệt).` }, { status: 400 });
+        if (usedDates.size + dates.length > holiday.maxDays) {
+          return NextResponse.json({ error: `Chỉ được chọn tối đa ${holiday.maxDays} ngày cho đợt lễ này (đã dùng ${usedDates.size} ngày).` }, { status: 400 });
+        }
+      }
+
+      const created = await prisma.leaveRequest.create({
+        data: {
+          employeeId: target.id, companyId: target.companyId, type: "holiday",
+          fromDate: dates[0], toDate: dates[dates.length - 1], days: dates.length,
+          dates: JSON.stringify(dates), holidayId: holiday.id,
+          reason: clip(body.reason, 300) || null, status: "pending",
+        },
       });
       return NextResponse.json({ ok: true, id: created.id });
     }

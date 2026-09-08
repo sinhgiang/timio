@@ -52,6 +52,7 @@ export default async function LeavePage() {
             branch: { select: { name: true } },
           },
         },
+        holiday: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -76,7 +77,7 @@ export default async function LeavePage() {
         }
         return {
           id: r.id,
-          type: r.type as "annual" | "sick" | "unpaid" | "maternity" | "other",
+          type: r.type as "annual" | "sick" | "unpaid" | "maternity" | "other" | "holiday",
           fromDate: r.fromDate,
           toDate: r.toDate,
           days: r.days,
@@ -88,6 +89,8 @@ export default async function LeavePage() {
           handoverEmployeeId: r.handoverEmployeeId ?? null,
           handoverEmployeeName,
           handoverConfirmedAt: r.handoverConfirmedAt?.toISOString() ?? null,
+          holidayName: r.holiday?.name ?? null,
+          dates: r.dates ? (JSON.parse(r.dates) as string[]) : null,
           employee: {
             id: r.employee.id,
             name: r.employee.name,

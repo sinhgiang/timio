@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const TYPE_LABEL: Record<string, string> = {
   annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương", maternity: "Nghỉ thai sản", other: "Khác",
+  holiday: "Nghỉ lễ",
 };
 
 // GET — số phép còn lại + lịch sử đơn nghỉ của chính chủ
