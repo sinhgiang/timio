@@ -1607,7 +1607,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                   <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Thời gian</th>
                   <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-[38%]">Đợt nghỉ</th>
                   <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Chế độ</th>
-                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Đi làm ngày này</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Đi làm ngày này</th>
                   <th className="text-right px-5 py-3"></th>
                 </tr>
               </thead>
@@ -1649,11 +1649,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-4 align-top">
+                    <td className="px-5 py-4 align-top whitespace-nowrap">
                       <button
                         onClick={() => toggleHolidayPenalize(h)}
                         title="Ngày lễ này: nếu nhân viên vẫn đi làm, có tính muộn + phạt không?"
-                        className={`text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${
+                        className={`text-xs px-2.5 py-1 rounded-full font-medium border whitespace-nowrap transition-colors ${
                           h.penalizeLate
                             ? "bg-amber-50 border-amber-200 text-amber-700"
                             : "bg-green-50 border-green-200 text-green-700"
