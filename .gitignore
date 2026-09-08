@@ -41,3 +41,5 @@ _expo_temp/
 
 devserver.log
 devserver.pid
+
+nextdev-*.log

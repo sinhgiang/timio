@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { scopedBranchId, type ScopeUser } from "@/lib/branchScope";
 import { signOnboardingToken } from "@/lib/faceToken";
+import { backfillFixedHolidaysForNewEmployee } from "@/lib/holidayAttendance";
 
 // Tuyển-1-chạm: biến ứng viên thành nhân viên chấm công + trả link đăng ký khuôn mặt
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -83,6 +84,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     where: { id: candidate.id },
     data: { status: "hired", hiredEmpId: employee.id, hiredAt: new Date() },
   });
+
+  // Áp lại các "Ngày lễ cố định" hiện có của công ty cho NV mới — xem lib/holidayAttendance.ts
+  await backfillFixedHolidaysForNewEmployee(employee.id, companyId, joinDate ? new Date(joinDate) : new Date()).catch(() => {});
 
   // Nếu ứng viên đến từ giới thiệu → đánh dấu referral đã tuyển (để tính thưởng)
   await prisma.referral

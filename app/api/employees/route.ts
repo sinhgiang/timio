@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureWorkerAccount } from "@/lib/workerAccount";
+import { backfillFixedHolidaysForNewEmployee } from "@/lib/holidayAttendance";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
 
     // Tạo/nối tài khoản nhân viên (app cá nhân) nếu có SĐT
     await ensureWorkerAccount(employee.id, employee.name, employee.phone, employee.email).catch(() => {});
+    // Áp lại các "Ngày lễ cố định" hiện có của công ty cho NV mới — xem lib/holidayAttendance.ts
+    await backfillFixedHolidaysForNewEmployee(employee.id, companyId, employee.joinDate).catch(() => {});
 
     return NextResponse.json(employee, { status: 201 });
   } catch (error: unknown) {

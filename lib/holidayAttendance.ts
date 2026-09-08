@@ -89,6 +89,34 @@ export function dateRange(from: string, to: string): string[] {
 }
 
 /**
+ * Vá lỗ hổng: markHolidayAttendance ở app/api/holidays/route.ts CHỈ chạy cho các nhân viên đang
+ * active TẠI THỜI ĐIỂM tạo/sửa "Ngày lễ cố định" — nhân viên tuyển SAU thời điểm đó sẽ không được
+ * áp tự động, bị tính "Vắng" oan đúng ngày lễ (mất lương) dù công ty đã công bố nghỉ lễ từ trước.
+ * Gọi hàm này ngay sau khi tạo 1 nhân viên mới (mọi nơi tạo NV: thêm tay, tuyển từ ứng viên, import
+ * hàng loạt) để áp lại các ngày lễ cố định hiện có, tính từ ngày vào làm (hoặc từ hôm nay nếu không
+ * có joinDate) trở đi — không đụng tới các ngày lễ đã qua trước khi NV vào làm.
+ */
+export async function backfillFixedHolidaysForNewEmployee(
+  employeeId: string,
+  companyId: string,
+  joinDate: Date | null
+): Promise<void> {
+  const sinceDate = (joinDate ?? new Date()).toISOString().slice(0, 10);
+  const holidays = await prisma.holiday.findMany({
+    where: {
+      companyId, mode: "fixed", penalizeLate: false,
+      OR: [{ endDate: { gte: sinceDate } }, { endDate: null, date: { gte: sinceDate } }],
+    },
+    select: { date: true, endDate: true, name: true },
+  });
+  for (const h of holidays) {
+    for (const d of dateRange(h.date, h.endDate || h.date)) {
+      if (d >= sinceDate) await markHolidayAttendance(employeeId, d, `Nghỉ lễ: ${h.name}`);
+    }
+  }
+}
+
+/**
  * Tìm ngày lễ (nếu có) của công ty mà `date` rơi vào trong khoảng [date, endDate || date] của nó.
  * Dùng CHUNG cho mọi nơi cần biết "hôm nay có phải ngày lễ không" (chấm công, nhắc trễ...) —
  * thay cho so khớp đúng 1 ngày (`date: today`) trước đây, vốn CHỈ đúng với ngày lễ 1 ngày. Từ khi

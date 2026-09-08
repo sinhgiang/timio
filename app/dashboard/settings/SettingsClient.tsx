@@ -365,10 +365,14 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
   // mode "fixed": áp dụng CẢ công ty tự động (không cần NV làm đơn) — vd nghỉ 2/9 cả công ty.
   // mode "flexible": chỉ khai báo khoảng thời gian + số ngày tối đa; NV tự chọn ngày cụ thể
   // trong app "Nghỉ phép" rồi gửi đơn cho sếp duyệt (xem app/ho-so + /api/worker/holidays).
-  const [holidayForm, setHolidayForm] = useState({ date: "", endDate: "", name: "", mode: "fixed" as "fixed" | "flexible", totalDays: "", maxDays: "" });
+  const emptyHolidayForm = { date: "", endDate: "", name: "", mode: "fixed" as "fixed" | "flexible", totalDays: "", maxDays: "", isNational: false };
+  const [holidayForm, setHolidayForm] = useState(emptyHolidayForm);
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [holidayLoading, setHolidayLoading] = useState(false);
   const [holidayMsg, setHolidayMsg] = useState("");
+  // Đang sửa 1 ngày lễ có sẵn (id) hay đang tạo mới (null) — cho phép sửa tại chỗ thay vì bắt
+  // sếp phải Xóa rồi Thêm lại từ đầu (theo phản hồi user).
+  const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
 
   // Đếm số ngày (bao gồm cả 2 đầu) giữa "Từ ngày" và "Đến ngày" — dùng để tự động điền
   // "Tổng số ngày"/"Tối đa/NV" thay vì bắt admin tự đếm & gõ tay (theo phản hồi user).
@@ -406,16 +410,16 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     e.preventDefault();
     setHolidayLoading(true);
     setHolidayMsg("");
-    const res = await fetch("/api/holidays", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: holidayForm.date, endDate: holidayForm.endDate || null, name: holidayForm.name, isNational: false,
-        mode: holidayForm.mode,
-        totalDays: holidayForm.mode === "fixed" ? holidayForm.totalDays : null,
-        maxDays: holidayForm.mode === "flexible" ? holidayForm.maxDays : null,
-      }),
-    });
+    const payload = {
+      date: holidayForm.date, endDate: holidayForm.endDate || null, name: holidayForm.name, isNational: holidayForm.isNational,
+      mode: holidayForm.mode,
+      totalDays: holidayForm.mode === "fixed" ? holidayForm.totalDays : null,
+      maxDays: holidayForm.mode === "flexible" ? holidayForm.maxDays : null,
+    };
+    // Có editingHolidayId → sửa tại chỗ (PATCH theo id). Không có → tạo mới (POST, upsert theo date).
+    const res = editingHolidayId
+      ? await fetch(`/api/holidays/${editingHolidayId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      : await fetch("/api/holidays", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (res.ok) {
       setHolidayMsg(
         holidayForm.mode === "fixed"
@@ -426,15 +430,39 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
       const d = await res.json().catch(() => ({}));
       setHolidayMsg(`❌ ${d.error ?? "Lưu thất bại"}`);
     }
-    setHolidayForm({ date: "", endDate: "", name: "", mode: "fixed", totalDays: "", maxDays: "" });
+    setHolidayForm(emptyHolidayForm);
+    setEditingHolidayId(null);
     setShowHolidayForm(false);
     await loadHolidays(holidayYear);
     setHolidayLoading(false);
   };
 
+  // Mở form đã điền sẵn giá trị hiện tại của 1 ngày lễ để sửa (thay vì phải Xóa rồi Thêm lại).
+  const startEditHoliday = (h: Holiday) => {
+    setEditingHolidayId(h.id);
+    setHolidayForm({
+      date: h.date,
+      endDate: h.endDate || "",
+      name: h.name,
+      mode: (h.mode === "flexible" ? "flexible" : "fixed"),
+      totalDays: h.totalDays != null ? String(h.totalDays) : "",
+      maxDays: h.maxDays != null ? String(h.maxDays) : "",
+      isNational: h.isNational,
+    });
+    setHolidayMsg("");
+    setShowHolidayForm(true);
+  };
+
+  const cancelHolidayForm = () => {
+    setShowHolidayForm(false);
+    setEditingHolidayId(null);
+    setHolidayForm(emptyHolidayForm);
+  };
+
   const deleteHoliday = async (id: string) => {
     await fetch(`/api/holidays/${id}`, { method: "DELETE" });
     setHolidays((prev) => prev.filter((h) => h.id !== id));
+    if (editingHolidayId === id) cancelHolidayForm();
   };
 
   // Bật/tắt "vẫn tính muộn/phạt" cho 1 ngày lễ (upsert theo date) — PHẢI gửi kèm đủ mode/endDate/
@@ -1445,7 +1473,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                 className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
               >Nhập lễ VN {holidayYear}</button>
               <button
-                onClick={() => setShowHolidayForm(true)}
+                onClick={() => { setEditingHolidayId(null); setHolidayForm(emptyHolidayForm); setShowHolidayForm(true); }}
                 className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
               >+ Thêm tự chọn</button>
             </div>
@@ -1455,6 +1483,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
 
           {showHolidayForm && (
             <form onSubmit={addHoliday} className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+              {editingHolidayId && <p className="text-xs font-semibold text-blue-600 mb-3">✎ Đang sửa ngày lễ đã tạo</p>}
               <div className="flex gap-2 mb-4">
                 <button
                   type="button"
@@ -1483,7 +1512,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                     onChange={(e) => {
                       const date = e.target.value;
                       const n = daysBetween(date, holidayForm.endDate);
-                      setHolidayForm({ ...holidayForm, date, ...(n ? { totalDays: String(n), maxDays: String(n) } : {}) });
+                      // Chỉ tự điền "Tổng số ngày" (mode cố định, chỉ để hiển thị) — KHÔNG động vào
+                      // "Tối đa/NV" (mode tự chọn): đây là 2 khái niệm độc lập (VD khai cả tháng 9
+                      // nhưng chỉ cho nghỉ tối đa 2 ngày), tự điền theo khoảng ngày sẽ vô nghĩa hoá
+                      // giới hạn tối đa (theo phản hồi user).
+                      setHolidayForm({ ...holidayForm, date, ...(n ? { totalDays: String(n) } : {}) });
                     }}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                     required
@@ -1497,7 +1530,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                     onChange={(e) => {
                       const endDate = e.target.value;
                       const n = daysBetween(holidayForm.date, endDate);
-                      setHolidayForm({ ...holidayForm, endDate, ...(n ? { totalDays: String(n), maxDays: String(n) } : {}) });
+                      setHolidayForm({ ...holidayForm, endDate, ...(n ? { totalDays: String(n) } : {}) });
                     }}
                     min={holidayForm.date || undefined}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
@@ -1514,7 +1547,7 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                   </div>
                 ) : (
                   <div className="w-32">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Tối đa/NV <span className="text-gray-400 font-normal">(tự động)</span></label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tối đa/NV <span className="text-gray-400 font-normal">(nhập tay)</span></label>
                     <input type="number" min="0" step="0.5" value={holidayForm.maxDays} onChange={(e) => setHolidayForm({ ...holidayForm, maxDays: e.target.value })} placeholder="VD: 2" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required />
                   </div>
                 )}
@@ -1522,11 +1555,11 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
               <p className="text-xs text-gray-400 mt-2">
                 {holidayForm.mode === "fixed"
                   ? "Toàn bộ nhân viên đang hoạt động sẽ tự động được ghi nhận nghỉ (không tính vắng, không trừ lương) đúng các ngày này ngay khi bấm Lưu."
-                  : "Nhân viên vào app \"Nghỉ phép\" sẽ thấy khoảng ngày này và tự chọn tối đa số ngày ở trên (có thể chọn rời rạc), gửi đơn để sếp duyệt."}
+                  : "Nhân viên vào app \"Nghỉ phép\" sẽ thấy khoảng ngày này, tự chọn ngày cụ thể (không cần liền nhau) — miễn không vượt quá số \"Tối đa/NV\" ở trên, dù khoảng ngày rộng hơn nhiều. VD: khai cả tháng 9 nhưng mỗi người chỉ được chọn tối đa 2 ngày trong đó. Chọn xong NV gửi đơn để sếp duyệt."}
               </p>
               <div className="flex justify-end gap-2 mt-3">
-                <button type="button" onClick={() => setShowHolidayForm(false)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
-                <button type="submit" disabled={holidayLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">Lưu</button>
+                <button type="button" onClick={cancelHolidayForm} className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Hủy</button>
+                <button type="submit" disabled={holidayLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">{editingHolidayId ? "Cập nhật" : "Lưu"}</button>
               </div>
             </form>
           )}
@@ -1578,7 +1611,8 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                         {h.penalizeLate ? "Vẫn tính muộn/phạt" : "Không phạt (nghỉ lễ)"}
                       </button>
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3 text-right whitespace-nowrap">
+                      <button onClick={() => startEditHoliday(h)} className="text-blue-500 hover:text-blue-700 text-xs mr-3">Sửa</button>
                       <button onClick={() => deleteHoliday(h.id)} className="text-red-400 hover:text-red-600 text-xs">Xóa</button>
                     </td>
                   </tr>

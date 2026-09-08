@@ -109,8 +109,9 @@ export async function POST(req: NextRequest) {
   // thì đây thực chất vẫn là ngày làm việc bình thường, chỉ gắn nhãn lễ để tham khảo — TUYỆT ĐỐI
   // không được tự điền chấm công trước, vì markHolidayAttendance gán sẵn checkInAt+checkOutAt sẽ
   // khiến kiosk từ chối chấm công thật ("đã chấm công đủ hôm nay") của nhân viên khi họ tới làm.
-  // Giới hạn đã biết: nếu công ty tuyển thêm NV MỚI sau khi đã tạo ngày lễ này, người mới sẽ không
-  // tự động được áp — cần sếp lưu lại ngày lễ (bấm Lưu lần nữa) để chạy lại cho toàn bộ NV hiện tại.
+  // NV tuyển MỚI sau khi ngày lễ này đã tồn tại vẫn được tự động áp đúng các ngày lễ "cố định"
+  // tính từ ngày vào làm — xem backfillFixedHolidaysForNewEmployee (lib/holidayAttendance.ts),
+  // gọi ở app/api/employees, app/api/employees/import, app/api/recruitment/.../hire.
   if (mode === "fixed" && !penalizeLate) {
     const dates = dateRange(date, endDate || date);
     const activeEmployees = await prisma.employee.findMany({

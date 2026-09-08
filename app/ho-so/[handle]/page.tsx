@@ -967,12 +967,20 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
   const days = datesInRange(h.startDate, h.endDate);
-  const remaining = Math.max(0, (h.maxDays ?? 0) - h.usedDates.length - picked.length);
+  const limit = h.maxDays ?? 0;
+  const remaining = Math.max(0, limit - h.usedDates.length - picked.length);
 
+  // Nếu chọn vượt quá số ngày công ty cho phép, báo rõ luôn (VD "chỉ được phép nghỉ 2 ngày, đã
+  // chọn 3 ngày") thay vì im lặng không cho bấm thêm — NV dễ hiểu vì sao không chọn được nữa.
   const toggle = (d: string) => {
     if (h.usedDates.includes(d)) return;
+    if (picked.includes(d)) { setErr(""); setPicked(picked.filter((x) => x !== d)); return; }
+    if (picked.length >= limit - h.usedDates.length) {
+      setErr(`Bạn chỉ được phép nghỉ tối đa ${limit} ngày cho đợt này — bạn đã chọn ${picked.length + h.usedDates.length} ngày rồi, hãy bỏ bớt 1 ngày trước khi chọn ngày khác.`);
+      return;
+    }
     setErr("");
-    setPicked((p) => (p.includes(d) ? p.filter((x) => x !== d) : p.length < (h.maxDays ?? 0) - h.usedDates.length ? [...p, d] : p));
+    setPicked([...picked, d]);
   };
 
   const send = async () => {
@@ -1005,7 +1013,7 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
         </div>
       </div>
       <div className="border-t border-dashed border-indigo-200 px-3.5 pt-3 pb-3.5 bg-indigo-50/40">
-      <p className="text-xs text-gray-500">Chọn ngày muốn nghỉ (có thể chọn rời rạc):</p>
+      <p className="text-xs text-gray-500">Công ty xếp cho bạn nghỉ <b className="text-gray-700">{h.maxDays} ngày</b>, chọn bất kỳ ngày nào trong khoảng trên (có thể chọn rời rạc):</p>
       <div className="flex flex-wrap gap-1.5 mt-2.5">
         {days.map((d) => {
           const used = h.usedDates.includes(d);
