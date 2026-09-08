@@ -68,7 +68,13 @@ function fileToDataUrl(file: File, maxW: number, square = false, quality = 0.82)
 
 type TabKey = "profile" | "attendance" | "shifts" | "requests" | "leave" | "payslip" | "income" | "certificates" | "assets" | "reviews" | "announcements";
 
+// Thứ tự mảng này quyết định thứ tự tab ngang trên điện thoại (xem "Tab ngang (mobile,
+// chính chủ)" ở render bên dưới, dùng NAV_ITEMS.map trực tiếp). Theo yêu cầu user: đẩy
+// "Bảng tin công ty" lên ĐẦU (trước cả "Hồ sơ của tôi") để vào app là thấy tin mới nhất
+// ngay — CHỈ đổi thứ tự, không đổi tên/nội dung. Sidebar desktop KHÔNG bị ảnh hưởng vì nó
+// lấy thứ tự riêng từ NAV_GROUPS[].keys bên dưới, không phụ thuộc thứ tự mảng này.
 const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
+  { key: "announcements", label: "Bảng tin công ty", Icon: Megaphone },
   { key: "profile", label: "Hồ sơ của tôi", Icon: IdCard },
   { key: "attendance", label: "Chấm công", Icon: Clock },
   { key: "shifts", label: "Lịch ca", Icon: CalendarDays },
@@ -79,7 +85,6 @@ const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
   { key: "certificates", label: "Chứng chỉ & đào tạo", Icon: GraduationCap },
   { key: "assets", label: "Tài sản được giao", Icon: Package },
   { key: "reviews", label: "Đánh giá của tôi", Icon: Star },
-  { key: "announcements", label: "Bảng tin công ty", Icon: Megaphone },
 ];
 const NAV_GROUPS: { section: string | null; keys: TabKey[] }[] = [
   { section: null, keys: ["profile"] },
@@ -944,9 +949,14 @@ const REQ_KINDS: { k: string; label: string; Icon: typeof FileText }[] = [
   { k: "correction", label: "Sửa chấm công", Icon: Clock },
   { k: "overtime", label: "Xin tăng ca", Icon: CalendarClock },
 ];
-const INP = "w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white";
+// min-w-0: input/select type="date"/"time" trên iOS Safari tự có độ rộng tối thiểu riêng
+// (min-width:auto ở chính input, không chỉ ở ô grid cha) mà "width:100%" không ép co lại
+// được — khiến nó tràn ra ngoài ô của mình trong grid-cols-2/3 ("Tạo đơn mới" ở trên), làm
+// 2-3 ô đè chồng lên nhau trên màn hình hẹp. Phải đặt min-w-0 ở CẢ input lẫn ô grid cha (Lbl
+// bên dưới) thì mới co đúng — chỉ sửa 1 trong 2 chỗ không đủ.
+const INP = "w-full min-w-0 mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white";
 function Lbl({ t, children }: { t: string; children: React.ReactNode }) {
-  return <label className="block mb-2.5"><span className="text-xs text-gray-500">{t}</span>{children}</label>;
+  return <label className="block mb-2.5 min-w-0"><span className="text-xs text-gray-500">{t}</span>{children}</label>;
 }
 function reqBadge(s: string) {
   return s === "approved" ? <span className="inline-flex items-center gap-1 text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full"><CheckCircle2 size={11} /> Đã duyệt</span>
