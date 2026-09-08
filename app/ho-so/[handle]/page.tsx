@@ -876,7 +876,7 @@ function IncomeTab() {
 }
 
 // ─────────── TAB CHẤM CÔNG ───────────
-type WSess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string };
+type WSess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string; penaltyAmount: number };
 type WDay = { date: string; employeeId: string; companyName: string; sessions: WSess[] };
 
 function AttendanceTab({ onNew }: { onNew: () => void }) {
@@ -884,12 +884,14 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
   useEffect(() => { fetch("/api/worker/attendance").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
   if (!d) return <div className="text-center text-gray-400 py-10"><Loader2 size={18} className="animate-spin inline" /></div>;
   const hhmm = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—";
+  // Trễ mà có bị trừ tiền (penaltyAmount > 0) thì hiện thẳng số tiền trừ ngay đây — khớp với dòng
+  // "Phạt" tổng cộng ở tab Phiếu lương — để NV nhìn 1 cái là biết ngày nào bị trừ, trừ bao nhiêu.
   const statusOf = (s: WSess) => s.status === "holiday"
     ? { text: "Nghỉ lễ", cls: "bg-blue-50 text-blue-600" }
     : !s.checkInAt
       ? { text: "Vắng", cls: "bg-gray-100 text-gray-500" }
       : s.minutesLate > 0
-        ? { text: `Trễ ${s.minutesLate} phút`, cls: "bg-amber-50 text-amber-600" }
+        ? { text: `Trễ ${s.minutesLate} phút${s.penaltyAmount > 0 ? ` · −${vnd(s.penaltyAmount)}đ` : ""}`, cls: "bg-amber-50 text-amber-600" }
         : { text: "Đúng giờ", cls: "bg-green-50 text-green-600" };
   return (
     <div className="space-y-3">
@@ -915,14 +917,14 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
                     {day.sessions.map((s, j) => {
                       const st = statusOf(s);
                       return (
-                        <div key={j} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <div key={j} className="flex items-center justify-between flex-wrap gap-x-2 gap-y-1 px-3 py-2 text-sm">
                           <div className="flex items-center gap-2">
                             {multi && <span className="shrink-0 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-md px-1.5 py-0.5">{s.sessionLabel ?? `Buổi ${j + 1}`}</span>}
                             <span className="text-gray-700 font-mono text-xs">
                               <span className="text-gray-400">Vào</span> {hhmm(s.checkInAt)} <span className="text-gray-300 mx-0.5">·</span> <span className="text-gray-400">Ra</span> {hhmm(s.checkOutAt)}
                             </span>
                           </div>
-                          <span className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${st.cls}`}>{st.text}</span>
+                          <span className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${st.cls}`}>{st.text}</span>
                         </div>
                       );
                     })}

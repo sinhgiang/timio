@@ -23,7 +23,7 @@ export async function GET() {
 
   const logs = await prisma.attendanceLog.findMany({
     where: { employeeId: { in: empIds }, checkInAt: { not: null } },
-    select: { employeeId: true, date: true, session: true, checkInAt: true, checkOutAt: true, minutesLate: true, status: true },
+    select: { employeeId: true, date: true, session: true, checkInAt: true, checkOutAt: true, minutesLate: true, status: true, penaltyAmount: true },
     orderBy: [{ date: "desc" }, { session: "asc" }],
     take: 60,
   });
@@ -34,7 +34,9 @@ export async function GET() {
   ]);
 
   // Gom các dòng cùng nhân viên + cùng ngày thành 1 "ngày" chứa nhiều buổi (ca gãy sáng/tối).
-  type Sess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string };
+  // penaltyAmount trả kèm để NV thấy ngay tại đây "trễ bao nhiêu -> bị trừ bao nhiêu tiền", khớp
+  // với dòng "Phạt" tổng cộng ở Phiếu lương — tránh NV thấy "Trễ 99 phút" mà không hiểu vì sao lương bị trừ.
+  type Sess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string; penaltyAmount: number };
   type Day = { date: string; employeeId: string; companyName: string; sessions: Sess[] };
   const dayByKey = new Map<string, Day>();
   const order: string[] = [];
@@ -54,6 +56,7 @@ export async function GET() {
       checkOutAt: l.checkOutAt ? l.checkOutAt.toISOString() : null,
       minutesLate: l.minutesLate,
       status: l.status,
+      penaltyAmount: l.penaltyAmount,
     });
   }
   const days = order.map((k) => dayByKey.get(k)!);
