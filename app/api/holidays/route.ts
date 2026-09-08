@@ -95,9 +95,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Dọn log "nghỉ lễ tự động" của khoảng ngày CŨ trước — bảo đảm sửa/đổi mode/bật lại phạt luôn
-  // cho ra trạng thái đúng, không để sót ngày công ảo hay log giả chặn chấm công thật.
-  if (before) {
+  // Dọn log "nghỉ lễ tự động" của khoảng ngày CŨ trước — CHỈ khi ngày lễ CŨ là mode "fixed" (xem
+  // giải thích đầy đủ ở PATCH /api/holidays/[id], cùng lý do). Ngày lễ CŨ "flexible" thì log
+  // "holiday" trong khoảng đó là do từng nhân viên tự chọn + được duyệt riêng — không được xoá
+  // theo thao tác lưu/toggle ở đây (vd toggleHolidayPenalize resubmit cùng ngày).
+  if (before && before.mode === "fixed") {
     await revertHolidayAttendanceRange(companyId, dateRange(before.date, before.endDate || before.date));
   }
 

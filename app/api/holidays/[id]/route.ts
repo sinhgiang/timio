@@ -53,9 +53,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: isUnique ? `Đã có ngày lễ khác trùng ngày ${date}.` : "Lỗi lưu" }, { status: isUnique ? 409 : 500 });
   }
 
-  // Dọn log "nghỉ lễ tự động" của khoảng ngày CŨ trước khi áp lại — giống hệt POST /api/holidays,
-  // để sửa ngày/mode/bật lại phạt không để sót ngày công ảo hay log giả (xem revertHolidayAttendanceRange).
-  await revertHolidayAttendanceRange(companyId, dateRange(existing.date, existing.endDate || existing.date));
+  // Dọn log "nghỉ lễ tự động" của khoảng ngày CŨ trước khi áp lại — CHỈ khi ngày lễ CŨ là mode
+  // "fixed" (giống hệt điều kiện ở DELETE bên dưới). revertHolidayAttendanceRange xoá THEO
+  // date+status="holiday" cho CẢ CÔNG TY — không phân biệt được log đó do ngày lễ nào tạo ra (DB
+  // không có holidayId trên AttendanceLog). Nếu ngày lễ CŨ là "flexible", các log "holiday" trong
+  // khoảng ngày đó là do TỪNG nhân viên tự chọn ngày + được duyệt riêng (LeaveRequest.dates), HOÀN
+  // TOÀN không liên quan tới việc sếp sửa tên/ngày/mode ở đây — revert vô điều kiện sẽ xoá nhầm
+  // ngày nghỉ đã duyệt của người khác (mất công + bị tính vắng oan). Chỉ "fixed" mới áp đồng loạt
+  // cho cả công ty nên mới cần dọn-rồi-áp-lại theo cách này.
+  if (existing.mode === "fixed") {
+    await revertHolidayAttendanceRange(companyId, dateRange(existing.date, existing.endDate || existing.date));
+  }
 
   if (mode === "fixed" && !penalizeLate) {
     const dates = dateRange(date, endDate || date);
