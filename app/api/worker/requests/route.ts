@@ -91,9 +91,19 @@ export async function POST(req: NextRequest) {
 
       const holiday = await prisma.holiday.findFirst({ where: { id: holidayId, companyId: target.companyId, mode: "flexible" } });
       if (!holiday) return NextResponse.json({ error: "Không tìm thấy đợt nghỉ lễ này." }, { status: 404 });
-      const rangeEnd = holiday.endDate || holiday.date;
-      const outOfRange = dates.find((d) => d < holiday.date || d > rangeEnd);
-      if (outOfRange) return NextResponse.json({ error: `Ngày ${outOfRange} không nằm trong khoảng được chọn (${holiday.date} → ${rangeEnd}).` }, { status: 400 });
+      // holiday.date/endDate giờ chỉ là ngày neo nội bộ (sếp không còn khai "Từ ngày"/"Đến ngày"
+      // — xem findFreeAnchorDate ở lib/holidayAttendance.ts), KHÔNG phải khoảng NV được chọn thật.
+      // Khoảng thật = từ hôm nay tới hết năm mà đợt này thuộc về — PHẢI tính giống hệt
+      // /api/worker/holidays (GET) để FE và validate server khớp nhau, tránh NV chọn được ở FE
+      // nhưng gửi lên lại bị từ chối "không nằm trong khoảng".
+      const year = holiday.date.slice(0, 4);
+      const jan1 = `${year}-01-01`;
+      const dec31 = `${year}-12-31`;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const rangeStart = todayStr > jan1 ? todayStr : jan1;
+      const rangeEnd = dec31;
+      const outOfRange = dates.find((d) => d < rangeStart || d > rangeEnd);
+      if (outOfRange) return NextResponse.json({ error: `Ngày ${outOfRange} không hợp lệ — chỉ được chọn từ ${rangeStart} đến ${rangeEnd}.` }, { status: 400 });
 
       if (holiday.maxDays != null) {
         const existingUsed = await prisma.leaveRequest.findMany({

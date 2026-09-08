@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAllVNHolidays } from "@/lib/holidays";
-import { markHolidayAttendance, dateRange, revertHolidayAttendanceRange } from "@/lib/holidayAttendance";
+import { markHolidayAttendance, dateRange, revertHolidayAttendanceRange, findFreeAnchorDate } from "@/lib/holidayAttendance";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -59,17 +59,27 @@ export async function POST(req: NextRequest) {
 
   // Single holiday — hỗ trợ 2 chế độ:
   // - mode "fixed": nghỉ cố định đúng ngày/khoảng cho CẢ công ty (date..endDate, totalDays chỉ để hiển thị)
-  // - mode "flexible": chỉ khai báo khoảng thời gian + số ngày tối đa (maxDays); nhân viên tự
-  //   chọn ngày cụ thể trong khoảng đó ở app "Nghỉ phép" (xem /api/worker/holidays + kind="holiday"
-  //   ở /api/worker/requests) rồi gửi để sếp duyệt từng đơn.
+  // - mode "flexible": chỉ khai báo Tên đợt + số ngày tối đa (maxDays), KHÔNG khai khoảng thời
+  //   gian nữa (theo phản hồi user) — nhân viên tự chọn ngày phù hợp trong năm ở app "Nghỉ phép"
+  //   (xem /api/worker/holidays + kind="holiday" ở /api/worker/requests) rồi gửi để sếp duyệt.
   const {
-    date, name, isNational = false, penalizeLate = false,
-    mode = "fixed", endDate = null, totalDays = null, maxDays = null,
+    name, isNational = false, penalizeLate = false,
+    mode = "fixed", totalDays = null, maxDays = null, year = new Date().getFullYear(),
   } = body;
-  if (!date || !name) return NextResponse.json({ error: "Thiếu ngày hoặc tên" }, { status: 400 });
+  let { date, endDate = null } = body;
+  if (!name) return NextResponse.json({ error: "Thiếu tên" }, { status: 400 });
   if (mode !== "fixed" && mode !== "flexible") {
     return NextResponse.json({ error: "Chế độ không hợp lệ" }, { status: 400 });
   }
+  // "flexible" không còn form nhập date — client gửi date rỗng khi tạo mới, tự chọn 1 ngày neo
+  // còn trống trong năm đang xem (xem findFreeAnchorDate). endDate luôn = hết năm đó để mọi nơi
+  // đọc date..endDate (nếu còn sót chỗ nào) đều hiểu khoảng "cả năm", không phải khoảng hẹp cũ.
+  if (mode === "flexible" && !date) {
+    const y = Number(year);
+    date = await findFreeAnchorDate(companyId, y);
+    endDate = `${y}-12-31`;
+  }
+  if (!date) return NextResponse.json({ error: "Thiếu ngày" }, { status: 400 });
   if (endDate && endDate < date) {
     return NextResponse.json({ error: "Ngày kết thúc phải sau ngày bắt đầu" }, { status: 400 });
   }

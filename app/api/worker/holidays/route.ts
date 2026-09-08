@@ -50,18 +50,44 @@ export async function GET() {
     }
   }
 
+  const todayStr = today.toISOString().slice(0, 10);
+
   return NextResponse.json({
-    holidays: holidays.map((h) => ({
-      id: h.id,
-      companyId: h.companyId,
-      employeeId: empByCompany.get(h.companyId) ?? null,
-      name: h.name,
-      mode: h.mode,
-      startDate: h.date,
-      endDate: h.endDate || h.date,
-      totalDays: h.totalDays ?? null,
-      maxDays: h.maxDays ?? null,
-      usedDates: Array.from(usedByHoliday.get(h.id) ?? []).sort(),
-    })),
+    holidays: holidays.map((h) => {
+      // "flexible": date/endDate trong DB giờ chỉ là ngày neo nội bộ do sếp không còn khai
+      // "Từ ngày"/"Đến ngày" nữa (xem findFreeAnchorDate ở lib/holidayAttendance.ts) — KHÔNG dùng
+      // trực tiếp làm khoảng cho NV chọn. Thay vào đó cho chọn bất kỳ ngày nào từ HÔM NAY tới hết
+      // năm mà đợt này thuộc về (lấy từ năm của date neo) — vừa đúng ý "tự chọn ngày phù hợp
+      // trong năm", vừa không cho chọn ngày đã qua.
+      if (h.mode === "flexible") {
+        const year = h.date.slice(0, 4);
+        const jan1 = `${year}-01-01`;
+        const dec31 = `${year}-12-31`;
+        return {
+          id: h.id,
+          companyId: h.companyId,
+          employeeId: empByCompany.get(h.companyId) ?? null,
+          name: h.name,
+          mode: h.mode,
+          startDate: todayStr > jan1 ? todayStr : jan1,
+          endDate: dec31,
+          totalDays: h.totalDays ?? null,
+          maxDays: h.maxDays ?? null,
+          usedDates: Array.from(usedByHoliday.get(h.id) ?? []).sort(),
+        };
+      }
+      return {
+        id: h.id,
+        companyId: h.companyId,
+        employeeId: empByCompany.get(h.companyId) ?? null,
+        name: h.name,
+        mode: h.mode,
+        startDate: h.date,
+        endDate: h.endDate || h.date,
+        totalDays: h.totalDays ?? null,
+        maxDays: h.maxDays ?? null,
+        usedDates: [],
+      };
+    }),
   });
 }

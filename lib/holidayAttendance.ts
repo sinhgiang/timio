@@ -89,6 +89,33 @@ export function dateRange(from: string, to: string): string[] {
 }
 
 /**
+ * Ngày lễ "flexible" (Nghỉ tự chọn) từ nay KHÔNG còn bắt sếp khai "Từ ngày"/"Đến ngày" nữa (theo
+ * phản hồi user: chỉ cần Tên đợt + Tối đa/NV, NV tự chọn ngày phù hợp trong năm ở app riêng) —
+ * nhưng Holiday.date trong DB vẫn required + unique theo (companyId, date). Hàm này chọn 1 "ngày
+ * neo" nội bộ KHÔNG hiển thị cho sếp, chỉ dùng làm khoá + xác định năm áp dụng: ngày đầu tiên còn
+ * trống trong năm đó (dò từ 01/01), tránh đụng ngày lễ cố định/đợt tự chọn khác đã có sẵn cùng
+ * năm. Ranh giới ngày NV thực sự được chọn do /api/worker/holidays tính riêng (không dùng lại
+ * date..endDate này), xem giải thích ở đó.
+ */
+export async function findFreeAnchorDate(companyId: string, year: number): Promise<string> {
+  const used = new Set(
+    (
+      await prisma.holiday.findMany({
+        where: { companyId, date: { gte: `${year}-01-01`, lte: `${year}-12-31` } },
+        select: { date: true },
+      })
+    ).map((h) => h.date)
+  );
+  for (let i = 0; i < 366; i++) {
+    const d = new Date(Date.UTC(year, 0, 1 + i));
+    if (d.getUTCFullYear() !== year) break; // hết năm (năm nhuận tối đa 366 ngày)
+    const s = d.toISOString().slice(0, 10);
+    if (!used.has(s)) return s;
+  }
+  return `${year}-12-31`; // cực hiếm: hết chỗ trống cả năm (>365 ngày lễ/đợt cùng công ty)
+}
+
+/**
  * Vá lỗ hổng: markHolidayAttendance ở app/api/holidays/route.ts CHỈ chạy cho các nhân viên đang
  * active TẠI THỜI ĐIỂM tạo/sửa "Ngày lễ cố định" — nhân viên tuyển SAU thời điểm đó sẽ không được
  * áp tự động, bị tính "Vắng" oan đúng ngày lễ (mất lương) dù công ty đã công bố nghỉ lễ từ trước.

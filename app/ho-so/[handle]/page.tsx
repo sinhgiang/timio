@@ -952,7 +952,10 @@ type WHoliday = { id: string; companyId: string; employeeId: string | null; name
 function datesInRange(from: string, to: string): string[] {
   const out: string[] = [];
   let cur = from;
-  for (let i = 0; i < 62 && cur <= to; i++) {
+  // Trần 400 ngày (không phải 62 như trước) — từ khi "Nghỉ tự chọn" bỏ khai "Từ ngày"/"Đến ngày",
+  // khoảng NV được chọn giờ có thể rộng gần hết 1 năm (xem /api/worker/holidays), 62 sẽ cắt cụt
+  // mất nhiều tháng cuối năm.
+  for (let i = 0; i < 400 && cur <= to; i++) {
     out.push(cur);
     const dt = new Date(`${cur}T00:00:00Z`);
     dt.setUTCDate(dt.getUTCDate() + 1);
@@ -966,25 +969,58 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
   const [reason, setReason] = useState("");
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
+  // Đang ở bước hỏi xác nhận "chọn ít hơn tối đa" (theo phản hồi user) — chỉ hiện khi NV bấm Gửi
+  // trong lúc còn dư ngày chưa chọn, để họ biết rõ phần dư đó dồn qua đợt/lần khác chứ không mất.
+  const [confirmUnder, setConfirmUnder] = useState(false);
+  const [dateInput, setDateInput] = useState("");
   const days = datesInRange(h.startDate, h.endDate);
   const limit = h.maxDays ?? 0;
-  const remaining = Math.max(0, limit - h.usedDates.length - picked.length);
+  const availableSlots = Math.max(0, limit - h.usedDates.length); // tổng số ngày còn được chọn (kể cả đợt/đơn trước)
+  const remaining = Math.max(0, availableSlots - picked.length);
+  // Khoảng hẹp (≤40 ngày, VD đợt cũ còn khai "Từ ngày"/"Đến ngày" trước khi tính năng này đổi) →
+  // vẫn hiện lưới nút bấm từng ngày như cũ, trực quan. Khoảng rộng gần cả năm (mặc định từ nay,
+  // không khai khoảng nữa) → lưới ~300 nút là quá tải, đổi sang ô chọn ngày (input date) + thêm
+  // từng ngày vào danh sách "chip" — gọn hơn nhiều cho khoảng rộng (theo yêu cầu tối ưu UI/UX).
+  const useGrid = days.length <= 40;
 
   // Nếu chọn vượt quá số ngày công ty cho phép, báo rõ luôn (VD "chỉ được phép nghỉ 2 ngày, đã
   // chọn 3 ngày") thay vì im lặng không cho bấm thêm — NV dễ hiểu vì sao không chọn được nữa.
   const toggle = (d: string) => {
     if (h.usedDates.includes(d)) return;
-    if (picked.includes(d)) { setErr(""); setPicked(picked.filter((x) => x !== d)); return; }
-    if (picked.length >= limit - h.usedDates.length) {
+    if (picked.includes(d)) { setErr(""); setConfirmUnder(false); setPicked(picked.filter((x) => x !== d)); return; }
+    if (picked.length >= availableSlots) {
       setErr(`Bạn chỉ được phép nghỉ tối đa ${limit} ngày cho đợt này — bạn đã chọn ${picked.length + h.usedDates.length} ngày rồi, hãy bỏ bớt 1 ngày trước khi chọn ngày khác.`);
       return;
     }
-    setErr("");
+    setErr(""); setConfirmUnder(false);
     setPicked([...picked, d]);
   };
 
-  const send = async () => {
-    if (picked.length === 0) { setErr("Chọn ít nhất 1 ngày."); return; }
+  // "Chọn đủ N ngày" — cho NV chọn MỘT PHÁT toàn bộ số ngày còn được phép (thay vì phải bấm từng
+  // ngày), lấy các ngày gần nhất còn trống trước; vẫn bấm lại để bỏ bớt nếu muốn nghỉ ít hơn
+  // (theo phản hồi user: "chọn nghỉ riêng lẻ hoặc chọn một phát với số ngày tối đa đó luôn").
+  const pickAll = () => {
+    const free = days.filter((d) => !h.usedDates.includes(d));
+    setPicked(free.slice(0, availableSlots));
+    setErr(""); setConfirmUnder(false);
+  };
+
+  // Thêm 1 ngày từ ô chọn ngày (chế độ khoảng rộng, không dùng lưới nút). Khác toggle(): bấm lại
+  // ngày đã chọn ở đây KHÔNG bỏ chọn (tránh nhầm — muốn bỏ thì bấm dấu X trên chip), chỉ báo đã có.
+  const addDate = () => {
+    if (!dateInput) return;
+    if (h.usedDates.includes(dateInput)) { setErr("Ngày này đã dùng ở đơn khác (đang chờ/đã duyệt) rồi."); return; }
+    if (picked.includes(dateInput)) { setErr("Ngày này đã có trong danh sách rồi."); return; }
+    if (picked.length >= availableSlots) {
+      setErr(`Bạn chỉ được phép nghỉ tối đa ${limit} ngày cho đợt này — bạn đã chọn ${picked.length + h.usedDates.length} ngày rồi, hãy bỏ bớt 1 ngày trước khi chọn ngày khác.`);
+      return;
+    }
+    setErr(""); setConfirmUnder(false);
+    setPicked([...picked, dateInput]);
+    setDateInput("");
+  };
+
+  const doSend = async () => {
     setSending(true); setErr("");
     try {
       const r = await fetch("/api/worker/requests", {
@@ -992,10 +1028,19 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
         body: JSON.stringify({ kind: "holiday", companyId: h.companyId, holidayId: h.id, dates: picked, reason: reason || undefined }),
       });
       const j = await r.json();
-      if (r.ok && j.ok) { setPicked([]); setReason(""); onSent(); }
+      if (r.ok && j.ok) { setPicked([]); setReason(""); setConfirmUnder(false); onSent(); }
       else setErr(j.error || "Không gửi được.");
     } catch { setErr("Lỗi kết nối."); }
     setSending(false);
+  };
+
+  // Chọn ÍT hơn số ngày tối đa được phép → hỏi xác nhận trước khi gửi thật, nhắc rõ phần ngày dư
+  // ra dùng được ở đợt/lần khác (theo phản hồi user), tránh NV tưởng nhầm đơn này giữ chỗ luôn cho
+  // cả phần chưa chọn. Chọn đủ rồi, hoặc đã xác nhận rồi thì gửi ngay.
+  const send = () => {
+    if (picked.length === 0) { setErr("Chọn ít nhất 1 ngày."); return; }
+    if (!confirmUnder && picked.length < availableSlots) { setConfirmUnder(true); return; }
+    doSend();
   };
 
   return (
@@ -1013,36 +1058,93 @@ function HolidayPicker({ h, onSent }: { h: WHoliday; onSent: () => void }) {
         </div>
       </div>
       <div className="border-t border-dashed border-indigo-200 px-3.5 pt-3 pb-3.5 bg-indigo-50/40">
-      <p className="text-xs text-gray-500">Công ty xếp cho bạn nghỉ <b className="text-gray-700">{h.maxDays} ngày</b>, chọn bất kỳ ngày nào trong khoảng trên (có thể chọn rời rạc):</p>
-      <div className="flex flex-wrap gap-1.5 mt-2.5">
-        {days.map((d) => {
-          const used = h.usedDates.includes(d);
-          const sel = picked.includes(d);
-          return (
-            <button
-              key={d}
-              type="button"
-              disabled={used}
-              onClick={() => toggle(d)}
-              title={used ? "Đã chọn ngày này ở đơn khác (đang chờ/đã duyệt)" : d}
-              className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors ${
-                used ? "bg-gray-100 border-gray-200 text-gray-300 line-through cursor-not-allowed"
-                : sel ? "bg-indigo-600 border-indigo-600 text-white"
-                : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
-              }`}
-            >
-              {new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-gray-500 flex-1 min-w-[180px]">Công ty xếp cho bạn nghỉ <b className="text-gray-700">{h.maxDays} ngày</b>, tự chọn ngày phù hợp (có thể chọn rời rạc):</p>
+        {availableSlots > 0 && (
+          <button type="button" onClick={pickAll} className="text-[11px] font-semibold text-indigo-600 bg-indigo-100 px-2.5 py-1 rounded-full hover:bg-indigo-200 shrink-0">
+            ⚡ Chọn đủ {availableSlots} ngày 1 lần
+          </button>
+        )}
       </div>
-      {picked.length > 0 && (
+      {useGrid ? (
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {days.map((d) => {
+            const used = h.usedDates.includes(d);
+            const sel = picked.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                disabled={used}
+                onClick={() => toggle(d)}
+                title={used ? "Đã chọn ngày này ở đơn khác (đang chờ/đã duyệt)" : d}
+                className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors ${
+                  used ? "bg-gray-100 border-gray-200 text-gray-300 line-through cursor-not-allowed"
+                  : sel ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+                }`}
+              >
+                {new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        // Khoảng rộng gần cả năm — thay lưới ~300 nút bằng ô chọn ngày + thêm vào danh sách "chip",
+        // gọn và dễ dùng hơn nhiều trên điện thoại (theo yêu cầu tối ưu UI/UX).
+        <div className="mt-2.5">
+          <div className="flex gap-1.5">
+            <input
+              type="date"
+              value={dateInput}
+              min={h.startDate}
+              max={h.endDate}
+              onChange={(e) => setDateInput(e.target.value)}
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-300 outline-none"
+            />
+            <button
+              type="button"
+              onClick={addDate}
+              disabled={!dateInput}
+              className="shrink-0 inline-flex items-center gap-1 bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40"
+            >
+              <Plus size={13} strokeWidth={2} /> Thêm
+            </button>
+          </div>
+          {picked.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {picked.map((d) => (
+                <span key={d} className="inline-flex items-center gap-1 text-xs font-medium bg-indigo-600 text-white pl-2.5 pr-1.5 py-1 rounded-lg">
+                  {new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                  <button type="button" onClick={() => toggle(d)} className="hover:opacity-70" title="Bỏ ngày này"><X size={12} strokeWidth={2.5} /></button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {picked.length > 0 && !confirmUnder && (
         <>
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do (tùy chọn)" className="w-full mt-2.5 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-300 outline-none bg-white" />
           <button onClick={send} disabled={sending} className="w-full mt-2 bg-indigo-600 text-white rounded-lg py-2 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50">
             {sending ? "Đang gửi..." : `Gửi đơn xin nghỉ ${picked.length} ngày`}
           </button>
         </>
+      )}
+      {/* Chọn ít hơn tối đa được phép → hỏi lại 1 bước trước khi gửi thật, nhắc rõ phần dư dùng
+          được lần khác (theo phản hồi user), thay vì gửi luôn khiến NV tưởng nhầm mất phần dư. */}
+      {confirmUnder && (
+        <div className="mt-2.5 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+          <p className="text-xs text-amber-800 leading-snug">
+            Đợt này bạn được nghỉ tối đa <b>{limit}</b> ngày — đang chọn <b>{picked.length}</b> ngày, còn <b>{availableSlots - picked.length}</b> ngày bạn có thể dùng vào đợt/lần khác. Xác nhận gửi đơn?
+          </p>
+          <div className="flex gap-2 mt-2">
+            <button type="button" onClick={() => setConfirmUnder(false)} className="flex-1 border border-amber-300 bg-white rounded-lg py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50">Chọn thêm</button>
+            <button type="button" onClick={doSend} disabled={sending} className="flex-1 bg-indigo-600 text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50">
+              {sending ? "Đang gửi..." : "Xác nhận gửi"}
+            </button>
+          </div>
+        </div>
       )}
       {err && <p className="text-[11px] text-red-500 mt-1.5">{err}</p>}
       </div>
