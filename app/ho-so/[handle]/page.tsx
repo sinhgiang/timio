@@ -6,6 +6,7 @@ import {
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut, LogIn,
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
   CalendarDays, Receipt, GraduationCap, Package, Megaphone, Check, Gift, Ticket, StickyNote,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
@@ -1449,34 +1450,126 @@ function TabEmpty({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 const dmy = (s: string) => { try { return new Date(s).toLocaleDateString("vi-VN"); } catch { return s; } };
 
-// ─────────── TAB LỊCH CA ───────────
+// ─────────── TAB LỊCH CA — lịch cả tháng, ngày nào đi làm/ngày nào nghỉ ───────────
+type MonthDay = { date: string; isWorkDay: boolean; offLabel: string | null; source: string; sessions: { label: string | null; checkIn: string; checkOut: string }[] };
+type MonthShiftData = { companies: { companyId: string; companyName: string }[]; companyId: string; year: number; month: number; days: MonthDay[] };
+const CAL_DAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+// Chỉ hiện thêm ở khung chi tiết bên dưới lịch (không cần trên lưới) — cho NV biết VÌ SAO hôm đó
+// tính là ngày làm, khớp `source` trả về từ buildMonthSchedule() (lib/monthSchedule.ts).
+const SHIFT_SOURCE_LABELS: Record<string, string> = {
+  day_override: "Ngày làm khác", roster: "Theo lịch phân ca (sếp xếp)", weekly_shift: "Theo lịch làm việc hàng tuần",
+};
+
 function ShiftsTab() {
-  const [d, setD] = useState<{ shifts: { date: string; shiftLabel: string; checkIn: string; checkOut: string; companyName: string }[] } | null>(null);
-  useEffect(() => { fetch("/api/worker/shifts").then((r) => r.ok ? r.json() : null).then(setD).catch(() => {}); }, []);
-  if (!d) return <TabLoading />;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  return d.shifts.length === 0 ? <TabEmpty icon={<CalendarDays size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Chưa có lịch ca nào được phân." /> : (
-    <div className="bg-white rounded-2xl border border-gray-100 p-2">
-      <div className="divide-y divide-gray-50">
-        {d.shifts.map((s, i) => {
-          const rest = /nghỉ/i.test(s.shiftLabel);
-          return (
-            <div key={i} className={`flex items-center gap-3 px-3 py-3 ${s.date === todayStr ? "bg-blue-50/50 rounded-lg" : ""}`}>
-              <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 ${rest ? "bg-gray-100 text-gray-400" : "bg-blue-50 text-blue-600"}`}>
-                <span className="text-sm font-bold leading-none">{s.date.slice(8, 10)}</span><span className="text-[9px]">Th{parseInt(s.date.slice(5, 7))}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800">{new Date(s.date).toLocaleDateString("vi-VN", { weekday: "long" })} {s.date === todayStr && <span className="text-[10px] text-blue-600">· Hôm nay</span>}</p>
-                <p className="text-xs text-gray-500">{s.companyName}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className={`text-sm font-semibold ${rest ? "text-gray-400" : "text-gray-800"}`}>{s.shiftLabel}</p>
-                {!rest && <p className="text-[11px] text-gray-500">{s.checkIn} – {s.checkOut}</p>}
-              </div>
-            </div>
-          );
-        })}
+  const nowVN = new Date(Date.now() + 7 * 3600e3);
+  const todayStr = nowVN.toISOString().slice(0, 10);
+  const [year, setYear] = useState(nowVN.getUTCFullYear());
+  const [month, setMonth] = useState(nowVN.getUTCMonth() + 1);
+  const [companyId, setCompanyId] = useState("");
+  const [selected, setSelected] = useState(todayStr);
+  const [d, setD] = useState<MonthShiftData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/worker/shifts?year=${year}&month=${month}${companyId ? `&companyId=${companyId}` : ""}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: MonthShiftData | null) => { setD(j); if (j && !companyId && j.companyId) setCompanyId(j.companyId); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [year, month, companyId]);
+
+  const goMonth = (delta: 1 | -1) => {
+    const nm = month + delta;
+    const ny = nm < 1 ? year - 1 : nm > 12 ? year + 1 : year;
+    const nmWrapped = nm < 1 ? 12 : nm > 12 ? 1 : nm;
+    setYear(ny); setMonth(nmWrapped);
+    setSelected(`${ny}-${String(nmWrapped).padStart(2, "0")}-01`);
+  };
+
+  if (loading && !d) return <TabLoading />;
+  if (!d || d.companies.length === 0) return <TabEmpty icon={<CalendarDays size={30} className="text-gray-300 mx-auto" strokeWidth={1.4} />} text="Bạn chưa được xếp vào công ty nào." />;
+
+  const byDate = new Map(d.days.map((x) => [x.date, x]));
+  const firstDow = new Date(year, month - 1, 1).getDay(); // 0=CN
+  const startOffset = (firstDow + 6) % 7; // đổi mốc về T2=0
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  const cells: (number | null)[] = Array(totalCells).fill(null);
+  for (let i = 0; i < daysInMonth; i++) cells[startOffset + i] = i + 1;
+
+  const dotColor = (info: MonthDay) =>
+    info.isWorkDay ? "bg-blue-500" : info.source === "leave" ? "bg-amber-400" : info.source === "holiday" ? "bg-indigo-400" : "bg-gray-300";
+
+  const selectedDay = byDate.get(selected);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <button onClick={() => goMonth(-1)} className="p-1.5 rounded-lg hover:bg-gray-100"><ChevronLeft size={18} className="text-gray-600" /></button>
+        <p className="text-sm font-semibold text-gray-800">Tháng {month}/{year}</p>
+        <button onClick={() => goMonth(1)} className="p-1.5 rounded-lg hover:bg-gray-100"><ChevronRight size={18} className="text-gray-600" /></button>
       </div>
+
+      {d.companies.length > 1 && (
+        <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+          {d.companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.companyName}</option>)}
+        </select>
+      )}
+
+      <div className="flex items-center gap-3 flex-wrap px-1">
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-blue-500" /><span className="text-[11px] text-gray-500">Đi làm</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-gray-300" /><span className="text-[11px] text-gray-500">Nghỉ tuần</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-amber-400" /><span className="text-[11px] text-gray-500">Nghỉ phép</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-indigo-400" /><span className="text-[11px] text-gray-500">Nghỉ lễ</span></div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
+          {CAL_DAYS.map((x) => <div key={x} className="py-2 text-center text-[10px] font-semibold text-gray-500">{x}</div>)}
+        </div>
+        <div className="grid grid-cols-7">
+          {cells.map((day, idx) => {
+            if (!day) return <div key={`e${idx}`} className="min-h-[50px] border-b border-r border-gray-50 bg-gray-50/50" />;
+            const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const info = byDate.get(dateStr);
+            const isToday = dateStr === todayStr;
+            const isSelected = dateStr === selected;
+            return (
+              <button
+                key={dateStr}
+                onClick={() => setSelected(dateStr)}
+                className={`min-h-[50px] p-1 border-b border-r border-gray-50 flex flex-col items-center justify-center gap-1 ${isSelected ? "bg-blue-50" : ""}`}
+              >
+                <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold ${isToday ? "bg-blue-600 text-white" : "text-gray-700"}`}>{day}</span>
+                {info && <span className={`w-1.5 h-1.5 rounded-full ${dotColor(info)}`} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {selectedDay && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <p className="text-sm font-semibold text-gray-800">
+            {new Date(selected).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" })}
+            {selected === todayStr && <span className="text-[11px] text-blue-600 font-normal"> · Hôm nay</span>}
+          </p>
+          {selectedDay.isWorkDay ? (
+            <div className="mt-2 space-y-1.5">
+              {selectedDay.sessions.map((s, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                  <Clock size={13} className="text-blue-500 shrink-0" />
+                  <span>{s.label ? `${s.label}: ` : ""}{s.checkIn} – {s.checkOut}</span>
+                </div>
+              ))}
+              {SHIFT_SOURCE_LABELS[selectedDay.source] && <p className="text-[11px] text-gray-400 mt-1.5">{SHIFT_SOURCE_LABELS[selectedDay.source]}</p>}
+            </div>
+          ) : (
+            <p className="mt-1.5 text-sm text-gray-500">{selectedDay.offLabel}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
