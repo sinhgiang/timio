@@ -18,10 +18,16 @@ export async function GET() {
 
   const now = new Date();
   const empIds = options.map((o) => o.employeeId);
+  // Lấy TẤT CẢ khoản ứng trong tháng (cả NV tự ứng qua app lẫn admin ghi nhận tay) —
+  // trước đây lọc cứng source:"worker" nên khoản admin tạo tay (vd ghi nhận đã ứng
+  // tiền mặt qua điện thoại) bị cộng đúng vào "đã ứng" nhưng KHÔNG hiện trong lịch sử.
   const history = empIds.length
     ? await prisma.salaryAdvance.findMany({
-        where: { employeeId: { in: empIds }, source: "worker", year: now.getFullYear(), month: now.getMonth() + 1 },
-        select: { id: true, amount: true, fee: true, status: true, disbursedAt: true, requestedAt: true, employeeId: true },
+        where: { employeeId: { in: empIds }, year: now.getFullYear(), month: now.getMonth() + 1 },
+        select: {
+          id: true, amount: true, fee: true, status: true, source: true, note: true,
+          disbursedAt: true, requestedAt: true, approvedAt: true, employeeId: true,
+        },
         orderBy: { requestedAt: "desc" },
       })
     : [];
@@ -32,8 +38,8 @@ export async function GET() {
     month, monthLabel, trustLevel, trustBoost,
     options,
     history: history.map((h) => ({
-      id: h.id, amount: h.amount, fee: h.fee, status: h.status,
-      disbursed: !!h.disbursedAt, requestedAt: h.requestedAt,
+      id: h.id, amount: h.amount, fee: h.fee, status: h.status, source: h.source, note: h.note,
+      disbursed: !!h.disbursedAt, requestedAt: h.requestedAt, approvedAt: h.approvedAt,
       companyName: nameByEmp.get(h.employeeId) ?? "Công ty",
     })),
   });

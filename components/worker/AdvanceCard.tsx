@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { TrendingUp, Loader2, Info, CheckCircle2, Clock, XCircle, Banknote } from "lucide-react";
 
 const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
+const fmtDT = (iso: string) => new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 interface Option {
   employeeId: string; companyId: string; companyName: string;
@@ -13,7 +14,10 @@ interface Option {
   feeType: string; feeValue: number; reason: string | null;
   baseMaxPercent: number; trustBoost: number;
 }
-interface Hist { id: string; amount: number; fee: number; status: string; disbursed: boolean; companyName: string; }
+interface Hist {
+  id: string; amount: number; fee: number; status: string; disbursed: boolean; companyName: string;
+  source: string; note: string | null; requestedAt: string; approvedAt: string | null;
+}
 interface Data { consentFinance: boolean; monthLabel: string; options: Option[]; history: Hist[]; trustLevel?: string; trustBoost?: number; }
 
 const TRUST_LABEL: Record<string, string> = { gold: "Vàng", silver: "Bạc", bronze: "Đồng", new: "Mới" };
@@ -176,8 +180,17 @@ export default function AdvanceCard() {
         <div className="mt-3 border-t border-gray-100 pt-2 space-y-1.5">
           <p className="text-[11px] text-gray-400 font-medium">Ứng lương {data.monthLabel}</p>
           {data.history.map((h) => (
-            <div key={h.id} className="flex items-center justify-between text-xs">
-              <span className="text-gray-600">{vnd(h.amount)}đ {h.fee > 0 && <span className="text-gray-400">(phí {vnd(h.fee)}đ)</span>}{enabledOptions.length > 1 && <span className="text-gray-400"> · {h.companyName}</span>}</span>
+            <div key={h.id} className="flex items-center justify-between text-xs gap-2">
+              <div className="min-w-0">
+                <div className="text-gray-600">
+                  {vnd(h.amount)}đ {h.fee > 0 && <span className="text-gray-400">(phí {vnd(h.fee)}đ)</span>}{enabledOptions.length > 1 && <span className="text-gray-400"> · {h.companyName}</span>}
+                </div>
+                <div className="text-[10px] text-gray-400 mt-0.5">
+                  {h.source === "admin" ? "Công ty ghi nhận" : "Bạn tự ứng qua app"} lúc {fmtDT(h.requestedAt)}
+                  {h.status === "approved" && h.approvedAt && <> · Duyệt {fmtDT(h.approvedAt)}</>}
+                  {h.note && h.source === "admin" && <> · {h.note}</>}
+                </div>
+              </div>
               <StatusBadge status={h.status} disbursed={h.disbursed} />
             </div>
           ))}
