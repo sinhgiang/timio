@@ -6,6 +6,7 @@ import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, t
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 import { findHolidayForDate } from "@/lib/holidayAttendance";
+import { getApprovedTimeOverride } from "@/lib/approvedException";
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000; // metres
@@ -83,6 +84,11 @@ export async function POST(req: NextRequest) {
     const today = getTodayString();
     const now = new Date();
 
+    // Đơn "xin về sớm/đến muộn" đã được sếp DUYỆT TRƯỚC cho hôm nay (nếu có) — ưu tiên CAO NHẤT
+    // khi tính giờ chuẩn, để NV chấm công đúng như đã xin thì tự động "đúng giờ", không cần sếp
+    // vào sửa tay lại (yêu cầu user 9/9/2026). Xem lib/approvedException.ts.
+    const approvedOverride = await getApprovedTimeOverride(employeeId, today);
+
     // Ngày làm khác (vd nhân viên ca gãy nhưng cứ thứ 5 làm ca bình thường thay đồng nghiệp)
     // → hôm nay bỏ qua sessions, chấm công như 1 ca thường (session "full") với giờ riêng của ngày này.
     const dayOverride = findDayOverride(employee.shiftOverride, now);
@@ -138,7 +144,7 @@ export async function POST(req: NextRequest) {
       try {
         shiftData = employee.shiftOverride ? JSON.parse(employee.shiftOverride) : {};
       } catch { shiftData = {}; }
-      const checkOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      const checkOutTime = approvedOverride.earlyLeaveTime ?? sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
       const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? employee.branch.gracePeriod ?? 5;
       const [coH, coM] = checkOutTime.split(":").map(Number);
       // Compare in Vietnam time to avoid UTC server bias
@@ -179,6 +185,7 @@ export async function POST(req: NextRequest) {
         data: {
           checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus,
           minutesEarly, earlyLeavePenalty,
+          earlyLeaveApproved: !!approvedOverride.earlyLeaveTime,
           ...(earlyLeavePenalty > 0 && { penaltyAmount: { increment: earlyLeavePenalty } }),
         },
       });
@@ -255,6 +262,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Đơn "xin đến muộn" đã duyệt cho hôm nay → thắng cả lịch phân ca/ca gãy, dùng làm giờ chuẩn
+    // để NV đến đúng giờ đã xin vẫn tự động ra "Đúng giờ" (không cần sếp sửa tay).
+    if (approvedOverride.lateArrivalTime) {
+      shift = { ...shift, checkInTime: approvedOverride.lateArrivalTime };
+    }
+
     // Resolve effective late-penalty rules: employee-custom or company-wide
     let effectiveLateRules: LateRule[];
     if (shiftOverrideParsed.useDefaultLate === false) {
@@ -301,12 +314,14 @@ export async function POST(req: NextRequest) {
         status,
         minutesLate,
         penaltyAmount,
+        lateArrivalApproved: !!approvedOverride.lateArrivalTime,
       },
       update: {
         checkInAt: now,
         status,
         minutesLate,
         penaltyAmount,
+        lateArrivalApproved: !!approvedOverride.lateArrivalTime,
       },
     });
 

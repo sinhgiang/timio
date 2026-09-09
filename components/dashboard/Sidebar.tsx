@@ -50,7 +50,7 @@ const navStructure: NavEntry[] = [
     children: [
       { href: "/dashboard/corrections",          label: "Điều chỉnh chấm công", Icon: ClipboardEdit, badgeKey: "correction" },
       { href: "/dashboard/overtime",             label: "Tăng ca",              Icon: Timer, badgeKey: "overtime" },
-      { href: "/dashboard/early-leave-requests", label: "Duyệt về sớm",         Icon: LogOut, badgeKey: "earlyleave" },
+      { href: "/dashboard/early-leave-requests", label: "Về sớm / đến muộn",    Icon: LogOut, badgeKey: "earlyleave" },
       { href: "/dashboard/shift-swap-requests",  label: "Đổi ca cho nhau",      Icon: ArrowLeftRight, badgeKey: "shiftswap" },
     ],
   },

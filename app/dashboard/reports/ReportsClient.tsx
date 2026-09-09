@@ -6,7 +6,7 @@ import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib
 import { getStatusColor } from "@/lib/attendance";
 import { buildDayRows } from "@/lib/shiftResolve";
 import PlanGate from "@/components/ui/PlanGate";
-import { Pencil, X, Info } from "lucide-react";
+import { Pencil, X, Info, ShieldCheck } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -36,6 +36,8 @@ interface Log {
   overtimeAmount: number;
   overtimeStatus: string;
   note: string | null;
+  lateArrivalApproved: boolean;
+  earlyLeaveApproved: boolean;
 }
 
 const DOW_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -59,6 +61,18 @@ function EditInfoBadge({ active, onToggle }: { active: boolean; onToggle: (e: Mo
     >
       <Info size={13} strokeWidth={2} />
     </button>
+  );
+}
+
+// Badge xanh lá "khiên tích" — KHÁC HẲN badge cam "i" ở trên: hiện khi giờ chấm công này đã
+// được tính "Đúng giờ, không phạt" vì NV có đơn "xin về sớm/đến muộn" ĐÃ ĐƯỢC SẾP DUYỆT TRƯỚC
+// (tự động, không phải admin vào sửa tay) — xem lib/approvedException.ts. Không có popover chi
+// tiết như badge cam vì không có "giờ gốc -> giờ sửa" để so sánh, chỉ cần 1 dòng tooltip.
+function ApprovedExceptionBadge({ label }: { label: string }) {
+  return (
+    <span className="shrink-0 text-green-600" title={label}>
+      <ShieldCheck size={13} strokeWidth={2} />
+    </span>
   );
 }
 
@@ -466,6 +480,9 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       >
                         <div className="flex items-center gap-1">
                           <span>{log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}</span>
+                          {!!log?.lateArrivalApproved && (
+                            <ApprovedExceptionBadge label="Đã xin đến muộn — sếp đã duyệt, tính Đúng giờ" />
+                          )}
                           {showInfoBadgeIn && (
                             <EditInfoBadge
                               active={openInfoKey === `${log!.id}:in`}
@@ -493,6 +510,9 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       >
                         <div className="flex items-center gap-1">
                           <span>{log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}</span>
+                          {!!log?.earlyLeaveApproved && (
+                            <ApprovedExceptionBadge label="Đã xin về sớm — sếp đã duyệt, tính Đúng giờ" />
+                          )}
                           {showInfoBadgeOut && (
                             <EditInfoBadge
                               active={openInfoKey === `${log!.id}:out`}

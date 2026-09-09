@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import EarlyLeaveClient from "./EarlyLeaveClient";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Duyệt về sớm" };
+export const metadata: Metadata = { title: "Duyệt về sớm / đến muộn" };
 
 export default async function EarlyLeaveRequestsPage() {
   const session = await getServerSession(authOptions);
@@ -36,6 +36,7 @@ export default async function EarlyLeaveRequestsPage() {
   const data = requests.map((r) => ({
     id: r.id,
     date: r.date,
+    kind: r.kind === "late_arrival" ? "late_arrival" as const : "early_leave" as const,
     leaveTime: r.leaveTime,
     reason: r.reason,
     status: r.status as "pending" | "approved" | "rejected",

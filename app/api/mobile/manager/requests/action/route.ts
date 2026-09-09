@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getManagerAuth } from "@/lib/mobileAuth";
 import { employeeInScope } from "@/lib/branchScope";
+import { recomputeAttendanceLogsForApproval } from "@/lib/approvedException";
 
 /**
  * POST /api/mobile/manager/requests/action
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     if (type === "early_leave") {
       const existing = await prisma.earlyLeaveRequest.findFirst({
         where: { id, companyId: auth.companyId },
-        select: { employeeId: true },
+        select: { employeeId: true, date: true },
       });
       if (!existing) return NextResponse.json({ error: "Không tìm thấy đơn" }, { status: 404 });
       if (!(await employeeInScope(auth, existing.employeeId)))
@@ -76,6 +77,13 @@ export async function POST(req: NextRequest) {
         where: { id },
         data: { status, note: noteVal },
       });
+
+      // Duyệt (kể cả "xin về sớm" lẫn "xin đến muộn") → tự sửa lại AttendanceLog nếu NV đã lỡ
+      // chấm công trước khi sếp duyệt, khớp hành vi bên web (xem lib/approvedException.ts).
+      if (status === "approved") {
+        await recomputeAttendanceLogsForApproval(existing.employeeId, existing.date);
+      }
+
       return NextResponse.json({ ok: true, id, status });
     }
 

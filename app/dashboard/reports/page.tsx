@@ -142,6 +142,8 @@ export default async function ReportsPage({
         overtimeAmount: l.overtimeAmount,
         overtimeStatus: l.overtimeStatus,
         note: l.note ?? null,
+        lateArrivalApproved: l.lateArrivalApproved,
+        earlyLeaveApproved: l.earlyLeaveApproved,
       }))}
       summaries={summaries.map((s) => ({
         employeeId: s.employeeId,

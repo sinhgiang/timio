@@ -65,11 +65,13 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: "desc" },
         take: 50,
       });
+      // 2 loại đơn dùng chung model (EarlyLeaveRequest.kind) — "về lúc" (early_leave) hoặc
+      // "đến lúc" (late_arrival), xem lib/approvedException.ts.
       const out: NormalizedRequest[] = rows.map((r) => ({
         id: r.id,
         type: "early_leave",
         employeeName: r.employee.name,
-        detail: `${r.date} về lúc ${r.leaveTime}`,
+        detail: `${r.date} ${r.kind === "late_arrival" ? "đến lúc" : "về lúc"} ${r.leaveTime}`,
         reason: r.reason ?? "",
         status: r.status,
         createdAt: r.createdAt.toISOString(),

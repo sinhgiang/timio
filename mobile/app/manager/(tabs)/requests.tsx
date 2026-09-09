@@ -9,7 +9,7 @@ import { getRequests, actionRequest, type RequestItem, type RequestType } from "
 
 const TYPES: { key: RequestType; label: string }[] = [
   { key: "overtime",    label: "Tăng ca" },
-  { key: "early_leave", label: "Về sớm" },
+  { key: "early_leave", label: "Về sớm/Đến muộn" },
   { key: "correction",  label: "Sửa công" },
   { key: "shift_swap",  label: "Đổi ca" },
 ];

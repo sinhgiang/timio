@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
-  Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
+  Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut, LogIn,
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
   CalendarDays, Receipt, GraduationCap, Package, Megaphone, Check, Gift, Ticket, StickyNote,
 } from "lucide-react";
@@ -1317,6 +1317,7 @@ type WCompany = { companyId: string; companyName: string };
 const REQ_KINDS: { k: string; label: string; Icon: typeof FileText }[] = [
   { k: "leave", label: "Xin nghỉ phép", Icon: Umbrella },
   { k: "early_leave", label: "Xin về sớm", Icon: LogOut },
+  { k: "late_arrival", label: "Xin đến muộn", Icon: LogIn },
   { k: "correction", label: "Sửa chấm công", Icon: Clock },
   { k: "overtime", label: "Xin tăng ca", Icon: CalendarClock },
 ];
@@ -1374,7 +1375,7 @@ function RequestsTab() {
         <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
           <FileText size={30} className="text-gray-300 mx-auto mb-2" strokeWidth={1.4} />
           <p className="text-gray-500 text-sm">Bạn chưa có đơn nào.</p>
-          <p className="text-gray-400 text-xs mt-1">Tạo đơn xin nghỉ, về sớm, sửa chấm công hoặc tăng ca — công ty sẽ nhận và duyệt, bạn theo dõi ngay tại đây.</p>
+          <p className="text-gray-400 text-xs mt-1">Tạo đơn xin nghỉ, về sớm, đến muộn, sửa chấm công hoặc tăng ca — công ty sẽ nhận và duyệt, bạn theo dõi ngay tại đây.</p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -1412,6 +1413,10 @@ function RequestsTab() {
             </>)}
             {kind === "early_leave" && (<>
               <div className="grid grid-cols-2 gap-2"><Lbl t="Ngày"><input type="date" value={F("date")} onChange={(e) => setField("date", e.target.value)} className={INP} /></Lbl><Lbl t="Về lúc"><input type="time" value={F("leaveTime")} onChange={(e) => setField("leaveTime", e.target.value)} className={INP} /></Lbl></div>
+              <Lbl t="Lý do (tùy chọn)"><textarea rows={2} value={F("reason")} onChange={(e) => setField("reason", e.target.value)} className={INP} /></Lbl>
+            </>)}
+            {kind === "late_arrival" && (<>
+              <div className="grid grid-cols-2 gap-2"><Lbl t="Ngày"><input type="date" value={F("date")} onChange={(e) => setField("date", e.target.value)} className={INP} /></Lbl><Lbl t="Đến lúc"><input type="time" value={F("leaveTime")} onChange={(e) => setField("leaveTime", e.target.value)} className={INP} /></Lbl></div>
               <Lbl t="Lý do (tùy chọn)"><textarea rows={2} value={F("reason")} onChange={(e) => setField("reason", e.target.value)} className={INP} /></Lbl>
             </>)}
             {kind === "correction" && (<>

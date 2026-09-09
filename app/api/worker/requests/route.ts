@@ -48,7 +48,17 @@ export async function GET() {
     const extra = l.reason || (isHoliday ? l.holiday?.description : null);
     rows.push({ id: l.id, kind: "leave", kindLabel: "Nghỉ phép", when: pickedDates ? pickedDates.join(", ") : `${l.fromDate} → ${l.toDate}`, detail: `${label} · ${l.days} ngày${extra ? " · " + extra : ""}`, status: l.status, note: l.note, companyName: coByEmp.get(l.employeeId) ?? "", createdAt: l.createdAt.toISOString() });
   }
-  for (const e of earlies) rows.push({ id: e.id, kind: "early_leave", kindLabel: "Về sớm", when: e.date, detail: `Về lúc ${e.leaveTime}${e.reason ? " · " + e.reason : ""}`, status: e.status, note: e.note, companyName: coByEmp.get(e.employeeId) ?? "", createdAt: e.createdAt.toISOString() });
+  for (const e of earlies) {
+    const isLateArrival = e.kind === "late_arrival";
+    rows.push({
+      id: e.id,
+      kind: isLateArrival ? "late_arrival" : "early_leave",
+      kindLabel: isLateArrival ? "Đến muộn" : "Về sớm",
+      when: e.date,
+      detail: `${isLateArrival ? "Đến lúc" : "Về lúc"} ${e.leaveTime}${e.reason ? " · " + e.reason : ""}`,
+      status: e.status, note: e.note, companyName: coByEmp.get(e.employeeId) ?? "", createdAt: e.createdAt.toISOString(),
+    });
+  }
   for (const c of corrections) rows.push({ id: c.id, kind: "correction", kindLabel: "Điều chỉnh chấm công", when: c.date, detail: `${CORR_TYPE_LABELS[c.type] ?? c.type}${c.requestedCheckIn ? " · vào " + c.requestedCheckIn : ""}${c.requestedCheckOut ? " · ra " + c.requestedCheckOut : ""} · ${c.reason}`, status: c.status, note: c.adminNote, companyName: coByEmp.get(c.employeeId) ?? "", createdAt: c.createdAt.toISOString() });
   for (const o of overtimes) rows.push({ id: o.id, kind: "overtime", kindLabel: "Tăng ca", when: o.date, detail: `${o.startTime}–${o.endTime} · ${o.hours}g${o.reason ? " · " + o.reason : ""}`, status: o.status, note: o.note, companyName: coByEmp.get(o.employeeId) ?? "", createdAt: o.createdAt.toISOString() });
 
@@ -132,11 +142,14 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ ok: true, id: created.id });
     }
-    if (kind === "early_leave") {
+    if (kind === "early_leave" || kind === "late_arrival") {
+      // 2 loại đơn dùng chung 1 model (EarlyLeaveRequest.kind) — leaveTime nghĩa khác nhau tùy kind
+      // (giờ muốn về sớm | giờ dự kiến đến muộn), xem lib/approvedException.ts.
       const date = clip(body.date, 10), leaveTime = clip(body.leaveTime, 5);
-      if (!date || !leaveTime) return NextResponse.json({ error: "Chọn ngày và giờ về sớm." }, { status: 400 });
+      const isLateArrival = kind === "late_arrival";
+      if (!date || !leaveTime) return NextResponse.json({ error: `Chọn ngày và giờ ${isLateArrival ? "dự kiến đến" : "về sớm"}.` }, { status: 400 });
       const created = await prisma.earlyLeaveRequest.create({
-        data: { companyId: target.companyId, employeeId: target.id, date, leaveTime, reason: clip(body.reason, 300) || null, status: "pending" },
+        data: { companyId: target.companyId, employeeId: target.id, date, leaveTime, kind, reason: clip(body.reason, 300) || null, status: "pending" },
       });
       return NextResponse.json({ ok: true, id: created.id });
     }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
+import { getApprovedTimeOverride } from "@/lib/approvedException";
 
 export async function POST(req: NextRequest) {
   try {
@@ -61,9 +62,14 @@ export async function POST(req: NextRequest) {
         shiftOverrideParsed = log.employee.shiftOverride ? JSON.parse(log.employee.shiftOverride) : {};
       } catch { shiftOverrideParsed = {}; }
 
+      // Đơn "xin về sớm/đến muộn" đã được sếp DUYỆT TRƯỚC cho đúng ngày này (nếu có) — ưu tiên
+      // CAO NHẤT khi tính giờ chuẩn, khớp hành vi tự động ở 4 nơi tính chấm công còn lại (xem
+      // lib/approvedException.ts) — recalculate không được làm mất hiệu lực đơn đã duyệt.
+      const approvedOverride = await getApprovedTimeOverride(log.employeeId, log.date);
+
       let latePenalty = 0;
       if (log.checkInAt) {
-        const checkInTime = shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
+        const checkInTime = approvedOverride.lateArrivalTime ?? shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
         const gracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
 
         let effectiveLateRules: LateRule[];
@@ -92,7 +98,7 @@ export async function POST(req: NextRequest) {
       let minutesEarly = 0;
       let earlyLeavePenalty = 0;
       if (log.checkOutAt) {
-        const checkOutTime = shiftOverrideParsed.checkOutTime ?? log.employee.branch.checkOutTime;
+        const checkOutTime = approvedOverride.earlyLeaveTime ?? shiftOverrideParsed.checkOutTime ?? log.employee.branch.checkOutTime;
         const coGracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
         const earlyRules = filterApplicableRules(penaltyRules, log.employee, log.checkOutAt)
           .filter((r) => r.type === "early_leave")
@@ -101,15 +107,19 @@ export async function POST(req: NextRequest) {
       }
 
       const penaltyAmount = latePenalty + earlyLeavePenalty;
+      const lateArrivalApproved = log.checkInAt ? !!approvedOverride.lateArrivalTime : false;
+      const earlyLeaveApproved = log.checkOutAt ? !!approvedOverride.earlyLeaveTime : false;
 
       if (
         penaltyAmount !== log.penaltyAmount ||
         minutesEarly !== log.minutesEarly ||
-        earlyLeavePenalty !== log.earlyLeavePenalty
+        earlyLeavePenalty !== log.earlyLeavePenalty ||
+        lateArrivalApproved !== log.lateArrivalApproved ||
+        earlyLeaveApproved !== log.earlyLeaveApproved
       ) {
         await prisma.attendanceLog.update({
           where: { id: log.id },
-          data: { penaltyAmount, minutesEarly, earlyLeavePenalty },
+          data: { penaltyAmount, minutesEarly, earlyLeavePenalty, lateArrivalApproved, earlyLeaveApproved },
         });
         updated++;
       }

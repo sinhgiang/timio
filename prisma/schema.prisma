@@ -234,25 +234,27 @@ model Contract {
 }
 
 model AttendanceLog {
-  id                 String    @id @default(cuid())
-  employeeId         String
-  branchId           String
-  date               String
-  session            String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
-  checkInAt          DateTime?
-  checkOutAt         DateTime?
-  originalCheckInAt  DateTime? // Giờ vào GỐC trước khi admin sửa tay (chỉ set lần sửa đầu tiên, giữ nguyên các lần sau) — để hiện "đã sửa từ giờ nào" trên báo cáo
-  originalCheckOutAt DateTime? // Giờ ra GỐC trước khi admin sửa tay — cùng cơ chế với originalCheckInAt
-  minutesLate        Int       @default(0)
-  status             String    @default("absent")
-  penaltyAmount      Int       @default(0)
-  minutesEarly       Int       @default(0) // Số phút ra sớm (checkout trước giờ tan ca) — tách riêng khỏi minutesLate (đi trễ lúc vào) để biết phạt do giờ VÀO hay giờ RA
-  earlyLeavePenalty  Int       @default(0) // Phần phạt do ra sớm (đã cộng vào penaltyAmount) — lưu riêng để hiện lý do phạt trên báo cáo, xem lib/attendance.ts calculateEarlyLeave
-  minutesOvertime    Int       @default(0)
-  overtimeAmount     Int       @default(0)
-  overtimeStatus     String    @default("none") // "none" | "pending" | "approved" | "rejected"
-  note               String?
-  createdAt          DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  employeeId          String
+  branchId            String
+  date                String
+  session             String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
+  checkInAt           DateTime?
+  checkOutAt          DateTime?
+  originalCheckInAt   DateTime? // Giờ vào GỐC trước khi admin sửa tay (chỉ set lần sửa đầu tiên, giữ nguyên các lần sau) — để hiện "đã sửa từ giờ nào" trên báo cáo
+  originalCheckOutAt  DateTime? // Giờ ra GỐC trước khi admin sửa tay — cùng cơ chế với originalCheckInAt
+  minutesLate         Int       @default(0)
+  status              String    @default("absent")
+  penaltyAmount       Int       @default(0)
+  minutesEarly        Int       @default(0) // Số phút ra sớm (checkout trước giờ tan ca) — tách riêng khỏi minutesLate (đi trễ lúc vào) để biết phạt do giờ VÀO hay giờ RA
+  earlyLeavePenalty   Int       @default(0) // Phần phạt do ra sớm (đã cộng vào penaltyAmount) — lưu riêng để hiện lý do phạt trên báo cáo, xem lib/attendance.ts calculateEarlyLeave
+  minutesOvertime     Int       @default(0)
+  overtimeAmount      Int       @default(0)
+  overtimeStatus      String    @default("none") // "none" | "pending" | "approved" | "rejected"
+  lateArrivalApproved Boolean   @default(false) // true nếu giờ vào hôm nay được tính "đúng giờ" nhờ đơn "xin đến muộn" đã sếp DUYỆT TRƯỚC (EarlyLeaveRequest.kind="late_arrival") — chỉ để hiện badge trên báo cáo, không ảnh hưởng logic tính phạt (phạt đã tự tính đúng ở nơi ghi log, xem lib/approvedException.ts)
+  earlyLeaveApproved  Boolean   @default(false) // true nếu giờ ra hôm nay được tính "đúng giờ" nhờ đơn "xin về sớm" đã sếp DUYỆT TRƯỚC (EarlyLeaveRequest.kind="early_leave") — cùng cơ chế với lateArrivalApproved
+  note                String?
+  createdAt           DateTime  @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch   Branch   @relation(fields: [branchId], references: [id])
@@ -637,7 +639,8 @@ model EarlyLeaveRequest {
   companyId  String
   employeeId String
   date       String // YYYY-MM-DD
-  leaveTime  String // HH:MM — giờ muốn về sớm
+  kind       String   @default("early_leave") // "early_leave" (xin về sớm — leaveTime = giờ muốn về) | "late_arrival" (xin đến muộn — leaveTime = giờ dự kiến tới, tái dùng field này thay vì tạo model mới)
+  leaveTime  String // HH:MM — giờ muốn về sớm (kind=early_leave) hoặc giờ dự kiến đến muộn (kind=late_arrival)
   reason     String?
   status     String   @default("pending") // "pending" | "approved" | "rejected"
   note       String?

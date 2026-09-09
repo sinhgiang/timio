@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { LogOut, LogIn, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 type ELStatus = "pending" | "approved" | "rejected";
+type ELKind = "early_leave" | "late_arrival";
 
 interface EarlyLeaveRequest {
   id: string;
   date: string;
+  kind: ELKind;
   leaveTime: string;
   reason: string | null;
   status: ELStatus;
@@ -36,6 +38,11 @@ function fmtDate(s: string) {
   const [y, m, d] = s.split("-");
   return `${d}/${m}/${y}`;
 }
+
+const KIND_CONFIG: Record<ELKind, { label: string; timeLabel: string; Icon: typeof LogOut; cls: string }> = {
+  early_leave: { label: "Về sớm", timeLabel: "Giờ về sớm", Icon: LogOut, cls: "text-blue-600 bg-blue-50" },
+  late_arrival: { label: "Đến muộn", timeLabel: "Giờ đến muộn", Icon: LogIn, cls: "text-purple-600 bg-purple-50" },
+};
 
 export default function EarlyLeaveClient({ initialRequests }: Props) {
   const [requests, setRequests] = useState<EarlyLeaveRequest[]>(initialRequests);
@@ -99,8 +106,8 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
           <LogOut size={20} className="text-blue-600" strokeWidth={1.5} />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Duyệt về sớm</h1>
-          <p className="text-sm text-gray-500">Xem xét và phê duyệt yêu cầu về sớm của nhân viên</p>
+          <h1 className="text-xl font-bold text-gray-900">Duyệt về sớm / đến muộn</h1>
+          <p className="text-sm text-gray-500">Xem xét và phê duyệt yêu cầu về sớm hoặc đến muộn của nhân viên</p>
         </div>
       </div>
 
@@ -125,7 +132,7 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
       {displayed.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <LogOut size={40} className="text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
-          <p className="text-gray-500 font-medium">Không có yêu cầu về sớm nào</p>
+          <p className="text-gray-500 font-medium">Không có yêu cầu nào</p>
           <p className="text-gray-400 text-sm mt-1">
             {filter === "pending"
               ? "Hiện không có yêu cầu đang chờ duyệt"
@@ -139,15 +146,18 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Nhân viên</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Loại</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Ngày</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Giờ về sớm</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Giờ</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Lý do</th>
                   <th className="text-center px-4 py-3 font-semibold text-gray-600">Trạng thái</th>
                   <th className="text-center px-4 py-3 font-semibold text-gray-600">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {displayed.map((r) => (
+                {displayed.map((r) => {
+                  const kc = KIND_CONFIG[r.kind];
+                  return (
                   <>
                     <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                       {/* Employee */}
@@ -157,6 +167,13 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
                           {r.employee.code}
                           {r.employee.department ? ` · ${r.employee.department}` : ""}
                         </p>
+                      </td>
+
+                      {/* Kind */}
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${kc.cls}`}>
+                          <kc.Icon size={12} strokeWidth={1.5} /> {kc.label}
+                        </span>
                       </td>
 
                       {/* Date */}
@@ -228,7 +245,7 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
                     {/* Approve note row */}
                     {showNoteFor === r.id && r.status === "pending" && (
                       <tr key={`approve-note-${r.id}`} className="bg-green-50">
-                        <td colSpan={6} className="px-4 py-3">
+                        <td colSpan={7} className="px-4 py-3">
                           <div className="flex items-center gap-3 flex-wrap">
                             <span className="text-xs text-green-700 font-medium">Ghi chú khi duyệt (không bắt buộc):</span>
                             <input
@@ -266,7 +283,7 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
                     {/* Reject note row */}
                     {showNoteFor === `reject-${r.id}` && r.status === "pending" && (
                       <tr key={`reject-note-${r.id}`} className="bg-red-50">
-                        <td colSpan={6} className="px-4 py-3">
+                        <td colSpan={7} className="px-4 py-3">
                           <div className="flex items-center gap-3 flex-wrap">
                             <span className="text-xs text-red-700 font-medium">Lý do từ chối (không bắt buộc):</span>
                             <input
@@ -303,7 +320,8 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
                       </tr>
                     )}
                   </>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
