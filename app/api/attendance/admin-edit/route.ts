@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus, filterApplicableRules } from "@/lib/attendance";
+import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules } from "@/lib/attendance";
 import { managerBranchId } from "@/lib/branchScope";
 import { parseShiftSessions, findDayOverride, dateStringToVNInstant } from "@/lib/shiftResolve";
 
@@ -35,20 +35,23 @@ export async function POST(req: NextRequest) {
     const checkInDate = checkInAt ? new Date(checkInAt) : null;
     const checkOutDate = checkOutAt ? new Date(checkOutAt) : null;
 
+    const shiftData = employee.shiftOverride
+      ? (JSON.parse(employee.shiftOverride) as { checkInTime?: string; checkOutTime?: string; gracePeriod?: number })
+      : {};
+    // Ca gãy nhiều buổi/ngày — dùng giờ riêng của buổi đang sửa (session != "full").
+    const sessions = parseShiftSessions(employee.shiftOverride);
+    const sessionCfg = sessions && sessionKey !== "full" ? sessions[Number(sessionKey)] ?? null : null;
+    // Ngày làm khác — chỉ áp dụng cho dòng "full" (không tách buổi), khớp checkin-face/route.ts.
+    const dayOverride = sessionKey === "full"
+      ? findDayOverride(employee.shiftOverride, checkInDate ?? checkOutDate ?? dateStringToVNInstant(date))
+      : null;
+
     // Tính trạng thái check-in
     let status = "absent";
     let minutesLate = 0;
-    let penaltyAmount = 0;
+    let latePenalty = 0;
 
     if (checkInDate) {
-      const shiftData = employee.shiftOverride ? JSON.parse(employee.shiftOverride) as { checkInTime?: string; gracePeriod?: number } : {};
-      // Ca gãy nhiều buổi/ngày — dùng giờ riêng của buổi đang sửa (session != "full").
-      const sessions = parseShiftSessions(employee.shiftOverride);
-      const sessionCfg = sessions && sessionKey !== "full" ? sessions[Number(sessionKey)] ?? null : null;
-      // Ngày làm khác — chỉ áp dụng cho dòng "full" (không tách buổi), khớp checkin-face/route.ts.
-      const dayOverride = sessionKey === "full"
-        ? findDayOverride(employee.shiftOverride, checkInDate ?? dateStringToVNInstant(date))
-        : null;
       const checkInTime = sessionCfg?.checkInTime ?? dayOverride?.checkInTime ?? shiftData.checkInTime ?? employee.branch.checkInTime;
       const gracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? shiftData.gracePeriod ?? employee.branch.gracePeriod;
       const lateRules = filterApplicableRules(employee.company.penaltyRules, employee, checkInDate)
@@ -58,8 +61,26 @@ export async function POST(req: NextRequest) {
       const result = calculateCheckInStatus(checkInDate, checkInTime, gracePeriod, lateRules);
       status = result.status;
       minutesLate = result.minutesLate;
-      penaltyAmount = result.penaltyAmount;
+      latePenalty = result.penaltyAmount;
     }
+
+    // Tính phạt "ra sớm" nếu admin cũng sửa/nhập giờ ra — dùng chung lib/attendance.ts
+    // calculateEarlyLeave với checkin-face/checkin/checkin-qr/recalculate. TRƯỚC ĐÂY route này bỏ
+    // qua hoàn toàn phần này: sửa tay giờ vào/ra sẽ ghi đè penaltyAmount chỉ bằng phần phạt trễ,
+    // XÓA MẤT phạt ra sớm đã tính lúc chấm công thật (đây là nguồn gốc lỗi báo cáo "Đúng giờ" vẫn
+    // bị trừ tiền mà không rõ lý do — xem ReportsClient.tsx).
+    let minutesEarly = 0;
+    let earlyLeavePenalty = 0;
+    if (checkOutDate) {
+      const checkOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? shiftData.gracePeriod ?? employee.branch.gracePeriod;
+      const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, checkOutDate)
+        .filter((r) => r.type === "early_leave")
+        .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+      ({ minutesEarly, earlyLeavePenalty } = calculateEarlyLeave(checkOutDate, checkOutTime, coGracePeriod, earlyRules));
+    }
+
+    const penaltyAmount = latePenalty + earlyLeavePenalty;
 
     // Upsert AttendanceLog trực tiếp — mặc định 1 dòng/ngày (session "full"); với NV ca gãy
     // nhiều buổi/ngày, client (ReportsClient DayTable) gửi kèm `session` ("0","1",...) để sửa
@@ -76,6 +97,8 @@ export async function POST(req: NextRequest) {
           checkOutAt: checkOutDate,
           status,
           minutesLate,
+          minutesEarly,
+          earlyLeavePenalty,
           penaltyAmount,
           note: note || null,
         },
@@ -91,6 +114,8 @@ export async function POST(req: NextRequest) {
           checkOutAt: checkOutDate,
           status,
           minutesLate,
+          minutesEarly,
+          earlyLeavePenalty,
           penaltyAmount,
           note: note || null,
         },
@@ -124,7 +149,7 @@ export async function POST(req: NextRequest) {
       update: { daysPresent, daysLate, totalMinutesLate, totalPenalty },
     });
 
-    return NextResponse.json({ ok: true, status, minutesLate, penaltyAmount });
+    return NextResponse.json({ ok: true, status, minutesLate, minutesEarly, earlyLeavePenalty, penaltyAmount });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });

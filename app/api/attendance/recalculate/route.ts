@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
+import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,13 +21,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Chưa có bảng phạt. Vào Cài đặt → Bảng phạt để thêm." }, { status: 400 });
     }
 
-    // Load all late logs for this company in the given month
+    // Load logs cần tính lại: trễ giờ vào (late/very_late) HOẶC đã chấm giờ ra (để tính lại phạt
+    // ra sớm — trước đây route này chỉ recalculate phạt trễ, không bao giờ đụng tới phạt ra sớm dù
+    // sếp đổi bảng phạt, xem lib/attendance.ts calculateEarlyLeave).
     const logs = await prisma.attendanceLog.findMany({
       where: {
         employee: { companyId },
         date: { startsWith: datePrefix },
-        status: { in: ["late", "very_late"] },
-        minutesLate: { gt: 0 },
+        OR: [
+          { status: { in: ["late", "very_late"] }, minutesLate: { gt: 0 } },
+          { checkOutAt: { not: null } },
+        ],
       },
       include: {
         employee: {
@@ -39,17 +43,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (logs.length === 0) {
-      return NextResponse.json({ updated: 0, message: "Không có ngày trễ nào trong tháng này." });
+      return NextResponse.json({ updated: 0, message: "Không có ngày trễ/về sớm nào trong tháng này." });
     }
 
     let updated = 0;
 
     for (const log of logs) {
-      if (!log.checkInAt) continue;
-
       // Get shift for this employee (override or branch default)
       let shiftOverrideParsed: {
         checkInTime?: string;
+        checkOutTime?: string;
         gracePeriod?: number;
         useDefaultLate?: boolean;
         lateRules?: Array<{ minutes: number; amount: number }>;
@@ -58,35 +61,55 @@ export async function POST(req: NextRequest) {
         shiftOverrideParsed = log.employee.shiftOverride ? JSON.parse(log.employee.shiftOverride) : {};
       } catch { shiftOverrideParsed = {}; }
 
-      const checkInTime = shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
-      const gracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
+      let latePenalty = 0;
+      if (log.checkInAt) {
+        const checkInTime = shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
+        const gracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
 
-      let effectiveLateRules: LateRule[];
-      if (shiftOverrideParsed.useDefaultLate === false) {
-        const empRules = shiftOverrideParsed.lateRules ?? [];
-        const sorted = [...empRules].sort((a, b) => a.minutes - b.minutes);
-        effectiveLateRules = sorted.map((r, i) => ({
-          fromMinutes: r.minutes,
-          toMinutes: sorted[i + 1] ? sorted[i + 1].minutes - 1 : 9999,
-          amount: r.amount,
-        }));
-      } else {
-        effectiveLateRules = filterApplicableRules(penaltyRules, log.employee, log.checkInAt)
-          .filter((r) => r.type !== "early_leave")
-          .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+        let effectiveLateRules: LateRule[];
+        if (shiftOverrideParsed.useDefaultLate === false) {
+          const empRules = shiftOverrideParsed.lateRules ?? [];
+          const sorted = [...empRules].sort((a, b) => a.minutes - b.minutes);
+          effectiveLateRules = sorted.map((r, i) => ({
+            fromMinutes: r.minutes,
+            toMinutes: sorted[i + 1] ? sorted[i + 1].minutes - 1 : 9999,
+            amount: r.amount,
+          }));
+        } else {
+          effectiveLateRules = filterApplicableRules(penaltyRules, log.employee, log.checkInAt)
+            .filter((r) => r.type !== "early_leave")
+            .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+        }
+
+        ({ penaltyAmount: latePenalty } = calculateCheckInStatus(
+          log.checkInAt,
+          checkInTime,
+          gracePeriod,
+          effectiveLateRules
+        ));
       }
 
-      const { penaltyAmount } = calculateCheckInStatus(
-        log.checkInAt,
-        checkInTime,
-        gracePeriod,
-        effectiveLateRules
-      );
+      let minutesEarly = 0;
+      let earlyLeavePenalty = 0;
+      if (log.checkOutAt) {
+        const checkOutTime = shiftOverrideParsed.checkOutTime ?? log.employee.branch.checkOutTime;
+        const coGracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
+        const earlyRules = filterApplicableRules(penaltyRules, log.employee, log.checkOutAt)
+          .filter((r) => r.type === "early_leave")
+          .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+        ({ minutesEarly, earlyLeavePenalty } = calculateEarlyLeave(log.checkOutAt, checkOutTime, coGracePeriod, earlyRules));
+      }
 
-      if (penaltyAmount !== log.penaltyAmount) {
+      const penaltyAmount = latePenalty + earlyLeavePenalty;
+
+      if (
+        penaltyAmount !== log.penaltyAmount ||
+        minutesEarly !== log.minutesEarly ||
+        earlyLeavePenalty !== log.earlyLeavePenalty
+      ) {
         await prisma.attendanceLog.update({
           where: { id: log.id },
-          data: { penaltyAmount },
+          data: { penaltyAmount, minutesEarly, earlyLeavePenalty },
         });
         updated++;
       }

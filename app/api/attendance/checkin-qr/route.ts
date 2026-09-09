@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
+import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
 import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeThreshold, type EmployeeOvertimeOverride } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
@@ -139,23 +139,18 @@ export async function POST(req: NextRequest) {
             employee.baseSalary, employee.branch.standardWorkDays, isWeekend, otThreshold
           );
 
-      const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
-      let earlyLeavePenalty = 0;
-      if (minutesEarly > coGracePeriod) {
-        const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
-          .filter((r) => r.type === "early_leave")
-          .sort((a, b) => a.fromMinutes - b.fromMinutes);
-        for (const rule of earlyRules) {
-          if (minutesEarly >= rule.fromMinutes && minutesEarly <= rule.toMinutes) { earlyLeavePenalty = rule.amount; break; }
-          if (minutesEarly > rule.toMinutes) earlyLeavePenalty = rule.amount;
-        }
-      }
+      // Dùng chung lib/attendance.ts calculateEarlyLeave để đồng nhất với admin-edit/recalculate
+      const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
+        .filter((r) => r.type === "early_leave")
+        .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+      const { minutesEarly, earlyLeavePenalty } = calculateEarlyLeave(now, checkOutTime, coGracePeriod, earlyRules);
 
       const overtimeStatus = minutesOvertime > 0 ? "pending" : "none";
       await prisma.attendanceLog.update({
         where: { id: existingLog.id },
         data: {
           checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus,
+          minutesEarly, earlyLeavePenalty,
           ...(earlyLeavePenalty > 0 && { penaltyAmount: { increment: earlyLeavePenalty } }),
         },
       });

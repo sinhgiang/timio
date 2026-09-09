@@ -26,6 +26,8 @@ interface Log {
   checkInAt: string | null;
   checkOutAt: string | null;
   minutesLate: number;
+  minutesEarly: number;
+  earlyLeavePenalty: number;
   minutesOvertime: number;
   status: string;
   penaltyAmount: number;
@@ -314,6 +316,22 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                   const expectedTitle = showExpected && r.expectedCheckIn && r.expectedCheckOut
                     ? `${sessionPrefix}Giờ khai báo: ${r.expectedCheckIn}–${r.expectedCheckOut}`
                     : undefined;
+                  // Trạng thái (Đúng giờ/Trễ) chỉ phản ánh GIỜ VÀO — Phạt/Thưởng lại có thể cộng
+                  // thêm phạt "ra sớm" (checkout trước giờ tan ca) mà trạng thái không thể hiện,
+                  // gây khó hiểu kiểu "Đúng giờ" mà vẫn bị trừ tiền. Tô đậm màu đúng vào ô GIỜ VÀO
+                  // hay GIỜ RA gây ra khoản phạt, + ghi rõ lý do dưới số tiền (theo yêu cầu user).
+                  const isLateCulprit = !!log?.minutesLate;
+                  // earlyLeavePenalty > 0 là tín hiệu chính xác (checkout-time là nguồn phạt duy
+                  // nhất ngoài trễ giờ vào) — minutesEarly chỉ dùng để hiện thêm số phút nếu có,
+                  // phòng trường hợp dữ liệu cũ (trước bản vá) không có số phút chính xác.
+                  const isEarlyCulprit = !!log?.earlyLeavePenalty;
+                  const lateReason = isLateCulprit ? `Đi trễ ${log!.minutesLate} phút` : null;
+                  const earlyReason = isEarlyCulprit
+                    ? log!.minutesEarly > 0
+                      ? `Ra sớm ${log!.minutesEarly} phút — trừ ${formatCurrency(log!.earlyLeavePenalty)}`
+                      : `Ra sớm — trừ ${formatCurrency(log!.earlyLeavePenalty)}`
+                    : null;
+                  const penaltyReasonText = [lateReason, earlyReason].filter(Boolean).join(" · ") || null;
                   return (
                     <tr key={`${day}-${r.session}`} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
                       {i === 0 && (
@@ -340,10 +358,20 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       {/* Ô Ngày đã rowSpan chiếm 1 cột nên mỗi dòng buổi chỉ được phép có đúng số cột còn lại —
                           tách thêm 1 cột ở đây từng làm giờ/trạng thái của buổi 2 (Tối) bị lệch sang phải 1 cột.
                           Nhãn Sáng/Tối không hiện chữ nữa, chỉ còn trong title (rê chuột) — xem comment ở trên. */}
-                      <td className="px-4 py-2 font-mono text-gray-700 font-medium align-top" title={expectedTitle}>
+                      <td
+                        className={`px-4 py-2 font-mono font-medium align-top ${
+                          isLateCulprit ? "text-red-600 bg-red-50 rounded-md" : "text-gray-700"
+                        }`}
+                        title={lateReason ?? expectedTitle}
+                      >
                         {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-4 py-2 font-mono text-gray-500 align-top" title={expectedTitle}>
+                      <td
+                        className={`px-4 py-2 font-mono align-top ${
+                          isEarlyCulprit ? "text-red-600 bg-red-50 rounded-md font-medium" : "text-gray-500"
+                        }`}
+                        title={earlyReason ?? expectedTitle}
+                      >
                         {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-2 align-top">
@@ -384,9 +412,17 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                         ) : <span className="text-gray-200">—</span>}
                       </td>
                       <td className="px-4 py-2 text-right text-xs align-top">
-                        {log?.penaltyAmount ? <span className="text-red-500 font-medium">−{formatCurrency(log.penaltyAmount)}</span> : ""}
-                        {log?.overtimeStatus === "approved" && log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
-                        {!log?.penaltyAmount && log?.overtimeStatus !== "approved" && <span className="text-gray-200">—</span>}
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div>
+                            {log?.penaltyAmount ? <span className="text-red-500 font-medium">−{formatCurrency(log.penaltyAmount)}</span> : ""}
+                            {log?.overtimeStatus === "approved" && log?.overtimeAmount ? <span className="text-green-600 font-medium ml-1">+{formatCurrency(log.overtimeAmount)}</span> : ""}
+                            {!log?.penaltyAmount && log?.overtimeStatus !== "approved" && <span className="text-gray-200">—</span>}
+                          </div>
+                          {/* Lý do phạt — trả lời rõ "vì sao vẫn bị trừ tiền dù Đúng giờ" */}
+                          {penaltyReasonText && (
+                            <span className="text-[10px] text-gray-400 font-normal leading-tight">{penaltyReasonText}</span>
+                          )}
+                        </div>
                       </td>
                       {canEdit && (
                         <td className="px-3 py-2 text-center align-top">

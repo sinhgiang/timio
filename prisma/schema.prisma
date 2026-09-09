@@ -8,77 +8,77 @@ datasource db {
 }
 
 model Company {
-  id          String    @id @default(cuid())
-  name        String
-  slug        String    @unique
-  timezone    String    @default("Asia/Ho_Chi_Minh")
-  plan        String    @default("starter")
-  planExpires DateTime?
-  kioskMessages   String? // JSON: { welcome, checkinOntime, checkinLate, checkout }
-  customOptions   String? // JSON: { departments: string[], positions: string[] }
-  telegramBotToken String? // Telegram bot token for notifications
-  accountingChatId String? // Telegram chat ID cho kế toán (nhận thông báo duyệt nghỉ phép)
-  zaloOaToken      String? // Zalo OA access token hiện tại (tự gia hạn)
-  zaloOaId         String? // Zalo OA ID (khớp webhook + link follow)
-  zaloAppId        String? // Zalo App ID (developers.zalo.me)
-  zaloSecretKey    String? // Zalo App secret key (để gia hạn token)
-  zaloRefreshToken String? // Refresh token (sống 3 tháng, xoay vòng mỗi lần refresh)
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  timezone           String    @default("Asia/Ho_Chi_Minh")
+  plan               String    @default("starter")
+  planExpires        DateTime?
+  kioskMessages      String? // JSON: { welcome, checkinOntime, checkinLate, checkout }
+  customOptions      String? // JSON: { departments: string[], positions: string[] }
+  telegramBotToken   String? // Telegram bot token for notifications
+  accountingChatId   String? // Telegram chat ID cho kế toán (nhận thông báo duyệt nghỉ phép)
+  zaloOaToken        String? // Zalo OA access token hiện tại (tự gia hạn)
+  zaloOaId           String? // Zalo OA ID (khớp webhook + link follow)
+  zaloAppId          String? // Zalo App ID (developers.zalo.me)
+  zaloSecretKey      String? // Zalo App secret key (để gia hạn token)
+  zaloRefreshToken   String? // Refresh token (sống 3 tháng, xoay vòng mỗi lần refresh)
   zaloTokenExpiresAt DateTime? // access token hết hạn lúc nào
-  overtimeRates   String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
-  logoUrl         String? // base64 logo công ty (chèn vào email thông báo)
-  faceLiveness    Boolean @default(false) // true = bật chớp mắt chống ảnh giả (chậm hơn); false = quét nhanh 1 phát
-  careerIntro     String? // Giới thiệu công ty trên trang tuyển dụng công khai (GĐ2 inbound)
-  careerCoverUrl  String? // Ảnh bìa trang tuyển dụng (base64) — KH3
-  careerPerks     String? // JSON [{icon,label}]: "Vì sao làm ở đây" — KH3
-  signatureUrl    String? // base64 ảnh chữ ký admin
-  stampUrl        String? // base64 ảnh dấu công ty
-  referredBy      String? // slug của công ty đã giới thiệu mình
-  affiliateCode   String? // code của affiliate partner đã giới thiệu
-  paydayOfMonth   Int     @default(5) // ngày phát lương hàng tháng (1-31)
+  overtimeRates      String? // JSON: { weekday: 1.5, weekend: 2.0, holiday: 3.0 }
+  logoUrl            String? // base64 logo công ty (chèn vào email thông báo)
+  faceLiveness       Boolean   @default(false) // true = bật chớp mắt chống ảnh giả (chậm hơn); false = quét nhanh 1 phát
+  careerIntro        String? // Giới thiệu công ty trên trang tuyển dụng công khai (GĐ2 inbound)
+  careerCoverUrl     String? // Ảnh bìa trang tuyển dụng (base64) — KH3
+  careerPerks        String? // JSON [{icon,label}]: "Vì sao làm ở đây" — KH3
+  signatureUrl       String? // base64 ảnh chữ ký admin
+  stampUrl           String? // base64 ảnh dấu công ty
+  referredBy         String? // slug của công ty đã giới thiệu mình
+  affiliateCode      String? // code của affiliate partner đã giới thiệu
+  paydayOfMonth      Int       @default(5) // ngày phát lương hàng tháng (1-31)
   // Ứng lương sớm (EWA) — employer-funded, Timio chỉ làm công nghệ + phí (Điều 101 BLLĐ 2019)
-  ewaEnabled      Boolean @default(false) // bật tính năng ứng lương cho nhân viên
-  ewaApprovalMode String  @default("manual") // "manual" = công ty duyệt tay | "auto" = tự duyệt trong hạn mức
-  ewaMaxPercent   Int     @default(50) // ứng tối đa % của lương đã kiếm trong kỳ
-  ewaFeeType      String  @default("fixed") // "fixed" = phí cố định/lần | "percent" = % số tiền ứng
-  ewaFeeValue     Int     @default(10000) // giá trị phí (đồng nếu fixed; phần nghìn nếu percent, vd 15 = 1.5%)
-  ewaMaxPerMonth  Int     @default(4) // số lần ứng tối đa mỗi tháng
-  trialEndsAt     DateTime? // null = không dùng thử / đã trả tiền
+  ewaEnabled         Boolean   @default(false) // bật tính năng ứng lương cho nhân viên
+  ewaApprovalMode    String    @default("manual") // "manual" = công ty duyệt tay | "auto" = tự duyệt trong hạn mức
+  ewaMaxPercent      Int       @default(50) // ứng tối đa % của lương đã kiếm trong kỳ
+  ewaFeeType         String    @default("fixed") // "fixed" = phí cố định/lần | "percent" = % số tiền ứng
+  ewaFeeValue        Int       @default(10000) // giá trị phí (đồng nếu fixed; phần nghìn nếu percent, vd 15 = 1.5%)
+  ewaMaxPerMonth     Int       @default(4) // số lần ứng tối đa mỗi tháng
+  trialEndsAt        DateTime? // null = không dùng thử / đã trả tiền
   autoReminderConfig String? // JSON: nhắc chấm công tự động { enabled, channels{email,telegram,zalo}, times[hour], days[0-6], target, subject, message }
   lateReminderConfig String? // JSON: nhắc trễ theo ca { enabled, channels, delayMinutes, target, message }
-  createdAt   DateTime  @default(now())
+  createdAt          DateTime  @default(now())
 
-  branches      Branch[]
-  employees     Employee[]
-  penaltyRules  PenaltyRule[]
-  rewardRules   RewardRule[]
-  admins        Admin[]
-  holidays      Holiday[]
-  leaveRequests LeaveRequest[]
-  payments         Payment[]
-  impersonationLogs ImpersonationLog[]
-  salaryPayments   SalaryPayment[]
-  salaryAdvances   SalaryAdvance[]
-  shiftAssignments  ShiftAssignment[]
-  shiftSwapRequests ShiftSwapRequest[]
-  overtimeRequests  OvertimeRequest[]
-  auditLogs         AuditLog[]
-  disciplineRecords   DisciplineRecord[]
-  assets              Asset[]
-  workHistories       WorkHistory[]
-  certificates        Certificate[]
-  salaryHistories     SalaryHistory[]
-  earlyLeaveRequests  EarlyLeaveRequest[]
-  salesRecords        SalesRecord[]
-  jobPostings         JobPosting[]
-  candidates          Candidate[]
-  announcements       Announcement[]
-  expenseClaims       ExpenseClaim[]
-  performanceReviews  PerformanceReview[]
-  checklistTemplates  ChecklistTemplate[]
-  employeeChecklists  EmployeeChecklist[]
-  shiftTemplates      ShiftTemplate[]
-  chatSessions        ChatSession[]
-  supportTickets      SupportTicket[]
+  branches           Branch[]
+  employees          Employee[]
+  penaltyRules       PenaltyRule[]
+  rewardRules        RewardRule[]
+  admins             Admin[]
+  holidays           Holiday[]
+  leaveRequests      LeaveRequest[]
+  payments           Payment[]
+  impersonationLogs  ImpersonationLog[]
+  salaryPayments     SalaryPayment[]
+  salaryAdvances     SalaryAdvance[]
+  shiftAssignments   ShiftAssignment[]
+  shiftSwapRequests  ShiftSwapRequest[]
+  overtimeRequests   OvertimeRequest[]
+  auditLogs          AuditLog[]
+  disciplineRecords  DisciplineRecord[]
+  assets             Asset[]
+  workHistories      WorkHistory[]
+  certificates       Certificate[]
+  salaryHistories    SalaryHistory[]
+  earlyLeaveRequests EarlyLeaveRequest[]
+  salesRecords       SalesRecord[]
+  jobPostings        JobPosting[]
+  candidates         Candidate[]
+  announcements      Announcement[]
+  expenseClaims      ExpenseClaim[]
+  performanceReviews PerformanceReview[]
+  checklistTemplates ChecklistTemplate[]
+  employeeChecklists EmployeeChecklist[]
+  shiftTemplates     ShiftTemplate[]
+  chatSessions       ChatSession[]
+  supportTickets     SupportTicket[]
 }
 
 // Đánh dấu đã nhắc "chấm công trễ" cho 1 nhân viên trong 1 ngày → tránh spam mỗi 10 phút
@@ -86,7 +86,7 @@ model LateReminder {
   id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  date       String   // YYYY-MM-DD (giờ VN)
+  date       String // YYYY-MM-DD (giờ VN)
   sentAt     DateTime @default(now())
 
   @@unique([employeeId, date])
@@ -99,7 +99,7 @@ model PreShiftReminder {
   id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  date       String   // YYYY-MM-DD (giờ VN)
+  date       String // YYYY-MM-DD (giờ VN)
   sentAt     DateTime @default(now())
 
   @@unique([employeeId, date])
@@ -107,41 +107,41 @@ model PreShiftReminder {
 }
 
 model Admin {
-  id        String   @id @default(cuid())
-  companyId String
-  email     String   @unique
-  name      String
-  password  String?
-  role      String   @default("owner") // "owner" | "manager" | "accountant"
-  gender    String?  // "male" | "female" — để trợ lý AI xưng hô anh/chị đúng
-  branchId  String?  // null = xem toàn công ty, có value = chỉ xem chi nhánh này
-  receiveLeaveEmail Boolean @default(true)
-  receiveTelegram   Boolean @default(false)
-  telegramChatId    String?
-  receiveZalo       Boolean @default(false)
-  zaloUserId        String? // Zalo user ID (người dùng phải follow OA trước)
-  receiveDailyReport Boolean @default(false) // Nhận báo cáo chấm công hàng ngày (email + zalo)
-  createdAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  companyId          String
+  email              String   @unique
+  name               String
+  password           String?
+  role               String   @default("owner") // "owner" | "manager" | "accountant"
+  gender             String? // "male" | "female" — để trợ lý AI xưng hô anh/chị đúng
+  branchId           String? // null = xem toàn công ty, có value = chỉ xem chi nhánh này
+  receiveLeaveEmail  Boolean  @default(true)
+  receiveTelegram    Boolean  @default(false)
+  telegramChatId     String?
+  receiveZalo        Boolean  @default(false)
+  zaloUserId         String? // Zalo user ID (người dùng phải follow OA trước)
+  receiveDailyReport Boolean  @default(false) // Nhận báo cáo chấm công hàng ngày (email + zalo)
+  createdAt          DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branch  Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 }
 
 model Branch {
-  id           String  @id @default(cuid())
-  companyId    String
-  name         String
-  checkInTime  String  @default("07:30")
-  checkOutTime String  @default("17:30")
-  gracePeriod  Int     @default(5)
-  workDays     String  @default("1,2,3,4,5")
-  telegramChatId    String?
-  lat               Float?
-  lng               Float?
-  gpsRadius         Int     @default(200)
-  standardWorkDays  Int     @default(26)
-  allowedIPs        String? // JSON: ["1.2.3.4","10.0.0.0/8"] — danh sách IP được phép check-in
-  createdAt    DateTime @default(now())
+  id               String   @id @default(cuid())
+  companyId        String
+  name             String
+  checkInTime      String   @default("07:30")
+  checkOutTime     String   @default("17:30")
+  gracePeriod      Int      @default(5)
+  workDays         String   @default("1,2,3,4,5")
+  telegramChatId   String?
+  lat              Float?
+  lng              Float?
+  gpsRadius        Int      @default(200)
+  standardWorkDays Int      @default(26)
+  allowedIPs       String? // JSON: ["1.2.3.4","10.0.0.0/8"] — danh sách IP được phép check-in
+  createdAt        DateTime @default(now())
 
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employees Employee[]
@@ -150,105 +150,107 @@ model Branch {
 }
 
 model Employee {
-  id         String  @id @default(cuid())
-  companyId  String
-  branchId   String
-  name       String
-  code       String
-  pin        String
-  department String?
-  position        String?
-  status          String  @default("active")
-  faceDescriptors String? // JSON: number[][]  — stored face embeddings
-  shiftOverride   String? // JSON: {checkInTime, checkOutTime, workDays, gracePeriod} — overrides branch defaults
-                          // Ca gãy 2 buổi/ngày (vd: sáng 8h-10h30, tối 16h-22h30): thêm field
-                          // sessions: [{label, checkInTime, checkOutTime, gracePeriod?}, ...] (>=2 phần tử).
-                          // Khi có sessions, checkInTime/checkOutTime ở trên KHÔNG dùng nữa — mỗi buổi
-                          // chấm công độc lập, xem AttendanceLog.session + lib/shiftResolve.ts
-  email               String?   // Email cá nhân (nhận phiếu lương, thông báo)
-  avatarUrl           String?   // base64 ảnh đại diện
-  phone               String?   // Số điện thoại
-  zalo                String?   // Số Zalo hoặc link Zalo (gửi thông báo tay)
-  zaloUserId          String?   // Zalo user_id (có được khi NV follow OA) → gửi tự động
-  facebook            String?   // Link/username Facebook (gửi thông báo tay)
-  cccd                String?   // Căn cước công dân
-  baseSalary          Int?      @default(0)
-  joinDate            DateTime?
-  dateOfBirth         String?   // YYYY-MM-DD
-  annualLeaveBalance  Float     @default(12) // ngày phép năm còn lại
-  leaveCarryForward   Float     @default(0)  // ngày phép chuyển từ năm trước
-  dependents          Int       @default(0)  // số người phụ thuộc (giảm trừ thuế TNCN)
-  bankName            String?   // Tên ngân hàng (VCB, TCB, MB, ...)
-  bankAccount         String?   // Số tài khoản
-  bankBranch          String?   // Chi nhánh ngân hàng
-  qrToken             String?   @unique // Token ngẫu nhiên để check-in bằng QR code
-  allowancesJson      String?   // JSON: [{label: "Xăng xe", amount: 500000}]
-  salaryType          String    @default("fixed") // "fixed" | "commission" | "kpi" | "hybrid"
-  commissionRate      Float?    // % hoa hồng trên doanh số (dùng khi salaryType=commission/hybrid)
-  kpiTarget           Float?    // Mục tiêu KPI/tháng (điểm hoặc doanh số)
-  kpiBonus            Float?    // Thưởng cố định khi đạt 100% KPI
-  pushToken           String?   // Expo push token (thông báo đẩy trên app mobile)
-  workerAccountId     String?   // App nhân viên: nối tới tài khoản cá nhân (1 người = 1 tài khoản theo SĐT)
-  createdAt           DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  companyId          String
+  branchId           String
+  name               String
+  code               String
+  pin                String
+  department         String?
+  position           String?
+  status             String    @default("active")
+  faceDescriptors    String? // JSON: number[][]  — stored face embeddings
+  shiftOverride      String? // JSON: {checkInTime, checkOutTime, workDays, gracePeriod} — overrides branch defaults
+  // Ca gãy 2 buổi/ngày (vd: sáng 8h-10h30, tối 16h-22h30): thêm field
+  // sessions: [{label, checkInTime, checkOutTime, gracePeriod?}, ...] (>=2 phần tử).
+  // Khi có sessions, checkInTime/checkOutTime ở trên KHÔNG dùng nữa — mỗi buổi
+  // chấm công độc lập, xem AttendanceLog.session + lib/shiftResolve.ts
+  email              String? // Email cá nhân (nhận phiếu lương, thông báo)
+  avatarUrl          String? // base64 ảnh đại diện
+  phone              String? // Số điện thoại
+  zalo               String? // Số Zalo hoặc link Zalo (gửi thông báo tay)
+  zaloUserId         String? // Zalo user_id (có được khi NV follow OA) → gửi tự động
+  facebook           String? // Link/username Facebook (gửi thông báo tay)
+  cccd               String? // Căn cước công dân
+  baseSalary         Int?      @default(0)
+  joinDate           DateTime?
+  dateOfBirth        String? // YYYY-MM-DD
+  annualLeaveBalance Float     @default(12) // ngày phép năm còn lại
+  leaveCarryForward  Float     @default(0) // ngày phép chuyển từ năm trước
+  dependents         Int       @default(0) // số người phụ thuộc (giảm trừ thuế TNCN)
+  bankName           String? // Tên ngân hàng (VCB, TCB, MB, ...)
+  bankAccount        String? // Số tài khoản
+  bankBranch         String? // Chi nhánh ngân hàng
+  qrToken            String?   @unique // Token ngẫu nhiên để check-in bằng QR code
+  allowancesJson     String? // JSON: [{label: "Xăng xe", amount: 500000}]
+  salaryType         String    @default("fixed") // "fixed" | "commission" | "kpi" | "hybrid"
+  commissionRate     Float? // % hoa hồng trên doanh số (dùng khi salaryType=commission/hybrid)
+  kpiTarget          Float? // Mục tiêu KPI/tháng (điểm hoặc doanh số)
+  kpiBonus           Float? // Thưởng cố định khi đạt 100% KPI
+  pushToken          String? // Expo push token (thông báo đẩy trên app mobile)
+  workerAccountId    String? // App nhân viên: nối tới tài khoản cá nhân (1 người = 1 tài khoản theo SĐT)
+  createdAt          DateTime  @default(now())
 
-  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch              Branch               @relation(fields: [branchId], references: [id])
-  logs                AttendanceLog[]
-  summaries           MonthlySummary[]
-  leaveRequests       LeaveRequest[]
-  correctionRequests  CorrectionRequest[]
-  contracts           Contract[]
-  salaryPayments      SalaryPayment[]
-  salaryAdvances      SalaryAdvance[]
-  shiftAssignments          ShiftAssignment[]
-  swapRequestsAsRequester   ShiftSwapRequest[] @relation("SwapRequester")
-  swapRequestsAsTarget      ShiftSwapRequest[] @relation("SwapTarget")
-  overtimeRequests          OvertimeRequest[]
-  disciplineRecords   DisciplineRecord[]
-  assets              Asset[]
-  workHistories       WorkHistory[]
-  certificates        Certificate[]
-  salaryHistories     SalaryHistory[]
-  earlyLeaveRequests  EarlyLeaveRequest[]
-  salesRecords        SalesRecord[]
-  candidatesApplied   Candidate[]
-  expenseClaims       ExpenseClaim[]
-  performanceReviews  PerformanceReview[]
-  employeeChecklists  EmployeeChecklist[]
+  company                 Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch                  Branch              @relation(fields: [branchId], references: [id])
+  logs                    AttendanceLog[]
+  summaries               MonthlySummary[]
+  leaveRequests           LeaveRequest[]
+  correctionRequests      CorrectionRequest[]
+  contracts               Contract[]
+  salaryPayments          SalaryPayment[]
+  salaryAdvances          SalaryAdvance[]
+  shiftAssignments        ShiftAssignment[]
+  swapRequestsAsRequester ShiftSwapRequest[]  @relation("SwapRequester")
+  swapRequestsAsTarget    ShiftSwapRequest[]  @relation("SwapTarget")
+  overtimeRequests        OvertimeRequest[]
+  disciplineRecords       DisciplineRecord[]
+  assets                  Asset[]
+  workHistories           WorkHistory[]
+  certificates            Certificate[]
+  salaryHistories         SalaryHistory[]
+  earlyLeaveRequests      EarlyLeaveRequest[]
+  salesRecords            SalesRecord[]
+  candidatesApplied       Candidate[]
+  expenseClaims           ExpenseClaim[]
+  performanceReviews      PerformanceReview[]
+  employeeChecklists      EmployeeChecklist[]
 
   @@unique([companyId, code])
 }
 
 model Contract {
-  id          String    @id @default(cuid())
-  employeeId  String
-  type        String    @default("fixed_term") // "probation" | "fixed_term" | "indefinite" | "seasonal" | "part_time"
-  startDate   String    // YYYY-MM-DD
-  endDate     String?   // YYYY-MM-DD — null nếu không thời hạn
-  note        String?
-  fileUrl     String?   // URL hoặc base64 của file hợp đồng scan
-  fileName    String?   // Tên file gốc
-  createdAt   DateTime  @default(now())
+  id         String   @id @default(cuid())
+  employeeId String
+  type       String   @default("fixed_term") // "probation" | "fixed_term" | "indefinite" | "seasonal" | "part_time"
+  startDate  String // YYYY-MM-DD
+  endDate    String? // YYYY-MM-DD — null nếu không thời hạn
+  note       String?
+  fileUrl    String? // URL hoặc base64 của file hợp đồng scan
+  fileName   String? // Tên file gốc
+  createdAt  DateTime @default(now())
 
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model AttendanceLog {
-  id            String    @id @default(cuid())
-  employeeId    String
-  branchId      String
-  date          String
-  session         String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
-  checkInAt     DateTime?
-  checkOutAt    DateTime?
-  minutesLate     Int       @default(0)
-  status          String    @default("absent")
-  penaltyAmount   Int       @default(0)
-  minutesOvertime  Int       @default(0)
-  overtimeAmount   Int       @default(0)
-  overtimeStatus   String    @default("none") // "none" | "pending" | "approved" | "rejected"
-  note             String?
-  createdAt       DateTime  @default(now())
+  id                String    @id @default(cuid())
+  employeeId        String
+  branchId          String
+  date              String
+  session           String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
+  checkInAt         DateTime?
+  checkOutAt        DateTime?
+  minutesLate       Int       @default(0)
+  status            String    @default("absent")
+  penaltyAmount     Int       @default(0)
+  minutesEarly      Int       @default(0) // Số phút ra sớm (checkout trước giờ tan ca) — tách riêng khỏi minutesLate (đi trễ lúc vào) để biết phạt do giờ VÀO hay giờ RA
+  earlyLeavePenalty Int       @default(0) // Phần phạt do ra sớm (đã cộng vào penaltyAmount) — lưu riêng để hiện lý do phạt trên báo cáo, xem lib/attendance.ts calculateEarlyLeave
+  minutesOvertime   Int       @default(0)
+  overtimeAmount    Int       @default(0)
+  overtimeStatus    String    @default("none") // "none" | "pending" | "approved" | "rejected"
+  note              String?
+  createdAt         DateTime  @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch   Branch   @relation(fields: [branchId], references: [id])
@@ -257,19 +259,19 @@ model AttendanceLog {
 }
 
 model MonthlySummary {
-  id               String @id @default(cuid())
-  employeeId       String
-  year             Int
-  month            Int
-  daysPresent      Int    @default(0)
-  daysLate         Int    @default(0)
-  daysAbsent       Int    @default(0)
-  totalMinutesLate    Int    @default(0)
-  totalPenalty        Int    @default(0)
-  totalReward         Int    @default(0)
-  totalMinutesOvertime Int   @default(0)
-  totalOvertimeAmount  Int   @default(0)
-  updatedAt           DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  employeeId           String
+  year                 Int
+  month                Int
+  daysPresent          Int      @default(0)
+  daysLate             Int      @default(0)
+  daysAbsent           Int      @default(0)
+  totalMinutesLate     Int      @default(0)
+  totalPenalty         Int      @default(0)
+  totalReward          Int      @default(0)
+  totalMinutesOvertime Int      @default(0)
+  totalOvertimeAmount  Int      @default(0)
+  updatedAt            DateTime @updatedAt
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -282,7 +284,7 @@ model PenaltyRule {
   fromMinutes Int
   toMinutes   Int
   amount      Int
-  type        String @default("late")  // "late" | "early_leave"
+  type        String @default("late") // "late" | "early_leave"
 
   // Phạm vi áp dụng — JSON string[] / number[] dạng TEXT. null hoặc rỗng = áp dụng cho tất cả.
   scopeDepartments String? // JSON string[] tên phòng ban; bỏ qua nếu scopeEmployeeIds có giá trị
@@ -303,19 +305,19 @@ model RewardRule {
 }
 
 model Holiday {
-  id         String  @id @default(cuid())
-  companyId  String
-  date       String  // YYYY-MM-DD — ngày bắt đầu (mode "fixed": áp dụng cả công ty; mode "flexible": đầu khoảng NV được chọn)
-  name       String
-  description String? // Mô tả chi tiết đợt nghỉ (sếp viết thêm, khác với `name` là tiêu đề ngắn) —
-                       // hiện cho NV ở /ho-so + tự động làm "Lý do xin nghỉ" trong đơn khi NV chọn
-                       // ngày nghỉ lễ (kind="holiday") không cần gõ lý do riêng.
-  isNational Boolean @default(true)
+  id           String  @id @default(cuid())
+  companyId    String
+  date         String // YYYY-MM-DD — ngày bắt đầu (mode "fixed": áp dụng cả công ty; mode "flexible": đầu khoảng NV được chọn)
+  name         String
+  description  String? // Mô tả chi tiết đợt nghỉ (sếp viết thêm, khác với `name` là tiêu đề ngắn) —
+  // hiện cho NV ở /ho-so + tự động làm "Lý do xin nghỉ" trong đơn khi NV chọn
+  // ngày nghỉ lễ (kind="holiday") không cần gõ lý do riêng.
+  isNational   Boolean @default(true)
   penalizeLate Boolean @default(false) // true = ngày lễ này vẫn tính muộn/phạt như thường; false = không phạt
-  mode       String  @default("fixed") // "fixed" = nghỉ cố định đúng ngày/khoảng cho cả công ty | "flexible" = NV tự chọn ngày trong khoảng
-  endDate    String? // YYYY-MM-DD — ngày kết thúc khoảng; null = chỉ 1 ngày (= date)
-  totalDays  Float?  // mode=fixed: tổng số ngày nghỉ công bố (hiển thị) — áp dụng đúng mọi ngày trong [date, endDate] cho toàn bộ NV đang hoạt động
-  maxDays    Float?  // mode=flexible: số ngày tối đa 1 NV được tự chọn trong khoảng [date, endDate]
+  mode         String  @default("fixed") // "fixed" = nghỉ cố định đúng ngày/khoảng cho cả công ty | "flexible" = NV tự chọn ngày trong khoảng
+  endDate      String? // YYYY-MM-DD — ngày kết thúc khoảng; null = chỉ 1 ngày (= date)
+  totalDays    Float? // mode=fixed: tổng số ngày nghỉ công bố (hiển thị) — áp dụng đúng mọi ngày trong [date, endDate] cho toàn bộ NV đang hoạt động
+  maxDays      Float? // mode=flexible: số ngày tối đa 1 NV được tự chọn trong khoảng [date, endDate]
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   leaveRequests LeaveRequest[]
@@ -324,24 +326,24 @@ model Holiday {
 }
 
 model LeaveRequest {
-  id         String   @id @default(cuid())
-  employeeId String
-  companyId  String
-  type       String   @default("annual") // "annual" | "sick" | "unpaid" | "maternity" | "other" | "holiday"
-  fromDate   String   // YYYY-MM-DD
-  toDate     String   // YYYY-MM-DD
-  days       Float
-  reason     String?
-  status     String   @default("pending") // "pending" | "approved" | "rejected"
-  note       String?  // ghi chú của sếp khi duyệt/từ chối
-  handoverEmployeeId   String?  // người nhận việc
-  handoverConfirmedAt  DateTime? // thời điểm người nhận xác nhận
-  employeeSignature    String?  // base64 PNG chữ ký nhân viên từ kiosk
-  createdAt  DateTime @default(now())
+  id                  String    @id @default(cuid())
+  employeeId          String
+  companyId           String
+  type                String    @default("annual") // "annual" | "sick" | "unpaid" | "maternity" | "other" | "holiday"
+  fromDate            String // YYYY-MM-DD
+  toDate              String // YYYY-MM-DD
+  days                Float
+  reason              String?
+  status              String    @default("pending") // "pending" | "approved" | "rejected"
+  note                String? // ghi chú của sếp khi duyệt/từ chối
+  handoverEmployeeId  String? // người nhận việc
+  handoverConfirmedAt DateTime? // thời điểm người nhận xác nhận
+  employeeSignature   String? // base64 PNG chữ ký nhân viên từ kiosk
+  createdAt           DateTime  @default(now())
   // Nghỉ lễ tự chọn (Holiday.mode="flexible"): liên kết tới đợt lễ + các ngày cụ thể NV chọn
   // (có thể không liền kề nhau, nên không dùng fromDate..toDate là đủ — xem `dates`).
-  holidayId  String?
-  dates      String?  // JSON string[] "YYYY-MM-DD" — chỉ set khi type="holiday"; null thì dùng fromDate..toDate liên tục như các loại nghỉ khác
+  holidayId           String?
+  dates               String? // JSON string[] "YYYY-MM-DD" — chỉ set khi type="holiday"; null thì dùng fromDate..toDate liên tục như các loại nghỉ khác
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -349,23 +351,23 @@ model LeaveRequest {
 }
 
 model AttendanceCorrection {
-  id         String   @id @default(cuid())
-  logId      String
-  adminId    String
-  field      String   // "checkInAt" | "checkOutAt" | "status"
-  oldValue   String?
-  newValue   String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  logId     String
+  adminId   String
+  field     String // "checkInAt" | "checkOutAt" | "status"
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
 }
 
 // Nhân viên xin điều chỉnh chấm công (quên chấm, sai giờ)
 model CorrectionRequest {
   id                String   @id @default(cuid())
   employeeId        String
-  date              String   // YYYY-MM-DD
+  date              String // YYYY-MM-DD
   type              String   @default("check_in") // "check_in" | "check_out" | "both"
-  requestedCheckIn  String?  // HH:MM — giờ vào đề nghị
-  requestedCheckOut String?  // HH:MM — giờ ra đề nghị
+  requestedCheckIn  String? // HH:MM — giờ vào đề nghị
+  requestedCheckOut String? // HH:MM — giờ ra đề nghị
   reason            String
   status            String   @default("pending") // "pending" | "approved" | "rejected"
   adminNote         String?
@@ -381,15 +383,15 @@ model CorrectionRequest {
 model Payment {
   id        String    @id @default(cuid())
   companyId String
-  reference String    @unique  // e.g., TIMIO_ABC123
-  amount    Int                // VND
-  plan      String             // "pro" | "business" | "credit" (nạp credit cộng đồng)
+  reference String    @unique // e.g., TIMIO_ABC123
+  amount    Int // VND
+  plan      String // "pro" | "business" | "credit" (nạp credit cộng đồng)
   months    Int       @default(1)
   status    String    @default("pending") // pending | completed | expired
   kind      String    @default("subscription") // "subscription" | "credit"
-  credits   Int?               // số credit cộng đồng nạp (khi kind="credit")
+  credits   Int? // số credit cộng đồng nạp (khi kind="credit")
   paidAt    DateTime?
-  expiresAt DateTime           // payment link expires after 2 hours
+  expiresAt DateTime // payment link expires after 2 hours
   createdAt DateTime  @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -400,7 +402,7 @@ model ImpersonationLog {
   adminEmail String
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  action     String   // "enter" | "exit"
+  action     String // "enter" | "exit"
   createdAt  DateTime @default(now())
 
   @@index([companyId])
@@ -408,20 +410,20 @@ model ImpersonationLog {
 }
 
 model Affiliate {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  code        String   @unique  // unique affiliate code, used in ?aff=CODE links
-  phone       String?
-  channel     String?           // "blog", "youtube", "zalo", "facebook", etc.
-  status      String   @default("pending") // "pending" | "active"
-  bankName    String?           // Tên ngân hàng (VCB, TCB, MB, ...)
-  bankAccount String?           // Số tài khoản ngân hàng
-  accountName String?           // Tên chủ tài khoản (đúng như CCCD)
-  otp         String?           // 6-digit OTP code (hashed)
-  otpExpiresAt DateTime?        // OTP expires after 15 minutes
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  code         String    @unique // unique affiliate code, used in ?aff=CODE links
+  phone        String?
+  channel      String? // "blog", "youtube", "zalo", "facebook", etc.
+  status       String    @default("pending") // "pending" | "active"
+  bankName     String? // Tên ngân hàng (VCB, TCB, MB, ...)
+  bankAccount  String? // Số tài khoản ngân hàng
+  accountName  String? // Tên chủ tài khoản (đúng như CCCD)
+  otp          String? // 6-digit OTP code (hashed)
+  otpExpiresAt DateTime? // OTP expires after 15 minutes
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   clicks        AffiliateClick[]
   codeHistories AffiliateCodeHistory[]
@@ -433,10 +435,10 @@ model AffiliateClick {
   affiliate     Affiliate @relation(fields: [affiliateCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
   ip            String?
   userAgent     String?
-  referrer      String?   // full referrer URL
-  device        String?   // "mobile" | "desktop" | "tablet"
+  referrer      String? // full referrer URL
+  device        String? // "mobile" | "desktop" | "tablet"
   convertedAt   DateTime? // when they registered as a company
-  companyId     String?   // which company they became (after registration)
+  companyId     String? // which company they became (after registration)
   createdAt     DateTime  @default(now())
 
   @@index([affiliateCode])
@@ -444,16 +446,16 @@ model AffiliateClick {
 }
 
 model SalaryPayment {
-  id          String    @id @default(cuid())
-  companyId   String
-  employeeId  String
-  year        Int
-  month       Int
-  amount      Float     @default(0)
-  paidAt      DateTime?
-  status      String    @default("unpaid") // "unpaid" | "paid"
-  note        String?
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(cuid())
+  companyId  String
+  employeeId String
+  year       Int
+  month      Int
+  amount     Float     @default(0)
+  paidAt     DateTime?
+  status     String    @default("unpaid") // "unpaid" | "paid"
+  note       String?
+  createdAt  DateTime  @default(now())
 
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -474,7 +476,7 @@ model SalaryAdvance {
   source      String    @default("admin") // "admin" = admin tạo tay | "worker" = NV tự ứng qua app (EWA)
   fee         Int       @default(0) // phí dịch vụ NV trả (chỉ EWA); trừ vào lương cùng khoản ứng
   disbursedAt DateTime? // thời điểm công ty đã thật sự chi tiền cho NV
-  disburseRef String?   // mã lệnh chi / mã giao dịch (khi nối cổng payout)
+  disburseRef String? // mã lệnh chi / mã giao dịch (khi nối cổng payout)
   requestedAt DateTime  @default(now())
   approvedAt  DateTime?
   createdAt   DateTime  @default(now())
@@ -490,10 +492,10 @@ model ShiftAssignment {
   id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  date       String   // YYYY-MM-DD
-  shiftLabel String   // "Ca sáng" | "Ca chiều" | "Ca tối" | "Ca cả ngày" | "Nghỉ" | custom
-  checkIn    String   // HH:MM
-  checkOut   String   // HH:MM
+  date       String // YYYY-MM-DD
+  shiftLabel String // "Ca sáng" | "Ca chiều" | "Ca tối" | "Ca cả ngày" | "Nghỉ" | custom
+  checkIn    String // HH:MM
+  checkOut   String // HH:MM
   note       String?
   createdAt  DateTime @default(now())
 
@@ -508,13 +510,13 @@ model OvertimeRequest {
   id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  date       String   // YYYY-MM-DD — ngày muốn tăng ca
-  startTime  String   // HH:MM
-  endTime    String   // HH:MM
-  hours      Float    // số giờ dự kiến
+  date       String // YYYY-MM-DD — ngày muốn tăng ca
+  startTime  String // HH:MM
+  endTime    String // HH:MM
+  hours      Float // số giờ dự kiến
   reason     String?
   status     String   @default("pending") // pending | approved | rejected
-  note       String?  // ghi chú của admin khi duyệt
+  note       String? // ghi chú của admin khi duyệt
   createdAt  DateTime @default(now())
 
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -529,10 +531,10 @@ model AuditLog {
   companyId  String
   adminId    String?
   adminEmail String?
-  action     String   // "create_employee" | "approve_leave" | "reject_leave" | "update_salary" | ...
-  entityType String?  // "Employee" | "LeaveRequest" | "AttendanceLog" | ...
+  action     String // "create_employee" | "approve_leave" | "reject_leave" | "update_salary" | ...
+  entityType String? // "Employee" | "LeaveRequest" | "AttendanceLog" | ...
   entityId   String?
-  detail     String?  // JSON chi tiết
+  detail     String? // JSON chi tiết
   createdAt  DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -545,31 +547,33 @@ model DisciplineRecord {
   id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  type       String   // "warning" | "serious_warning" | "suspension" | "dismissal"
-  date       String   // YYYY-MM-DD
+  type       String // "warning" | "serious_warning" | "suspension" | "dismissal"
+  date       String // YYYY-MM-DD
   reason     String
   note       String?
   createdAt  DateTime @default(now())
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([companyId])
   @@index([employeeId])
 }
 
 model Asset {
-  id          String    @id @default(cuid())
-  companyId   String
-  code        String
-  name        String
-  category    String?   // "laptop" | "phone" | "vehicle" | "key" | "card" | "other"
-  employeeId  String?
-  assignedAt  DateTime?
-  returnedAt  DateTime?
-  status      String    @default("available") // "available" | "assigned" | "damaged" | "lost"
-  note        String?
-  createdAt   DateTime  @default(now())
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  id         String    @id @default(cuid())
+  companyId  String
+  code       String
+  name       String
+  category   String? // "laptop" | "phone" | "vehicle" | "key" | "card" | "other"
+  employeeId String?
+  assignedAt DateTime?
+  returnedAt DateTime?
+  status     String    @default("available") // "available" | "assigned" | "damaged" | "lost"
+  note       String?
+  createdAt  DateTime  @default(now())
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
   @@index([companyId, status])
   @@index([employeeId])
 }
@@ -578,8 +582,8 @@ model WorkHistory {
   id          String   @id @default(cuid())
   companyId   String
   employeeId  String
-  date        String   // YYYY-MM-DD
-  type        String   // "promotion" | "transfer" | "salary_change" | "title_change" | "department_change" | "other"
+  date        String // YYYY-MM-DD
+  type        String // "promotion" | "transfer" | "salary_change" | "title_change" | "department_change" | "other"
   description String
   oldValue    String?
   newValue    String?
@@ -587,38 +591,41 @@ model WorkHistory {
   createdAt   DateTime @default(now())
   company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([companyId])
   @@index([employeeId])
 }
 
 model Certificate {
-  id          String   @id @default(cuid())
-  companyId   String
-  employeeId  String
-  name        String
-  issuer      String?
-  issueDate   String?  // YYYY-MM-DD
-  expiryDate  String?  // YYYY-MM-DD
-  note        String?
-  createdAt   DateTime @default(now())
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  name       String
+  issuer     String?
+  issueDate  String? // YYYY-MM-DD
+  expiryDate String? // YYYY-MM-DD
+  note       String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([companyId])
   @@index([employeeId])
 }
 
 model SalaryHistory {
-  id          String   @id @default(cuid())
-  companyId   String
-  employeeId  String
-  date        String   // YYYY-MM-DD — ngày áp dụng
-  oldSalary   Int
-  newSalary   Int
-  reason      String?
-  adminEmail  String?
-  createdAt   DateTime @default(now())
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  companyId  String
+  employeeId String
+  date       String // YYYY-MM-DD — ngày áp dụng
+  oldSalary  Int
+  newSalary  Int
+  reason     String?
+  adminEmail String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([companyId])
   @@index([employeeId])
 }
@@ -627,14 +634,15 @@ model EarlyLeaveRequest {
   id         String   @id @default(cuid())
   companyId  String
   employeeId String
-  date       String   // YYYY-MM-DD
-  leaveTime  String   // HH:MM — giờ muốn về sớm
+  date       String // YYYY-MM-DD
+  leaveTime  String // HH:MM — giờ muốn về sớm
   reason     String?
   status     String   @default("pending") // "pending" | "approved" | "rejected"
   note       String?
   createdAt  DateTime @default(now())
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([companyId, status])
   @@index([employeeId])
 }
@@ -644,8 +652,8 @@ model ShiftSwapRequest {
   companyId     String
   requesterId   String
   targetId      String
-  requesterDate String   // YYYY-MM-DD — ngày ca của người xin đổi
-  targetDate    String   // YYYY-MM-DD — ngày ca muốn đổi sang
+  requesterDate String // YYYY-MM-DD — ngày ca của người xin đổi
+  targetDate    String // YYYY-MM-DD — ngày ca muốn đổi sang
   reason        String?
   status        String   @default("pending") // "pending" | "approved" | "rejected"
   note          String?
@@ -665,9 +673,9 @@ model SalesRecord {
   id          String   @id @default(cuid())
   companyId   String
   employeeId  String
-  month       String   // YYYY-MM
+  month       String // YYYY-MM
   salesAmount Float    @default(0) // Doanh số thực tế trong tháng
-  kpiScore    Float?   // 0–100 điểm KPI (null nếu không dùng KPI scoring)
+  kpiScore    Float? // 0–100 điểm KPI (null nếu không dùng KPI scoring)
   note        String?
   createdAt   DateTime @default(now())
 
@@ -680,7 +688,7 @@ model SalesRecord {
 
 // Vị trí tuyển dụng
 model JobPosting {
-  id           String      @id @default(cuid())
+  id           String   @id @default(cuid())
   companyId    String
   title        String
   department   String?
@@ -689,15 +697,15 @@ model JobPosting {
   requirements String?
   salaryMin    Int?
   salaryMax    Int?
-  status       String      @default("open") // "open" | "closed" | "filled"
-  branchId     String?     // null = toàn công ty; nếu set → chỉ manager chi nhánh đó thấy
-  quantity     Int?        // số lượng cần tuyển
-  workTime     String?     // ca/giờ làm (vd "Ca tối 17h-22h")
-  benefits     String?     // quyền lợi
-  criteria     String?     // JSON string[]: tiêu chí đánh giá ứng viên (KH2 — kiểu Ashby)
-  tags         String?     // thẻ (phân tách bởi dấu phẩy) — giúp người tìm việc tìm thấy tin
-  isPublic     Boolean     @default(true) // hiện trên trang tuyển dụng công khai
-  createdAt    DateTime    @default(now())
+  status       String   @default("open") // "open" | "closed" | "filled"
+  branchId     String? // null = toàn công ty; nếu set → chỉ manager chi nhánh đó thấy
+  quantity     Int? // số lượng cần tuyển
+  workTime     String? // ca/giờ làm (vd "Ca tối 17h-22h")
+  benefits     String? // quyền lợi
+  criteria     String? // JSON string[]: tiêu chí đánh giá ứng viên (KH2 — kiểu Ashby)
+  tags         String? // thẻ (phân tách bởi dấu phẩy) — giúp người tìm việc tìm thấy tin
+  isPublic     Boolean  @default(true) // hiện trên trang tuyển dụng công khai
+  createdAt    DateTime @default(now())
 
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   candidates Candidate[]
@@ -707,31 +715,31 @@ model JobPosting {
 
 // Ứng viên
 model Candidate {
-  id         String    @id @default(cuid())
-  companyId  String
-  jobId      String
-  name       String
-  email      String?
-  phone      String?
-  status     String    @default("new") // "new" | "reviewing" | "interview" | "offer" | "hired" | "rejected"
-  notes      String?
-  source     String?   // "website" | "referral" | "linkedin" | "facebook" | "other"
-  experience String?   // kinh nghiệm/giới thiệu (từ form ứng tuyển online)
-  cvUrl      String?   // link CV (Drive/website)
-  cvFile     String?   // CV tải lên (data URI base64 — PDF/ảnh)
-  cvFileName String?   // tên file CV gốc
-  aiScore    Int?      // 0-100 điểm AI chấm (GĐ3)
-  aiSummary  String?   // AI tóm tắt + lý do điểm (GĐ3)
+  id             String    @id @default(cuid())
+  companyId      String
+  jobId          String
+  name           String
+  email          String?
+  phone          String?
+  status         String    @default("new") // "new" | "reviewing" | "interview" | "offer" | "hired" | "rejected"
+  notes          String?
+  source         String? // "website" | "referral" | "linkedin" | "facebook" | "other"
+  experience     String? // kinh nghiệm/giới thiệu (từ form ứng tuyển online)
+  cvUrl          String? // link CV (Drive/website)
+  cvFile         String? // CV tải lên (data URI base64 — PDF/ảnh)
+  cvFileName     String? // tên file CV gốc
+  aiScore        Int? // 0-100 điểm AI chấm (GĐ3)
+  aiSummary      String? // AI tóm tắt + lý do điểm (GĐ3)
   criteriaResult String? // JSON [{criterion, verdict:"pass|fail|unknown", evidence}] (KH2)
-  interviewAt DateTime? // lịch phỏng vấn
-  hiredAt    DateTime? // thời điểm được tuyển (để tính time-to-hire)
-  hiredEmpId String?   // employeeId nếu được tuyển vào làm
-  appliedAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  interviewAt    DateTime? // lịch phỏng vấn
+  hiredAt        DateTime? // thời điểm được tuyển (để tính time-to-hire)
+  hiredEmpId     String? // employeeId nếu được tuyển vào làm
+  appliedAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  company Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  job     JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  hiredEmployee Employee? @relation(fields: [hiredEmpId], references: [id], onDelete: SetNull)
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  job           JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  hiredEmployee Employee?  @relation(fields: [hiredEmpId], references: [id], onDelete: SetNull)
 
   @@index([companyId, status])
   @@index([jobId])
@@ -762,17 +770,17 @@ model TalentInvite {
 
 // GĐ2: Hồ sơ cộng đồng của cựu nhân viên (tạo khi họ đồng ý)
 model TalentProfile {
-  id               String   @id @default(cuid())
-  employeeId       String   @unique
+  id               String    @id @default(cuid())
+  employeeId       String    @unique
   sourceCompanyId  String
-  isOpen           Boolean  @default(true)
+  isOpen           Boolean   @default(true)
   desiredTitle     String?
   desiredArea      String?
   desiredSalaryMin Int?
   desiredSalaryMax Int?
   skills           String?
   bio              String?
-  showAvatar       Boolean  @default(false)
+  showAvatar       Boolean   @default(false)
   vAttendance      Int?
   vPunctuality     Int?
   vTenureMonths    Int?
@@ -782,8 +790,8 @@ model TalentProfile {
   vPromotions      Int?
   vReviewCount     Int?
   vStatsAt         DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([isOpen])
 }
@@ -880,19 +888,19 @@ model OutreachOptOut {
 // ─── Sourcing GĐ3: Giới thiệu có thưởng (Referral) ──────────────────────────────
 // Mỗi nhân viên/cựu NV có link giới thiệu cho 1 vị trí. Ứng viên nộp qua link → gắn công.
 model Referral {
-  id           String   @id @default(cuid())
-  companyId    String
-  jobId        String?
-  referrerType String // "employee" | "talent"
-  referrerId   String // employeeId / talentProfileId
-  referrerName String?
-  code         String   @unique
-  candidateId  String? // gắn khi có người nộp qua link
+  id            String   @id @default(cuid())
+  companyId     String
+  jobId         String?
+  referrerType  String // "employee" | "talent"
+  referrerId    String // employeeId / talentProfileId
+  referrerName  String?
+  code          String   @unique
+  candidateId   String? // gắn khi có người nộp qua link
   candidateName String?
-  status       String   @default("shared") // shared | applied | hired | rewarded
-  rewardAmount Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  status        String   @default("shared") // shared | applied | hired | rewarded
+  rewardAmount  Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([companyId])
   @@index([code])
@@ -900,46 +908,46 @@ model Referral {
 
 // ─── App Nhân Viên: tài khoản cá nhân (1 người = 1 tài khoản theo SĐT, gắn nhiều công ty) ───
 model WorkerAccount {
-  id               String    @id @default(cuid())
-  phone            String    @unique              // định danh chính
-  handle           String?   @unique              // slug hồ sơ công khai: /ho-so/{handle} (vd giang-a-ky)
-  name             String
-  email            String?
-  passwordHash     String?                        // bcrypt; null = chưa kích hoạt
-  avatarUrl        String?
-  coverUrl         String?                        // ảnh bìa hồ sơ (base64) — kiểu Facebook
-  bio              String?                        // giới thiệu ngắn / headline
-  zalo             String?                        // cá nhân tự thêm (ưu tiên hơn field công ty)
-  website          String?
-  facebook         String?
-  activationToken  String?   @unique              // link kích hoạt (xoá sau khi kích hoạt)
-  activatedAt      DateTime?
-  consentAppAt     DateTime?                       // đồng ý dùng app (Luật 91/2025)
-  consentFinanceAt DateTime?                       // đồng ý tính năng tài chính (ứng lương)
+  id                   String    @id @default(cuid())
+  phone                String    @unique // định danh chính
+  handle               String?   @unique // slug hồ sơ công khai: /ho-so/{handle} (vd giang-a-ky)
+  name                 String
+  email                String?
+  passwordHash         String? // bcrypt; null = chưa kích hoạt
+  avatarUrl            String?
+  coverUrl             String? // ảnh bìa hồ sơ (base64) — kiểu Facebook
+  bio                  String? // giới thiệu ngắn / headline
+  zalo                 String? // cá nhân tự thêm (ưu tiên hơn field công ty)
+  website              String?
+  facebook             String?
+  activationToken      String?   @unique // link kích hoạt (xoá sau khi kích hoạt)
+  activatedAt          DateTime?
+  consentAppAt         DateTime? // đồng ý dùng app (Luật 91/2025)
+  consentFinanceAt     DateTime? // đồng ý tính năng tài chính (ứng lương)
   // Lớp độ tin cậy di động — NV SỞ HỮU, opt-in (Luật 91/2025). Mặc định riêng tư.
-  profilePublic    Boolean   @default(false)        // cho phép người khác xem hồ sơ qua link
-  shareTrustScore  Boolean   @default(true)         // hiện điểm tin cậy khi công khai
-  shareContact     Boolean   @default(false)        // hiện SĐT khi công khai
-  shareEmail       Boolean   @default(false)        // hiện email khi công khai
-  shareZalo        Boolean   @default(false)        // hiện Zalo khi công khai
-  shareWebsite     Boolean   @default(false)        // hiện website khi công khai
-  shareFacebook    Boolean   @default(false)        // hiện Facebook khi công khai
-  openToWork       Boolean   @default(false)        // đang tìm việc → vào kho ứng viên xác thực
-  desiredArea      String?                          // khu vực mong muốn (tỉnh / Online / Bất kỳ đâu)
-  desiredPosition  String?                          // ngành nghề mong muốn (từ danh mục)
-  keywords         String?                          // từ khóa NV tự thêm (SEO tìm việc), phân tách bởi dấu phẩy
-  autoAcceptRecruiters Boolean @default(false)      // bật = mọi NTD quan tâm được liên hệ ngay; tắt = tự chọn từng người
-  createdAt        DateTime  @default(now())
+  profilePublic        Boolean   @default(false) // cho phép người khác xem hồ sơ qua link
+  shareTrustScore      Boolean   @default(true) // hiện điểm tin cậy khi công khai
+  shareContact         Boolean   @default(false) // hiện SĐT khi công khai
+  shareEmail           Boolean   @default(false) // hiện email khi công khai
+  shareZalo            Boolean   @default(false) // hiện Zalo khi công khai
+  shareWebsite         Boolean   @default(false) // hiện website khi công khai
+  shareFacebook        Boolean   @default(false) // hiện Facebook khi công khai
+  openToWork           Boolean   @default(false) // đang tìm việc → vào kho ứng viên xác thực
+  desiredArea          String? // khu vực mong muốn (tỉnh / Online / Bất kỳ đâu)
+  desiredPosition      String? // ngành nghề mong muốn (từ danh mục)
+  keywords             String? // từ khóa NV tự thêm (SEO tìm việc), phân tách bởi dấu phẩy
+  autoAcceptRecruiters Boolean   @default(false) // bật = mọi NTD quan tâm được liên hệ ngay; tắt = tự chọn từng người
+  createdAt            DateTime  @default(now())
 }
 
 // Thông báo trong app nhân viên (như Facebook/Zalo): NTD quan tâm, duyệt phép, sửa chấm công, trả lương...
 model WorkerNotification {
   id              String   @id @default(cuid())
   workerAccountId String
-  type            String   // recruiter | leave | correction | advance | salary | generic
+  type            String // recruiter | leave | correction | advance | salary | generic
   title           String
   body            String?
-  link            String?  // tab trên /ho-so: profile | income | attendance | leave
+  link            String? // tab trên /ho-so: profile | income | attendance | leave
   read            Boolean  @default(false)
   createdAt       DateTime @default(now())
 
@@ -954,8 +962,8 @@ model WorkerConnection {
   companyId       String
   companyName     String
   note            String?
-  status          String    @default("pending")     // pending | accepted | declined
-  chargedCredits  Int       @default(0)              // credit đã trừ khi kết nối; hoàn lại nếu NV từ chối
+  status          String    @default("pending") // pending | accepted | declined
+  chargedCredits  Int       @default(0) // credit đã trừ khi kết nối; hoàn lại nếu NV từ chối
   createdAt       DateTime  @default(now())
   respondedAt     DateTime?
 
@@ -973,16 +981,16 @@ model Announcement {
   pinned      Boolean   @default(false)
   publishedAt DateTime  @default(now())
   expiresAt   DateTime?
-  createdBy   String?   // email admin
+  createdBy   String? // email admin
   createdAt   DateTime  @default(now())
 
   // Bảng tin nội bộ kiểu "cộng đồng" (31/8/2026) — sếp đăng ảnh/video/link, nhân viên
   // thả cảm xúc + bình luận, giống Facebook. Tái dùng field JSON-in-TEXT, không đổi kiểu cột cũ.
-  images      String?   // JSON string[] — URL ảnh (Vercel Blob), tối đa vài ảnh/bài
-  videoUrl    String?   // URL video đính kèm (Vercel Blob)
-  linkUrl     String?   // link dán vào bài (nếu có)
-  linkPreview String?   // JSON { title, description, image, embedUrl, provider } — xem lib/linkPreview.ts
-  hashtags    String?   // JSON string[] — tách từ nội dung (#tag), để lọc/hiển thị
+  images      String? // JSON string[] — URL ảnh (Vercel Blob), tối đa vài ảnh/bài
+  videoUrl    String? // URL video đính kèm (Vercel Blob)
+  linkUrl     String? // link dán vào bài (nếu có)
+  linkPreview String? // JSON { title, description, image, embedUrl, provider } — xem lib/linkPreview.ts
+  hashtags    String? // JSON string[] — tách từ nội dung (#tag), để lọc/hiển thị
 
   company   Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   comments  AnnouncementComment[]
@@ -995,11 +1003,11 @@ model Announcement {
 // Lưu tên/avatar snapshot lúc bình luận (denormalized, giống pattern createdBy ở trên)
 // để hiện được ngay mà không cần join User/WorkerAccount.
 model AnnouncementComment {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   announcementId  String
   content         String
-  actorType       String   // "admin" | "worker"
-  actorKey        String   // "admin:<email>" hoặc "worker:<workerAccountId>" — định danh tác giả
+  actorType       String // "admin" | "worker"
+  actorKey        String // "admin:<email>" hoặc "worker:<workerAccountId>" — định danh tác giả
   authorName      String
   authorAvatarUrl String?
   createdAt       DateTime  @default(now())
@@ -1016,9 +1024,9 @@ model AnnouncementComment {
 model AnnouncementReaction {
   id             String   @id @default(cuid())
   announcementId String
-  emoji          String   // "like" | "love" | "haha" | "wow" | "sad" | "angry"
-  actorType      String   // "admin" | "worker"
-  actorKey       String   // "admin:<email>" hoặc "worker:<workerAccountId>"
+  emoji          String // "like" | "love" | "haha" | "wow" | "sad" | "angry"
+  actorType      String // "admin" | "worker"
+  actorKey       String // "admin:<email>" hoặc "worker:<workerAccountId>"
   authorName     String
   createdAt      DateTime @default(now())
 
@@ -1035,13 +1043,13 @@ model ExpenseClaim {
   employeeId  String
   title       String
   category    String   @default("other") // "transport" | "meal" | "accommodation" | "entertainment" | "other"
-  amount      Int      // VND
-  date        String   // YYYY-MM-DD
+  amount      Int // VND
+  date        String // YYYY-MM-DD
   description String?
   receiptUrl  String?
   status      String   @default("pending") // "pending" | "approved" | "rejected" | "paid"
   note        String?
-  approvedBy  String?  // email admin
+  approvedBy  String? // email admin
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1057,15 +1065,15 @@ model PerformanceReview {
   id           String   @id @default(cuid())
   companyId    String
   employeeId   String
-  period       String   // e.g. "2026-Q2", "2026-H1", "2026"
+  period       String // e.g. "2026-Q2", "2026-H1", "2026"
   type         String   @default("quarterly") // "monthly" | "quarterly" | "semi-annual" | "annual"
-  overallScore Float?   // 1–5 do manager chấm
-  selfScore    Float?   // 1–5 do nhân viên tự chấm
+  overallScore Float? // 1–5 do manager chấm
+  selfScore    Float? // 1–5 do nhân viên tự chấm
   strengths    String?
   improvements String?
   goals        String?
   status       String   @default("pending") // "pending" | "self-review" | "manager-review" | "done"
-  reviewedBy   String?  // email admin
+  reviewedBy   String? // email admin
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1080,9 +1088,9 @@ model PerformanceReview {
 model ChecklistTemplate {
   id        String   @id @default(cuid())
   companyId String
-  type      String   // "onboarding" | "offboarding"
+  type      String // "onboarding" | "offboarding"
   name      String
-  tasks     String   // JSON: string[]
+  tasks     String // JSON: string[]
   createdAt DateTime @default(now())
 
   company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1093,22 +1101,22 @@ model ChecklistTemplate {
 
 // Checklist gắn với nhân viên cụ thể
 model EmployeeChecklist {
-  id         String   @id @default(cuid())
-  companyId  String
-  employeeId String
-  templateId String
-  type       String   // "onboarding" | "offboarding"
-  tasks      String   // JSON: [{title: string, done: boolean, doneAt: string | null}]
-  status     String   @default("in_progress") // "in_progress" | "done"
-  dueDate    String?  // YYYY-MM-DD
-  confirmedAt DateTime? // (cũ) nhân viên tự quét mặt xác nhận — onboarding
+  id                   String    @id @default(cuid())
+  companyId            String
+  employeeId           String
+  templateId           String
+  type                 String // "onboarding" | "offboarding"
+  tasks                String // JSON: [{title: string, done: boolean, doneAt: string | null}]
+  status               String    @default("in_progress") // "in_progress" | "done"
+  dueDate              String? // YYYY-MM-DD
+  confirmedAt          DateTime? // (cũ) nhân viên tự quét mặt xác nhận — onboarding
   // Bàn giao 2 chiều khi NGHỈ VIỆC: người nghỉ quét mặt "giao", người kế nhiệm quét mặt "nhận"
-  handoverToEmployeeId String?   // người kế nhiệm (nhận bàn giao)
+  handoverToEmployeeId String? // người kế nhiệm (nhận bàn giao)
   giverConfirmedAt     DateTime? // người nghỉ đã quét mặt xác nhận GIAO
   receiverConfirmedAt  DateTime? // người kế nhiệm đã quét mặt xác nhận NHẬN
-  assets     String?  // JSON: [{assetId, code, name, action:"transfer"|"recall", done}]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  assets               String? // JSON: [{assetId, code, name, action:"transfer"|"recall", done}]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -1122,8 +1130,8 @@ model EmployeeChecklist {
 model ShiftTemplate {
   id        String   @id @default(cuid())
   companyId String
-  name      String   // e.g. "Ca sáng T2-T6"
-  pattern   String   // JSON: [{dayOfWeek: 1, shiftId: "..."}] (0=CN, 1=T2...)
+  name      String // e.g. "Ca sáng T2-T6"
+  pattern   String // JSON: [{dayOfWeek: 1, shiftId: "..."}] (0=CN, 1=T2...)
   createdAt DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1135,8 +1143,8 @@ model ShiftTemplate {
 model ChatSession {
   id        String   @id @default(cuid())
   companyId String
-  userId    String   // Admin.id
-  userRole  String   // "owner" | "manager" | "accountant"
+  userId    String // Admin.id
+  userRole  String // "owner" | "manager" | "accountant"
   userName  String
   userEmail String?
   createdAt DateTime @default(now())
@@ -1152,9 +1160,9 @@ model ChatSession {
 model ChatMessage {
   id        String   @id @default(cuid())
   sessionId String
-  role      String   // "user" | "assistant"
+  role      String // "user" | "assistant"
   content   String
-  toolsUsed String?  // JSON: ["get_attendance_today", ...]
+  toolsUsed String? // JSON: ["get_attendance_today", ...]
   createdAt DateTime @default(now())
 
   session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -1172,7 +1180,7 @@ model SupportTicket {
   title       String
   description String
   priority    String   @default("normal") // "urgent" | "normal" | "low"
-  status      String   @default("new")    // "new" | "in_progress" | "resolved"
+  status      String   @default("new") // "new" | "in_progress" | "resolved"
   adminReply  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

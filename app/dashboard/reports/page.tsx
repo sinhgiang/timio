@@ -132,6 +132,8 @@ export default async function ReportsPage({
         checkInAt: l.checkInAt?.toISOString() ?? null,
         checkOutAt: l.checkOutAt?.toISOString() ?? null,
         minutesLate: l.minutesLate,
+        minutesEarly: l.minutesEarly,
+        earlyLeavePenalty: l.earlyLeavePenalty,
         minutesOvertime: l.minutesOvertime,
         status: l.status,
         penaltyAmount: l.penaltyAmount,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateCheckInStatus, filterApplicableRules, type LateRule } from "@/lib/attendance";
+import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
 import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeThreshold, type EmployeeOvertimeOverride } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
@@ -150,18 +150,12 @@ export async function POST(req: NextRequest) {
             employee.baseSalary, employee.branch.standardWorkDays, isWeekend, otThreshold
           );
 
-      // Ra sớm: phạt nếu checkout trước giờ tan ca
-      const minutesEarly = nowVNMinutes < coScheduledMinutes ? coScheduledMinutes - nowVNMinutes : 0;
-      let earlyLeavePenalty = 0;
-      if (minutesEarly > coGracePeriod) {
-        const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
-          .filter((r) => r.type === "early_leave")
-          .sort((a, b) => a.fromMinutes - b.fromMinutes);
-        for (const rule of earlyRules) {
-          if (minutesEarly >= rule.fromMinutes && minutesEarly <= rule.toMinutes) { earlyLeavePenalty = rule.amount; break; }
-          if (minutesEarly > rule.toMinutes) earlyLeavePenalty = rule.amount;
-        }
-      }
+      // Ra sớm: phạt nếu checkout trước giờ tan ca (dùng chung lib/attendance.ts calculateEarlyLeave
+      // để đồng nhất với admin-edit/recalculate — trước đây mỗi route tự tính riêng, dễ lệch nhau)
+      const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, now)
+        .filter((r) => r.type === "early_leave")
+        .map((r) => ({ fromMinutes: r.fromMinutes, toMinutes: r.toMinutes, amount: r.amount }));
+      const { minutesEarly, earlyLeavePenalty } = calculateEarlyLeave(now, checkOutTime, coGracePeriod, earlyRules);
 
       // Tăng ca: set pending — chỉ cộng tiền vào lương khi sếp duyệt (giống face check-in)
       const overtimeStatus = minutesOvertime > 0 ? "pending" : "none";
@@ -169,6 +163,7 @@ export async function POST(req: NextRequest) {
         where: { id: existingLog.id },
         data: {
           checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus,
+          minutesEarly, earlyLeavePenalty,
           ...(earlyLeavePenalty > 0 && { penaltyAmount: { increment: earlyLeavePenalty } }),
         },
       });

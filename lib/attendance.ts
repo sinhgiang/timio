@@ -125,6 +125,49 @@ export function calculateCheckInStatus(
   };
 }
 
+export interface EarlyLeaveResult {
+  minutesEarly: number;
+  earlyLeavePenalty: number;
+}
+
+/**
+ * Tính phút ra sớm + tiền phạt tương ứng (checkout trước giờ tan ca) — logic dùng chung cho
+ * checkin/route.ts, checkin-face/route.ts, checkin-qr/route.ts, admin-edit/route.ts,
+ * recalculate/route.ts để tránh lệch nhau (trước đây mỗi route tự copy 1 bản, dẫn tới
+ * admin-edit/recalculate không bao giờ tính lại phạt ra sớm — xem ReportsClient.tsx báo cáo).
+ * `earlyLeaveRules` PHẢI đã lọc type === "early_leave" trước khi truyền vào.
+ */
+export function calculateEarlyLeave(
+  checkOutAt: Date,
+  scheduledTime: string,
+  gracePeriod: number,
+  earlyLeaveRules: LateRule[]
+): EarlyLeaveResult {
+  const [hours, minutes] = scheduledTime.split(":").map(Number);
+  // Compare in Vietnam time (UTC+7) — giống calculateCheckInStatus
+  const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const checkOutVNMs = (checkOutAt.getTime() + VN_OFFSET_MS) % (24 * 60 * 60 * 1000);
+  const checkOutMinutes = Math.floor(checkOutVNMs / 60000);
+  const scheduledMinutes = hours * 60 + minutes;
+  const minutesEarly = checkOutMinutes < scheduledMinutes ? scheduledMinutes - checkOutMinutes : 0;
+
+  let earlyLeavePenalty = 0;
+  if (minutesEarly > gracePeriod) {
+    const sortedRules = [...earlyLeaveRules].sort((a, b) => a.fromMinutes - b.fromMinutes);
+    for (const rule of sortedRules) {
+      if (minutesEarly >= rule.fromMinutes && minutesEarly <= rule.toMinutes) {
+        earlyLeavePenalty = rule.amount;
+        break;
+      }
+      if (minutesEarly > rule.toMinutes) {
+        earlyLeavePenalty = rule.amount;
+      }
+    }
+  }
+
+  return { minutesEarly, earlyLeavePenalty };
+}
+
 interface MonthlySummaryInput {
   logs: AttendanceLog[];
   workDays: number;
