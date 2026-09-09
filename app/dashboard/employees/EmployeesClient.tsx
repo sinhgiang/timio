@@ -1183,7 +1183,7 @@ export default function EmployeesClient({
                       <input
                         type="number"
                         min={0}
-                        step={100000}
+                        step={1000}
                         value={form.baseSalary}
                         onChange={(e) => setForm({ ...form, baseSalary: e.target.value })}
                         placeholder="VD: 10000000"
@@ -1249,7 +1249,7 @@ export default function EmployeesClient({
                             type="number"
                             placeholder="Số tiền"
                             min={0}
-                            step={50000}
+                            step={1000}
                             value={a.amount}
                             onChange={(e) => {
                               const next = [...form.allowances];

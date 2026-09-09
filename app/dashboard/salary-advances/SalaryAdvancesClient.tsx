@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, CheckCircle2, XCircle, Trash2, Wallet,
-  Smartphone, Banknote, Settings2, Info, RotateCcw,
+  Smartphone, Banknote, Settings2, Info, RotateCcw, Clock,
 } from "lucide-react";
 
 interface EmployeeRef {
@@ -57,12 +57,17 @@ function fmt(n: number) {
 const STATUS_LABEL: Record<string, string> = {
   pending:  "Chờ duyệt",
   approved: "Đã duyệt",
-  rejected: "Từ chối",
+  rejected: "Đã từ chối",
 };
 const STATUS_COLOR: Record<string, string> = {
   pending:  "bg-yellow-50 text-yellow-700 border-yellow-200",
   approved: "bg-green-50 text-green-700 border-green-200",
   rejected: "bg-red-50 text-red-600 border-red-200",
+};
+const STATUS_ICON: Record<string, typeof Clock> = {
+  pending:  Clock,
+  approved: CheckCircle2,
+  rejected: XCircle,
 };
 
 export default function SalaryAdvancesClient({ advances: init, employees, currentMonth, ewaConfig, isOwner }: Props) {
@@ -294,8 +299,8 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
             <input
               required
               type="number"
-              min={1}
-              step={100000}
+              min={1000}
+              step={1000}
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               placeholder="Số tiền (VD: 5000000)"
@@ -364,9 +369,14 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
                   {adv.fee > 0 && <p className="text-[11px] text-gray-400">phí {fmt(adv.fee)}</p>}
                 </div>
                 <div className="text-right lg:text-left">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[adv.status] ?? ""}`}>
-                    {STATUS_LABEL[adv.status] ?? adv.status}
-                  </span>
+                  {(() => {
+                    const StatusIcon = STATUS_ICON[adv.status] ?? Info;
+                    return (
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[adv.status] ?? ""}`}>
+                        <StatusIcon size={11} /> {STATUS_LABEL[adv.status] ?? adv.status}
+                      </span>
+                    );
+                  })()}
                   {adv.status === "approved" && (
                     adv.disbursedAt
                       ? <div className="text-[10px] text-green-600 mt-1 flex items-center justify-end lg:justify-start gap-0.5"><CheckCircle2 size={10} /> Đã chi</div>
