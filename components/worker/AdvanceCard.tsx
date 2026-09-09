@@ -130,7 +130,7 @@ export default function AdvanceCard() {
       <p className="text-2xl font-extrabold text-gray-900">Ứng tối đa {vnd(opt.available)}<span className="text-sm font-semibold text-gray-400"> đ</span></p>
       <p className="text-xs text-gray-500 mt-0.5">
         Đã kiếm {vnd(opt.earnedSoFar)}đ · trần {opt.maxPercent}% = {vnd(opt.advanceCap)}đ
-        {opt.alreadyAdvanced > 0 && <> · đã ứng {vnd(opt.alreadyAdvanced)}đ</>}
+        {opt.alreadyAdvanced > 0 && <> · <span className="text-amber-600 font-semibold">đã ứng {vnd(opt.alreadyAdvanced)}đ</span></>}
       </p>
       {opt.trustBoost > 0 && (
         <p className="text-[11px] text-amber-600 bg-amber-50 rounded-lg px-2 py-1 mt-1.5 inline-flex items-center gap-1">
