@@ -409,14 +409,18 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       : `Ra sớm — trừ ${formatCurrency(log!.earlyLeavePenalty)}`
                     : null;
                   const penaltyReasonText = [lateReason, earlyReason].filter(Boolean).join(" · ") || null;
-                  // Badge "i" cam ở ô Giờ vào: chỉ hiện khi dòng này ĐÃ bị admin sửa tay (log.note
-                  // luôn bắt buộc nhập từ Segment L => note có nghĩa là đã qua sửa tay ít nhất 1 lần).
-                  // originalCheckInAt/originalCheckOutAt chỉ có với các lần sửa SAU khi thêm field này —
-                  // log cũ (sửa trước đó) vẫn hiện badge + lý do, chỉ không có dòng "giờ gốc -> giờ mới".
+                  // Badge "i" cam: CHỈ hiện ở đúng ô (Giờ vào/Giờ ra) mà giá trị đó thực sự bị admin
+                  // sửa — giờ nào đúng/không đụng tới thì giữ nguyên, không hiện badge (theo yêu cầu
+                  // user: "giờ nào bị sai sửa nó chỉ hiện ở giờ đó thôi"). originalCheckInAt/Out chỉ
+                  // được chụp lại từ khi có field này — log cũ (sửa trước đó, chưa có original) không
+                  // biết chính xác cột nào đã đổi, fallback hiện tạm ở Giờ vào để không mất thông tin lý do.
                   const checkInChanged = !!log?.originalCheckInAt &&
                     (!log?.checkInAt || new Date(log.originalCheckInAt).getTime() !== new Date(log.checkInAt).getTime());
                   const checkOutChanged = !!log?.originalCheckOutAt &&
                     (!log?.checkOutAt || new Date(log.originalCheckOutAt).getTime() !== new Date(log.checkOutAt).getTime());
+                  const hasOriginalTracking = !!log?.originalCheckInAt || !!log?.originalCheckOutAt;
+                  const showInfoBadgeIn = checkInChanged || (!!log?.note && !hasOriginalTracking);
+                  const showInfoBadgeOut = checkOutChanged;
                   return (
                     <tr key={`${day}-${r.session}`} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
                       {i === 0 && (
@@ -451,23 +455,23 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                         className={`relative px-4 py-2 font-mono font-medium align-top ${
                           isLateCulprit ? "text-red-600 bg-red-50 rounded-md" : "text-gray-700"
                         }`}
-                        title={log?.note ? undefined : lateReason ?? expectedTitle}
+                        title={showInfoBadgeIn ? undefined : lateReason ?? expectedTitle}
                       >
                         <div className="flex items-center gap-1">
                           <span>{log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}</span>
-                          {log?.note && (
+                          {showInfoBadgeIn && (
                             <EditInfoBadge
-                              active={openInfoKey === `${log.id}:in`}
+                              active={openInfoKey === `${log!.id}:in`}
                               onToggle={(e) => {
                                 e.stopPropagation();
-                                setOpenInfoKey(openInfoKey === `${log.id}:in` ? null : `${log.id}:in`);
+                                setOpenInfoKey(openInfoKey === `${log!.id}:in` ? null : `${log!.id}:in`);
                               }}
                             />
                           )}
                         </div>
-                        {log?.note && openInfoKey === `${log.id}:in` && (
+                        {showInfoBadgeIn && openInfoKey === `${log!.id}:in` && (
                           <EditInfoPopover
-                            log={log}
+                            log={log!}
                             checkInChanged={checkInChanged}
                             checkOutChanged={checkOutChanged}
                             onClose={() => setOpenInfoKey(null)}
@@ -478,23 +482,23 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                         className={`relative px-4 py-2 font-mono align-top ${
                           isEarlyCulprit ? "text-red-600 bg-red-50 rounded-md font-medium" : "text-gray-500"
                         }`}
-                        title={log?.note ? undefined : earlyReason ?? expectedTitle}
+                        title={showInfoBadgeOut ? undefined : earlyReason ?? expectedTitle}
                       >
                         <div className="flex items-center gap-1">
                           <span>{log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}</span>
-                          {log?.note && (
+                          {showInfoBadgeOut && (
                             <EditInfoBadge
-                              active={openInfoKey === `${log.id}:out`}
+                              active={openInfoKey === `${log!.id}:out`}
                               onToggle={(e) => {
                                 e.stopPropagation();
-                                setOpenInfoKey(openInfoKey === `${log.id}:out` ? null : `${log.id}:out`);
+                                setOpenInfoKey(openInfoKey === `${log!.id}:out` ? null : `${log!.id}:out`);
                               }}
                             />
                           )}
                         </div>
-                        {log?.note && openInfoKey === `${log.id}:out` && (
+                        {showInfoBadgeOut && openInfoKey === `${log!.id}:out` && (
                           <EditInfoPopover
-                            log={log}
+                            log={log!}
                             checkInChanged={checkInChanged}
                             checkOutChanged={checkOutChanged}
                             onClose={() => setOpenInfoKey(null)}
