@@ -420,6 +420,7 @@ export interface HistoryDay {
   status: string | null;
   minutesLate: number;
   penaltyAmount: number;
+  note: string | null;
 }
 
 export interface HistoryResult {

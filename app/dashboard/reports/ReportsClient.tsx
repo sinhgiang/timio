@@ -6,7 +6,7 @@ import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib
 import { getStatusColor } from "@/lib/attendance";
 import { buildDayRows } from "@/lib/shiftResolve";
 import PlanGate from "@/components/ui/PlanGate";
-import { Pencil, X } from "lucide-react";
+import { Pencil, X, StickyNote } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -142,6 +142,13 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTarget) return;
+    // Ghi chú/lý do là bắt buộc — để NV (app /ho-so) và chủ (bảng này) đều biết vì sao chấm công
+    // bị đổi, không chỉ thấy giờ khác đi mà không rõ nguyên nhân. Server cũng chặn lại (an toàn),
+    // check ở đây chỉ để báo lỗi ngay, khỏi phải chờ round-trip API.
+    if (!editForm.note.trim()) {
+      setEditError("Vui lòng nhập lý do sửa (bắt buộc)");
+      return;
+    }
     setEditLoading(true);
     setEditError("");
     const toISO = (time: string) => (time ? `${editTarget.date}T${time}:00+07:00` : null);
@@ -383,6 +390,17 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                           <span className="text-gray-300">—</span>
                         ) : (
                           <span className="text-gray-300 text-xs">Chưa chấm</span>
+                        )}
+                        {/* Lý do admin sửa tay (bắt buộc nhập từ nay) — hiện thẳng ra đây, khỏi
+                            phải mở lại form sửa mới biết vì sao giờ chấm công bị đổi. */}
+                        {log?.note && (
+                          <p
+                            className="flex items-start gap-0.5 text-[10px] text-gray-400 mt-1 leading-tight max-w-[140px]"
+                            title={log.note}
+                          >
+                            <StickyNote size={10} className="shrink-0 mt-px" />
+                            <span className="line-clamp-2">{log.note}</span>
+                          </p>
                         )}
                       </td>
                       <td className="px-3 py-2 text-center text-xs align-top">
@@ -870,12 +888,16 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
               </div>
               <p className="text-xs text-gray-400">Để trống giờ vào = tính ngày này là vắng mặt.</p>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chú (tuỳ chọn)</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Lý do sửa <span className="text-red-500">*</span>
+                  <span className="text-gray-400 font-normal"> — NV và chủ sẽ thấy dòng này</span>
+                </label>
                 <input
                   type="text"
+                  required
                   value={editForm.note}
                   onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
-                  placeholder="VD: Sửa do quét nhầm lần 2"
+                  placeholder="VD: Máy lỗi do chặn ngày lễ, chấm bù lại"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>

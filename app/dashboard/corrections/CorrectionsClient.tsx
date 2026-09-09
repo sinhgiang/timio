@@ -47,6 +47,12 @@ export default function CorrectionsClient({ initialData, employees = [] }: { ini
   const handleManualEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualForm.employeeId || !manualForm.date) return;
+    // Lý do bắt buộc — khớp yêu cầu ở ReportsClient.tsx (NV + chủ đều cần biết vì sao chấm công
+    // bị sửa tay). Server cũng chặn (app/api/attendance/admin-edit), đây chỉ báo lỗi sớm.
+    if (!manualForm.note.trim()) {
+      setManualResult("❌ Vui lòng nhập lý do sửa (bắt buộc)");
+      return;
+    }
     setManualLoading(true);
     setManualResult(null);
     const toISO = (date: string, time: string) => time ? `${date}T${time}:00+07:00` : null;
@@ -160,8 +166,11 @@ export default function CorrectionsClient({ initialData, employees = [] }: { ini
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Ghi chú (optional)</label>
-              <input type="text" value={manualForm.note} placeholder="VD: Bù công ngày lễ"
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Lý do sửa <span className="text-red-500">*</span>
+                <span className="text-gray-400 font-normal"> — NV và chủ sẽ thấy dòng này</span>
+              </label>
+              <input type="text" required value={manualForm.note} placeholder="VD: Máy lỗi do chặn ngày lễ, chấm bù lại"
                 onChange={(e) => setManualForm({ ...manualForm, note: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />

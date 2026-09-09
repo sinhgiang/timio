@@ -17,6 +17,14 @@ export async function POST(req: NextRequest) {
 
     const { employeeId, date, checkInAt, checkOutAt, note, session: sessionRaw } = await req.json();
     if (!employeeId || !date) return NextResponse.json({ error: "Thiếu thông tin" }, { status: 400 });
+    // Bắt buộc phải ghi lý do khi admin sửa tay chấm công (VD: máy lỗi do chặn ngày lễ, chấm bù lại)
+    // — để cả nhân viên (app /ho-so) và chủ (báo cáo tháng) đều biết vì sao có thay đổi, thay vì chỉ
+    // thấy giờ bị đổi mà không rõ nguyên nhân. Chặn ở server (không chỉ ở form) vì đây mới là chỗ
+    // enforce thật — ReportsClient.tsx + CorrectionsClient.tsx đều gọi chung route này.
+    const noteTrimmed = typeof note === "string" ? note.trim() : "";
+    if (!noteTrimmed) {
+      return NextResponse.json({ error: "Vui lòng nhập lý do sửa chấm công (bắt buộc)" }, { status: 400 });
+    }
     // "full" (ca thường/ngày làm khác, mặc định — giữ nguyên hành vi cũ cho NV không ca gãy) hoặc
     // "0","1",... (chỉ số buổi — NV ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions).
     // Đặt tên `sessionKey` để tránh trùng với biến `session` của NextAuth (getServerSession) ở trên.
@@ -100,7 +108,7 @@ export async function POST(req: NextRequest) {
           minutesEarly,
           earlyLeavePenalty,
           penaltyAmount,
-          note: note || null,
+          note: noteTrimmed,
         },
       });
     } else {
@@ -117,7 +125,7 @@ export async function POST(req: NextRequest) {
           minutesEarly,
           earlyLeavePenalty,
           penaltyAmount,
-          note: note || null,
+          note: noteTrimmed,
         },
       });
     }

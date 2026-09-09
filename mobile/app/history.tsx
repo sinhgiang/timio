@@ -125,26 +125,31 @@ export default function HistoryScreen() {
           renderItem={({ item }: { item: HistoryDay }) => {
             const isLate = item.minutesLate > 0;
             return (
-              <View style={s.dayRow}>
-                <View style={s.dayDateCol}>
-                  <Text style={s.dayDate}>{item.date}</Text>
-                  <Text style={[s.dayStatus, isLate && s.dayStatusLate]}>{statusLabel(item.status)}</Text>
+              <View style={s.dayCard}>
+                <View style={s.dayRow}>
+                  <View style={s.dayDateCol}>
+                    <Text style={s.dayDate}>{item.date}</Text>
+                    <Text style={[s.dayStatus, isLate && s.dayStatusLate]}>{statusLabel(item.status)}</Text>
+                  </View>
+                  <View style={s.dayTimeCol}>
+                    <Text style={s.dayTimeLabel}>Vào</Text>
+                    <Text style={s.dayTime}>{item.checkInTime ?? "--:--"}</Text>
+                  </View>
+                  <View style={s.dayTimeCol}>
+                    <Text style={s.dayTimeLabel}>Ra</Text>
+                    <Text style={s.dayTime}>{item.checkOutTime ?? "--:--"}</Text>
+                  </View>
+                  <View style={s.dayLateCol}>
+                    {isLate ? (
+                      <Text style={s.dayLate}>Trễ {item.minutesLate}′</Text>
+                    ) : (
+                      <Text style={s.dayOnTime}>✓</Text>
+                    )}
+                  </View>
                 </View>
-                <View style={s.dayTimeCol}>
-                  <Text style={s.dayTimeLabel}>Vào</Text>
-                  <Text style={s.dayTime}>{item.checkInTime ?? "--:--"}</Text>
-                </View>
-                <View style={s.dayTimeCol}>
-                  <Text style={s.dayTimeLabel}>Ra</Text>
-                  <Text style={s.dayTime}>{item.checkOutTime ?? "--:--"}</Text>
-                </View>
-                <View style={s.dayLateCol}>
-                  {isLate ? (
-                    <Text style={s.dayLate}>Trễ {item.minutesLate}′</Text>
-                  ) : (
-                    <Text style={s.dayOnTime}>✓</Text>
-                  )}
-                </View>
+                {/* Lý do khi sếp sửa tay chấm công (nay bắt buộc nhập) — hiện thẳng cho NV thấy vì
+                    sao giờ vào/ra bị đổi. */}
+                {item.note && <Text style={s.dayNote}>Ghi chú: {item.note}</Text>}
               </View>
             );
           }}
@@ -180,9 +185,7 @@ const s = StyleSheet.create({
 
   list: { paddingHorizontal: 12, paddingBottom: 32 },
 
-  dayRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  dayCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     paddingHorizontal: 14,
@@ -194,6 +197,8 @@ const s = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
+  dayRow: { flexDirection: "row", alignItems: "center" },
+  dayNote: { fontSize: 11, color: "#9ca3af", marginTop: 6, fontStyle: "italic" },
   dayDateCol: { flex: 1.2 },
   dayDate: { fontSize: 14, fontWeight: "700", color: "#111827" },
   dayStatus: { fontSize: 11, color: "#9ca3af", marginTop: 2, fontWeight: "600" },

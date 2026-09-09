@@ -5,7 +5,7 @@ import {
   BadgeCheck, Star, MapPin, Briefcase, CalendarClock, Phone, Mail, MessageCircle, Facebook, Globe,
   Loader2, Clock, Building2, CheckCircle2, ShieldCheck, Share2, Wallet, Umbrella, IdCard, LogOut,
   XCircle, Camera, Pencil, Plus, X, Award, Lock, Users, Sparkles, Handshake, Bell, FileText, Send,
-  CalendarDays, Receipt, GraduationCap, Package, Megaphone, Check, Gift, Ticket,
+  CalendarDays, Receipt, GraduationCap, Package, Megaphone, Check, Gift, Ticket, StickyNote,
 } from "lucide-react";
 import AdvanceCard from "@/components/worker/AdvanceCard";
 import JobPicker from "@/components/JobPicker";
@@ -876,7 +876,7 @@ function IncomeTab() {
 }
 
 // ─────────── TAB CHẤM CÔNG ───────────
-type WSess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string; penaltyAmount: number };
+type WSess = { session: string; sessionLabel: string | null; checkInAt: string | null; checkOutAt: string | null; minutesLate: number; status: string; penaltyAmount: number; note: string | null };
 type WDay = { date: string; employeeId: string; companyName: string; sessions: WSess[] };
 
 function AttendanceTab({ onNew }: { onNew: () => void }) {
@@ -932,6 +932,15 @@ function AttendanceTab({ onNew }: { onNew: () => void }) {
                             <span className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${st.cls}`}>{st.text}</span>
                             {st.amount && <span className="text-[11px] font-semibold text-red-500">{st.amount}</span>}
                           </div>
+                          {/* Lý do khi sếp sửa tay chấm công (nay bắt buộc nhập) — hiện thẳng cho NV
+                              thấy vì sao giờ vào/ra bị đổi, khỏi thắc mắc. Chiếm hết hàng (col-span-3)
+                              vì lưới 3 cột trên chỉ đủ chỗ cho buổi/giờ/trạng thái. */}
+                          {s.note && (
+                            <p className="col-span-3 flex items-start gap-1 text-[11px] text-gray-400 -mt-1" title={s.note}>
+                              <StickyNote size={11} className="shrink-0 mt-0.5" />
+                              <span>{s.note}</span>
+                            </p>
+                          )}
                         </Fragment>
                       );
                     })}

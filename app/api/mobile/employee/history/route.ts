@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
         status: true,
         minutesLate: true,
         penaltyAmount: true,
+        note: true,
       },
     });
 
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
       status: l.status,
       minutesLate: l.minutesLate,
       penaltyAmount: l.penaltyAmount,
+      note: l.note,
     }));
 
     const present = logs.filter((l) => l.checkInAt).length;
