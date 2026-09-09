@@ -41,6 +41,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!status || !["approved", "rejected", "pending"].includes(status)) {
     return NextResponse.json({ error: "Trạng thái không hợp lệ" }, { status: 400 });
   }
+  // Tiền đã chuyển thật rồi thì không cho "từ chối" ngược lại nữa — chỉ còn cách Xóa (ghi chú thủ công)
+  if (status === "rejected" && existing.disbursedAt) {
+    return NextResponse.json({ error: "Khoản này đã chi tiền cho nhân viên, không thể từ chối." }, { status: 400 });
+  }
+
+  const wasApproved = existing.status === "approved";
 
   const updated = await prisma.salaryAdvance.update({
     where: { id: params.id },
@@ -55,12 +61,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     },
   });
 
-  // Thông báo NV khi đơn ứng lương của họ được duyệt / từ chối
-  if (existing.source === "worker" && existing.status === "pending" && (status === "approved" || status === "rejected")) {
+  // Thông báo NV khi đơn ứng lương của họ được duyệt / từ chối — kể cả khi đơn đã TỰ ĐỘNG duyệt
+  // (opt.approvalMode === "auto") rồi công ty mới hủy trước lúc chi tiền, không chỉ lúc còn "chờ duyệt".
+  if (existing.source === "worker" && existing.status !== status && (status === "approved" || status === "rejected")) {
     void notifyWorkerByEmployee(existing.employeeId, {
       type: "advance",
-      title: status === "approved" ? "Đơn ứng lương được duyệt" : "Đơn ứng lương bị từ chối",
-      body: status === "approved" ? `Khoản ${existing.amount.toLocaleString("vi-VN")}đ đã duyệt — chờ công ty chuyển tiền.` : `Khoản ${existing.amount.toLocaleString("vi-VN")}đ không được duyệt.`,
+      title: status === "approved" ? "Đơn ứng lương được duyệt" : (wasApproved ? "Đơn ứng lương đã bị hủy" : "Đơn ứng lương bị từ chối"),
+      body: status === "approved"
+        ? `Khoản ${existing.amount.toLocaleString("vi-VN")}đ đã duyệt — chờ công ty chuyển tiền.`
+        : wasApproved
+          ? `Khoản ${existing.amount.toLocaleString("vi-VN")}đ đã duyệt trước đó nhưng bị hủy trước khi chuyển tiền.`
+          : `Khoản ${existing.amount.toLocaleString("vi-VN")}đ không được duyệt.`,
       link: "income", email: true,
     });
   }

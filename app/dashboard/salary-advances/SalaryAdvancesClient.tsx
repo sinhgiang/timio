@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Plus, CheckCircle2, XCircle, Trash2, Wallet,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, CheckCircle2, XCircle, Trash2, Wallet,
   Smartphone, Banknote, Settings2, Info,
 } from "lucide-react";
 
@@ -205,7 +205,12 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
               <p className="text-xs text-gray-400">{cfg.ewaEnabled ? `Đang bật · duyệt ${cfg.ewaApprovalMode === "auto" ? "tự động" : "thủ công"} · tối đa ${cfg.ewaMaxPercent}% lương đã kiếm` : "Đang tắt — nhân viên chưa ứng được"}</p>
             </div>
           </div>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${cfg.ewaEnabled ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"}`}>{cfg.ewaEnabled ? "BẬT" : "TẮT"}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${cfg.ewaEnabled ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-500"}`}>{cfg.ewaEnabled ? "BẬT" : "TẮT"}</span>
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 bg-gray-50" title={showCfg ? "Thu gọn cấu hình" : "Mở cấu hình"}>
+              {showCfg ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </span>
+          </div>
         </button>
 
         {showCfg && (
@@ -331,92 +336,96 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
           <p className="text-gray-400 text-xs mt-1">Bấm "Thêm tạm ứng" để ghi nhận khoản ứng lương</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Nhân viên</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Số tiền</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ghi chú</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Trạng thái</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {advances.map((adv) => (
-                <tr key={adv.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800 flex items-center gap-1.5">
-                      {adv.employee.name}
-                      {adv.source === "worker" && <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-normal"><Smartphone size={9} /> NV tự ứng</span>}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {adv.employee.code}
-                      {adv.employee.department && ` · ${adv.employee.department}`}
-                      {` · ${adv.employee.branch.name}`}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-gray-800">
-                    {fmt(adv.amount)}
-                    {adv.fee > 0 && <div className="text-[10px] text-gray-400 font-normal">phí {fmt(adv.fee)}</div>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{adv.note ?? "—"}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[adv.status] ?? ""}`}>
-                      {STATUS_LABEL[adv.status] ?? adv.status}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+          {advances.map((adv) => (
+            <div key={adv.id} className="p-4 flex flex-col lg:flex-row lg:items-center gap-4">
+              {/* Nhân viên + ghi chú */}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-800 flex items-center gap-1.5 flex-wrap">
+                  {adv.employee.name}
+                  {adv.source === "worker" && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-normal">
+                      <Smartphone size={9} /> NV tự ứng
                     </span>
-                    {adv.status === "approved" && (
-                      adv.disbursedAt
-                        ? <div className="text-[10px] text-green-600 mt-1 flex items-center justify-center gap-0.5"><CheckCircle2 size={10} /> Đã chi</div>
-                        : <div className="text-[10px] text-blue-500 mt-1">Chờ chi tiền</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1.5">
-                      {adv.status === "pending" && (
-                        <>
-                          <button
-                            onClick={() => handleAction(adv.id, "approved")}
-                            disabled={acting[adv.id]}
-                            title="Duyệt"
-                            className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 disabled:opacity-40 transition-colors"
-                          >
-                            <CheckCircle2 size={16} strokeWidth={2} />
-                          </button>
-                          <button
-                            onClick={() => handleAction(adv.id, "rejected")}
-                            disabled={acting[adv.id]}
-                            title="Từ chối"
-                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-40 transition-colors"
-                          >
-                            <XCircle size={16} strokeWidth={2} />
-                          </button>
-                        </>
-                      )}
-                      {adv.status === "approved" && !adv.disbursedAt && (
-                        <button
-                          onClick={() => { if (confirm(`Xác nhận: bạn ĐÃ chuyển ${fmt(adv.amount)} cho ${adv.employee.name}?\n\nBấm OK sau khi đã chuyển khoản thật. Nhân viên sẽ thấy "Đã nhận".`)) handleDisburse(adv.id); }}
-                          disabled={acting[adv.id]}
-                          title="Bấm sau khi đã chuyển tiền thật cho nhân viên"
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-colors"
-                        >
-                          <Banknote size={13} /> Xác nhận đã chi
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(adv.id)}
-                        disabled={acting[adv.id]}
-                        title="Xóa"
-                        className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 transition-colors"
-                      >
-                        <Trash2 size={15} strokeWidth={1.5} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {adv.employee.code}
+                  {adv.employee.department && ` · ${adv.employee.department}`}
+                  {` · ${adv.employee.branch.name}`}
+                </p>
+                {adv.note && <p className="text-xs text-gray-500 mt-1.5">{adv.note}</p>}
+              </div>
+
+              {/* Số tiền + trạng thái */}
+              <div className="flex items-center justify-between lg:justify-start gap-4 lg:w-52 shrink-0">
+                <div>
+                  <p className="font-bold text-gray-800 text-base">{fmt(adv.amount)}</p>
+                  {adv.fee > 0 && <p className="text-[11px] text-gray-400">phí {fmt(adv.fee)}</p>}
+                </div>
+                <div className="text-right lg:text-left">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLOR[adv.status] ?? ""}`}>
+                    {STATUS_LABEL[adv.status] ?? adv.status}
+                  </span>
+                  {adv.status === "approved" && (
+                    adv.disbursedAt
+                      ? <div className="text-[10px] text-green-600 mt-1 flex items-center justify-end lg:justify-start gap-0.5"><CheckCircle2 size={10} /> Đã chi</div>
+                      : <div className="text-[10px] text-blue-500 mt-1">Chờ chi tiền</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Hành động — nút to, rõ chữ, không dồn sát nhau */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                {adv.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => handleAction(adv.id, "approved")}
+                      disabled={acting[adv.id]}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    >
+                      <CheckCircle2 size={15} /> Duyệt
+                    </button>
+                    <button
+                      onClick={() => handleAction(adv.id, "rejected")}
+                      disabled={acting[adv.id]}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircle size={15} /> Từ chối
+                    </button>
+                  </>
+                )}
+                {adv.status === "approved" && !adv.disbursedAt && (
+                  <>
+                    <button
+                      onClick={() => { if (confirm(`Xác nhận: bạn ĐÃ chuyển ${fmt(adv.amount)} cho ${adv.employee.name}?\n\nBấm OK sau khi đã chuyển khoản thật. Nhân viên sẽ thấy "Đã nhận".`)) handleDisburse(adv.id); }}
+                      disabled={acting[adv.id]}
+                      title="Bấm sau khi đã chuyển tiền thật cho nhân viên"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      <Banknote size={15} /> Xác nhận đã chi
+                    </button>
+                    <button
+                      onClick={() => { if (confirm(`Hủy khoản ứng ${fmt(adv.amount)} đã duyệt cho ${adv.employee.name}?\n\nDùng khi thấy sai/không nên duyệt — chưa chuyển tiền nên hủy được. Nhân viên sẽ được báo.`)) handleAction(adv.id, "rejected"); }}
+                      disabled={acting[adv.id]}
+                      title="Hủy duyệt — dùng khi chưa chuyển tiền"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircle size={15} /> Từ chối
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => handleDelete(adv.id)}
+                  disabled={acting[adv.id]}
+                  title="Xóa"
+                  className="p-2.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-red-500 disabled:opacity-40 transition-colors"
+                >
+                  <Trash2 size={16} strokeWidth={1.5} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
