@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib/utils";
 import { getStatusColor } from "@/lib/attendance";
@@ -45,6 +45,69 @@ const DOW_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 function dowOfDate(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay();
+}
+
+// Badge tròn cam kiểu "i" (lucide Info, giống ảnh mẫu user gửi) — hiện cạnh Giờ vào/Giờ ra khi
+// dòng chấm công đó đã bị admin sửa tay. Bấm vào mở/đóng popover chi tiết (EditInfoPopover).
+function EditInfoBadge({ active, onToggle }: { active: boolean; onToggle: (e: MouseEvent) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`shrink-0 transition-colors ${active ? "text-orange-600" : "text-orange-400 hover:text-orange-500"}`}
+      title="Đã sửa chấm công — bấm để xem chi tiết"
+    >
+      <Info size={13} strokeWidth={2} />
+    </button>
+  );
+}
+
+// Popover chi tiết sửa chấm công: giờ vào/ra GỐC -> giờ ĐÃ SỬA (chỉ dòng nào thực sự đổi) + lý do.
+// Dùng chung cho cả badge ở Giờ vào lẫn Giờ ra — nội dung như nhau, chỉ vị trí neo khác nhau.
+function EditInfoPopover({
+  log, checkInChanged, checkOutChanged, onClose,
+}: {
+  log: Log; checkInChanged: boolean; checkOutChanged: boolean; onClose: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-10" onClick={onClose} />
+      <div className="absolute left-0 top-full mt-1 z-20 w-64 bg-white border border-orange-200 rounded-xl shadow-lg p-3 text-left font-sans normal-case">
+        <p className="text-[11px] font-semibold text-orange-600 mb-2">Đã sửa chấm công</p>
+        {(checkInChanged || checkOutChanged) && (
+          <div className="space-y-1 mb-2">
+            {checkInChanged && (
+              <p className="text-[11px] text-gray-600">
+                <span className="text-gray-400">Giờ vào: </span>
+                <span className="line-through text-gray-400">
+                  {log.originalCheckInAt ? formatTime(new Date(log.originalCheckInAt)) : "—"}
+                </span>
+                <span className="mx-1 text-gray-300">→</span>
+                <span className="font-medium text-gray-700">
+                  {log.checkInAt ? formatTime(new Date(log.checkInAt)) : "—"}
+                </span>
+              </p>
+            )}
+            {checkOutChanged && (
+              <p className="text-[11px] text-gray-600">
+                <span className="text-gray-400">Giờ ra: </span>
+                <span className="line-through text-gray-400">
+                  {log.originalCheckOutAt ? formatTime(new Date(log.originalCheckOutAt)) : "—"}
+                </span>
+                <span className="mx-1 text-gray-300">→</span>
+                <span className="font-medium text-gray-700">
+                  {log.checkOutAt ? formatTime(new Date(log.checkOutAt)) : "—"}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
+        <p className="text-[11px] text-gray-500 border-t border-gray-100 pt-2">
+          <span className="text-gray-400">Lý do: </span>{log.note}
+        </p>
+      </div>
+    </>
+  );
 }
 
 interface Summary {
@@ -128,9 +191,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState("");
 
-  // Badge "i" cam bên cạnh Giờ vào — bấm vào để xem chi tiết log nào đã bị admin sửa tay
-  // (giờ gốc -> giờ đã sửa + lý do). Key = log.id, đóng khi bấm lại hoặc click ra ngoài.
-  const [openInfoLogId, setOpenInfoLogId] = useState<string | null>(null);
+  // Badge "i" cam bên cạnh Giờ vào/Giờ ra — bấm vào để xem chi tiết log nào đã bị admin sửa tay
+  // (giờ gốc -> giờ đã sửa + lý do). Key = `${log.id}:in` hoặc `${log.id}:out` (2 badge của cùng
+  // 1 dòng độc lập nhau — bấm badge nào mở popover ngay cạnh badge đó), đóng khi bấm lại/click ra ngoài.
+  const [openInfoKey, setOpenInfoKey] = useState<string | null>(null);
 
   const openEdit = (
     employeeId: string, employeeName: string, date: string, dayLabel: string,
@@ -379,6 +443,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       {/* Ô Ngày đã rowSpan chiếm 1 cột nên mỗi dòng buổi chỉ được phép có đúng số cột còn lại —
                           tách thêm 1 cột ở đây từng làm giờ/trạng thái của buổi 2 (Tối) bị lệch sang phải 1 cột.
                           Nhãn Sáng/Tối không hiện chữ nữa, chỉ còn trong title (rê chuột) — xem comment ở trên. */}
+                      {/* Dòng đã bị admin sửa tay (bắt buộc có lý do từ Segment L) — badge cam tròn
+                          kiểu "i" (theo ảnh mẫu user gửi) cạnh CẢ Giờ vào lẫn Giờ ra, bấm vào xem
+                          giờ gốc -> giờ đã sửa + lý do ngay tại đó, gọn hơn hẳn so với hiện thẳng
+                          chữ ghi chú ra bảng như trước. */}
                       <td
                         className={`relative px-4 py-2 font-mono font-medium align-top ${
                           isLateCulprit ? "text-red-600 bg-red-50 rounded-md" : "text-gray-700"
@@ -387,70 +455,51 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       >
                         <div className="flex items-center gap-1">
                           <span>{log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}</span>
-                          {/* Dòng đã bị admin sửa tay (bắt buộc có lý do từ Segment L) — badge cam
-                              tròn kiểu "i" (theo ảnh mẫu user gửi), bấm vào xem giờ gốc -> giờ đã sửa + lý do,
-                              gọn hơn hẳn so với hiện thẳng chữ ghi chú ra bảng như trước. */}
                           {log?.note && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
+                            <EditInfoBadge
+                              active={openInfoKey === `${log.id}:in`}
+                              onToggle={(e) => {
                                 e.stopPropagation();
-                                setOpenInfoLogId(openInfoLogId === log.id ? null : log.id);
+                                setOpenInfoKey(openInfoKey === `${log.id}:in` ? null : `${log.id}:in`);
                               }}
-                              className="shrink-0 text-orange-400 hover:text-orange-500 transition-colors"
-                              title="Đã sửa chấm công — bấm để xem chi tiết"
-                            >
-                              <Info size={13} strokeWidth={2} />
-                            </button>
+                            />
                           )}
                         </div>
-                        {log?.note && openInfoLogId === log.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenInfoLogId(null)} />
-                            <div className="absolute left-0 top-full mt-1 z-20 w-64 bg-white border border-orange-200 rounded-xl shadow-lg p-3 text-left font-sans normal-case">
-                              <p className="text-[11px] font-semibold text-orange-600 mb-2">Đã sửa chấm công</p>
-                              {(checkInChanged || checkOutChanged) && (
-                                <div className="space-y-1 mb-2">
-                                  {checkInChanged && (
-                                    <p className="text-[11px] text-gray-600">
-                                      <span className="text-gray-400">Giờ vào: </span>
-                                      <span className="line-through text-gray-400">
-                                        {log.originalCheckInAt ? formatTime(new Date(log.originalCheckInAt)) : "—"}
-                                      </span>
-                                      <span className="mx-1 text-gray-300">→</span>
-                                      <span className="font-medium text-gray-700">
-                                        {log.checkInAt ? formatTime(new Date(log.checkInAt)) : "—"}
-                                      </span>
-                                    </p>
-                                  )}
-                                  {checkOutChanged && (
-                                    <p className="text-[11px] text-gray-600">
-                                      <span className="text-gray-400">Giờ ra: </span>
-                                      <span className="line-through text-gray-400">
-                                        {log.originalCheckOutAt ? formatTime(new Date(log.originalCheckOutAt)) : "—"}
-                                      </span>
-                                      <span className="mx-1 text-gray-300">→</span>
-                                      <span className="font-medium text-gray-700">
-                                        {log.checkOutAt ? formatTime(new Date(log.checkOutAt)) : "—"}
-                                      </span>
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                              <p className="text-[11px] text-gray-500 border-t border-gray-100 pt-2">
-                                <span className="text-gray-400">Lý do: </span>{log.note}
-                              </p>
-                            </div>
-                          </>
+                        {log?.note && openInfoKey === `${log.id}:in` && (
+                          <EditInfoPopover
+                            log={log}
+                            checkInChanged={checkInChanged}
+                            checkOutChanged={checkOutChanged}
+                            onClose={() => setOpenInfoKey(null)}
+                          />
                         )}
                       </td>
                       <td
-                        className={`px-4 py-2 font-mono align-top ${
+                        className={`relative px-4 py-2 font-mono align-top ${
                           isEarlyCulprit ? "text-red-600 bg-red-50 rounded-md font-medium" : "text-gray-500"
                         }`}
-                        title={earlyReason ?? expectedTitle}
+                        title={log?.note ? undefined : earlyReason ?? expectedTitle}
                       >
-                        {log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}
+                        <div className="flex items-center gap-1">
+                          <span>{log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}</span>
+                          {log?.note && (
+                            <EditInfoBadge
+                              active={openInfoKey === `${log.id}:out`}
+                              onToggle={(e) => {
+                                e.stopPropagation();
+                                setOpenInfoKey(openInfoKey === `${log.id}:out` ? null : `${log.id}:out`);
+                              }}
+                            />
+                          )}
+                        </div>
+                        {log?.note && openInfoKey === `${log.id}:out` && (
+                          <EditInfoPopover
+                            log={log}
+                            checkInChanged={checkInChanged}
+                            checkOutChanged={checkOutChanged}
+                            onClose={() => setOpenInfoKey(null)}
+                          />
+                        )}
                       </td>
                       <td className="px-4 py-2 align-top">
                         {statusLabel ? (
