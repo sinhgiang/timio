@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
-import { getApprovedTimeOverride } from "@/lib/approvedException";
+import { getApprovedTimeOverride, pickApprovedTime } from "@/lib/approvedException";
 
 export async function POST(req: NextRequest) {
   try {
@@ -68,8 +68,13 @@ export async function POST(req: NextRequest) {
       const approvedOverride = await getApprovedTimeOverride(log.employeeId, log.date);
 
       let latePenalty = 0;
+      let pickedLateArrival: string | null = null;
       if (log.checkInAt) {
-        const checkInTime = approvedOverride.lateArrivalTime ?? shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
+        const fallbackCheckInTime = shiftOverrideParsed.checkInTime ?? log.employee.branch.checkInTime;
+        // Ca gãy có thể có >1 đơn "xin đến muộn" đã duyệt trong ngày (1 đơn/buổi) — chọn đúng đơn
+        // ứng với buổi đang tính lại (gần giờ chuẩn nhất), xem lib/approvedException.ts.
+        pickedLateArrival = pickApprovedTime(approvedOverride.lateArrivalRows, fallbackCheckInTime);
+        const checkInTime = pickedLateArrival ?? fallbackCheckInTime;
         const gracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
 
         let effectiveLateRules: LateRule[];
@@ -97,8 +102,13 @@ export async function POST(req: NextRequest) {
 
       let minutesEarly = 0;
       let earlyLeavePenalty = 0;
+      let pickedEarlyLeave: string | null = null;
       if (log.checkOutAt) {
-        const checkOutTime = approvedOverride.earlyLeaveTime ?? shiftOverrideParsed.checkOutTime ?? log.employee.branch.checkOutTime;
+        const fallbackCheckOutTime = shiftOverrideParsed.checkOutTime ?? log.employee.branch.checkOutTime;
+        // Ca gãy có thể có >1 đơn "xin về sớm" đã duyệt trong ngày (1 đơn/buổi) — chọn đúng đơn ứng
+        // với buổi đang tính lại (gần giờ chuẩn nhất), xem lib/approvedException.ts.
+        pickedEarlyLeave = pickApprovedTime(approvedOverride.earlyLeaveRows, fallbackCheckOutTime);
+        const checkOutTime = pickedEarlyLeave ?? fallbackCheckOutTime;
         const coGracePeriod = shiftOverrideParsed.gracePeriod ?? log.employee.branch.gracePeriod;
         const earlyRules = filterApplicableRules(penaltyRules, log.employee, log.checkOutAt)
           .filter((r) => r.type === "early_leave")
@@ -107,8 +117,8 @@ export async function POST(req: NextRequest) {
       }
 
       const penaltyAmount = latePenalty + earlyLeavePenalty;
-      const lateArrivalApproved = log.checkInAt ? !!approvedOverride.lateArrivalTime : false;
-      const earlyLeaveApproved = log.checkOutAt ? !!approvedOverride.earlyLeaveTime : false;
+      const lateArrivalApproved = log.checkInAt ? !!pickedLateArrival : false;
+      const earlyLeaveApproved = log.checkOutAt ? !!pickedEarlyLeave : false;
 
       if (
         penaltyAmount !== log.penaltyAmount ||

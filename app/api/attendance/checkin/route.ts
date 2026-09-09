@@ -6,7 +6,7 @@ import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, t
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 import { findHolidayForDate } from "@/lib/holidayAttendance";
-import { getApprovedTimeOverride } from "@/lib/approvedException";
+import { getApprovedTimeOverride, pickApprovedTime } from "@/lib/approvedException";
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
@@ -134,7 +134,11 @@ export async function POST(req: NextRequest) {
       const shiftOut = employee.shiftOverride
         ? (JSON.parse(employee.shiftOverride) as { checkOutTime?: string } & EmployeeOvertimeOverride)
         : {};
-      const checkOutTime = approvedOverride.earlyLeaveTime ?? sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftOut.checkOutTime ?? employee.branch.checkOutTime;
+      const fallbackCheckOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftOut.checkOutTime ?? employee.branch.checkOutTime;
+      // Ca gãy có thể có >1 đơn "xin về sớm" đã duyệt trong ngày (1 đơn/buổi) — chọn đúng đơn ứng
+      // với buổi đang chấm công ra (gần giờ chuẩn buổi này nhất), xem lib/approvedException.ts.
+      const pickedEarlyLeave = pickApprovedTime(approvedOverride.earlyLeaveRows, fallbackCheckOutTime);
+      const checkOutTime = pickedEarlyLeave ?? fallbackCheckOutTime;
       const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? employee.branch.gracePeriod ?? 5;
       const [coH, coM] = checkOutTime.split(":").map(Number);
       const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -170,7 +174,7 @@ export async function POST(req: NextRequest) {
         data: {
           checkOutAt: now, minutesOvertime, overtimeAmount, overtimeStatus,
           minutesEarly, earlyLeavePenalty,
-          earlyLeaveApproved: !!approvedOverride.earlyLeaveTime,
+          earlyLeaveApproved: !!pickedEarlyLeave,
           ...(earlyLeavePenalty > 0 && { penaltyAmount: { increment: earlyLeavePenalty } }),
         },
       });
@@ -249,8 +253,9 @@ export async function POST(req: NextRequest) {
 
     // Đơn "xin đến muộn" đã duyệt cho hôm nay → thắng cả lịch phân ca/ca gãy, dùng làm giờ chuẩn
     // để NV đến đúng giờ đã xin vẫn tự động ra "Đúng giờ" (không cần sếp sửa tay).
-    if (approvedOverride.lateArrivalTime) {
-      shift = { ...shift, checkInTime: approvedOverride.lateArrivalTime };
+    const pickedLateArrival = pickApprovedTime(approvedOverride.lateArrivalRows, shift.checkInTime);
+    if (pickedLateArrival) {
+      shift = { ...shift, checkInTime: pickedLateArrival };
     }
 
     let effectiveLateRules: LateRule[];
@@ -294,7 +299,7 @@ export async function POST(req: NextRequest) {
         status,
         minutesLate,
         penaltyAmount,
-        lateArrivalApproved: !!approvedOverride.lateArrivalTime,
+        lateArrivalApproved: !!pickedLateArrival,
       },
     });
 

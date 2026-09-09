@@ -3,8 +3,33 @@ import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules } fr
 import { parseShiftSessions, findDayOverride, dateStringToVNInstant } from "@/lib/shiftResolve";
 
 export interface ApprovedTimeOverride {
-  lateArrivalTime: string | null; // "HH:MM" — nhân viên xin đến muộn, sếp đã duyệt tới giờ này vẫn tính "Đúng giờ"
-  earlyLeaveTime: string | null; // "HH:MM" — nhân viên xin về sớm, sếp đã duyệt từ giờ này vẫn tính "Đúng giờ"
+  lateArrivalTime: string | null; // "HH:MM" — nhân viên xin đến muộn, sếp đã duyệt tới giờ này vẫn tính "Đúng giờ". Tương thích ngược: giá trị của đơn late_arrival CUỐI CÙNG trong ngày — đúng cho >99% trường hợp (NV ca thường chỉ có tối đa 1 đơn/ngày). Ca gãy (nhiều buổi/ngày) có thể có NHIỀU đơn cùng loại/ngày — dùng lateArrivalRows + pickApprovedTime() thay vì field này.
+  earlyLeaveTime: string | null; // tương tự, cho "về sớm"
+  lateArrivalRows: { leaveTime: string }[]; // TẤT CẢ đơn late_arrival đã duyệt trong ngày (thường 0-1 dòng, ca gãy có thể nhiều hơn — mỗi buổi 1 đơn)
+  earlyLeaveRows: { leaveTime: string }[];
+}
+
+/**
+ * Ca gãy (nhiều buổi/ngày, vd sáng+tối — xem lib/shiftResolve.ts parseShiftSessions): nhân viên có
+ * thể có NHIỀU đơn cùng loại (vd 2 đơn "xin đến muộn", 1 cho buổi sáng 1 cho buổi tối) đã duyệt
+ * trong CÙNG 1 ngày. Nếu chỉ lấy 1 giá trị chung cho cả ngày (như lateArrivalTime/earlyLeaveTime ở
+ * trên) thì đơn xin cho buổi này sẽ VÔ TÌNH lan sang miễn phạt luôn buổi kia — SAI, vì 2 buổi độc
+ * lập nhau. Hàm này chọn đúng đơn ứng với buổi đang xét, bằng cách so giờ đã xin (leaveTime) với
+ * giờ CHUẨN của buổi đó (anchorTime, vd sessionCfg.checkInTime) — đơn nào gần giờ chuẩn buổi này
+ * nhất thì áp cho buổi này. Khi chỉ có 0 hoặc 1 đơn (đa số công ty — ca thường, 1 buổi/ngày) hàm
+ * này cho kết quả giống hệt như đọc thẳng lateArrivalTime/earlyLeaveTime, không đổi hành vi cũ.
+ */
+export function pickApprovedTime(rows: { leaveTime: string }[], anchorTime: string): string | null {
+  if (rows.length === 0) return null;
+  if (rows.length === 1) return rows[0].leaveTime;
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const anchorMin = toMinutes(anchorTime);
+  return rows.reduce((best, r) =>
+    Math.abs(toMinutes(r.leaveTime) - anchorMin) < Math.abs(toMinutes(best.leaveTime) - anchorMin) ? r : best
+  ).leaveTime;
 }
 
 /**
@@ -28,13 +53,14 @@ export async function getApprovedTimeOverride(employeeId: string, date: string):
     select: { kind: true, leaveTime: true },
   });
 
-  let lateArrivalTime: string | null = null;
-  let earlyLeaveTime: string | null = null;
-  for (const r of rows) {
-    if (r.kind === "late_arrival") lateArrivalTime = r.leaveTime;
-    else earlyLeaveTime = r.leaveTime;
-  }
-  return { lateArrivalTime, earlyLeaveTime };
+  const lateArrivalRows = rows.filter((r) => r.kind === "late_arrival");
+  const earlyLeaveRows = rows.filter((r) => r.kind !== "late_arrival");
+  return {
+    lateArrivalTime: lateArrivalRows.length > 0 ? lateArrivalRows[lateArrivalRows.length - 1].leaveTime : null,
+    earlyLeaveTime: earlyLeaveRows.length > 0 ? earlyLeaveRows[earlyLeaveRows.length - 1].leaveTime : null,
+    lateArrivalRows,
+    earlyLeaveRows,
+  };
 }
 
 /**
@@ -74,8 +100,14 @@ export async function recomputeAttendanceLogsForApproval(employeeId: string, dat
     let status = log.status;
     let minutesLate = log.minutesLate;
     let latePenalty = 0;
+    let pickedLateArrival: string | null = null;
     if (log.checkInAt) {
-      const checkInTime = approvedOverride.lateArrivalTime ?? sessionCfg?.checkInTime ?? dayOverride?.checkInTime ?? shiftData.checkInTime ?? employee.branch.checkInTime;
+      const fallbackCheckInTime = sessionCfg?.checkInTime ?? dayOverride?.checkInTime ?? shiftData.checkInTime ?? employee.branch.checkInTime;
+      // Ca gãy có thể có nhiều đơn "đến muộn" cùng ngày (1 đơn/buổi) — chọn đúng đơn ứng với BUỔI
+      // của log này (gần giờ chuẩn buổi này nhất), tránh đơn xin cho buổi khác lan sang miễn phạt
+      // nhầm. Xem pickApprovedTime().
+      pickedLateArrival = pickApprovedTime(approvedOverride.lateArrivalRows, fallbackCheckInTime);
+      const checkInTime = pickedLateArrival ?? fallbackCheckInTime;
       const gracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? shiftData.gracePeriod ?? employee.branch.gracePeriod;
       const lateRules = filterApplicableRules(employee.company.penaltyRules, employee, log.checkInAt)
         .filter((r) => r.type !== "early_leave")
@@ -88,8 +120,11 @@ export async function recomputeAttendanceLogsForApproval(employeeId: string, dat
 
     let minutesEarly = 0;
     let earlyLeavePenalty = 0;
+    let pickedEarlyLeave: string | null = null;
     if (log.checkOutAt) {
-      const checkOutTime = approvedOverride.earlyLeaveTime ?? sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      const fallbackCheckOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      pickedEarlyLeave = pickApprovedTime(approvedOverride.earlyLeaveRows, fallbackCheckOutTime);
+      const checkOutTime = pickedEarlyLeave ?? fallbackCheckOutTime;
       const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? shiftData.gracePeriod ?? employee.branch.gracePeriod;
       const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, log.checkOutAt)
         .filter((r) => r.type === "early_leave")
@@ -98,8 +133,8 @@ export async function recomputeAttendanceLogsForApproval(employeeId: string, dat
     }
 
     const penaltyAmount = latePenalty + earlyLeavePenalty;
-    const lateArrivalApproved = log.checkInAt ? !!approvedOverride.lateArrivalTime : false;
-    const earlyLeaveApproved = log.checkOutAt ? !!approvedOverride.earlyLeaveTime : false;
+    const lateArrivalApproved = log.checkInAt ? !!pickedLateArrival : false;
+    const earlyLeaveApproved = log.checkOutAt ? !!pickedEarlyLeave : false;
 
     await prisma.attendanceLog.update({
       where: { id: log.id },

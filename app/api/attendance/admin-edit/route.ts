@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules } from "@/lib/attendance";
 import { managerBranchId } from "@/lib/branchScope";
 import { parseShiftSessions, findDayOverride, dateStringToVNInstant } from "@/lib/shiftResolve";
-import { getApprovedTimeOverride } from "@/lib/approvedException";
+import { getApprovedTimeOverride, pickApprovedTime } from "@/lib/approvedException";
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,9 +64,14 @@ export async function POST(req: NextRequest) {
     let status = "absent";
     let minutesLate = 0;
     let latePenalty = 0;
+    let pickedLateArrival: string | null = null;
 
     if (checkInDate) {
-      const checkInTime = approvedOverride.lateArrivalTime ?? sessionCfg?.checkInTime ?? dayOverride?.checkInTime ?? shiftData.checkInTime ?? employee.branch.checkInTime;
+      const fallbackCheckInTime = sessionCfg?.checkInTime ?? dayOverride?.checkInTime ?? shiftData.checkInTime ?? employee.branch.checkInTime;
+      // Ca gãy có thể có >1 đơn "xin đến muộn" đã duyệt trong ngày (1 đơn/buổi) — chọn đúng đơn
+      // ứng với buổi đang sửa (gần giờ chuẩn buổi này nhất), xem lib/approvedException.ts.
+      pickedLateArrival = pickApprovedTime(approvedOverride.lateArrivalRows, fallbackCheckInTime);
+      const checkInTime = pickedLateArrival ?? fallbackCheckInTime;
       const gracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? shiftData.gracePeriod ?? employee.branch.gracePeriod;
       const lateRules = filterApplicableRules(employee.company.penaltyRules, employee, checkInDate)
         .filter((r) => r.type !== "early_leave")
@@ -85,8 +90,13 @@ export async function POST(req: NextRequest) {
     // bị trừ tiền mà không rõ lý do — xem ReportsClient.tsx).
     let minutesEarly = 0;
     let earlyLeavePenalty = 0;
+    let pickedEarlyLeave: string | null = null;
     if (checkOutDate) {
-      const checkOutTime = approvedOverride.earlyLeaveTime ?? sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      const fallbackCheckOutTime = sessionCfg?.checkOutTime ?? dayOverride?.checkOutTime ?? shiftData.checkOutTime ?? employee.branch.checkOutTime;
+      // Ca gãy có thể có >1 đơn "xin về sớm" đã duyệt trong ngày (1 đơn/buổi) — chọn đúng đơn ứng
+      // với buổi đang sửa (gần giờ chuẩn buổi này nhất), xem lib/approvedException.ts.
+      pickedEarlyLeave = pickApprovedTime(approvedOverride.earlyLeaveRows, fallbackCheckOutTime);
+      const checkOutTime = pickedEarlyLeave ?? fallbackCheckOutTime;
       const coGracePeriod = sessionCfg?.gracePeriod ?? dayOverride?.gracePeriod ?? shiftData.gracePeriod ?? employee.branch.gracePeriod;
       const earlyRules = filterApplicableRules(employee.company.penaltyRules, employee, checkOutDate)
         .filter((r) => r.type === "early_leave")
@@ -124,8 +134,8 @@ export async function POST(req: NextRequest) {
           earlyLeavePenalty,
           penaltyAmount,
           note: noteTrimmed,
-          lateArrivalApproved: checkInDate ? !!approvedOverride.lateArrivalTime : false,
-          earlyLeaveApproved: checkOutDate ? !!approvedOverride.earlyLeaveTime : false,
+          lateArrivalApproved: checkInDate ? !!pickedLateArrival : false,
+          earlyLeaveApproved: checkOutDate ? !!pickedEarlyLeave : false,
         },
       });
     } else {
@@ -145,8 +155,8 @@ export async function POST(req: NextRequest) {
           earlyLeavePenalty,
           penaltyAmount,
           note: noteTrimmed,
-          lateArrivalApproved: checkInDate ? !!approvedOverride.lateArrivalTime : false,
-          earlyLeaveApproved: checkOutDate ? !!approvedOverride.earlyLeaveTime : false,
+          lateArrivalApproved: checkInDate ? !!pickedLateArrival : false,
+          earlyLeaveApproved: checkOutDate ? !!pickedEarlyLeave : false,
         },
       });
     }

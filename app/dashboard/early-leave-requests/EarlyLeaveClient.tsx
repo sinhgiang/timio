@@ -254,7 +254,7 @@ export default function EarlyLeaveClient({ initialRequests }: Props) {
                               onChange={(e) =>
                                 setNoteInputs((prev) => ({ ...prev, [r.id]: e.target.value }))
                               }
-                              placeholder="Ví dụ: Đồng ý cho về lúc 16:00..."
+                              placeholder={r.kind === "late_arrival" ? "Ví dụ: Đồng ý cho đến lúc 9:00..." : "Ví dụ: Đồng ý cho về lúc 16:00..."}
                               className="flex-1 min-w-[200px] px-3 py-1.5 text-sm border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-300 bg-white"
                             />
                             <button
