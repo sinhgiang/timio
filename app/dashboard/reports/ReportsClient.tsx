@@ -414,10 +414,17 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                   // user: "giờ nào bị sai sửa nó chỉ hiện ở giờ đó thôi"). originalCheckInAt/Out chỉ
                   // được chụp lại từ khi có field này — log cũ (sửa trước đó, chưa có original) không
                   // biết chính xác cột nào đã đổi, fallback hiện tạm ở Giờ vào để không mất thông tin lý do.
+                  // So sánh bằng formatTime (HH:MM, giống hệt số hiện trên bảng/popover) — KHÔNG so
+                  // .getTime() thô: giờ chấm công thật (quét mặt/kiosk) luôn có số GIÂY khác 0, còn
+                  // giờ admin sửa tay qua modal luôn làm tròn về :00 giây (xem toISO trong
+                  // handleSaveEdit) → so mili-giây sẽ lệch giả dù admin không đụng tới ô đó, khiến
+                  // badge bật nhầm ở CẢ HAI cột dù chỉ sửa 1 cột (bug user báo cáo thực tế: "07:21 →
+                  // 07:21" vẫn bị gắn badge). Đây là fix chung cho toàn bộ dữ liệu/mọi công ty (không
+                  // scope riêng nhân viên/công ty nào).
                   const checkInChanged = !!log?.originalCheckInAt &&
-                    (!log?.checkInAt || new Date(log.originalCheckInAt).getTime() !== new Date(log.checkInAt).getTime());
+                    (!log?.checkInAt || formatTime(new Date(log.originalCheckInAt)) !== formatTime(new Date(log.checkInAt)));
                   const checkOutChanged = !!log?.originalCheckOutAt &&
-                    (!log?.checkOutAt || new Date(log.originalCheckOutAt).getTime() !== new Date(log.checkOutAt).getTime());
+                    (!log?.checkOutAt || formatTime(new Date(log.originalCheckOutAt)) !== formatTime(new Date(log.checkOutAt)));
                   const hasOriginalTracking = !!log?.originalCheckInAt || !!log?.originalCheckOutAt;
                   const showInfoBadgeIn = checkInChanged || (!!log?.note && !hasOriginalTracking);
                   const showInfoBadgeOut = checkOutChanged;
