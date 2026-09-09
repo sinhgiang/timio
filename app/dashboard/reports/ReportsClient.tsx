@@ -6,7 +6,7 @@ import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib
 import { getStatusColor } from "@/lib/attendance";
 import { buildDayRows } from "@/lib/shiftResolve";
 import PlanGate from "@/components/ui/PlanGate";
-import { Pencil, X, StickyNote } from "lucide-react";
+import { Pencil, X, Info } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -25,6 +25,8 @@ interface Log {
   session: string;
   checkInAt: string | null;
   checkOutAt: string | null;
+  originalCheckInAt: string | null;
+  originalCheckOutAt: string | null;
   minutesLate: number;
   minutesEarly: number;
   earlyLeavePenalty: number;
@@ -125,6 +127,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
   const [editForm, setEditForm] = useState({ checkInAt: "", checkOutAt: "", note: "" });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState("");
+
+  // Badge "i" cam bên cạnh Giờ vào — bấm vào để xem chi tiết log nào đã bị admin sửa tay
+  // (giờ gốc -> giờ đã sửa + lý do). Key = log.id, đóng khi bấm lại hoặc click ra ngoài.
+  const [openInfoLogId, setOpenInfoLogId] = useState<string | null>(null);
 
   const openEdit = (
     employeeId: string, employeeName: string, date: string, dayLabel: string,
@@ -339,6 +345,14 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       : `Ra sớm — trừ ${formatCurrency(log!.earlyLeavePenalty)}`
                     : null;
                   const penaltyReasonText = [lateReason, earlyReason].filter(Boolean).join(" · ") || null;
+                  // Badge "i" cam ở ô Giờ vào: chỉ hiện khi dòng này ĐÃ bị admin sửa tay (log.note
+                  // luôn bắt buộc nhập từ Segment L => note có nghĩa là đã qua sửa tay ít nhất 1 lần).
+                  // originalCheckInAt/originalCheckOutAt chỉ có với các lần sửa SAU khi thêm field này —
+                  // log cũ (sửa trước đó) vẫn hiện badge + lý do, chỉ không có dòng "giờ gốc -> giờ mới".
+                  const checkInChanged = !!log?.originalCheckInAt &&
+                    (!log?.checkInAt || new Date(log.originalCheckInAt).getTime() !== new Date(log.checkInAt).getTime());
+                  const checkOutChanged = !!log?.originalCheckOutAt &&
+                    (!log?.checkOutAt || new Date(log.originalCheckOutAt).getTime() !== new Date(log.checkOutAt).getTime());
                   return (
                     <tr key={`${day}-${r.session}`} className={isWeekend ? "bg-gray-50/50" : "hover:bg-gray-50"}>
                       {i === 0 && (
@@ -366,12 +380,69 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                           tách thêm 1 cột ở đây từng làm giờ/trạng thái của buổi 2 (Tối) bị lệch sang phải 1 cột.
                           Nhãn Sáng/Tối không hiện chữ nữa, chỉ còn trong title (rê chuột) — xem comment ở trên. */}
                       <td
-                        className={`px-4 py-2 font-mono font-medium align-top ${
+                        className={`relative px-4 py-2 font-mono font-medium align-top ${
                           isLateCulprit ? "text-red-600 bg-red-50 rounded-md" : "text-gray-700"
                         }`}
-                        title={lateReason ?? expectedTitle}
+                        title={log?.note ? undefined : lateReason ?? expectedTitle}
                       >
-                        {log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}
+                        <div className="flex items-center gap-1">
+                          <span>{log?.checkInAt ? formatTime(new Date(log.checkInAt)) : <span className="text-gray-300">—</span>}</span>
+                          {/* Dòng đã bị admin sửa tay (bắt buộc có lý do từ Segment L) — badge cam
+                              tròn kiểu "i" (theo ảnh mẫu user gửi), bấm vào xem giờ gốc -> giờ đã sửa + lý do,
+                              gọn hơn hẳn so với hiện thẳng chữ ghi chú ra bảng như trước. */}
+                          {log?.note && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenInfoLogId(openInfoLogId === log.id ? null : log.id);
+                              }}
+                              className="shrink-0 text-orange-400 hover:text-orange-500 transition-colors"
+                              title="Đã sửa chấm công — bấm để xem chi tiết"
+                            >
+                              <Info size={13} strokeWidth={2} />
+                            </button>
+                          )}
+                        </div>
+                        {log?.note && openInfoLogId === log.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenInfoLogId(null)} />
+                            <div className="absolute left-0 top-full mt-1 z-20 w-64 bg-white border border-orange-200 rounded-xl shadow-lg p-3 text-left font-sans normal-case">
+                              <p className="text-[11px] font-semibold text-orange-600 mb-2">Đã sửa chấm công</p>
+                              {(checkInChanged || checkOutChanged) && (
+                                <div className="space-y-1 mb-2">
+                                  {checkInChanged && (
+                                    <p className="text-[11px] text-gray-600">
+                                      <span className="text-gray-400">Giờ vào: </span>
+                                      <span className="line-through text-gray-400">
+                                        {log.originalCheckInAt ? formatTime(new Date(log.originalCheckInAt)) : "—"}
+                                      </span>
+                                      <span className="mx-1 text-gray-300">→</span>
+                                      <span className="font-medium text-gray-700">
+                                        {log.checkInAt ? formatTime(new Date(log.checkInAt)) : "—"}
+                                      </span>
+                                    </p>
+                                  )}
+                                  {checkOutChanged && (
+                                    <p className="text-[11px] text-gray-600">
+                                      <span className="text-gray-400">Giờ ra: </span>
+                                      <span className="line-through text-gray-400">
+                                        {log.originalCheckOutAt ? formatTime(new Date(log.originalCheckOutAt)) : "—"}
+                                      </span>
+                                      <span className="mx-1 text-gray-300">→</span>
+                                      <span className="font-medium text-gray-700">
+                                        {log.checkOutAt ? formatTime(new Date(log.checkOutAt)) : "—"}
+                                      </span>
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              <p className="text-[11px] text-gray-500 border-t border-gray-100 pt-2">
+                                <span className="text-gray-400">Lý do: </span>{log.note}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td
                         className={`px-4 py-2 font-mono align-top ${
@@ -390,17 +461,6 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                           <span className="text-gray-300">—</span>
                         ) : (
                           <span className="text-gray-300 text-xs">Chưa chấm</span>
-                        )}
-                        {/* Lý do admin sửa tay (bắt buộc nhập từ nay) — hiện thẳng ra đây, khỏi
-                            phải mở lại form sửa mới biết vì sao giờ chấm công bị đổi. */}
-                        {log?.note && (
-                          <p
-                            className="flex items-start gap-0.5 text-[10px] text-gray-400 mt-1 leading-tight max-w-[140px]"
-                            title={log.note}
-                          >
-                            <StickyNote size={10} className="shrink-0 mt-px" />
-                            <span className="line-clamp-2">{log.note}</span>
-                          </p>
                         )}
                       </td>
                       <td className="px-3 py-2 text-center text-xs align-top">

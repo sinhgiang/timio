@@ -97,12 +97,21 @@ export async function POST(req: NextRequest) {
       where: { employeeId_date_session: { employeeId, date, session: sessionKey } },
     });
 
+    // Lưu giờ GỐC (trước khi admin sửa) để hiện badge "i" trên báo cáo — chỉ chụp lại
+    // ở LẦN SỬA ĐẦU TIÊN (existing.originalCheckInAt ?? existing.checkInAt), các lần sửa
+    // sau giữ nguyên giá trị gốc thật, không bị ghi đè thành giờ đã sửa trước đó.
+    // Dòng tạo mới hoàn toàn (existing null, NV không hề chấm công) → không có giờ gốc, để null.
+    const originalCheckInAt = existing ? existing.originalCheckInAt ?? existing.checkInAt : null;
+    const originalCheckOutAt = existing ? existing.originalCheckOutAt ?? existing.checkOutAt : null;
+
     if (existing) {
       await prisma.attendanceLog.update({
         where: { id: existing.id },
         data: {
           checkInAt: checkInDate,
           checkOutAt: checkOutDate,
+          originalCheckInAt,
+          originalCheckOutAt,
           status,
           minutesLate,
           minutesEarly,
@@ -120,6 +129,8 @@ export async function POST(req: NextRequest) {
           session: sessionKey,
           checkInAt: checkInDate,
           checkOutAt: checkOutDate,
+          originalCheckInAt,
+          originalCheckOutAt,
           status,
           minutesLate,
           minutesEarly,

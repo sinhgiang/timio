@@ -234,23 +234,25 @@ model Contract {
 }
 
 model AttendanceLog {
-  id                String    @id @default(cuid())
-  employeeId        String
-  branchId          String
-  date              String
-  session           String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
-  checkInAt         DateTime?
-  checkOutAt        DateTime?
-  minutesLate       Int       @default(0)
-  status            String    @default("absent")
-  penaltyAmount     Int       @default(0)
-  minutesEarly      Int       @default(0) // Số phút ra sớm (checkout trước giờ tan ca) — tách riêng khỏi minutesLate (đi trễ lúc vào) để biết phạt do giờ VÀO hay giờ RA
-  earlyLeavePenalty Int       @default(0) // Phần phạt do ra sớm (đã cộng vào penaltyAmount) — lưu riêng để hiện lý do phạt trên báo cáo, xem lib/attendance.ts calculateEarlyLeave
-  minutesOvertime   Int       @default(0)
-  overtimeAmount    Int       @default(0)
-  overtimeStatus    String    @default("none") // "none" | "pending" | "approved" | "rejected"
-  note              String?
-  createdAt         DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  employeeId         String
+  branchId           String
+  date               String
+  session            String    @default("full") // "full" (ca bình thường, 1 buổi/ngày) | "0","1",... (chỉ số buổi — ca gãy nhiều buổi/ngày, xem Employee.shiftOverride.sessions)
+  checkInAt          DateTime?
+  checkOutAt         DateTime?
+  originalCheckInAt  DateTime? // Giờ vào GỐC trước khi admin sửa tay (chỉ set lần sửa đầu tiên, giữ nguyên các lần sau) — để hiện "đã sửa từ giờ nào" trên báo cáo
+  originalCheckOutAt DateTime? // Giờ ra GỐC trước khi admin sửa tay — cùng cơ chế với originalCheckInAt
+  minutesLate        Int       @default(0)
+  status             String    @default("absent")
+  penaltyAmount      Int       @default(0)
+  minutesEarly       Int       @default(0) // Số phút ra sớm (checkout trước giờ tan ca) — tách riêng khỏi minutesLate (đi trễ lúc vào) để biết phạt do giờ VÀO hay giờ RA
+  earlyLeavePenalty  Int       @default(0) // Phần phạt do ra sớm (đã cộng vào penaltyAmount) — lưu riêng để hiện lý do phạt trên báo cáo, xem lib/attendance.ts calculateEarlyLeave
+  minutesOvertime    Int       @default(0)
+  overtimeAmount     Int       @default(0)
+  overtimeStatus     String    @default("none") // "none" | "pending" | "approved" | "rejected"
+  note               String?
+  createdAt          DateTime  @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   branch   Branch   @relation(fields: [branchId], references: [id])
