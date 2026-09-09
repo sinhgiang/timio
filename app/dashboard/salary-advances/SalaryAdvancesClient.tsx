@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, CheckCircle2, XCircle, Trash2, Wallet,
-  Smartphone, Banknote, Settings2, Info,
+  Smartphone, Banknote, Settings2, Info, RotateCcw,
 } from "lucide-react";
 
 interface EmployeeRef {
@@ -118,7 +118,7 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
   const totalPending   = advances.filter((a) => a.status === "pending").reduce((s, a) => s + a.amount, 0);
   const countPending   = advances.filter((a) => a.status === "pending").length;
 
-  const handleAction = async (id: string, status: "approved" | "rejected") => {
+  const handleAction = async (id: string, status: "approved" | "rejected" | "pending") => {
     setActing((p) => ({ ...p, [id]: true }));
     const res = await fetch(`/api/salary-advances/${id}`, {
       method: "PATCH",
@@ -413,6 +413,16 @@ export default function SalaryAdvancesClient({ advances: init, employees, curren
                     >
                       <XCircle size={15} /> Từ chối
                     </button>
+                    {adv.source === "worker" && (
+                      <button
+                        onClick={() => { if (confirm(`Đưa khoản ứng ${fmt(adv.amount)} của ${adv.employee.name} về "Chờ duyệt" để tự tay xem xét (đơn này đang ở trạng thái do hệ thống TỰ ĐỘNG duyệt, chưa ai bấm Duyệt)?`)) handleAction(adv.id, "pending"); }}
+                        disabled={acting[adv.id]}
+                        title="Đơn này do hệ thống tự động duyệt trong hạn mức — đưa về Chờ duyệt để bạn tự Duyệt/Từ chối"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 text-sm font-medium rounded-lg hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                      >
+                        <RotateCcw size={15} /> Xem lại
+                      </button>
+                    )}
                   </>
                 )}
                 <button
