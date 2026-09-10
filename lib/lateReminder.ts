@@ -124,7 +124,6 @@ interface ResolvedShift {
 function resolveTodayShift(
   e: { shiftOverride: string | null; branch: { checkInTime: string; gracePeriod: number; workDays: string } },
   jsDay: number,
-  isoDay: number,
   roster: { shiftLabel: string; checkIn: string }[] | undefined
 ): ResolvedShift | null {
   const ov = parseShift(e.shiftOverride);
@@ -143,10 +142,13 @@ function resolveTodayShift(
     if (workShifts.length === 0) return null; // hôm nay được xếp nghỉ
     checkInTime = workShifts.map((r) => r.checkIn).sort()[0]; // ca sớm nhất trong ngày
   } else {
-    // Không phân ca → dùng lịch tuần (giờ riêng của NV → mặc định chi nhánh)
+    // Không phân ca → dùng lịch tuần (giờ riêng của NV → mặc định chi nhánh).
+    // workDays lưu theo chuẩn JS Date.getDay() — 0=CN..6=T7 (khớp EmployeesClient.tsx DAYS[] và
+    // dayOverride.day ở trên) — dùng thẳng jsDay, KHÔNG quy đổi ISO (trước đây quy đổi sai khiến
+    // NV được xếp làm Chủ nhật bị coi là "hôm nay nghỉ", không được nhắc trễ giờ).
     const workDaysStr = ov.workDays ?? e.branch.workDays; // "1,2,3,4,5"
     const workDays = workDaysStr.split(",").map((s) => s.trim());
-    if (!workDays.includes(String(isoDay))) return null; // hôm nay không phải ngày làm của họ
+    if (!workDays.includes(String(jsDay))) return null; // hôm nay không phải ngày làm của họ
     checkInTime = ov.checkInTime ?? e.branch.checkInTime; // "HH:MM"
   }
   return { checkInTime, gracePeriod };
@@ -202,7 +204,6 @@ export async function computeDueEmployees(
 ): Promise<DueComputation> {
   const nowMinutes = nowVN.getUTCHours() * 60 + nowVN.getUTCMinutes();
   const jsDay = nowVN.getUTCDay(); // 0=CN .. 6=T7
-  const isoDay = jsDay === 0 ? 7 : jsDay; // 1=T2 .. 7=CN (khớp workDays)
   const today = nowVN.toISOString().slice(0, 10); // YYYY-MM-DD theo giờ VN (nowVN đã +7h)
 
   const branchInfo = new Map<string, { name: string; chatId: string | null; names: string[] }>();
@@ -255,7 +256,7 @@ export async function computeDueEmployees(
     if (onLeave.has(e.id)) continue;
     if (alreadyReminded.has(e.id)) continue;
 
-    const shift = resolveTodayShift(e, jsDay, isoDay, assignMap.get(e.id));
+    const shift = resolveTodayShift(e, jsDay, assignMap.get(e.id));
     if (!shift) continue; // hôm nay là ngày nghỉ của người này
 
     const [h, m] = shift.checkInTime.split(":").map((x) => Number(x));
@@ -416,7 +417,6 @@ export async function computeDuePreShift(
 ): Promise<DueComputation> {
   const nowMinutes = nowVN.getUTCHours() * 60 + nowVN.getUTCMinutes();
   const jsDay = nowVN.getUTCDay(); // 0=CN .. 6=T7
-  const isoDay = jsDay === 0 ? 7 : jsDay; // 1=T2 .. 7=CN (khớp workDays)
   const today = nowVN.toISOString().slice(0, 10); // YYYY-MM-DD theo giờ VN (nowVN đã +7h)
 
   const branchInfo = new Map<string, { name: string; chatId: string | null; names: string[] }>();
@@ -469,7 +469,7 @@ export async function computeDuePreShift(
     if (onLeave.has(e.id)) continue;
     if (alreadyReminded.has(e.id)) continue;
 
-    const shift = resolveTodayShift(e, jsDay, isoDay, assignMap.get(e.id));
+    const shift = resolveTodayShift(e, jsDay, assignMap.get(e.id));
     if (!shift) continue; // hôm nay là ngày nghỉ của người này
 
     const [h, m] = shift.checkInTime.split(":").map((x) => Number(x));

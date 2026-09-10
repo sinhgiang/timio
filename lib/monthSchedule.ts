@@ -92,10 +92,13 @@ export function buildMonthSchedule(params: {
       continue;
     }
 
-    // Không có gì đặc biệt cho ngày này → theo lịch tuần (workDays của NV, không thì của chi nhánh)
+    // Không có gì đặc biệt cho ngày này → theo lịch tuần (workDays của NV, không thì của chi nhánh).
+    // LƯU Ý: workDays lưu theo chuẩn JS Date.getDay() — 0=CN..6=T7 (xem EmployeesClient.tsx DAYS[]
+    // và lib/shiftResolve.ts findDayOverride) — KHÔNG phải ISO (1=T2..7=CN). Trước đây quy đổi
+    // sang ISO ở đây khiến workDaySet.has("7") luôn false dù có "0" (CN) trong set → Chủ nhật bị
+    // ép thành "Nghỉ hàng tuần" ngay cả khi NV được cấu hình làm việc Chủ nhật.
     const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0=CN..6=T7
-    const isoDay = jsDay === 0 ? 7 : jsDay; // 1=T2..7=CN, khớp format Branch.workDays
-    if (!workDaySet.has(String(isoDay))) {
+    if (!workDaySet.has(String(jsDay))) {
       out.push({ date: dateStr, isWorkDay: false, offLabel: "Nghỉ hàng tuần", source: "weekly_rest", sessions: [] });
       continue;
     }
