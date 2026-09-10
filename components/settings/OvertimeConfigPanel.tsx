@@ -6,13 +6,14 @@ import { Timer } from "lucide-react";
 interface OvertimeConfig {
   weekday: number;
   weekend: number;
-  minMinutes: number;
 }
 
-const DEFAULT: OvertimeConfig = { weekday: 1.5, weekend: 2.0, minMinutes: 30 };
+const DEFAULT: OvertimeConfig = { weekday: 1.5, weekend: 2.0 };
 
-// Cấu hình tăng ca — hệ số lương + ngưỡng phút tối thiểu để tính là tăng ca thật (25/8/2026,
-// theo phản hồi: ra muộn vài phút không nên tự động tính tăng ca/tạo bản ghi chờ duyệt).
+// Cấu hình tăng ca — CHỈ còn hệ số lương (10/9/2026, bỏ hẳn ngưỡng phút tối thiểu/mốc tự suy ra
+// theo phản hồi: không thích kiểu tự động đoán giờ tăng ca). Giờ tăng ca bắt đầu/kết thúc lúc mấy
+// giờ nay khai báo trực tiếp riêng theo từng nhân viên, ở trang Nhân viên — panel này chỉ còn set
+// hệ số nhân lương cho số giờ tăng ca đã khai báo đó.
 export default function OvertimeConfigPanel() {
   const [cfg, setCfg] = useState<OvertimeConfig>(DEFAULT);
   const [loading, setLoading] = useState(true);
@@ -53,28 +54,12 @@ export default function OvertimeConfigPanel() {
         <h2 className="text-base font-bold text-gray-800">Cấu hình tăng ca</h2>
       </div>
       <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-        Nhân viên chấm công ra <b>muộn hơn giờ tan ca</b> mới được tính là tăng ca — nhưng chỉ khi muộn hơn
-        <b> ngưỡng tối thiểu</b> bên dưới, để tránh vài phút lệch giờ cũng tự tạo bản ghi &quot;chờ duyệt&quot; không cần thiết.
-        Tăng ca dưới ngưỡng sẽ không được ghi nhận và không cộng tiền.
+        Hệ số nhân lương áp dụng cho số giờ tăng ca <b>đã khai báo riêng cho từng nhân viên</b>
+        {" "}(giờ vào/giờ ra tăng ca — sửa ở trang <b>Nhân viên</b>, mục &quot;Tăng ca&quot; của từng người).
+        Panel này chỉ còn set hệ số trả lương, không còn ngưỡng/mốc tự động nữa.
       </p>
 
       <div className="space-y-4 max-w-md">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-gray-700">Ngưỡng phút tối thiểu</p>
-            <p className="text-xs text-gray-400">Ra muộn từ mức này trở lên mới tính là tăng ca</p>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <input
-              type="number" min={0} max={240}
-              value={cfg.minMinutes}
-              onChange={(e) => setCfg((c) => ({ ...c, minMinutes: Number(e.target.value) }))}
-              className={inputCls}
-            />
-            <span className="text-sm text-gray-500">phút</span>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-gray-700">Hệ số ngày thường</p>

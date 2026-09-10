@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       );
       const isWeekend = now.getDay() === 0 || now.getDay() === 6;
       // Chỉ tính tăng ca nếu nhân viên này đã BẬT tăng ca khi khai báo (mặc định TẮT).
-      const otThreshold = resolveOvertimeThreshold(overtimeCfg, shiftOut, checkOutTime);
+      const otThreshold = resolveOvertimeThreshold(shiftOut, checkOutTime);
       const { minutesOvertime, overtimeAmount } = otThreshold === null
         ? { minutesOvertime: 0, overtimeAmount: 0 }
         : computeCheckoutOvertime(

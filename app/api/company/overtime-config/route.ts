@@ -8,7 +8,7 @@ function sessionUser(session: unknown) {
   return (session as { user?: { companyId?: string; role?: string } } | null)?.user;
 }
 
-// GET — đọc cấu hình tăng ca (hệ số + ngưỡng phút tối thiểu). Tái dùng field Company.overtimeRates.
+// GET — đọc cấu hình tăng ca (chỉ còn hệ số lương). Tái dùng field Company.overtimeRates.
 export async function GET() {
   const user = sessionUser(await getServerSession(authOptions));
   if (!user?.companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

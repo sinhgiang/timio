@@ -82,14 +82,14 @@ interface ShiftOverride {
   // ca bình thường (1 khoảng giờ, không tách buổi) để thay ca cho đồng nghiệp nghỉ. Hôm đó bỏ
   // qua sessions hoàn toàn. Xem lib/shiftResolve.ts (findDayOverride). day: 0=CN,1=T2...6=T7.
   dayOverrides?: Array<{ day: number; checkInTime: string; checkOutTime: string; gracePeriod?: number }>;
-  // Tăng ca riêng theo nhân viên (26/8/2026) — mặc định otEnabled=false: nhân viên KHÔNG được
-  // tính tăng ca cho tới khi khai báo bật lên. Khi bật, useDefaultOt=true dùng ngưỡng phút chung
-  // của công ty (Cài đặt → Cấu hình tăng ca, mở — không chặn trần); false thì khai báo TRỰC TIẾP
-  // giờ tăng ca bắt đầu/kết thúc riêng cho người này (giống hệt giờ vào/ra của 1 ca thật) — otEndTime
-  // bỏ trống = mở (tính theo giờ chấm ra thật), có giá trị = chặn trần ("tăng ca có kiểm soát").
-  // Xem lib/overtime.ts (resolveOvertimeThreshold) — nơi 3 route check-out đọc lại field này.
+  // Tăng ca riêng theo nhân viên (26/8/2026, bỏ hẳn mô hình "ngưỡng phút mặc định công ty" ngày
+  // 10/9/2026) — mặc định otEnabled=false: nhân viên KHÔNG được tính tăng ca cho tới khi khai báo
+  // bật lên. Khi bật, giờ tăng ca khai báo TRỰC TIẾP như 1 mốc giờ ca thật (giờ vào/giờ ra, giống
+  // hệt input check-in/check-out của ca chính) — BẮT BUỘC phải có otStartTime mới tính được tăng
+  // ca. otEndTime bỏ trống = mở (tính theo giờ chấm ra thật), có giá trị = chặn trần ("tăng ca có
+  // kiểm soát"). otGracePeriod: chấm ra sớm/muộn hơn 2 mốc trên vài phút vẫn tính đủ (xem
+  // lib/overtime.ts resolveOvertimeThreshold — nơi 3 route check-out đọc lại field này).
   otEnabled?: boolean;
-  useDefaultOt?: boolean;
   otStartTime?: string;
   otEndTime?: string;
   otGracePeriod?: number;
@@ -146,14 +146,13 @@ interface Props {
   companySlug: string;
   penaltyRules: CompanyPenaltyRule[];
   rewardRules: CompanyRewardRule[];
-  companyOvertimeMinMinutes: number;
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 export default function EmployeesClient({
   employees, branches, allDepartments, allPositions, savedShifts, companyId, companySlug,
-  penaltyRules, rewardRules, companyOvertimeMinMinutes,
+  penaltyRules, rewardRules,
 }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -371,7 +370,6 @@ export default function EmployeesClient({
       useDefaultBonus: true,
       // Tăng ca — mặc định TẮT (nhân viên mới khai báo chưa chắc có tăng ca).
       otEnabled: false,
-      useDefaultOt: true,
       otStartTime: "",
       otEndTime: "",
       otGracePeriod: "5",
@@ -491,7 +489,6 @@ export default function EmployeesClient({
       useDefaultEarlyLeave: ov?.useDefaultEarlyLeave !== false,
       useDefaultBonus: ov?.useDefaultBonus !== false,
       otEnabled: ov?.otEnabled === true,
-      useDefaultOt: ov?.useDefaultOt !== false,
       otStartTime: ov?.otStartTime ?? "",
       otEndTime: ov?.otEndTime ?? "",
       otGracePeriod: String(ov?.otGracePeriod ?? 5),
@@ -585,10 +582,9 @@ export default function EmployeesClient({
       earlyLeaveRules: form.earlyLeaveRules.filter((r) => r.minutes && r.amount).map((r) => ({ minutes: Number(r.minutes), amount: Number(r.amount) })),
       perfectBonus: form.perfectBonus ? Number(form.perfectBonus) : undefined,
       otEnabled: form.otEnabled,
-      useDefaultOt: form.useDefaultOt,
-      ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && { otStartTime: form.otStartTime }),
-      ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && form.otEndTime && { otEndTime: form.otEndTime }),
-      ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && { otGracePeriod: Number(form.otGracePeriod) || 0 }),
+      ...(form.otEnabled && form.otStartTime && { otStartTime: form.otStartTime }),
+      ...(form.otEnabled && form.otStartTime && form.otEndTime && { otEndTime: form.otEndTime }),
+      ...(form.otEnabled && form.otStartTime && { otGracePeriod: Number(form.otGracePeriod) || 0 }),
       ...(validSessions.length >= 2 && { sessions: validSessions }),
       ...(validDayOverrides.length > 0 && { dayOverrides: validDayOverrides }),
     };
@@ -1769,82 +1765,48 @@ export default function EmployeesClient({
                     </label>
 
                     {form.otEnabled && (
-                      <div className="space-y-3 pt-1">
-                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={form.useDefaultOt}
-                            onChange={(e) => setForm((f) => {
-                              const turningOff = f.useDefaultOt && !e.target.checked;
-                              return {
-                                ...f,
-                                useDefaultOt: e.target.checked,
-                                // Bỏ tick "dùng mặc định" lần đầu → gợi ý sẵn giờ bắt đầu tăng ca theo
-                                // ngưỡng công ty, để bạn chỉnh tiếp thay vì phải gõ từ đầu.
-                                otStartTime: turningOff && !f.otStartTime
-                                  ? addMinutesToTime(f.checkOutTime || "17:30", companyOvertimeMinMinutes)
-                                  : f.otStartTime,
-                              };
-                            })}
-                            className="w-4 h-4 rounded accent-teal-500"
-                          />
-                          <span className="text-sm text-gray-600 font-medium">Dùng cấu hình mặc định của công ty</span>
-                        </label>
-
-                        {form.useDefaultOt ? (
-                          <p className="text-xs bg-white/80 rounded-lg px-3 py-2 border border-teal-100 text-gray-500">
-                            Công ty: tính tăng ca khi ra muộn hơn giờ tan ca trên <b>{companyOvertimeMinMinutes} phút</b>
-                            {" "}→ với ca này, tăng ca bắt đầu tính từ{" "}
-                            <b className="text-teal-700">{addMinutesToTime(form.checkOutTime || "17:30", companyOvertimeMinMinutes)}</b>, không giới hạn giờ ra.{" "}
-                            <a href="/dashboard/settings?tab=penalty" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-teal-700">
-                              Đổi ở Cài đặt ↗
-                            </a>
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Giờ vào tăng ca</label>
-                                <input
-                                  type="time"
-                                  value={form.otStartTime}
-                                  onChange={(e) => setForm((f) => ({ ...f, otStartTime: e.target.value }))}
-                                  className="w-full px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Giờ ra tăng ca (không bắt buộc)</label>
-                                <input
-                                  type="time"
-                                  value={form.otEndTime}
-                                  onChange={(e) => setForm((f) => ({ ...f, otEndTime: e.target.value }))}
-                                  className="w-full px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Dung sai (phút)</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="60"
-                                  value={form.otGracePeriod}
-                                  onChange={(e) => setForm((f) => ({ ...f, otGracePeriod: e.target.value }))}
-                                  className="w-24 px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
-                                />
-                              </div>
-                              <span className="text-xs text-gray-400 pt-4">Chấm công ra sớm/muộn hơn 2 mốc trên tối đa ngần này phút vẫn được tính đủ — bù thao tác chụp công thường lệch vài phút so với lúc thực sự ngừng việc.</span>
-                            </div>
-                            <p className="text-xs text-teal-700 bg-white/80 rounded-lg px-3 py-2 border border-teal-100">
-                              {form.otStartTime ? (
-                                <>Tăng ca tính từ <b>{addMinutesToTime(form.otStartTime, -Number(form.otGracePeriod || 0))}</b> trở đi (mốc khai báo {form.otStartTime}, trừ {Number(form.otGracePeriod || 0)} phút dung sai) — ra trước mốc này không tính là tăng ca (kể cả đã muộn hơn giờ tan ca {form.checkOutTime || "?"}, khoảng giữa xem như giờ nghỉ).
-                                  {form.otEndTime && <> Tối đa tính đến <b>{addMinutesToTime(form.otEndTime, Number(form.otGracePeriod || 0))}</b> (mốc khai báo {form.otEndTime}, cộng dung sai) — ra muộn hơn nữa cũng không tính thêm (tăng ca có kiểm soát).</>}
-                                </>
-                              ) : "Nhập giờ vào tăng ca để bắt đầu tính."}
-                            </p>
+                      <div className="space-y-2 pt-1">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Giờ vào tăng ca</label>
+                            <input
+                              type="time"
+                              value={form.otStartTime}
+                              onChange={(e) => setForm((f) => ({ ...f, otStartTime: e.target.value }))}
+                              className="w-full px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
+                            />
                           </div>
-                        )}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Giờ ra tăng ca (không bắt buộc)</label>
+                            <input
+                              type="time"
+                              value={form.otEndTime}
+                              onChange={(e) => setForm((f) => ({ ...f, otEndTime: e.target.value }))}
+                              className="w-full px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Dung sai (phút)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="60"
+                              value={form.otGracePeriod}
+                              onChange={(e) => setForm((f) => ({ ...f, otGracePeriod: e.target.value }))}
+                              className="w-24 px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
+                            />
+                          </div>
+                          <span className="text-xs text-gray-400 pt-4">Chấm công ra sớm/muộn hơn 2 mốc trên tối đa ngần này phút vẫn được tính đủ — bù thao tác chụp công thường lệch vài phút so với lúc thực sự ngừng việc.</span>
+                        </div>
+                        <p className="text-xs text-teal-700 bg-white/80 rounded-lg px-3 py-2 border border-teal-100">
+                          {form.otStartTime ? (
+                            <>Tăng ca tính từ <b>{addMinutesToTime(form.otStartTime, -Number(form.otGracePeriod || 0))}</b> trở đi (mốc khai báo {form.otStartTime}, trừ {Number(form.otGracePeriod || 0)} phút dung sai) — ra trước mốc này không tính là tăng ca (kể cả đã muộn hơn giờ tan ca {form.checkOutTime || "?"}, khoảng giữa xem như giờ nghỉ).
+                              {form.otEndTime && <> Tối đa tính đến <b>{addMinutesToTime(form.otEndTime, Number(form.otGracePeriod || 0))}</b> (mốc khai báo {form.otEndTime}, cộng dung sai) — ra muộn hơn nữa cũng không tính thêm (tăng ca có kiểm soát).</>}
+                            </>
+                          ) : "Nhập giờ vào tăng ca để bắt đầu tính."}
+                        </p>
                       </div>
                     )}
                   </div>

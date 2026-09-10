@@ -159,15 +159,16 @@ export async function POST(req: NextRequest) {
       if (coMinutesDiff < -720) coMinutesDiff += 1440;
 
       // Tính tiền tăng ca: (lương CB / số ngày công chuẩn / 8 giờ) * giờ OT * hệ số.
-      // Có ngưỡng phút tối thiểu (minMinutes) — ra muộn vài phút không tính là tăng ca.
+      // Giờ tăng ca (bắt đầu/kết thúc) khai báo riêng theo từng NV — xem lib/overtime.ts.
       const overtimeCfg = sanitizeOvertimeConfig(
         employee.company.overtimeRates ? JSON.parse(employee.company.overtimeRates) : null
       );
       const dayOfWeek = now.getDay(); // 0=CN, 6=T7
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      // Chỉ tính tăng ca nếu nhân viên này đã được BẬT tăng ca khi khai báo (mặc định TẮT —
-      // xem lib/overtime.ts resolveOvertimeThreshold). null = không tính, dù ra muộn bao nhiêu.
-      const otThreshold = resolveOvertimeThreshold(overtimeCfg, shiftData, checkOutTime);
+      // Chỉ tính tăng ca nếu nhân viên này đã được BẬT tăng ca VÀ đã khai báo giờ vào tăng ca khi
+      // khai báo (mặc định TẮT — xem lib/overtime.ts resolveOvertimeThreshold). null = không
+      // tính, dù ra muộn bao nhiêu.
+      const otThreshold = resolveOvertimeThreshold(shiftData, checkOutTime);
       const { minutesOvertime, overtimeAmount } = otThreshold === null
         ? { minutesOvertime: 0, overtimeAmount: 0 }
         : computeCheckoutOvertime(
