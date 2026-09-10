@@ -6,7 +6,7 @@ import { getStatusColor, getStatusLabel } from "@/lib/attendance";
 import {
   Users, CheckCircle2, AlertTriangle, UserX, Monitor, Banknote,
   ClipboardList, CalendarOff, FileWarning, ClipboardEdit, ArrowRight, BarChart3,
-  UserPlus, Building2, Settings, Clock, ShieldCheck, TrendingUp, ChevronRight, Sparkles,
+  UserPlus, Building2, Settings, Clock, ShieldCheck, TrendingUp, TrendingDown, ChevronRight, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -84,6 +84,19 @@ export default async function DashboardPage() {
   const checkInRate = totalEmployees > 0 ? Math.round((checkedIn / totalEmployees) * 100) : 0;
   const checkedInIds = new Set(todayLogs.map((l) => l.employee.id));
   const notCheckedInEmployees = allEmployees.filter((e) => !checkedInIds.has(e.id));
+
+  // Tóm tắt xu hướng 7 ngày cho khoảng trống dưới biểu đồ (phản hồi 10/9/2026: card biểu đồ giãn
+  // theo chiều cao cột bên phải dài hơn, để trống 1 khoảng lớn bên dưới chú thích "Đúng giờ/Đi
+  // trễ" — cần thêm gì đó "sinh động" giúp nắm tình hình nhanh, không lặp lại số liệu chỗ khác).
+  const weekOnTime = chartDays.reduce((s, d) => s + d.onTime, 0);
+  const weekLate = chartDays.reduce((s, d) => s + d.late, 0);
+  const weekTotal = weekOnTime + weekLate;
+  const avgPerDay = weekTotal > 0 ? Math.round((weekTotal / chartDays.length) * 10) / 10 : 0;
+  const weekOnTimeRate = weekTotal > 0 ? Math.round((weekOnTime / weekTotal) * 100) : 0;
+  const yesterdayDay = chartDays[chartDays.length - 2];
+  const yesterdayTotal = yesterdayDay ? yesterdayDay.onTime + yesterdayDay.late : 0;
+  const deltaVsYesterday = checkedIn - yesterdayTotal;
+  const busiestDay = chartDays.reduce((best, d) => ((d.onTime + d.late) > (best.onTime + best.late) ? d : best), chartDays[0]);
 
   const totalBaseSalary = salaryAgg._sum.baseSalary ?? 0;
   const monthHealth = monthTotalLogs > 0 ? Math.round((monthOnTimeLogs / monthTotalLogs) * 100) : 0;
@@ -165,6 +178,27 @@ export default async function DashboardPage() {
             <span className="flex items-center gap-1.5 text-gray-500"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500" /> Đúng giờ</span>
             <span className="flex items-center gap-1.5 text-gray-500"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Đi trễ</span>
           </div>
+
+          {/* 2 ô tóm tắt xu hướng — lấp khoảng trống bên dưới (10/9/2026: card này giãn theo cột
+              "Hoạt động gần đây" dài hơn bên phải, phần dưới chú thích bị trống trơn). */}
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="rounded-xl bg-gray-50 px-3.5 py-3">
+              <p className="text-[11px] text-gray-400">So với hôm qua</p>
+              <p className={`text-base font-bold flex items-center gap-1 mt-1 ${deltaVsYesterday > 0 ? "text-emerald-600" : deltaVsYesterday < 0 ? "text-red-500" : "text-gray-500"}`}>
+                {deltaVsYesterday > 0 ? <TrendingUp size={15} /> : deltaVsYesterday < 0 ? <TrendingDown size={15} /> : null}
+                {deltaVsYesterday > 0 ? `+${deltaVsYesterday}` : deltaVsYesterday} người
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 px-3.5 py-3">
+              <p className="text-[11px] text-gray-400">TB {chartDays.length} ngày qua</p>
+              <p className="text-base font-bold text-gray-800 mt-1">{avgPerDay} người/ngày</p>
+            </div>
+          </div>
+          {weekTotal > 0 && (
+            <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+              Tuần này <b className="text-gray-600">{weekOnTimeRate}%</b> chấm công đúng giờ, đông nhất vào <b className="text-gray-600">{busiestDay.label}</b>.
+            </p>
+          )}
         </div>
 
         {/* Stat cards */}
