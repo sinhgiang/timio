@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { actorKeyOf, extractHashtags, summarizeSocial } from "@/lib/announcementSocial";
+import { notifyCompanyAnnouncement } from "@/lib/workerNotify";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -88,6 +89,8 @@ export async function POST(req: NextRequest) {
       hashtags: hashtags.length ? JSON.stringify(hashtags) : null,
     },
   });
+
+  void notifyCompanyAnnouncement(companyId, title);
 
   return NextResponse.json(ann, { status: 201 });
 }

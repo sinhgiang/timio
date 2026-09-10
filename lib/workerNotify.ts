@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 
-export type NotifType = "recruiter" | "leave" | "correction" | "advance" | "salary" | "generic";
+export type NotifType = "recruiter" | "leave" | "correction" | "advance" | "salary" | "announcement" | "generic";
 export interface NotifPayload { type: NotifType; title: string; body?: string; link?: string; email?: boolean }
 
 function emailHtml(name: string, title: string, body?: string): string {
@@ -36,4 +36,29 @@ export async function notifyWorkerByEmployee(employeeId: string, n: NotifPayload
     const emp = await prisma.employee.findUnique({ where: { id: employeeId }, select: { workerAccountId: true } });
     if (emp?.workerAccountId) await notifyWorkerById(emp.workerAccountId, n);
   } catch { /* */ }
+}
+
+// Sếp đăng bản tin mới → báo cho TẤT CẢ nhân viên đang làm việc của công ty đó (đã có tài
+// khoản NV trên app). Không gửi email (tránh spam mỗi lần đăng bài) — chỉ chuông in-app,
+// người dùng bấm vào là đánh dấu đã đọc và số trên chuông tự mất (xem PATCH
+// /api/worker/notifications), không hiện lại nữa. 1 workerAccount có thể gắn nhiều Employee
+// trong cùng công ty (hiếm) → dedupe theo workerAccountId để khỏi bắn trùng thông báo.
+export async function notifyCompanyAnnouncement(companyId: string, announcementTitle: string): Promise<void> {
+  try {
+    const emps = await prisma.employee.findMany({
+      where: { companyId, status: "active", workerAccountId: { not: null } },
+      select: { workerAccountId: true },
+    });
+    const workerAccountIds = Array.from(new Set(emps.map((e) => e.workerAccountId).filter((v): v is string => !!v)));
+    if (!workerAccountIds.length) return;
+    await prisma.workerNotification.createMany({
+      data: workerAccountIds.map((workerAccountId) => ({
+        workerAccountId,
+        type: "announcement",
+        title: "Bản tin công ty mới",
+        body: announcementTitle,
+        link: "announcements",
+      })),
+    });
+  } catch { /* không chặn hành động chính */ }
 }

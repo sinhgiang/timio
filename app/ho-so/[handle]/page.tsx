@@ -380,6 +380,7 @@ function notifIcon(type: string) {
   if (type === "leave") return <Umbrella size={15} className="text-blue-600" />;
   if (type === "correction") return <Clock size={15} className="text-blue-600" />;
   if (type === "advance" || type === "salary") return <Wallet size={15} className="text-green-600" />;
+  if (type === "announcement") return <Megaphone size={15} className="text-amber-600" />;
   return <Bell size={15} className="text-blue-600" />;
 }
 function NotificationBell({ onNavigate }: { onNavigate: (tab: TabKey) => void }) {
@@ -423,7 +424,7 @@ function NotificationBell({ onNavigate }: { onNavigate: (tab: TabKey) => void })
   const clickItem = async (it: Notif) => {
     if (!it.read) await fetch("/api/worker/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it.id }) }).catch(() => {});
     setOpen(false);
-    onNavigate((["income", "attendance", "leave"].includes(it.link || "") ? it.link : "profile") as TabKey);
+    onNavigate((["income", "attendance", "leave", "announcements"].includes(it.link || "") ? it.link : "profile") as TabKey);
     load();
   };
   const markAll = async () => { await fetch("/api/worker/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) }).catch(() => {}); load(); };
