@@ -46,6 +46,14 @@ export interface EmployeeOvertimeOverride {
   useDefaultOt?: boolean; // true (mặc định) = dùng ngưỡng phút chung của công ty (mở, không chặn trần)
   otStartTime?: string; // "HH:MM" — giờ tăng ca bắt đầu tính (chỉ dùng khi useDefaultOt === false)
   otEndTime?: string | null; // "HH:MM" — tùy chọn: có thì tăng ca bị CHẶN TRẦN tại giờ này ("tăng ca có kiểm soát")
+  // Dung sai (phút) quanh 2 mốc trên — chỉ dùng khi useDefaultOt === false (10/9/2026, phản hồi:
+  // "bản ghi chụp công có thể sớm hơn hoặc muộn hơn... vẫn lọt vào bên trong"). Chấm ra SỚM hơn
+  // otStartTime tối đa ngần này phút vẫn được tính như đã chạm mốc bắt đầu tăng ca (khớp cảm giác
+  // "chụp công xong đi ra" thường trễ vài phút so với lúc thực sự ngừng việc); chấm ra MUỘN hơn
+  // otEndTime (nếu có khai báo trần) tối đa ngần này phút vẫn được trả đủ, không bị cắt cụt vì
+  // thao tác chấm công chậm vài phút. Không áp dụng cho chế độ mặc định công ty — minMinutes ở
+  // đó đã tự đóng vai trò "đệm" rồi.
+  otGracePeriod?: number;
 }
 
 function hhmmToMinutes(hhmm: string | null | undefined): number | null {
@@ -89,6 +97,17 @@ export function resolveOvertimeThreshold(
       if (span < 0) span += 1440;
       capMinutes = span;
     }
+
+    // Dung sai: chấm ra sớm hơn mốc bắt đầu tối đa `grace` phút vẫn coi như đã chạm mốc (hạ
+    // ngưỡng xuống) — và nếu có chặn trần, chấm ra muộn hơn mốc kết thúc tối đa `grace` phút
+    // vẫn được trả đủ (nới trần lên tương ứng). Không áp cho phần đầu nếu KHÔNG khai báo trần
+    // rộng hơn thực tế cần thiết — chỉ đơn giản dịch 2 mốc theo đúng 1 số phút duy nhất.
+    const grace = Math.round(clampNumber(employeeOverride.otGracePeriod, 0, 0, 60));
+    if (grace > 0) {
+      startMinutesFromShiftEnd -= grace;
+      if (capMinutes !== undefined) capMinutes += grace;
+    }
+
     return { startMinutesFromShiftEnd, capMinutes };
   }
   return { startMinutesFromShiftEnd: companyCfg.minMinutes };

@@ -92,6 +92,7 @@ interface ShiftOverride {
   useDefaultOt?: boolean;
   otStartTime?: string;
   otEndTime?: string;
+  otGracePeriod?: number;
 }
 
 interface CompanyPenaltyRule { fromMinutes: number; toMinutes: number; amount: number; type: string; }
@@ -373,6 +374,7 @@ export default function EmployeesClient({
       useDefaultOt: true,
       otStartTime: "",
       otEndTime: "",
+      otGracePeriod: "5",
       baseSalary: "",
       joinDate: "",
       dateOfBirth: "",
@@ -492,6 +494,7 @@ export default function EmployeesClient({
       useDefaultOt: ov?.useDefaultOt !== false,
       otStartTime: ov?.otStartTime ?? "",
       otEndTime: ov?.otEndTime ?? "",
+      otGracePeriod: String(ov?.otGracePeriod ?? 5),
       baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
       dateOfBirth: emp.dateOfBirth ?? "",
@@ -585,6 +588,7 @@ export default function EmployeesClient({
       useDefaultOt: form.useDefaultOt,
       ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && { otStartTime: form.otStartTime }),
       ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && form.otEndTime && { otEndTime: form.otEndTime }),
+      ...(form.otEnabled && form.useDefaultOt === false && form.otStartTime && { otGracePeriod: Number(form.otGracePeriod) || 0 }),
       ...(validSessions.length >= 2 && { sessions: validSessions }),
       ...(validDayOverrides.length > 0 && { dayOverrides: validDayOverrides }),
     };
@@ -1818,10 +1822,24 @@ export default function EmployeesClient({
                                 />
                               </div>
                             </div>
+                            <div className="flex items-center gap-2.5">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Dung sai (phút)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="60"
+                                  value={form.otGracePeriod}
+                                  onChange={(e) => setForm((f) => ({ ...f, otGracePeriod: e.target.value }))}
+                                  className="w-24 px-3 py-2 border border-teal-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
+                                />
+                              </div>
+                              <span className="text-xs text-gray-400 pt-4">Chấm công ra sớm/muộn hơn 2 mốc trên tối đa ngần này phút vẫn được tính đủ — bù thao tác chụp công thường lệch vài phút so với lúc thực sự ngừng việc.</span>
+                            </div>
                             <p className="text-xs text-teal-700 bg-white/80 rounded-lg px-3 py-2 border border-teal-100">
                               {form.otStartTime ? (
-                                <>Tăng ca chỉ tính từ <b>{form.otStartTime}</b> trở đi — ra trước mốc này không tính là tăng ca (kể cả đã muộn hơn giờ tan ca {form.checkOutTime || "?"}, khoảng giữa xem như giờ nghỉ).
-                                  {form.otEndTime && <> Tối đa tính đến <b>{form.otEndTime}</b> — ra muộn hơn nữa cũng không tính thêm (tăng ca có kiểm soát).</>}
+                                <>Tăng ca tính từ <b>{addMinutesToTime(form.otStartTime, -Number(form.otGracePeriod || 0))}</b> trở đi (mốc khai báo {form.otStartTime}, trừ {Number(form.otGracePeriod || 0)} phút dung sai) — ra trước mốc này không tính là tăng ca (kể cả đã muộn hơn giờ tan ca {form.checkOutTime || "?"}, khoảng giữa xem như giờ nghỉ).
+                                  {form.otEndTime && <> Tối đa tính đến <b>{addMinutesToTime(form.otEndTime, Number(form.otGracePeriod || 0))}</b> (mốc khai báo {form.otEndTime}, cộng dung sai) — ra muộn hơn nữa cũng không tính thêm (tăng ca có kiểm soát).</>}
                                 </>
                               ) : "Nhập giờ vào tăng ca để bắt đầu tính."}
                             </p>
