@@ -7,7 +7,6 @@ import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import BranchQRCard from "@/components/settings/BranchQRCard";
 import LateReminderPanel from "@/components/settings/LateReminderPanel";
-import OvertimeConfigPanel from "@/components/settings/OvertimeConfigPanel";
 import PlanGate from "@/components/ui/PlanGate";
 import PenaltyScopePicker, { DEFAULT_PENALTY_SCOPE, type PenaltyScopeValue } from "@/components/settings/PenaltyScopePicker";
 import {
@@ -1454,8 +1453,6 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
           </div>
         </div>
       )}
-
-      <OvertimeConfigPanel />
 
       </>}
 

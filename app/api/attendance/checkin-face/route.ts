@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
-import { computeCheckoutOvertime, sanitizeOvertimeConfig, resolveOvertimeThreshold, type EmployeeOvertimeOverride } from "@/lib/overtime";
+import { computeCheckoutOvertime, DEFAULT_OVERTIME_CONFIG, resolveOvertimeThreshold, type EmployeeOvertimeOverride } from "@/lib/overtime";
 import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
@@ -160,9 +160,9 @@ export async function POST(req: NextRequest) {
 
       // Tính tiền tăng ca: (lương CB / số ngày công chuẩn / 8 giờ) * giờ OT * hệ số.
       // Giờ tăng ca (bắt đầu/kết thúc) khai báo riêng theo từng NV — xem lib/overtime.ts.
-      const overtimeCfg = sanitizeOvertimeConfig(
-        employee.company.overtimeRates ? JSON.parse(employee.company.overtimeRates) : null
-      );
+      // Hệ số lương tăng ca (10/9/2026: bỏ hẳn cấu hình theo công ty — không còn Settings nào
+      // chỉnh được nữa, dùng cố định).
+      const overtimeCfg = DEFAULT_OVERTIME_CONFIG;
       const dayOfWeek = now.getDay(); // 0=CN, 6=T7
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       // Chỉ tính tăng ca nếu nhân viên này đã được BẬT tăng ca VÀ đã khai báo giờ vào tăng ca khi

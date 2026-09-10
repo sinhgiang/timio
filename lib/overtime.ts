@@ -1,17 +1,17 @@
-// Cấu hình tăng ca (Company.overtimeRates — JSON-in-TEXT, tái dùng field đã có sẵn, không cần
-// migration DB). Hàm ở đây gom logic tính tăng ca đang bị lặp lại ở 3 route check-out
-// (checkin-face/checkin-qr/checkin).
+// Logic tính tăng ca, gom lại vì bị lặp ở 3 route check-out (checkin-face/checkin-qr/checkin).
 //
-// LỊCH SỬ: bản đầu (25/8/2026) có thêm "ngưỡng phút tối thiểu" (minMinutes) — ra muộn hơn giờ
-// tan ca trên N phút mới tự động tính là tăng ca, mốc bắt đầu do hệ thống SUY RA (giờ tan ca +
-// ngưỡng). Sau đó (26/8/2026) có thêm lựa chọn khai báo trực tiếp giờ vào/ra tăng ca riêng theo
-// từng NV, nhưng vẫn giữ ngưỡng công ty làm "mặc định" nếu NV không tự khai báo.
-// Bỏ hẳn mô hình ngưỡng/mặc định này (10/9/2026, phản hồi: không thích kiểu suy ra tự động, muốn
-// khai báo tăng ca y hệt 1 mốc giờ ca bình thường — CÓ giờ vào, CÓ giờ ra, cho từng NV) — giờ đây
-// Company.overtimeRates CHỈ còn giữ hệ số lương (weekday/weekend); còn "tăng ca bắt đầu/kết thúc
-// lúc mấy giờ" bắt buộc khai báo riêng cho từng NV ở Employee.shiftOverride (xem
-// EmployeeOvertimeOverride bên dưới) — NV nào chưa khai báo giờ thì KHÔNG được tính tăng ca, dù
-// bật otEnabled hay ra muộn bao nhiêu.
+// LỊCH SỬ: bản đầu (25/8/2026) có Settings công ty (Company.overtimeRates) cho chỉnh "ngưỡng phút
+// tối thiểu" (minMinutes) — ra muộn hơn giờ tan ca trên N phút mới tự động tính là tăng ca, mốc
+// bắt đầu do hệ thống SUY RA (giờ tan ca + ngưỡng). Sau đó (26/8/2026) có thêm lựa chọn khai báo
+// trực tiếp giờ vào/ra tăng ca riêng theo từng NV, nhưng vẫn giữ ngưỡng công ty làm "mặc định"
+// nếu NV không tự khai báo. Bỏ hẳn mô hình ngưỡng/mặc định này (10/9/2026 lần 1, phản hồi: không
+// thích kiểu suy ra tự động, muốn khai báo tăng ca y hệt 1 mốc giờ ca bình thường — CÓ giờ vào, CÓ
+// giờ ra, cho từng NV). Sau đó bỏ NỐT luôn panel Settings công ty (10/9/2026 lần 2, phản hồi: vẫn
+// còn thấy panel "Cấu hình tăng ca" ở Settings, muốn xóa hẳn cả phần đó) — Company.overtimeRates
+// không còn UI nào đọc/ghi nữa, hệ số lương tăng ca (weekday/weekend) giờ CỐ ĐỊNH
+// (DEFAULT_OVERTIME_CONFIG), không ai chỉnh được. "Tăng ca bắt đầu/kết thúc lúc mấy giờ" bắt buộc
+// khai báo riêng cho từng NV ở Employee.shiftOverride (xem EmployeeOvertimeOverride bên dưới) —
+// NV nào chưa khai báo giờ thì KHÔNG được tính tăng ca, dù bật otEnabled hay ra muộn bao nhiêu.
 export interface OvertimeConfig {
   weekday: number; // hệ số lương tăng ca ngày thường (vd 1.5 = 150%)
   weekend: number; // hệ số lương tăng ca cuối tuần (vd 2.0 = 200%)
@@ -25,14 +25,6 @@ export const DEFAULT_OVERTIME_CONFIG: OvertimeConfig = {
 function clampNumber(n: unknown, def: number, min: number, max: number): number {
   const v = typeof n === "number" && Number.isFinite(n) ? n : def;
   return Math.min(max, Math.max(min, v));
-}
-
-export function sanitizeOvertimeConfig(raw: unknown): OvertimeConfig {
-  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<OvertimeConfig>;
-  return {
-    weekday: clampNumber(r.weekday, DEFAULT_OVERTIME_CONFIG.weekday, 1, 5),
-    weekend: clampNumber(r.weekend, DEFAULT_OVERTIME_CONFIG.weekend, 1, 5),
-  };
 }
 
 export interface OvertimeComputeResult {
