@@ -224,6 +224,11 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
     );
   }
 
+  // indent=true: mục con trong 1 group đang mở. Trước đây thụt vào tới 48px (ml-3 của khung bọc +
+  // border-l + pl-8 của chính link) — nhìn như bị "giấu" sâu vào 1 cái hộp riêng (phản hồi
+  // 10/9/2026: "menu drop-down hay bị giấu bên trong, đẩy lùi về phía bên tay trái"). Giờ chỉ còn
+  // 1 lớp thụt pl-7 (28px), không còn border-l/khung bọc riêng — khung "thẻ" bg-gray-50 ở group
+  // cha đã đủ báo hiệu đây là mục con, không cần thụt sâu thêm.
   const renderItem = (leaf: NavLeaf, indent = false) => {
     if (shouldHide(leaf.href)) return null;
     const active = isItemActive(leaf.href);
@@ -235,8 +240,8 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
         onClick={() => setMobileOpen(false)}
         className={cn(
           "flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
-          indent ? "pl-8 pr-3 py-2" : "px-3 py-2.5",
-          active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+          indent ? "pl-7 pr-2.5 py-1.5" : "px-3 py-2.5",
+          active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm"
         )}
       >
         <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
@@ -288,8 +293,9 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
+        {/* Nav — đệm rộng hơn 1 chút (p-2 → p-2.5, space-y-0.5 → space-y-1) cho thoáng mắt hơn
+            (phản hồi 10/9/2026: "chọn đợt hơn một chút để chúng ta dễ nhìn hơn"). */}
+        <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto overflow-x-hidden">
           {navStructure.map((entry, idx) => {
             if (entry.type === "section") {
               // Ẩn tiêu đề khu nếu mọi mục trong khu đều bị ẩn theo quyền
@@ -301,8 +307,11 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
                 else if (e.children.some(c => !shouldHide(c.href))) { hasVisible = true; break; }
               }
               if (!hasVisible) return null;
+              // Vạch phân cách + khoảng trống rộng hơn giữa các khu (phản hồi 10/9/2026: các khu
+              // "khó nhìn/rối" — trước chỉ cách nhau 10px không có ranh giới, giờ thêm đường kẻ
+              // mảnh + đệm trên để mắt dễ "chia khối" khi lướt nhanh).
               return (
-                <p key={`sec-${idx}`} className="px-3 pt-2.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">
+                <p key={`sec-${idx}`} className="px-3 mt-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none border-t border-gray-100">
                   {entry.label}
                 </p>
               );
@@ -343,8 +352,12 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
             const groupActive = visibleChildren.some(c => isItemActive(c.href));
             const groupBadgeCount = getGroupBadge(entry.children);
 
+            // Khi mở: bọc cả nhóm trong 1 "thẻ" nền xám nhạt để báo hiệu "đây là 1 cụm" — thay cho
+            // cách cũ thụt lề sâu (ml-3 + border-l + pl-8 ≈ 48px) khiến mục con như bị giấu vào 1
+            // hộp riêng, lệch hẳn sang phải (phản hồi 10/9/2026). Vẫn là accordion xổ ngay tại chỗ,
+            // KHÔNG đổi qua kiểu popover/flyout nổi ra ngoài (đã thử kiểu đó trước đây, không hợp).
             return (
-              <div key={entry.key}>
+              <div key={entry.key} className={cn("rounded-lg transition-colors", isOpen && "bg-gray-50/80")}>
                 <button
                   onClick={() => toggleGroup(entry.key)}
                   className={cn(
@@ -367,7 +380,7 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
                 </button>
 
                 {isOpen && (
-                  <div className="mt-0.5 mb-1 ml-3 border-l-2 border-gray-100 pl-1 space-y-0.5">
+                  <div className="pb-1.5 space-y-0.5">
                     {visibleChildren.map(child => renderItem(child, true))}
                   </div>
                 )}
