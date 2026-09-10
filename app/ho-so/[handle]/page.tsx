@@ -72,8 +72,11 @@ type TabKey = "profile" | "attendance" | "shifts" | "requests" | "leave" | "pays
 // Thứ tự mảng này quyết định thứ tự tab ngang trên điện thoại (xem "Tab ngang (mobile,
 // chính chủ)" ở render bên dưới, dùng NAV_ITEMS.map trực tiếp). Theo yêu cầu user: đẩy
 // "Bảng tin công ty" lên ĐẦU (trước cả "Hồ sơ của tôi") để vào app là thấy tin mới nhất
-// ngay — CHỈ đổi thứ tự, không đổi tên/nội dung. Sidebar desktop KHÔNG bị ảnh hưởng vì nó
-// lấy thứ tự riêng từ NAV_GROUPS[].keys bên dưới, không phụ thuộc thứ tự mảng này.
+// ngay — CHỈ đổi thứ tự, không đổi tên/nội dung. Sidebar desktop lấy thứ tự riêng từ
+// NAV_GROUPS[].keys bên dưới, không phụ thuộc thứ tự mảng này — user yêu cầu riêng cho
+// sidebar desktop là đặt "Bảng tin công ty" NGAY DƯỚI "Hồ sơ của tôi" (không phải lên đầu
+// tuyệt đối như mobile), nên đã đưa "announcements" vào chung nhóm đầu (section: null) với
+// "profile" trong NAV_GROUPS, thay vì để cuối nhóm "Công việc" như trước.
 const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
   { key: "announcements", label: "Bảng tin công ty", Icon: Megaphone },
   { key: "profile", label: "Hồ sơ của tôi", Icon: IdCard },
@@ -88,10 +91,10 @@ const NAV_ITEMS: { key: TabKey; label: string; Icon: typeof IdCard }[] = [
   { key: "reviews", label: "Đánh giá của tôi", Icon: Star },
 ];
 const NAV_GROUPS: { section: string | null; keys: TabKey[] }[] = [
-  { section: null, keys: ["profile"] },
+  { section: null, keys: ["profile", "announcements"] },
   { section: "Chấm công của tôi", keys: ["attendance", "shifts", "requests", "leave"] },
   { section: "Lương của tôi", keys: ["payslip", "income"] },
-  { section: "Công việc", keys: ["certificates", "assets", "reviews", "announcements"] },
+  { section: "Công việc", keys: ["certificates", "assets", "reviews"] },
 ];
 const navItem = (k: TabKey) => NAV_ITEMS.find((i) => i.key === k)!;
 
