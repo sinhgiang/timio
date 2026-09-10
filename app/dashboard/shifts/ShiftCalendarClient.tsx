@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, CalendarClock, X, Check, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, X, Check, Plus, Umbrella, AlertTriangle } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -23,7 +23,20 @@ interface ShiftRow {
 interface Props {
   employees: Employee[];
   initialShifts: ShiftRow[];
+  // `${employeeId}__${date}` -> loại nghỉ (annual/sick/...) — đơn nghỉ phép ĐÃ DUYỆT trong tuần
+  // đang xem (xem lib/leaveConflict.ts). Dùng để cảnh báo khi xếp ca trùng ngày nghỉ.
+  initialLeaveByCell: Record<string, string>;
   weekStart: string; // YYYY-MM-DD (Monday)
+}
+
+// Nhãn hiển thị cho từng loại nghỉ phép (rút gọn từ TYPE_LABELS ở trang Nghỉ phép — chỉ cần đủ
+// để cảnh báo, không cần đầy đủ 9 loại).
+const LEAVE_TYPE_LABELS: Record<string, string> = {
+  annual: "Nghỉ phép năm", sick: "Nghỉ ốm", unpaid: "Nghỉ không lương", maternity: "Thai sản",
+  wedding: "Nghỉ cưới", funeral: "Nghỉ tang", paternity: "Nghỉ con sinh", holiday: "Nghỉ lễ", other: "Nghỉ phép",
+};
+function leaveLabel(type: string): string {
+  return LEAVE_TYPE_LABELS[type] ?? "Nghỉ phép";
 }
 
 const PRESET_SHIFTS = [
@@ -50,9 +63,10 @@ function getShiftColor(label: string) {
   return PRESET_SHIFTS.find(s => s.label === label)?.color ?? "bg-indigo-100 text-indigo-800 border-indigo-200";
 }
 
-export default function ShiftCalendarClient({ employees, initialShifts, weekStart: initWeekStart }: Props) {
+export default function ShiftCalendarClient({ employees, initialShifts, initialLeaveByCell, weekStart: initWeekStart }: Props) {
   const [weekStart, setWeekStart] = useState(initWeekStart);
   const [shifts, setShifts] = useState<ShiftRow[]>(initialShifts);
+  const [leaveByCell, setLeaveByCell] = useState<Record<string, string>>(initialLeaveByCell);
   // modal: open the "add shift" panel for a cell
   const [modal, setModal] = useState<{ employeeId: string; date: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -66,21 +80,42 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
     const newEnd   = addDays(newStart, 6);
     setWeekStart(newStart);
     const res = await fetch(`/api/shifts?from=${newStart}&to=${newEnd}`);
-    if (res.ok) setShifts(await res.json());
+    if (res.ok) {
+      const data = await res.json() as { shifts: ShiftRow[]; leaveByCell: Record<string, string> };
+      setShifts(data.shifts);
+      setLeaveByCell(data.leaveByCell);
+    }
   }, [weekStart]);
 
   // Return all shifts for a given employee+date (multiple allowed)
   const getShiftsForCell = (employeeId: string, date: string) =>
     shifts.filter(s => s.employeeId === employeeId && s.date === date);
 
+  // Ngày này nhân viên có đơn nghỉ phép ĐÃ DUYỆT không — trả về loại nghỉ hoặc null.
+  const getLeaveForCell = (employeeId: string, date: string): string | null =>
+    leaveByCell[`${employeeId}__${date}`] ?? null;
+
   const openModal = (employeeId: string, date: string) => {
     setModal({ employeeId, date });
     setCustomShift({ label: "", checkIn: "08:00", checkOut: "17:00", note: "" });
   };
 
+  // Xếp ca trùng ngày đã duyệt nghỉ phép — hỏi lại cho chắc trước khi lưu (không chặn cứng, vì
+  // sếp có thể có lý do thật, VD gọi đi làm bù/hỗ trợ gấp — nhưng phải CẢNH BÁO rõ, tránh xếp
+  // nhầm do không để ý, đây chính là điều trang này đang thiếu — phản hồi 10/9/2026).
+  const confirmLeaveConflict = (employeeId: string, date: string): boolean => {
+    const leaveType = getLeaveForCell(employeeId, date);
+    if (!leaveType) return true;
+    const emp = employees.find(e => e.id === employeeId);
+    return window.confirm(
+      `${emp?.name ?? "Nhân viên"} đã được duyệt "${leaveLabel(leaveType)}" đúng ngày này.\n\nVẫn xếp ca làm việc ngày này?`
+    );
+  };
+
   // Add a preset shift (always creates a new entry)
   const assignShift = async (preset: typeof PRESET_SHIFTS[number]) => {
     if (!modal) return;
+    if (!confirmLeaveConflict(modal.employeeId, modal.date)) return;
     setSaving(true);
     const res = await fetch("/api/shifts", {
       method: "POST",
@@ -104,6 +139,7 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
   // Add a custom shift
   const assignCustomShift = async () => {
     if (!modal || !customShift.label.trim()) return;
+    if (!confirmLeaveConflict(modal.employeeId, modal.date)) return;
     setSaving(true);
     const res = await fetch("/api/shifts", {
       method: "POST",
@@ -181,6 +217,13 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
             {s.label} {s.checkIn !== "00:00" && `${s.checkIn}–${s.checkOut}`}
           </span>
         ))}
+        {/* Giải thích 2 badge cảnh báo mới — nghỉ phép đã duyệt / xung đột ca-nghỉ phép */}
+        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium bg-gray-100 text-gray-500 border-gray-200">
+          <Umbrella size={11} strokeWidth={2.5} /> Đã duyệt nghỉ phép
+        </span>
+        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium bg-red-100 text-red-700 border-red-200">
+          <AlertTriangle size={11} strokeWidth={2.5} /> Xung đột (xếp ca trùng ngày nghỉ)
+        </span>
       </div>
 
       {/* Calendar grid */}
@@ -221,9 +264,24 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
                   </td>
                   {weekDates.map(date => {
                     const cellShifts = getShiftsForCell(emp.id, date);
+                    const leaveType = getLeaveForCell(emp.id, date);
+                    // Xung đột thật sự: vừa có đơn nghỉ phép đã duyệt, vừa bị xếp ca làm việc
+                    // đúng ngày đó (phản hồi 10/9/2026 — trước đây không hề có cảnh báo này).
+                    const hasConflict = !!leaveType && cellShifts.length > 0;
                     return (
-                      <td key={date} className="px-1 py-1.5 align-top border-r border-gray-50 last:border-r-0">
+                      <td key={date} className={`px-1 py-1.5 align-top border-r border-gray-50 last:border-r-0 ${leaveType ? "bg-red-50/30" : ""}`}>
                         <div className="flex flex-col gap-0.5">
+                          {/* Báo nhân viên đã được duyệt nghỉ phép ngày này — đỏ đậm hơn nếu đã lỡ
+                              xếp ca trùng (xung đột thật). */}
+                          {leaveType && (
+                            <div
+                              className={`flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-semibold border ${hasConflict ? "bg-red-100 text-red-700 border-red-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}
+                              title={hasConflict ? "Xung đột: đã xếp ca đúng ngày nghỉ phép được duyệt" : `Đã duyệt: ${leaveLabel(leaveType)}`}
+                            >
+                              {hasConflict ? <AlertTriangle size={10} strokeWidth={2.5} className="shrink-0" /> : <Umbrella size={10} strokeWidth={2.5} className="shrink-0" />}
+                              <span className="truncate">{hasConflict ? "Xung đột: đã nghỉ phép" : leaveLabel(leaveType)}</span>
+                            </div>
+                          )}
                           {/* Stacked shift badges */}
                           {cellShifts.map(shift => (
                             <div
@@ -294,6 +352,15 @@ export default function ShiftCalendarClient({ employees, initialShifts, weekStar
                 <X size={18} />
               </button>
             </div>
+
+            {/* Cảnh báo nếu ngày này nhân viên đã được duyệt nghỉ phép — không chặn cứng (sếp có
+                thể có lý do gọi đi làm bù), nhưng phải thấy rõ TRƯỚC khi bấm chọn ca. */}
+            {modal && getLeaveForCell(modal.employeeId, modal.date) && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2.5 mb-4 text-xs">
+                <AlertTriangle size={15} strokeWidth={2} className="shrink-0 mt-0.5" />
+                <span><b>{modalEmployee?.name}</b> đã được duyệt <b>{leaveLabel(getLeaveForCell(modal.employeeId, modal.date)!)}</b> đúng ngày này — xếp ca sẽ được hỏi lại để xác nhận.</span>
+              </div>
+            )}
 
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Thêm ca mới</p>
             <div className="space-y-2 mb-4">

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendTelegram } from "@/lib/telegram";
 import { employeeInScope } from "@/lib/branchScope";
+import { expandApprovedLeaveByCell } from "@/lib/leaveConflict";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -30,9 +31,27 @@ export async function GET(req: NextRequest) {
       },
       orderBy: [{ date: "asc" }, { employeeId: "asc" }, { createdAt: "asc" }],
     });
-    return NextResponse.json(shifts);
+
+    // Đơn nghỉ phép đã duyệt trong khoảng ngày này — để FE cảnh báo xếp ca trùng ngày nghỉ
+    // (xem lib/leaveConflict.ts). Không để lỗi ở đây chặn mất danh sách ca.
+    let leaveByCell: Record<string, string> = {};
+    try {
+      const approvedLeaves = await prisma.leaveRequest.findMany({
+        where: {
+          companyId: user.companyId,
+          status: "approved",
+          fromDate: { lte: to },
+          toDate: { gte: from },
+          ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}),
+        },
+        select: { employeeId: true, fromDate: true, toDate: true, type: true, dates: true },
+      });
+      leaveByCell = expandApprovedLeaveByCell(approvedLeaves, from, to);
+    } catch { /* bỏ qua, vẫn trả về shifts bình thường */ }
+
+    return NextResponse.json({ shifts, leaveByCell });
   } catch {
-    return NextResponse.json([]);
+    return NextResponse.json({ shifts: [], leaveByCell: {} });
   }
 }
 

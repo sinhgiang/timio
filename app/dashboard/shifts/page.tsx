@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import ShiftCalendarClient from "./ShiftCalendarClient";
+import { expandApprovedLeaveByCell } from "@/lib/leaveConflict";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Lịch phân ca" };
@@ -62,10 +63,28 @@ export default async function ShiftsPage({ searchParams }: Props) {
     });
   } catch { /* table not migrated yet */ }
 
+  // Đơn nghỉ phép ĐÃ DUYỆT trong tuần đang xem — để cảnh báo ô nào đang xếp ca trùng ngày nghỉ
+  // (xem lib/leaveConflict.ts).
+  let leaveByCell: Record<string, string> = {};
+  try {
+    const approvedLeaves = await prisma.leaveRequest.findMany({
+      where: {
+        companyId: user.companyId,
+        status: "approved",
+        fromDate: { lte: weekEnd },
+        toDate: { gte: weekStart },
+        ...(scopedBranchId ? { employee: { branchId: scopedBranchId } } : {}),
+      },
+      select: { employeeId: true, fromDate: true, toDate: true, type: true, dates: true },
+    });
+    leaveByCell = expandApprovedLeaveByCell(approvedLeaves, weekStart, weekEnd);
+  } catch { /* không chặn cả trang nếu lỗi truy vấn nghỉ phép */ }
+
   return (
     <ShiftCalendarClient
       employees={JSON.parse(JSON.stringify(employees))}
       initialShifts={JSON.parse(JSON.stringify(shifts))}
+      initialLeaveByCell={leaveByCell}
       weekStart={weekStart}
     />
   );
