@@ -40,6 +40,10 @@ interface Props {
   employees: EmployeeFace[];
 }
 
+// Số lần quét PHẢI khớp liên tiếp CÙNG 1 người mới chấp nhận (phản hồi 13/9/2026: 2 NV bị chấm
+// công gộp nhầm vào nhau ở kiosk chấm công — áp cùng biện pháp cho các kiosk quét mặt khác).
+const REQUIRED_CONSECUTIVE_MATCHES = 2;
+
 export default function ChecklistKiosk({ company, employees }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -160,15 +164,25 @@ export default function ChecklistKiosk({ company, employees }: Props) {
               const descriptor = await extractDescriptor(frame);
               if (alive && !doneScanRef.current && descriptor) {
                 const match = findBestMatch(descriptor, withFace);
-                if (match && !doneScanRef.current) {
-                  // Nhận diện đúng người → xác nhận NGAY (một phát là xong)
-                  setMatchCount(1);
-                  doneScanRef.current = true;
-                  const emp = withFace.find((e) => e.id === match.id) ?? null;
-                  stopCamera();
-                  if (emp) { setMatched(emp); loadChecklists(emp); }
-                  return;
-                } else if (!match) {
+                if (match) {
+                  // Phải khớp CÙNG 1 người ở ≥2 lần quét liên tiếp mới chấp nhận
+                  if (lastMatchIdRef.current === match.id) {
+                    matchCountRef.current += 1;
+                  } else {
+                    lastMatchIdRef.current = match.id;
+                    matchCountRef.current = 1;
+                  }
+                  setMatchCount(matchCountRef.current);
+                  if (matchCountRef.current >= REQUIRED_CONSECUTIVE_MATCHES && !doneScanRef.current) {
+                    doneScanRef.current = true;
+                    const emp = withFace.find((e) => e.id === match.id) ?? null;
+                    stopCamera();
+                    if (emp) { setMatched(emp); loadChecklists(emp); }
+                    return;
+                  }
+                } else {
+                  lastMatchIdRef.current = null;
+                  matchCountRef.current = 0;
                   setMatchCount(0);
                 }
               }

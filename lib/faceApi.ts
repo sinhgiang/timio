@@ -157,21 +157,48 @@ export interface EmployeeFaceData {
   descriptors: number[][];
 }
 
+/**
+ * So khớp 1 descriptor với danh sách nhân viên đã đăng ký.
+ *
+ * Điều tra 13/9/2026: 2 nhân viên báo bị chấm công GỘP NHẦM vào nhau trên kiosk (chấm công của
+ * người A lại bị ghi nhận thành người B). Nguyên nhân ở hàm này: trước đây chỉ xét khoảng cách
+ * tới người GẦN NHẤT, không kiểm tra xem người xếp #2 có gần tương đương không — nếu ảnh đăng ký
+ * thiếu sáng hoặc 2 người "trông hao hao" thì khoảng cách tới cả 2 người có thể xêm xêm nhau,
+ * và hệ thống vẫn liều chọn đại người #1 dù không thực sự chắc chắn. Nay sửa:
+ *   1. `minMargin` — người #1 phải RÕ RÀNG gần hơn người #2 một khoảng tối thiểu, nếu không coi
+ *      như KHÔNG nhận diện được (trả null) thay vì đoán nhầm.
+ *   2. Hạ threshold mặc định 0.5 → 0.45, khớp với ngưỡng "trùng lặp" dùng lúc đăng ký khuôn mặt
+ *      (xem FaceCapture.tsx: match.distance < 0.45) — tránh lệch chuẩn giữa lúc đăng ký và lúc
+ *      chấm công thực tế.
+ * Xem thêm: các kiosk (FaceScanKiosk, LeaveRequestKiosk, HandoverKiosk, ChecklistKiosk) nay còn
+ * yêu cầu khớp cùng 1 người ở ≥2 lần quét liên tiếp mới chấp nhận, để không "ăn" 1 khung hình xui.
+ */
 export function findBestMatch(
   descriptor: number[],
   employees: EmployeeFaceData[],
-  threshold = 0.5
+  threshold = 0.45,
+  minMargin = 0.06
 ): { id: string; name: string; distance: number } | null {
-  let best: { id: string; name: string; distance: number } | null = null;
-
+  // Khoảng cách GẦN NHẤT tới TỪNG nhân viên (không phải từng descriptor riêng lẻ) — để so sánh
+  // công bằng người #1 với người #2 kế tiếp.
+  const perEmployee: { id: string; name: string; distance: number }[] = [];
   for (const emp of employees) {
+    let bestDist = Infinity;
     for (const stored of emp.descriptors) {
       const dist = euclidean(descriptor, stored);
-      if (!best || dist < best.distance) {
-        best = { id: emp.id, name: emp.name, distance: dist };
-      }
+      if (dist < bestDist) bestDist = dist;
     }
+    if (bestDist < Infinity) perEmployee.push({ id: emp.id, name: emp.name, distance: bestDist });
+  }
+  perEmployee.sort((a, b) => a.distance - b.distance);
+
+  const first = perEmployee[0];
+  if (!first || first.distance >= threshold) return null;
+
+  const second = perEmployee[1];
+  if (second && second.distance - first.distance < minMargin) {
+    return null; // 2 người quá giống nhau ở lần quét này — từ chối thay vì đoán nhầm
   }
 
-  return best && best.distance < threshold ? best : null;
+  return first;
 }

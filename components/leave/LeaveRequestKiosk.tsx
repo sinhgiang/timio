@@ -35,6 +35,10 @@ const LEAVE_TYPES = [
   { value: "other", label: "Lý do khác" },
 ] as const;
 
+// Số lần quét PHẢI khớp liên tiếp CÙNG 1 người mới chấp nhận (phản hồi 13/9/2026: 2 NV bị chấm
+// công gộp nhầm vào nhau ở kiosk chấm công — áp cùng biện pháp cho các kiosk quét mặt khác).
+const REQUIRED_CONSECUTIVE_MATCHES = 2;
+
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function calcDays(from: string, to: string): number {
   if (!from || !to) return 0;
@@ -181,16 +185,26 @@ export default function LeaveRequestKiosk({ company, employees, branchName }: Pr
               const descriptor = await extractDescriptor(frame);
               if (alive && !autoCheckingRef.current && descriptor) {
                 const match = findBestMatch(descriptor, registered.map((e) => ({ id: e.id, name: e.name, descriptors: e.descriptors })));
-                if (match && !autoCheckingRef.current) {
-                  // Nhận diện đúng người → vào form NGAY (một phát là xong)
-                  setMatchCount(1);
-                  autoCheckingRef.current = true;
-                  const emp = employees.find((e) => e.id === match.id) ?? null;
-                  stopCamera();
-                  setMatchedEmployee(emp);
-                  setPhase("form");
-                  return;
-                } else if (!match) {
+                if (match) {
+                  // Phải khớp CÙNG 1 người ở ≥2 lần quét liên tiếp mới chấp nhận
+                  if (lastMatchIdRef.current === match.id) {
+                    matchCountRef.current += 1;
+                  } else {
+                    lastMatchIdRef.current = match.id;
+                    matchCountRef.current = 1;
+                  }
+                  setMatchCount(matchCountRef.current);
+                  if (matchCountRef.current >= REQUIRED_CONSECUTIVE_MATCHES && !autoCheckingRef.current) {
+                    autoCheckingRef.current = true;
+                    const emp = employees.find((e) => e.id === match.id) ?? null;
+                    stopCamera();
+                    setMatchedEmployee(emp);
+                    setPhase("form");
+                    return;
+                  }
+                } else {
+                  lastMatchIdRef.current = null;
+                  matchCountRef.current = 0;
                   setMatchCount(0);
                 }
               }

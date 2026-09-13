@@ -28,6 +28,10 @@ interface CheckInResult {
   employeeName: string;
 }
 
+// Số lần quét PHẢI khớp liên tiếp CÙNG 1 người mới chấp nhận (phản hồi 13/9/2026: 2 NV bị chấm
+// công gộp nhầm vào nhau). Chỉ thêm ~250-500ms, không đáng kể so với rủi ro nhận nhầm người.
+const REQUIRED_CONSECUTIVE_MATCHES = 2;
+
 // Quét lại quá gần lần chấm công VÀO (server báo needsConfirmation, xem
 // app/api/attendance/checkin-face/route.ts) — hỏi lại thay vì tự động ghi nhận RA.
 interface ConfirmCheckoutInfo {
@@ -218,17 +222,29 @@ export default function FaceScanKiosk({ company, employees, messages, branchName
                 if (descriptor) {
                   const match = findBestMatch(descriptor, registered);
                   if (match) {
-                    setMatchCount(1);
-                    // Nhận diện đúng người → check-in NGAY (một phát là xong)
-                    if (!autoCheckingRef.current) {
+                    // Phải khớp CÙNG 1 người ở ≥2 lần quét liên tiếp mới chấp nhận — chặn
+                    // trường hợp 1 khung hình xui rủi (mờ, lệch góc, thiếu sáng) nhận nhầm
+                    // sang người khác.
+                    if (lastMatchIdRef.current === match.id) {
+                      matchCountRef.current += 1;
+                    } else {
+                      lastMatchIdRef.current = match.id;
+                      matchCountRef.current = 1;
+                    }
+                    setMatchCount(matchCountRef.current);
+                    if (matchCountRef.current >= REQUIRED_CONSECUTIVE_MATCHES && !autoCheckingRef.current) {
                       autoCheckingRef.current = true;
                       void doCheckIn(match.id, match.name);
                       return;
                     }
                   } else {
+                    lastMatchIdRef.current = null;
+                    matchCountRef.current = 0;
                     setMatchCount(0);
                   }
                 } else {
+                  lastMatchIdRef.current = null;
+                  matchCountRef.current = 0;
                   setMatchCount(0);
                 }
               }

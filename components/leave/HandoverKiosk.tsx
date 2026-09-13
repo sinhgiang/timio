@@ -45,6 +45,10 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   paternity: "Nghỉ con sinh",
 };
 
+// Số lần quét PHẢI khớp liên tiếp CÙNG 1 người mới chấp nhận (phản hồi 13/9/2026: 2 NV bị chấm
+// công gộp nhầm vào nhau ở kiosk chấm công — áp cùng biện pháp cho các kiosk quét mặt khác).
+const REQUIRED_CONSECUTIVE_MATCHES = 2;
+
 function fmtDate(s: string) {
   if (!s) return s;
   const [y, m, d] = s.split("-");
@@ -121,14 +125,24 @@ export default function HandoverKiosk({ company, leaveRequest, handoverEmployee 
               const descriptor = await extractDescriptor(frame);
               if (alive && !autoCheckingRef.current && descriptor) {
                 const match = findBestMatch(descriptor, [handoverEmployee]);
-                if (match && !autoCheckingRef.current) {
-                  // Nhận diện đúng người → xác nhận NGAY (một phát là xong)
-                  setMatchCount(1);
-                  autoCheckingRef.current = true;
-                  stopCamera();
-                  confirmHandover();
-                  return;
-                } else if (!match) {
+                if (match) {
+                  // Phải khớp CÙNG 1 người ở ≥2 lần quét liên tiếp mới chấp nhận
+                  if (lastMatchIdRef.current === match.id) {
+                    matchCountRef.current += 1;
+                  } else {
+                    lastMatchIdRef.current = match.id;
+                    matchCountRef.current = 1;
+                  }
+                  setMatchCount(matchCountRef.current);
+                  if (matchCountRef.current >= REQUIRED_CONSECUTIVE_MATCHES && !autoCheckingRef.current) {
+                    autoCheckingRef.current = true;
+                    stopCamera();
+                    confirmHandover();
+                    return;
+                  }
+                } else {
+                  lastMatchIdRef.current = null;
+                  matchCountRef.current = 0;
                   setMatchCount(0);
                 }
               }
