@@ -14,6 +14,16 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   return { title: guide.title, description: guide.summary };
 }
 
+function slugifyHeading(heading: string): string {
+  return heading
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "") // bỏ dấu tiếng Việt (ký tự kết hợp sau NFD normalize)
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function renderBody(body: string[]) {
   // Dòng bắt đầu bằng "- " được gom thành 1 danh sách <ul>, còn lại là đoạn văn <p>.
   const blocks: { type: "p" | "ul"; lines: string[] }[] = [];
@@ -61,9 +71,24 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
       <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">{guide.title}</h1>
       <p className="mt-2 text-gray-500">{guide.summary}</p>
 
+      {guide.sections.length >= 3 && (
+        <nav className="mt-6 rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Mục lục</p>
+          <ul className="space-y-1.5">
+            {guide.sections.map((section, i) => (
+              <li key={i}>
+                <a href={`#${slugifyHeading(section.heading)}`} className="text-sm text-gray-600 hover:text-brand-600">
+                  {section.heading}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
       <div className="mt-8 space-y-8">
         {guide.sections.map((section, i) => (
-          <section key={i}>
+          <section key={i} id={slugifyHeading(section.heading)} className="scroll-mt-20">
             <h2 className="mb-2 text-lg font-semibold text-gray-900">{section.heading}</h2>
             <div className="space-y-2.5 leading-relaxed">{renderBody(section.body)}</div>
           </section>
