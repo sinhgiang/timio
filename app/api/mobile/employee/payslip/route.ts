@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 import { checkPin } from "@/lib/mobileEmployeeAuth";
 
 const VN_TZ = "Asia/Ho_Chi_Minh";
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
       select: {
         pin: true,
         baseSalary: true,
+        officialSalary: true,
+        holidayPayBasis: true,
         dependents: true,
         allowancesJson: true,
         branch: { select: { standardWorkDays: true } },
@@ -38,6 +40,7 @@ export async function GET(req: NextRequest) {
           where: { year, month: mon },
           select: {
             daysPresent: true,
+            daysHoliday: true,
             daysLate: true,
             daysAbsent: true,
             totalPenalty: true,
@@ -58,45 +61,43 @@ export async function GET(req: NextRequest) {
     const daysLate = s?.daysLate ?? 0;
     const daysAbsent = s?.daysAbsent ?? 0;
     const standardWorkDays = employee.branch.standardWorkDays ?? 26;
-    const earnedBase =
-      standardWorkDays > 0 ? Math.round((base / standardWorkDays) * daysPresent) : base;
     const penalty = s?.totalPenalty ?? 0;
     const reward = s?.totalReward ?? 0;
     const overtime = s?.totalOvertimeAmount ?? 0;
-
-    const allowanceArr: { label: string; amount: number }[] = employee.allowancesJson
-      ? (() => {
-          try {
-            return JSON.parse(employee.allowancesJson) as { label: string; amount: number }[];
-          } catch {
-            return [];
-          }
-        })()
-      : [];
-    const totalAllowances = allowanceArr.reduce((t, a) => t + (a.amount ?? 0), 0);
-
-    const grossIncome = earnedBase + totalAllowances - penalty + reward + overtime;
-    const tax = calculateTax({
+    const allowanceArr = parseAllowances(employee.allowancesJson);
+    const payroll = computePayroll({
       baseSalary: base,
-      grossIncome,
+      officialSalary: employee.officialSalary ?? null,
+      holidayPayBasis: employee.holidayPayBasis,
+      allowances: allowanceArr,
+      standardWorkDays,
+      daysPresent,
+      daysHoliday: s?.daysHoliday ?? 0,
+      totalPenalty: penalty,
+      totalReward: reward,
+      totalOvertimeAmount: overtime,
       dependents: employee.dependents ?? 0,
     });
+    const { earnedBase, totalAllowances, grossIncome } = payroll;
 
     return NextResponse.json({
       month,
       baseSalary: base,
       earnedBase,
+      officialSalary: payroll.effectiveTotalSalary,
+      holidayPayBasis: employee.holidayPayBasis,
       allowances: totalAllowances,
       daysPresent,
+      daysHoliday: s?.daysHoliday ?? 0,
       daysLate,
       daysAbsent,
       penalty,
       reward,
       overtime,
       grossIncome,
-      bhxhEmployee: tax.bhxhEmployee,
-      tncn: tax.tncn,
-      netTakeHome: tax.netTakeHome,
+      bhxhEmployee: payroll.bhxhEmployee,
+      tncn: payroll.tncn,
+      netTakeHome: payroll.netTakeHome,
     });
   } catch (err) {
     console.error("[mobile/employee/payslip]", err);

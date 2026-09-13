@@ -70,8 +70,8 @@ export async function markHolidayAttendance(employeeId: string, date: string, no
   const [y, m] = date.split("-").map(Number);
   await prisma.monthlySummary.upsert({
     where: { employeeId_year_month: { employeeId, year: y, month: m } },
-    create: { employeeId, year: y, month: m, daysPresent: 1 },
-    update: { daysPresent: { increment: 1 } },
+    create: { employeeId, year: y, month: m, daysPresent: 1, daysHoliday: 1 },
+    update: { daysPresent: { increment: 1 }, daysHoliday: { increment: 1 } },
   });
 }
 
@@ -195,6 +195,10 @@ export async function revertHolidayAttendanceRange(companyId: string, dates: str
     await prisma.monthlySummary.updateMany({
       where: { employeeId: row.employeeId, year: y, month: m, daysPresent: { gt: 0 } },
       data: { daysPresent: { decrement: 1 } },
+    });
+    await prisma.monthlySummary.updateMany({
+      where: { employeeId: row.employeeId, year: y, month: m, daysHoliday: { gt: 0 } },
+      data: { daysHoliday: { decrement: 1 } },
     });
   }
 }

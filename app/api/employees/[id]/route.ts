@@ -14,7 +14,7 @@ export async function PATCH(
     if (!companyId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const mgrBranch = managerBranchId(user);
 
-    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, zalo, facebook, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson, salaryType, commissionRate, kpiTarget, kpiBonus } =
+    const { name, code, pin, department, position, branchId, status, shiftOverride, baseSalary, officialSalary, holidayPayBasis, salaryReason, joinDate, dateOfBirth, email, avatarUrl, phone, zalo, facebook, cccd, bankName, bankAccount, bankBranch, annualLeaveBalance, allowancesJson, salaryType, commissionRate, kpiTarget, kpiBonus } =
       await req.json();
 
     // Fetch current employee to detect salary change
@@ -38,6 +38,8 @@ export async function PATCH(
       ...(position !== undefined && { position: position || null }),
       ...(shiftOverride !== undefined && { shiftOverride: shiftOverride ? JSON.stringify(shiftOverride) : null }),
       ...(baseSalary !== undefined && { baseSalary: Number(baseSalary) }),
+      ...(officialSalary !== undefined && { officialSalary: officialSalary != null ? Number(officialSalary) : null }),
+      ...(holidayPayBasis !== undefined && { holidayPayBasis: holidayPayBasis === "total" ? "total" : "base" }),
       ...(joinDate !== undefined && { joinDate: joinDate ? new Date(joinDate) : null }),
       ...(dateOfBirth !== undefined && { dateOfBirth: dateOfBirth || null }),
       ...(email !== undefined && { email: email || null }),
@@ -63,7 +65,7 @@ export async function PATCH(
 
     // Quản lý KHÔNG được sửa lương/ngân hàng và KHÔNG được chuyển nhân viên sang chi nhánh khác
     if (mgrBranch) {
-      for (const k of ["baseSalary", "salaryType", "commissionRate", "kpiTarget", "kpiBonus", "allowancesJson", "bankName", "bankAccount", "bankBranch", "branchId"]) {
+      for (const k of ["baseSalary", "officialSalary", "holidayPayBasis", "salaryType", "commissionRate", "kpiTarget", "kpiBonus", "allowancesJson", "bankName", "bankAccount", "bankBranch", "branchId"]) {
         delete data[k];
       }
     }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkerAccountId } from "@/lib/workerAuth";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +30,10 @@ export async function GET(req: NextRequest) {
     where: { id: target.id },
     select: {
       id: true, name: true, code: true, department: true, position: true,
-      baseSalary: true, dependents: true, allowancesJson: true,
+      baseSalary: true, officialSalary: true, holidayPayBasis: true, dependents: true, allowancesJson: true,
       branch: { select: { name: true, standardWorkDays: true } },
       company: { select: { name: true } },
-      summaries: { where: { year, month: mon }, select: { daysPresent: true, daysLate: true, daysAbsent: true, totalMinutesLate: true, totalPenalty: true, totalReward: true, totalOvertimeAmount: true, totalMinutesOvertime: true } },
+      summaries: { where: { year, month: mon }, select: { daysPresent: true, daysHoliday: true, daysLate: true, daysAbsent: true, totalMinutesLate: true, totalPenalty: true, totalReward: true, totalOvertimeAmount: true, totalMinutesOvertime: true } },
     },
   });
   if (!employee) return NextResponse.json({ payslip: null, companies, month });
@@ -42,22 +42,32 @@ export async function GET(req: NextRequest) {
   const base = employee.baseSalary ?? 0;
   const daysPresent = s?.daysPresent ?? 0;
   const standardWorkDays = employee.branch?.standardWorkDays ?? 26;
-  const earnedBase = standardWorkDays > 0 ? Math.round((base / standardWorkDays) * daysPresent) : base;
   const penalty = s?.totalPenalty ?? 0, reward = s?.totalReward ?? 0, overtime = s?.totalOvertimeAmount ?? 0;
-  let allowances: { label: string; amount: number }[] = [];
-  try { allowances = employee.allowancesJson ? JSON.parse(employee.allowancesJson) : []; } catch { allowances = []; }
-  const totalAllowances = allowances.reduce((a, x) => a + (x.amount ?? 0), 0);
-  const grossIncome = earnedBase + totalAllowances - penalty + reward + overtime;
-  const tax = calculateTax({ baseSalary: base, grossIncome, dependents: employee.dependents ?? 0 });
+  const allowances = parseAllowances(employee.allowancesJson);
+  const payroll = computePayroll({
+    baseSalary: base,
+    officialSalary: employee.officialSalary ?? null,
+    holidayPayBasis: employee.holidayPayBasis,
+    allowances,
+    standardWorkDays,
+    daysPresent,
+    daysHoliday: s?.daysHoliday ?? 0,
+    totalPenalty: penalty,
+    totalReward: reward,
+    totalOvertimeAmount: overtime,
+    dependents: employee.dependents ?? 0,
+  });
+  const { earnedBase, totalAllowances, grossIncome } = payroll;
 
   const payslip = {
     companyName: employee.company?.name ?? "", position: employee.position ?? "", department: employee.department ?? "",
     year, month: mon,
     baseSalary: base, earnedBase, standardWorkDays,
-    daysPresent, daysLate: s?.daysLate ?? 0, daysAbsent: s?.daysAbsent ?? 0, totalMinutesLate: s?.totalMinutesLate ?? 0,
+    officialSalary: payroll.effectiveTotalSalary, holidayPayBasis: employee.holidayPayBasis, holidayTopUp: payroll.holidayTopUp,
+    daysPresent, daysHoliday: s?.daysHoliday ?? 0, daysLate: s?.daysLate ?? 0, daysAbsent: s?.daysAbsent ?? 0, totalMinutesLate: s?.totalMinutesLate ?? 0,
     totalPenalty: penalty, totalReward: reward, totalOvertimeAmount: overtime, totalMinutesOvertime: s?.totalMinutesOvertime ?? 0,
     allowances, totalAllowances, grossIncome,
-    bhxhEmployee: tax.bhxhEmployee, taxableIncome: tax.taxableIncome, tncn: tax.tncn, netTakeHome: tax.netTakeHome,
+    bhxhEmployee: payroll.bhxhEmployee, taxableIncome: payroll.taxableIncome, tncn: payroll.tncn, netTakeHome: payroll.netTakeHome,
     dependents: employee.dependents ?? 0,
     hasData: !!s,
   };

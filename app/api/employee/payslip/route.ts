@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -17,14 +17,14 @@ export async function GET(req: NextRequest) {
     where: { id: employeeId },
     select: {
       id: true, name: true, code: true, department: true, position: true,
-      baseSalary: true, dependents: true, phone: true, joinDate: true,
+      baseSalary: true, officialSalary: true, holidayPayBasis: true, dependents: true, phone: true, joinDate: true,
       bankName: true, bankAccount: true, bankBranch: true, allowancesJson: true,
       branch: { select: { name: true, standardWorkDays: true } },
       company: { select: { name: true } },
       summaries: {
         where: { year, month: mon },
         select: {
-          daysPresent: true, daysLate: true, daysAbsent: true,
+          daysPresent: true, daysHoliday: true, daysLate: true, daysAbsent: true,
           totalMinutesLate: true, totalPenalty: true, totalReward: true,
           totalOvertimeAmount: true, totalMinutesOvertime: true,
         },
@@ -38,18 +38,24 @@ export async function GET(req: NextRequest) {
   const base = employee.baseSalary ?? 0;
   const daysPresent = s?.daysPresent ?? 0;
   const standardWorkDays = employee.branch.standardWorkDays ?? 26;
-  const earnedBase = standardWorkDays > 0
-    ? Math.round((base / standardWorkDays) * daysPresent)
-    : base;
   const penalty = s?.totalPenalty ?? 0;
   const reward = s?.totalReward ?? 0;
   const overtime = s?.totalOvertimeAmount ?? 0;
-  const allowances: { label: string; amount: number }[] = employee.allowancesJson
-    ? (() => { try { return JSON.parse(employee.allowancesJson) as { label: string; amount: number }[]; } catch { return []; } })()
-    : [];
-  const totalAllowances = allowances.reduce((s, a) => s + (a.amount ?? 0), 0);
-  const grossIncome = earnedBase + totalAllowances - penalty + reward + overtime;
-  const tax = calculateTax({ baseSalary: base, grossIncome, dependents: employee.dependents ?? 0 });
+  const allowances = parseAllowances(employee.allowancesJson);
+  const payroll = computePayroll({
+    baseSalary: base,
+    officialSalary: employee.officialSalary ?? null,
+    holidayPayBasis: employee.holidayPayBasis,
+    allowances,
+    standardWorkDays,
+    daysPresent,
+    daysHoliday: s?.daysHoliday ?? 0,
+    totalPenalty: penalty,
+    totalReward: reward,
+    totalOvertimeAmount: overtime,
+    dependents: employee.dependents ?? 0,
+  });
+  const { earnedBase, totalAllowances, grossIncome, effectiveTotalSalary, holidayTopUp } = payroll;
 
   return NextResponse.json({
     employeeName: employee.name,
@@ -65,7 +71,11 @@ export async function GET(req: NextRequest) {
     joinDate: employee.joinDate ? employee.joinDate.toISOString().split("T")[0] : "",
     year, month: mon,
     baseSalary: base,
+    officialSalary: effectiveTotalSalary,
+    holidayPayBasis: employee.holidayPayBasis,
     earnedBase,
+    holidayTopUp,
+    daysHoliday: s?.daysHoliday ?? 0,
     standardWorkDays,
     daysPresent,
     daysLate: s?.daysLate ?? 0,
@@ -78,10 +88,10 @@ export async function GET(req: NextRequest) {
     allowances,
     totalAllowances,
     grossIncome,
-    bhxhEmployee: tax.bhxhEmployee,
-    taxableIncome: tax.taxableIncome,
-    tncn: tax.tncn,
-    netTakeHome: tax.netTakeHome,
+    bhxhEmployee: payroll.bhxhEmployee,
+    taxableIncome: payroll.taxableIncome,
+    tncn: payroll.tncn,
+    netTakeHome: payroll.netTakeHome,
     dependents: employee.dependents ?? 0,
   });
 }

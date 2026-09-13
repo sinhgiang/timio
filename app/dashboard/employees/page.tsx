@@ -54,6 +54,8 @@ export default async function EmployeesPage() {
         pin: e.pin ?? null,
         createdAt: e.createdAt.toISOString(),
         baseSalary: e.baseSalary ?? null,
+        officialSalary: e.officialSalary ?? null,
+        holidayPayBasis: e.holidayPayBasis ?? "base",
         joinDate: e.joinDate ? e.joinDate.toISOString() : null,
         dateOfBirth: e.dateOfBirth ?? null,
         email: e.email ?? null,

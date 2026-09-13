@@ -112,6 +112,8 @@ interface Employee {
   pin: string | null;
   createdAt: string;
   baseSalary: number | null;
+  officialSalary: number | null;
+  holidayPayBasis: string;
   joinDate: string | null;
   dateOfBirth: string | null;
   email: string | null;
@@ -374,6 +376,9 @@ export default function EmployeesClient({
       otEndTime: "",
       otGracePeriod: "5",
       baseSalary: "",
+      officialSalary: "",
+      officialSalaryManual: false,
+      holidayPayBasis: "total" as "base" | "total",
       joinDate: "",
       dateOfBirth: "",
       email: "",
@@ -493,6 +498,9 @@ export default function EmployeesClient({
       otEndTime: ov?.otEndTime ?? "",
       otGracePeriod: String(ov?.otGracePeriod ?? 5),
       baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
+      officialSalary: emp.officialSalary != null ? String(emp.officialSalary) : "",
+      officialSalaryManual: emp.officialSalary != null,
+      holidayPayBasis: emp.holidayPayBasis === "total" ? "total" : "base",
       joinDate: emp.joinDate ? emp.joinDate.slice(0, 10) : "",
       dateOfBirth: emp.dateOfBirth ?? "",
       email: emp.email ?? "",
@@ -598,6 +606,8 @@ export default function EmployeesClient({
         department: form.department, position: form.position,
         branchId, status: form.status, shiftOverride, companyId,
         baseSalary: form.baseSalary ? Number(form.baseSalary) : 0,
+        officialSalary: form.officialSalaryManual && form.officialSalary ? Number(form.officialSalary) : null,
+        holidayPayBasis: form.holidayPayBasis,
         joinDate: form.joinDate || null,
         dateOfBirth: form.dateOfBirth || null,
         email: form.email || null,
@@ -641,6 +651,8 @@ export default function EmployeesClient({
         pin: (saved.pin as string | null) ?? null,
         createdAt: saved.createdAt as string,
         baseSalary: (saved.baseSalary as number | null) ?? null,
+        officialSalary: (saved.officialSalary as number | null) ?? null,
+        holidayPayBasis: (saved.holidayPayBasis as string) ?? "base",
         joinDate: (saved.joinDate as string | null) ?? null,
         dateOfBirth: (saved.dateOfBirth as string | null) ?? null,
         email: (saved.email as string | null) ?? null,
@@ -730,6 +742,10 @@ export default function EmployeesClient({
   const isNewBranch =
     form.branchName.trim() !== "" &&
     !localBranches.some((b) => b.name.toLowerCase() === form.branchName.trim().toLowerCase());
+  // Tổng lương tự tính = Lương cơ bản + tổng phụ cấp (khi chưa sửa tay) — xem lib/payroll.ts
+  const autoOfficialSalary =
+    (Number(form.baseSalary) || 0) +
+    form.allowances.filter((a) => a.label && a.amount).reduce((s, a) => s + (Number(a.amount) || 0), 0);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -1189,6 +1205,11 @@ export default function EmployeesClient({
                         placeholder="VD: 10000000"
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
+                      <p className="text-xs text-gray-400 mt-1">Căn cứ đóng BHXH — nên giữ đúng mức thực tế cần đóng bảo hiểm</p>
+                      <HolidayPayToggle
+                        checked={form.holidayPayBasis === "base"}
+                        onChange={() => setForm({ ...form, holidayPayBasis: "base" })}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày vào làm</label>
@@ -1276,6 +1297,48 @@ export default function EmployeesClient({
                           .toLocaleString("vi-VN")}đ/tháng
                       </p>
                     )}
+                  </div>
+
+                  {/* Tổng lương / lương chính thức — tự tính = Lương cơ bản + tổng phụ cấp, cho sửa tay đè lên */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-gray-700">Tổng lương / lương chính thức (₫/tháng)</label>
+                      {form.officialSalaryManual ? (
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, officialSalaryManual: false, officialSalary: "" })}
+                          className="text-xs text-blue-600 font-medium hover:underline"
+                        >
+                          Tự tính lại
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, officialSalaryManual: true, officialSalary: String(autoOfficialSalary) })}
+                          className="text-xs text-blue-600 font-medium hover:underline"
+                        >
+                          Sửa tay
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={form.officialSalaryManual ? form.officialSalary : autoOfficialSalary}
+                      onChange={(e) => setForm({ ...form, officialSalary: e.target.value })}
+                      disabled={!form.officialSalaryManual}
+                      className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${!form.officialSalaryManual ? "bg-gray-50 text-gray-500" : ""}`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      {form.officialSalaryManual
+                        ? "Đang nhập tay — bấm \"Tự tính lại\" để quay về Lương cơ bản + tổng phụ cấp"
+                        : "Tự tính = Lương cơ bản + tổng phụ cấp — bấm \"Sửa tay\" nếu số thực tế khác"}
+                    </p>
+                    <HolidayPayToggle
+                      checked={form.holidayPayBasis === "total"}
+                      onChange={() => setForm({ ...form, holidayPayBasis: "total" })}
+                    />
                   </div>
 
                   <ComboField
@@ -2090,6 +2153,38 @@ export default function EmployeesClient({
 }
 
 // ─── Field ──────────────────────────────────────────────────────────────────────
+
+// ─── HolidayPayToggle — "Áp dụng lương này cho ngày lễ/Tết?" (Có/Không) ────────
+// Cả 2 lương (cơ bản, tổng lương) đều có toggle này, luôn hiển thị, dùng chung 1 giá trị
+// form.holidayPayBasis — bấm "Có" ở bên nào tự đưa bên kia về "Không" (1 field DB, 2 nút hiển thị).
+
+function HolidayPayToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <span className="text-xs text-gray-500">Áp dụng lương này cho ngày lễ/Tết?</span>
+      <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={onChange}
+          className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+            checked ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+          }`}
+        >
+          Có
+        </button>
+        <button
+          type="button"
+          disabled
+          className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 ${
+            !checked ? "bg-gray-200 text-gray-600" : "bg-white text-gray-300"
+          }`}
+        >
+          Không
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function Field({ label, value, onChange, type = "text", placeholder, required }: {
   label: string; value: string; onChange: (v: string) => void;

@@ -13,8 +13,10 @@ interface PayslipRow {
   position: string;
   baseSalary: number;
   earnedBase: number;
+  holidayTopUp: number;
   standardWorkDays: number;
   daysPresent: number;
+  daysHoliday: number;
   daysLate: number;
   daysAbsent: number;
   totalMinutesLate: number;
@@ -237,6 +239,9 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
                     <span>{fmt(r.earnedBase)}</span>
                     {r.earnedBase !== r.baseSalary && (
                       <span className="block text-xs text-gray-400">{fmt(r.baseSalary)}</span>
+                    )}
+                    {r.holidayTopUp > 0 && (
+                      <span className="block text-xs text-green-600">+{fmt(r.holidayTopUp)} (lễ {r.daysHoliday} ngày)</span>
                     )}
                   </td>
                   <td className="text-right px-3 py-3 text-red-500 font-medium">
