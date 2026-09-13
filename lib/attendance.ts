@@ -220,11 +220,36 @@ export function calculateMonthlySummary({
   };
 }
 
+/**
+ * Trạng thái CẢ NGÀY (dùng để hiện badge "Trạng thái" trên báo cáo/dashboard) — kết hợp CẢ giờ
+ * vào lẫn giờ ra, không chỉ riêng giờ vào như `AttendanceLog.status` lưu trong DB (field đó chỉ
+ * được set 1 lần lúc check-in, checkout không ghi đè lại — xem calculateEarlyLeave/checkin-face
+ * route.ts). Trước đây UI đọc thẳng `log.status` nên 1 dòng "Đúng giờ" (giờ vào ổn) vẫn hiện y
+ * vậy dù giờ ra bị trừ tiền "ra sớm" — 2 tín hiệu (badge Trạng thái vs. dòng lý do Phạt/Thưởng)
+ * mâu thuẫn nhau trên cùng 1 dòng, user phản ánh 13/9/2026 (chấm công đúng ca sáng, ra sớm ca
+ * chiều nhưng cả dòng vẫn báo "Đúng giờ"). Chỉ báo "Đúng giờ" khi CẢ HAI đều ổn.
+ * `hasUnapprovedEarlyLeave` do nơi gọi tự xác định (vd: earlyLeavePenalty > 0) vì mỗi nơi có
+ * cách tính/dữ liệu sẵn có khác nhau (ReportsClient dùng earlyLeavePenalty, dashboard/page.tsx
+ * tự tính lại từ giờ ra thực tế) — hàm này chỉ lo phần kết hợp trạng thái, không lo tính phút.
+ */
+export type FullDayStatus = "on_time" | "late" | "very_late" | "early_leave" | "late_and_early" | "absent" | "holiday";
+
+export function resolveFullDayStatus(status: string, hasUnapprovedEarlyLeave: boolean): FullDayStatus {
+  if (status === "absent" || status === "holiday") return status;
+  const isLate = status === "late" || status === "very_late";
+  if (isLate && hasUnapprovedEarlyLeave) return "late_and_early";
+  if (isLate) return status as FullDayStatus;
+  if (hasUnapprovedEarlyLeave) return "early_leave";
+  return "on_time";
+}
+
 export function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     on_time: "Đúng giờ",
     late: "Trễ",
     very_late: "Trễ nhiều",
+    early_leave: "Ra sớm",
+    late_and_early: "Trễ & Ra sớm",
     absent: "Vắng",
     holiday: "Nghỉ lễ",
   };
@@ -236,6 +261,8 @@ export function getStatusColor(status: string): string {
     on_time: "bg-green-100 text-green-800",
     late: "bg-yellow-100 text-yellow-800",
     very_late: "bg-red-100 text-red-800",
+    early_leave: "bg-orange-100 text-orange-800",
+    late_and_early: "bg-red-100 text-red-800",
     absent: "bg-gray-100 text-gray-600",
     holiday: "bg-blue-100 text-blue-800",
   };

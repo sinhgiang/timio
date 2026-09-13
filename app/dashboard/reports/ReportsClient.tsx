@@ -3,7 +3,7 @@
 import { useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib/utils";
-import { getStatusColor } from "@/lib/attendance";
+import { getStatusColor, getStatusLabel, resolveFullDayStatus } from "@/lib/attendance";
 import { buildDayRows } from "@/lib/shiftResolve";
 import PlanGate from "@/components/ui/PlanGate";
 import { Pencil, X, Info, ShieldCheck } from "lucide-react";
@@ -374,7 +374,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Giờ vào</th>
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Giờ ra</th>
                 <th className="text-left px-4 py-2 text-gray-400 font-medium">Trạng thái</th>
-                <th className="text-center px-3 py-2 text-gray-400 font-medium">Trễ (p)</th>
+                <th className="text-center px-3 py-2 text-gray-400 font-medium">Trễ / Sớm (p)</th>
                 <th className="text-center px-3 py-2 text-gray-400 font-medium">Tăng ca (p)</th>
                 <th className="text-right px-4 py-2 text-gray-400 font-medium">Phạt / Thưởng</th>
                 {canEdit && <th className="text-center px-3 py-2 text-gray-400 font-medium">Sửa</th>}
@@ -390,14 +390,20 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 return rows.map((r, i) => {
                   const log = logMap.get(`${emp.id}-${day}-${r.session}`);
                   const showExpected = !!log || !isWeekend; // ngày nghỉ + chưa chấm → không suy đoán giờ dự kiến
-                  const statusLabel = log
-                    ? log.status === "on_time" ? "Đúng giờ"
-                    : log.status === "late" || log.status === "very_late" ? "Trễ"
-                    : log.status === "early_leave" ? "Về sớm"
-                    : log.status === "absent" ? "Vắng"
-                    : log.status === "holiday" ? "Nghỉ lễ"
-                    : log.status
-                    : null;
+                  // Tô đậm màu đúng vào ô GIỜ VÀO hay GIỜ RA gây ra khoản phạt, + ghi rõ lý do dưới
+                  // số tiền (theo yêu cầu user). isLateCulprit/isEarlyCulprit phải tính TRƯỚC
+                  // statusLabel bên dưới vì badge Trạng thái giờ dựa vào cả 2 tín hiệu này.
+                  const isLateCulprit = !!log?.minutesLate;
+                  // earlyLeavePenalty > 0 là tín hiệu chính xác (checkout-time là nguồn phạt duy
+                  // nhất ngoài trễ giờ vào) — minutesEarly chỉ dùng để hiện thêm số phút nếu có,
+                  // phòng trường hợp dữ liệu cũ (trước bản vá) không có số phút chính xác.
+                  const isEarlyCulprit = !!log?.earlyLeavePenalty;
+                  // Badge "Trạng thái" PHẢI phản ánh CẢ giờ vào lẫn giờ ra — trước đây chỉ đọc
+                  // log.status (chỉ set lúc check-in, checkout không ghi đè), nên 1 dòng giờ vào
+                  // đúng nhưng giờ ra bị trừ tiền "ra sớm" vẫn hiện "Đúng giờ", mâu thuẫn với dòng
+                  // lý do phạt ngay bên dưới (user phản ánh 13/9/2026). Xem resolveFullDayStatus.
+                  const effectiveStatus = log ? resolveFullDayStatus(log.status, isEarlyCulprit) : null;
+                  const statusLabel = effectiveStatus ? getStatusLabel(effectiveStatus) : null;
                   // Giờ khai báo đưa vào tooltip (rê chuột mới hiện) thay vì hiện thẳng ra — nhãn Trạng thái
                   // (Đúng giờ/Trễ) đã tự phản ánh có khớp giờ khai báo hay không, khỏi cần lặp lại 2 dòng/ô.
                   // Nhãn buổi (Sáng/Tối) KHÔNG hiện chữ ra bảng nữa (theo phản hồi user: "nhìn giờ là biết rồi,
@@ -407,15 +413,6 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                   const expectedTitle = showExpected && r.expectedCheckIn && r.expectedCheckOut
                     ? `${sessionPrefix}Giờ khai báo: ${r.expectedCheckIn}–${r.expectedCheckOut}`
                     : undefined;
-                  // Trạng thái (Đúng giờ/Trễ) chỉ phản ánh GIỜ VÀO — Phạt/Thưởng lại có thể cộng
-                  // thêm phạt "ra sớm" (checkout trước giờ tan ca) mà trạng thái không thể hiện,
-                  // gây khó hiểu kiểu "Đúng giờ" mà vẫn bị trừ tiền. Tô đậm màu đúng vào ô GIỜ VÀO
-                  // hay GIỜ RA gây ra khoản phạt, + ghi rõ lý do dưới số tiền (theo yêu cầu user).
-                  const isLateCulprit = !!log?.minutesLate;
-                  // earlyLeavePenalty > 0 là tín hiệu chính xác (checkout-time là nguồn phạt duy
-                  // nhất ngoài trễ giờ vào) — minutesEarly chỉ dùng để hiện thêm số phút nếu có,
-                  // phòng trường hợp dữ liệu cũ (trước bản vá) không có số phút chính xác.
-                  const isEarlyCulprit = !!log?.earlyLeavePenalty;
                   const lateReason = isLateCulprit ? `Đi trễ ${log!.minutesLate} phút` : null;
                   const earlyReason = isEarlyCulprit
                     ? log!.minutesEarly > 0
@@ -534,7 +531,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       </td>
                       <td className="px-4 py-2 align-top">
                         {statusLabel ? (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log!.status)}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(effectiveStatus!)}`}>
                             {statusLabel}
                           </span>
                         ) : isWeekend ? (
@@ -544,7 +541,13 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                         )}
                       </td>
                       <td className="px-3 py-2 text-center text-xs align-top">
-                        {log?.minutesLate ? <span className="text-orange-500 font-medium">{log.minutesLate}p</span> : <span className="text-gray-200">—</span>}
+                        {log?.minutesLate ? (
+                          <span className="text-amber-600 font-medium">+{log.minutesLate}p trễ</span>
+                        ) : isEarlyCulprit && log!.minutesEarly > 0 ? (
+                          <span className="text-orange-500 font-medium">−{log!.minutesEarly}p sớm</span>
+                        ) : (
+                          <span className="text-gray-200">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center text-xs align-top">
                         {log?.minutesOvertime ? (

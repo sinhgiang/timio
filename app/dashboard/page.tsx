@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTodayString, formatTime, formatCurrency } from "@/lib/utils";
-import { getStatusColor, getStatusLabel } from "@/lib/attendance";
+import { getStatusColor, getStatusLabel, resolveFullDayStatus } from "@/lib/attendance";
 import {
   Users, CheckCircle2, AlertTriangle, UserX, Monitor, Banknote,
   ClipboardList, CalendarOff, FileWarning, ClipboardEdit, ArrowRight, BarChart3,
@@ -394,6 +394,10 @@ export default async function DashboardPage() {
                 <tbody className="divide-y divide-gray-50">
                   {todayLogs.map((log) => {
                     const mEarly = calcMinutesEarly(log);
+                    // Trạng thái phải phản ánh cả giờ ra, không chỉ giờ vào (log.status) — nếu không
+                    // cột "Trạng thái" báo "Đúng giờ" trong khi cột "Trễ / Sớm" ngay bên cạnh lại
+                    // báo "−Xp sớm", mâu thuẫn nhau trên cùng 1 dòng (xem lib/attendance.ts).
+                    const effectiveStatus = resolveFullDayStatus(log.status, mEarly > 0);
                     return (
                       <tr key={log.id} className="hover:bg-gray-50/60">
                         <td className="px-5 py-3">
@@ -404,7 +408,7 @@ export default async function DashboardPage() {
                         </td>
                         <td className="px-4 py-3 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
                         <td className="px-4 py-3 font-mono text-gray-400">{log.checkOutAt ? formatTime(log.checkOutAt) : <span className="text-gray-200">—</span>}</td>
-                        <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>{getStatusLabel(log.status)}</span></td>
+                        <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(effectiveStatus)}`}>{getStatusLabel(effectiveStatus)}</span></td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{log.minutesLate > 0 ? <span className="text-amber-600 font-bold">+{log.minutesLate}p trễ</span> : mEarly > 0 ? <span className="text-orange-500 font-bold">−{mEarly}p sớm</span> : <span className="text-gray-200">—</span>}</td>
                         <td className="px-5 py-3 text-right">{log.penaltyAmount > 0 ? <span className="text-red-600 font-semibold text-xs">−{formatCurrency(log.penaltyAmount)}</span> : <span className="text-gray-200">—</span>}</td>
                       </tr>
@@ -416,13 +420,14 @@ export default async function DashboardPage() {
             <div className="md:hidden divide-y divide-gray-50">
               {todayLogs.map((log) => {
                 const mEarly = calcMinutesEarly(log);
+                const effectiveStatus = resolveFullDayStatus(log.status, mEarly > 0);
                 return (
                   <div key={log.id} className="px-4 py-3 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-sm font-bold text-blue-700 shrink-0">{log.employee.name.charAt(0)}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium text-gray-800 truncate">{log.employee.name}</p>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>{getStatusLabel(log.status)}</span>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(effectiveStatus)}`}>{getStatusLabel(effectiveStatus)}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
                         <span>↓ {formatTime(log.checkInAt)}</span>
