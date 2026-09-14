@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import {
   Package, History, GraduationCap, TrendingUp, Filter, CalendarRange,
   ArrowLeftRight, Briefcase, Target, Megaphone, Receipt, Star,
   ClipboardCheck, ChevronDown, MessagesSquare, MessageSquare, CircleUserRound,
+  Pin, PinOff, Pencil, Check, GripVertical, ArrowUp, ArrowDown,
   type LucideIcon,
 } from "lucide-react";
 
@@ -139,6 +140,33 @@ const allLeafHrefs = navStructure.flatMap(e =>
   e.type === "item" ? [e.href] : e.type === "group" ? e.children.map(c => c.href) : []
 );
 
+// ─── Lối tắt cá nhân hóa (14/9/2026) ─────────────────────────────────────
+// Cho phép mỗi người dùng tự ghim + sắp xếp lại menu theo thói quen của mình
+// (VD: chủ shop hay vào "Nhân viên" nhiều thì ghim lên đầu, người khác lại hay
+// vào "Tổ chức"). Đơn vị ghim được là: 1 mục đơn (NavItem), 1 mục con trong
+// group (NavLeaf), hoặc CẢ 1 group (VD ghim nguyên "Tổ chức"). Id ghim = href
+// của mục/mục con, hoặc "group:<key>" cho cả group.
+type PinTarget =
+  | { kind: "item"; entry: NavItem }
+  | { kind: "group"; entry: NavGroup }
+  | { kind: "child"; leaf: NavLeaf; parent: NavGroup };
+
+function pinIdOf(t: PinTarget): string {
+  if (t.kind === "group") return `group:${t.entry.key}`;
+  if (t.kind === "item") return t.entry.href;
+  return t.leaf.href;
+}
+
+const pinTargets: PinTarget[] = [];
+navStructure.forEach(e => {
+  if (e.type === "item") pinTargets.push({ kind: "item", entry: e });
+  else if (e.type === "group") {
+    pinTargets.push({ kind: "group", entry: e });
+    e.children.forEach(c => pinTargets.push({ kind: "child", leaf: c, parent: e }));
+  }
+});
+const pinTargetById = new Map(pinTargets.map(t => [pinIdOf(t), t]));
+
 function PlanBadge({ plan, planExpires }: { plan: string; planExpires?: string | null }) {
   if (plan === "business") {
     return <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 leading-tight">BUSINESS</span>;
@@ -224,6 +252,79 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
     );
   }
 
+  // ─── Lối tắt: ghim, sắp xếp, và gợi ý mục hay dùng ────────────────────
+  // Lưu theo companySlug (localStorage — riêng cho từng trình duyệt/máy), để
+  // đổi công ty khác không lẫn lối tắt của nhau.
+  const storageKey = `timio_sidebar_pinned_${companySlug || "default"}`;
+  const usageKey = `timio_sidebar_usage_${companySlug || "default"}`;
+  const [pinned, setPinned] = useState<string[]>([]);
+  const [usage, setUsage] = useState<Record<string, number>>({});
+  const [editMode, setEditMode] = useState(false);
+  const [mounted, setMounted] = useState(false); // tránh lệch giao diện lúc hydrate
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const rawPins = localStorage.getItem(storageKey);
+      if (rawPins) setPinned(JSON.parse(rawPins));
+      const rawUsage = localStorage.getItem(usageKey);
+      if (rawUsage) setUsage(JSON.parse(rawUsage));
+    } catch {
+      // localStorage có thể bị chặn (chế độ ẩn danh) — bỏ qua, dùng mặc định
+    }
+    setMounted(true);
+  }, [storageKey, usageKey]);
+
+  function persistPinned(next: string[]) {
+    setPinned(next);
+    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+  }
+
+  function togglePin(id: string) {
+    persistPinned(pinned.includes(id) ? pinned.filter(p => p !== id) : [...pinned, id]);
+  }
+
+  function movePinned(id: string, dir: -1 | 1) {
+    const idx = pinned.indexOf(id);
+    const newIdx = idx + dir;
+    if (idx < 0 || newIdx < 0 || newIdx >= pinned.length) return;
+    const next = [...pinned];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    persistPinned(next);
+  }
+
+  function handleDrop(targetId: string) {
+    if (!dragId || dragId === targetId) { setDragId(null); return; }
+    const next = pinned.filter(id => id !== dragId);
+    const targetIdx = next.indexOf(targetId);
+    next.splice(targetIdx, 0, dragId);
+    persistPinned(next);
+    setDragId(null);
+  }
+
+  function trackUsage(href: string) {
+    setUsage(prev => {
+      const next = { ...prev, [href]: (prev[href] ?? 0) + 1 };
+      try { localStorage.setItem(usageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  // Gợi ý ghim (chỉ hiện khi đang chỉnh sửa): mục bấm nhiều mà CHƯA ghim.
+  // Chủ động gợi ý chứ không tự động xếp lại menu — tự động di chuyển vị trí
+  // menu mà không hỏi rất dễ gây khó chịu (người dùng quen tay bấm 1 chỗ, hôm
+  // sau menu đã đổi chỗ). Gợi ý rồi để người dùng tự bấm ghim là cách làm
+  // được các app lớn (VS Code, Slack) dùng, vừa chủ động vừa không gây rối.
+  const suggested = useMemo(() => {
+    if (!editMode) return [];
+    return Object.entries(usage)
+      .filter(([href, n]) => n >= 5 && !pinned.includes(href) && !shouldHide(href))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([href]) => href);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usage, pinned, editMode, role]);
+
   // indent=true: mục con trong 1 group đang mở. Trước đây thụt vào tới 48px (ml-3 của khung bọc +
   // border-l + pl-8 của chính link) — nhìn như bị "giấu" sâu vào 1 cái hộp riêng (phản hồi
   // 10/9/2026: "menu drop-down hay bị giấu bên trong, đẩy lùi về phía bên tay trái"). Giờ chỉ còn
@@ -233,23 +334,101 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
     if (shouldHide(leaf.href)) return null;
     const active = isItemActive(leaf.href);
     const count = getBadgeCount(leaf.badgeKey);
+    const isPinned = pinned.includes(leaf.href);
+    const isSuggested = suggested.includes(leaf.href);
     return (
-      <Link
-        key={leaf.href}
-        href={leaf.href}
-        onClick={() => setMobileOpen(false)}
-        className={cn(
-          "flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
-          indent ? "pl-7 pr-2.5 py-1.5" : "px-3 py-2.5",
-          active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm"
+      <div key={leaf.href} className="flex items-center gap-0.5">
+        <Link
+          href={leaf.href}
+          onClick={() => { setMobileOpen(false); trackUsage(leaf.href); }}
+          className={cn(
+            "flex-1 min-w-0 flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
+            indent ? "pl-7 pr-2.5 py-1.5" : "px-3 py-2.5",
+            active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-white hover:text-gray-800 hover:shadow-sm"
+          )}
+        >
+          <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
+          <span className="flex-1 min-w-0 leading-snug truncate">{leaf.label}</span>
+          {isSuggested && (
+            <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 leading-none">Hay dùng</span>
+          )}
+          <Badge count={count} color={leaf.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500"} />
+        </Link>
+        {editMode && (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); togglePin(leaf.href); }}
+            title={isPinned ? "Bỏ ghim khỏi Lối tắt" : "Ghim lên Lối tắt của bạn"}
+            className={cn("shrink-0 p-1.5 rounded-lg transition-colors", isPinned ? "text-blue-600 hover:bg-blue-50" : "text-gray-300 hover:text-blue-500 hover:bg-blue-50")}
+          >
+            <Pin size={13} className={isPinned ? "fill-current" : ""} />
+          </button>
         )}
-      >
-        <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-        <span className="flex-1 min-w-0 leading-snug truncate">{leaf.label}</span>
-        <Badge count={count} color={leaf.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500"} />
-      </Link>
+      </div>
     );
   };
+
+  // Nội dung hiển thị của 1 mục trong "Lối tắt của bạn" — dùng lại đúng logic active/badge
+  // như ở vị trí gốc, chỉ khác phần khung (gọn hơn, không cần nút ghim riêng vì cả dòng
+  // nằm trong khu Lối tắt rồi).
+  function renderPinnedContent(target: PinTarget) {
+    if (target.kind === "item") {
+      const entry = target.entry;
+      if (shouldHide(entry.href)) return null;
+      const active = isItemActive(entry.href);
+      const count = getBadgeCount(entry.badgeKey);
+      return (
+        <Link href={entry.href} onClick={() => { setMobileOpen(false); trackUsage(entry.href); }}
+          className={cn("flex-1 min-w-0 flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors",
+            active ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-white hover:shadow-sm")}>
+          <entry.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
+          <span className="flex-1 min-w-0 truncate">{entry.label}</span>
+          <Badge count={count} color={entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500"} />
+        </Link>
+      );
+    }
+    if (target.kind === "child") {
+      const leaf = target.leaf;
+      if (shouldHide(leaf.href)) return null;
+      const active = isItemActive(leaf.href);
+      const count = getBadgeCount(leaf.badgeKey);
+      return (
+        <Link href={leaf.href} onClick={() => { setMobileOpen(false); trackUsage(leaf.href); }}
+          className={cn("flex-1 min-w-0 flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors",
+            active ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-white hover:shadow-sm")}>
+          <leaf.Icon size={15} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
+          <span className="flex-1 min-w-0 truncate">{leaf.label}</span>
+          <Badge count={count} color={leaf.badgeKey === "leave" ? "bg-red-500" : "bg-orange-500"} />
+        </Link>
+      );
+    }
+    // group — vẫn xổ/thu như bình thường, dùng CHUNG state openGroups với vị trí gốc
+    const entry = target.entry;
+    const visibleChildren = entry.children.filter(c => !shouldHide(c.href));
+    if (visibleChildren.length === 0) return null;
+    const isOpen = openGroups.has(entry.key);
+    const groupActive = visibleChildren.some(c => isItemActive(c.href));
+    const groupBadgeCount = getGroupBadge(entry.children);
+    return (
+      <div className="flex-1 min-w-0">
+        <button type="button" onClick={() => toggleGroup(entry.key)}
+          className={cn("w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors",
+            groupActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-white hover:shadow-sm")}>
+          <entry.Icon size={15} strokeWidth={groupActive ? 2.5 : 2} className="shrink-0" />
+          <span className="flex-1 min-w-0 text-left truncate">{entry.label}</span>
+          {!isOpen && <Badge count={groupBadgeCount} color="bg-orange-500" />}
+          <ChevronDown size={13} strokeWidth={2} className={cn("shrink-0 transition-transform duration-200", isOpen ? "rotate-180" : "")} />
+        </button>
+        {isOpen && (
+          <div className="pb-1 pt-0.5 space-y-0.5">
+            {visibleChildren.map(c => renderItem(c, true))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const visiblePinned = pinned.filter(id => pinTargetById.has(id));
 
   return (
     <>
@@ -296,6 +475,73 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
         {/* Nav — đệm rộng hơn 1 chút (p-2 → p-2.5, space-y-0.5 → space-y-1) cho thoáng mắt hơn
             (phản hồi 10/9/2026: "chọn đợt hơn một chút để chúng ta dễ nhìn hơn"). */}
         <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto overflow-x-hidden">
+          {/* ─── Lối tắt của bạn — ghim + tự sắp xếp menu theo thói quen (14/9/2026) ─── */}
+          {mounted && (
+            <div className="mb-1 pb-2 border-b border-gray-100">
+              <div className="flex items-center justify-between px-3 pt-0.5 pb-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">Lối tắt của bạn</p>
+                <button
+                  type="button"
+                  onClick={() => setEditMode(v => !v)}
+                  title="Ghim và sắp xếp menu theo ý bạn"
+                  className={cn(
+                    "flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-colors shrink-0",
+                    editMode ? "bg-blue-600 text-white" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                  )}
+                >
+                  {editMode ? <><Check size={11} /> Xong</> : <><Pencil size={11} /> Tùy chỉnh</>}
+                </button>
+              </div>
+
+              {visiblePinned.length === 0 ? (
+                editMode ? (
+                  <p className="px-3 pb-1 text-xs text-gray-400 leading-snug">
+                    Bấm biểu tượng ghim <Pin size={11} className="inline -mt-0.5" /> cạnh mục bạn hay dùng bên dưới để đưa lên đây.
+                  </p>
+                ) : (
+                  <p className="px-3 pb-1 text-xs text-gray-300 leading-snug">Chưa có lối tắt nào</p>
+                )
+              ) : (
+                <div className="space-y-0.5">
+                  {visiblePinned.map((id, idx) => {
+                    const target = pinTargetById.get(id)!;
+                    const content = renderPinnedContent(target);
+                    if (!content) return null; // ẩn theo quyền (VD manager không thấy mục lương)
+                    return (
+                      <div
+                        key={id}
+                        draggable={editMode}
+                        onDragStart={() => setDragId(id)}
+                        onDragOver={(e) => { if (editMode) e.preventDefault(); }}
+                        onDrop={() => { if (editMode) handleDrop(id); }}
+                        className={cn("flex items-center gap-0.5 rounded-lg", editMode && "bg-gray-50/80")}
+                      >
+                        {editMode && <GripVertical size={14} className="text-gray-300 shrink-0 cursor-grab ml-1" />}
+                        {content}
+                        {editMode && (
+                          <div className="flex items-center shrink-0 pr-0.5">
+                            <button type="button" disabled={idx === 0} onClick={() => movePinned(id, -1)}
+                              className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 disabled:opacity-25 disabled:pointer-events-none" title="Đưa lên">
+                              <ArrowUp size={13} />
+                            </button>
+                            <button type="button" disabled={idx === visiblePinned.length - 1} onClick={() => movePinned(id, 1)}
+                              className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 disabled:opacity-25 disabled:pointer-events-none" title="Đưa xuống">
+                              <ArrowDown size={13} />
+                            </button>
+                            <button type="button" onClick={() => togglePin(id)}
+                              className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50" title="Bỏ ghim">
+                              <PinOff size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {navStructure.map((entry, idx) => {
             if (entry.type === "section") {
               // Ẩn tiêu đề khu nếu mọi mục trong khu đều bị ẩn theo quyền
@@ -320,27 +566,39 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
               if (shouldHide(entry.href)) return null;
               const active = isItemActive(entry.href);
               const count = getBadgeCount(entry.badgeKey);
+              const isPinned = pinned.includes(entry.href);
               return (
-                <Link
-                  key={entry.href}
-                  href={entry.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                <div key={entry.href} className="flex items-center gap-0.5">
+                  <Link
+                    href={entry.href}
+                    onClick={() => { setMobileOpen(false); trackUsage(entry.href); }}
+                    className={cn(
+                      "flex-1 min-w-0 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      active ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                    )}
+                  >
+                    <entry.Icon size={17} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
+                    <span className="flex-1 min-w-0 truncate">{entry.label}</span>
+                    {entry.isNew && count === 0 && (
+                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 leading-none">MỚI</span>
+                    )}
+                    {count > 0 && (
+                      <span className={cn("shrink-0 min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
+                        {count > 99 ? "99+" : count}
+                      </span>
+                    )}
+                  </Link>
+                  {editMode && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); togglePin(entry.href); }}
+                      title={isPinned ? "Bỏ ghim khỏi Lối tắt" : "Ghim lên Lối tắt của bạn"}
+                      className={cn("shrink-0 p-1.5 rounded-lg transition-colors", isPinned ? "text-blue-600 hover:bg-blue-50" : "text-gray-300 hover:text-blue-500 hover:bg-blue-50")}
+                    >
+                      <Pin size={14} className={isPinned ? "fill-current" : ""} />
+                    </button>
                   )}
-                >
-                  <entry.Icon size={17} strokeWidth={active ? 2.5 : 2} className="shrink-0" />
-                  <span className="flex-1 min-w-0 truncate">{entry.label}</span>
-                  {entry.isNew && count === 0 && (
-                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 leading-none">MỚI</span>
-                  )}
-                  {count > 0 && (
-                    <span className={cn("shrink-0 min-w-[18px] h-[18px] px-1 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none", entry.badgeKey === "leave" ? "bg-red-500" : entry.badgeKey === "recruitment" ? "bg-blue-600" : "bg-orange-500")}>
-                      {count > 99 ? "99+" : count}
-                    </span>
-                  )}
-                </Link>
+                </div>
               );
             }
 
@@ -351,6 +609,8 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
             const isOpen = openGroups.has(entry.key);
             const groupActive = visibleChildren.some(c => isItemActive(c.href));
             const groupBadgeCount = getGroupBadge(entry.children);
+            const groupPinId = `group:${entry.key}`;
+            const isGroupPinned = pinned.includes(groupPinId);
 
             // Khi mở: bọc cả nhóm trong 1 "thẻ" nền xám nhạt để báo hiệu "đây là 1 cụm" — thay cho
             // cách cũ thụt lề sâu (ml-3 + border-l + pl-8 ≈ 48px) khiến mục con như bị giấu vào 1
@@ -358,26 +618,38 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
             // KHÔNG đổi qua kiểu popover/flyout nổi ra ngoài (đã thử kiểu đó trước đây, không hợp).
             return (
               <div key={entry.key} className={cn("rounded-lg transition-colors", isOpen && "bg-gray-50/80")}>
-                <button
-                  onClick={() => toggleGroup(entry.key)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    groupActive ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => toggleGroup(entry.key)}
+                    className={cn(
+                      "flex-1 min-w-0 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      groupActive ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                    )}
+                  >
+                    <entry.Icon size={17} strokeWidth={groupActive ? 2.5 : 2} className="shrink-0" />
+                    <span className="flex-1 min-w-0 text-left truncate">{entry.label}</span>
+                    {!isOpen && groupBadgeCount > 0 && (
+                      <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                        {groupBadgeCount > 99 ? "99+" : groupBadgeCount}
+                      </span>
+                    )}
+                    <ChevronDown
+                      size={14}
+                      strokeWidth={2}
+                      className={cn("shrink-0 transition-transform duration-200", isOpen ? "rotate-180" : "")}
+                    />
+                  </button>
+                  {editMode && (
+                    <button
+                      type="button"
+                      onClick={() => togglePin(groupPinId)}
+                      title={isGroupPinned ? "Bỏ ghim khỏi Lối tắt" : "Ghim cả mục này lên Lối tắt của bạn"}
+                      className={cn("shrink-0 p-1.5 mr-1 rounded-lg transition-colors", isGroupPinned ? "text-blue-600 hover:bg-blue-50" : "text-gray-300 hover:text-blue-500 hover:bg-blue-50")}
+                    >
+                      <Pin size={14} className={isGroupPinned ? "fill-current" : ""} />
+                    </button>
                   )}
-                >
-                  <entry.Icon size={17} strokeWidth={groupActive ? 2.5 : 2} className="shrink-0" />
-                  <span className="flex-1 min-w-0 text-left truncate">{entry.label}</span>
-                  {!isOpen && groupBadgeCount > 0 && (
-                    <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                      {groupBadgeCount > 99 ? "99+" : groupBadgeCount}
-                    </span>
-                  )}
-                  <ChevronDown
-                    size={14}
-                    strokeWidth={2}
-                    className={cn("shrink-0 transition-transform duration-200", isOpen ? "rotate-180" : "")}
-                  />
-                </button>
+                </div>
 
                 {isOpen && (
                   <div className="pb-1.5 space-y-0.5">
