@@ -30,6 +30,7 @@ interface Log {
   minutesLate: number;
   minutesEarly: number;
   earlyLeavePenalty: number;
+  missingCheckoutPenalty: number;
   minutesOvertime: number;
   status: string;
   penaltyAmount: number;
@@ -398,6 +399,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                   // nhất ngoài trễ giờ vào) — minutesEarly chỉ dùng để hiện thêm số phút nếu có,
                   // phòng trường hợp dữ liệu cũ (trước bản vá) không có số phút chính xác.
                   const isEarlyCulprit = !!log?.earlyLeavePenalty;
+                  // Quên chấm công ra — cron app/api/cron/missing-checkout-penalty ghi status
+                  // "missing_checkout" + missingCheckoutPenalty sau khi ngày đã kết thúc mà vẫn
+                  // không có checkOutAt. Tô đỏ đậm ô Giờ ra ("—") để nổi bật hơn cả ô ra sớm.
+                  const isMissingCheckout = log?.status === "missing_checkout";
                   // Badge "Trạng thái" PHẢI phản ánh CẢ giờ vào lẫn giờ ra — trước đây chỉ đọc
                   // log.status (chỉ set lúc check-in, checkout không ghi đè), nên 1 dòng giờ vào
                   // đúng nhưng giờ ra bị trừ tiền "ra sớm" vẫn hiện "Đúng giờ", mâu thuẫn với dòng
@@ -419,7 +424,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       ? `Ra sớm ${log!.minutesEarly} phút — trừ ${formatCurrency(log!.earlyLeavePenalty)}`
                       : `Ra sớm — trừ ${formatCurrency(log!.earlyLeavePenalty)}`
                     : null;
-                  const penaltyReasonText = [lateReason, earlyReason].filter(Boolean).join(" · ") || null;
+                  const missingCheckoutReason = isMissingCheckout
+                    ? `Quên chấm công ra${log!.missingCheckoutPenalty > 0 ? ` — trừ ${formatCurrency(log!.missingCheckoutPenalty)}` : ""}`
+                    : null;
+                  const penaltyReasonText = [lateReason, earlyReason, missingCheckoutReason].filter(Boolean).join(" · ") || null;
                   // Badge "i" cam: CHỈ hiện ở đúng ô (Giờ vào/Giờ ra) mà giá trị đó thực sự bị admin
                   // sửa — giờ nào đúng/không đụng tới thì giữ nguyên, không hiện badge (theo yêu cầu
                   // user: "giờ nào bị sai sửa nó chỉ hiện ở giờ đó thôi"). originalCheckInAt/Out chỉ
@@ -501,12 +509,14 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                       </td>
                       <td
                         className={`relative px-4 py-2 font-mono align-top ${
-                          isEarlyCulprit ? "text-red-600 bg-red-50 rounded-md font-medium" : "text-gray-500"
+                          isMissingCheckout
+                            ? "text-red-700 bg-red-100 rounded-md font-semibold"
+                            : isEarlyCulprit ? "text-red-600 bg-red-50 rounded-md font-medium" : "text-gray-500"
                         }`}
-                        title={showInfoBadgeOut ? undefined : earlyReason ?? expectedTitle}
+                        title={showInfoBadgeOut ? undefined : missingCheckoutReason ?? earlyReason ?? expectedTitle}
                       >
                         <div className="flex items-center gap-1">
-                          <span>{log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className="text-gray-300">—</span>}</span>
+                          <span>{log?.checkOutAt ? formatTime(new Date(log.checkOutAt)) : <span className={isMissingCheckout ? "text-red-400 font-semibold" : "text-gray-300"}>—</span>}</span>
                           {!!log?.earlyLeaveApproved && (
                             <ApprovedExceptionBadge label="Đã xin về sớm — sếp đã duyệt, tính Đúng giờ" />
                           )}

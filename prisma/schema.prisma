@@ -45,6 +45,7 @@ model Company {
   trialEndsAt        DateTime? // null = không dùng thử / đã trả tiền
   autoReminderConfig String? // JSON: nhắc chấm công tự động { enabled, channels{email,telegram,zalo}, times[hour], days[0-6], target, subject, message }
   lateReminderConfig String? // JSON: nhắc trễ theo ca { enabled, channels, delayMinutes, target, message }
+  missingCheckoutPenaltyAmount Int @default(0) // Số tiền phạt CỐ ĐỊNH khi NV có giờ vào nhưng hết ngày không chấm công ra — 0 = tắt (mặc định, sếp phải tự bật). Nặng hơn trễ/ra sớm theo yêu cầu user 14/9/2026 (không có range phút như PenaltyRule vì "quên" là nhị phân, không có mức độ). Áp bởi app/api/cron/missing-checkout-penalty.
   createdAt          DateTime  @default(now())
 
   branches           Branch[]
@@ -250,6 +251,7 @@ model AttendanceLog {
   penaltyAmount       Int       @default(0)
   minutesEarly        Int       @default(0) // Số phút ra sớm (checkout trước giờ tan ca) — tách riêng khỏi minutesLate (đi trễ lúc vào) để biết phạt do giờ VÀO hay giờ RA
   earlyLeavePenalty   Int       @default(0) // Phần phạt do ra sớm (đã cộng vào penaltyAmount) — lưu riêng để hiện lý do phạt trên báo cáo, xem lib/attendance.ts calculateEarlyLeave
+  missingCheckoutPenalty Int    @default(0) // Phần phạt do QUÊN chấm công ra (có giờ vào, hết ngày vẫn không có giờ ra) — do cron app/api/cron/missing-checkout-penalty áp lúc 00:30 VN hôm sau, cộng vào penaltyAmount. Set kèm status="missing_checkout" để báo cáo không còn hiện "Đúng giờ" (xem lib/attendance.ts resolveFullDayStatus) — user phản ánh 14/9/2026
   minutesOvertime     Int       @default(0)
   overtimeAmount      Int       @default(0)
   overtimeStatus      String    @default("none") // "none" | "pending" | "approved" | "rejected"

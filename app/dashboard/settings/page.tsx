@@ -70,6 +70,7 @@ export default async function SettingsPage() {
         ewaFeeType: company?.ewaFeeType ?? "fixed",
         ewaFeeValue: company?.ewaFeeValue ?? 10000,
         ewaMaxPerMonth: company?.ewaMaxPerMonth ?? 4,
+        missingCheckoutPenaltyAmount: (company as { missingCheckoutPenaltyAmount?: number })?.missingCheckoutPenaltyAmount ?? 0,
       }}
       penaltyRules={penaltyRules}
       rewardRules={rewardRules}

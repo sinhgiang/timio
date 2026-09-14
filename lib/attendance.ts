@@ -232,10 +232,18 @@ export function calculateMonthlySummary({
  * cách tính/dữ liệu sẵn có khác nhau (ReportsClient dùng earlyLeavePenalty, dashboard/page.tsx
  * tự tính lại từ giờ ra thực tế) — hàm này chỉ lo phần kết hợp trạng thái, không lo tính phút.
  */
-export type FullDayStatus = "on_time" | "late" | "very_late" | "early_leave" | "late_and_early" | "absent" | "holiday";
+export type FullDayStatus = "on_time" | "late" | "very_late" | "early_leave" | "late_and_early" | "missing_checkout" | "absent" | "holiday";
 
+/**
+ * "missing_checkout": NV có chấm công vào nhưng hết ngày KHÔNG chấm công ra — do cron
+ * app/api/cron/missing-checkout-penalty (chạy 00:30 VN hôm sau) ghi thẳng vào log.status khi
+ * xác nhận cả ngày đã trôi qua mà checkOutAt vẫn null, xem lib/attendance.ts (route đó) +
+ * AttendanceLog.missingCheckoutPenalty. Ưu tiên hiện trạng thái này TRƯỚC late/early vì user
+ * yêu cầu (14/9/2026): quên chấm công ra nặng hơn trễ giờ hay về sớm (giờ vào đúng nhưng
+ * không ai biết NV rời lúc nào) — trước đó báo cáo vẫn hiện "Đúng giờ" dù giờ ra là "—", vô lý.
+ */
 export function resolveFullDayStatus(status: string, hasUnapprovedEarlyLeave: boolean): FullDayStatus {
-  if (status === "absent" || status === "holiday") return status;
+  if (status === "missing_checkout" || status === "absent" || status === "holiday") return status;
   const isLate = status === "late" || status === "very_late";
   if (isLate && hasUnapprovedEarlyLeave) return "late_and_early";
   if (isLate) return status as FullDayStatus;
@@ -250,6 +258,7 @@ export function getStatusLabel(status: string): string {
     very_late: "Trễ nhiều",
     early_leave: "Ra sớm",
     late_and_early: "Trễ & Ra sớm",
+    missing_checkout: "Quên chấm công ra",
     absent: "Vắng",
     holiday: "Nghỉ lễ",
   };
@@ -263,6 +272,7 @@ export function getStatusColor(status: string): string {
     very_late: "bg-red-100 text-red-800",
     early_leave: "bg-orange-100 text-orange-800",
     late_and_early: "bg-red-100 text-red-800",
+    missing_checkout: "bg-red-200 text-red-900 font-semibold", // đậm hơn very_late — nặng nhất theo yêu cầu user
     absent: "bg-gray-100 text-gray-600",
     holiday: "bg-blue-100 text-blue-800",
   };

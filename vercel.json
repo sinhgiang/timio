@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/monthly-review-reminder",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/cron/missing-checkout-penalty",
+      "schedule": "30 17 * * *"
     }
   ]
 }

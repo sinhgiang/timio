@@ -38,6 +38,7 @@ import {
   Settings2,
   CheckCircle2,
   CalendarRange,
+  AlertTriangle,
 } from "lucide-react";
 
 interface PenaltyRule {
@@ -70,7 +71,7 @@ interface Branch {
 }
 
 interface Props {
-  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null; faceLiveness?: boolean; ewaEnabled?: boolean; ewaApprovalMode?: string; ewaMaxPercent?: number; ewaFeeType?: string; ewaFeeValue?: number; ewaMaxPerMonth?: number };
+  company: { id: string; name: string; slug: string; telegramBotToken?: string; accountingChatId?: string | null; logoUrl?: string | null; signatureUrl?: string | null; stampUrl?: string | null; zaloOaToken?: string | null; zaloOaId?: string | null; zaloAppId?: string | null; zaloSecretKey?: string | null; zaloRefreshToken?: string | null; kioskMessages?: string | null; paydayOfMonth?: number | null; faceLiveness?: boolean; ewaEnabled?: boolean; ewaApprovalMode?: string; ewaMaxPercent?: number; ewaFeeType?: string; ewaFeeValue?: number; ewaMaxPerMonth?: number; missingCheckoutPenaltyAmount?: number };
   penaltyRules: PenaltyRule[];
   rewardRules: RewardRule[];
   branches?: Branch[];
@@ -275,6 +276,27 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
     const data = await res.json();
     setPaydayMsg(res.ok ? "✅ Đã lưu ngày phát lương" : `❌ ${data.error}`);
     setPaydaySaving(false);
+  };
+
+  // Phạt quên chấm công ra — số tiền cố định (0 = tắt), NẶNG HƠN trễ/ra sớm theo yêu cầu user
+  // 14/9/2026 (giờ vào đúng nhưng không ai biết NV rời lúc nào → coi là nghiêm trọng nhất).
+  // Áp bởi app/api/cron/missing-checkout-penalty (chạy 00:30 VN hôm sau).
+  const [missingCheckoutAmount, setMissingCheckoutAmount] = useState(
+    String(company.missingCheckoutPenaltyAmount ?? 0)
+  );
+  const [missingCheckoutSaving, setMissingCheckoutSaving] = useState(false);
+  const [missingCheckoutMsg, setMissingCheckoutMsg] = useState("");
+
+  const saveMissingCheckoutPenalty = async () => {
+    setMissingCheckoutSaving(true); setMissingCheckoutMsg("");
+    const res = await fetch("/api/company/missing-checkout-penalty", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ missingCheckoutPenaltyAmount: missingCheckoutAmount }),
+    });
+    const data = await res.json();
+    setMissingCheckoutMsg(res.ok ? "✅ Đã lưu mức phạt quên chấm công ra" : `❌ ${data.error}`);
+    setMissingCheckoutSaving(false);
   };
 
   // Test email
@@ -1359,6 +1381,37 @@ export default function SettingsClient({ company, penaltyRules, rewardRules, hol
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Quên chấm công ra — mức phạt cố định (không có range phút, vì "quên" là nhị phân) —
+              theo yêu cầu user 14/9/2026: NẶNG HƠN trễ giờ/về sớm vì công ty hoàn toàn không biết
+              NV rời lúc nào. Cron app/api/cron/missing-checkout-penalty áp lúc 00:30 VN hôm sau. */}
+          <div>
+            <div className="flex items-center gap-2 font-semibold text-gray-700 mb-0.5">
+              <AlertTriangle size={16} className="text-red-500" /> Phạt quên chấm công ra
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              Áp dụng khi nhân viên có giờ vào nhưng hết ngày vẫn không chấm công ra — công ty sẽ
+              không biết NV rời lúc nào, nên mặc định coi là nghiêm trọng hơn đi trễ/về sớm. Hệ thống tự trừ
+              tiền + đổi trạng thái báo cáo thành &quot;Quên chấm công ra&quot; vào rạng sáng hôm sau. Để 0 để tắt.
+            </p>
+            <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Mức phạt / lần quên (VND)</label>
+                <input
+                  type="number" min="0" step="1000"
+                  value={missingCheckoutAmount}
+                  onChange={(e) => setMissingCheckoutAmount(e.target.value)}
+                  className="w-48 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                />
+              </div>
+              <button
+                onClick={saveMissingCheckoutPenalty}
+                disabled={missingCheckoutSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+              >{missingCheckoutSaving ? "Đang lưu..." : "Lưu"}</button>
+              {missingCheckoutMsg && <span className="text-xs text-gray-500">{missingCheckoutMsg}</span>}
             </div>
           </div>
 

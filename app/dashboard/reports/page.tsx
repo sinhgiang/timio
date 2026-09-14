@@ -136,6 +136,7 @@ export default async function ReportsPage({
         minutesLate: l.minutesLate,
         minutesEarly: l.minutesEarly,
         earlyLeavePenalty: l.earlyLeavePenalty,
+        missingCheckoutPenalty: l.missingCheckoutPenalty,
         minutesOvertime: l.minutesOvertime,
         status: l.status,
         penaltyAmount: l.penaltyAmount,
