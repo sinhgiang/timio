@@ -124,7 +124,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-4 md:p-5 max-w-7xl mx-auto space-y-4">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -141,9 +141,9 @@ export default async function DashboardPage() {
       {isNewCompany && <OnboardingBanner checkInUrl={checkInUrl} />}
 
       {/* ── HÀNG 1: Tổng quan chart | Stat cards | Thẻ công ty ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Overview + bar chart */}
-        <div className="xl:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="xl:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-start justify-between mb-1">
             <div>
               <p className="text-4xl font-extrabold text-gray-900 leading-none">{checkedIn}<span className="text-lg text-gray-300 font-bold">/{totalEmployees}</span></p>
@@ -152,8 +152,8 @@ export default async function DashboardPage() {
             <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg">7 ngày</span>
           </div>
           {/* Bar chart */}
-          <div className="mt-5">
-            <div className="flex items-end gap-2 h-40">
+          <div className="mt-3.5">
+            <div className="flex items-end gap-2 h-24">
               {chartDays.map((d, i) => {
                 const total = d.onTime + d.late;
                 const h = (total / maxBar) * 100;
@@ -168,57 +168,57 @@ export default async function DashboardPage() {
                 );
               })}
             </div>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-1.5">
               {chartDays.map((d, i) => (
                 <span key={i} className={`flex-1 text-center text-[10px] ${i === chartDays.length - 1 ? "font-bold text-blue-600" : "text-gray-400"}`}>{d.label}</span>
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-50 text-xs">
+          <div className="flex items-center gap-4 mt-3 pt-2.5 border-t border-gray-50 text-xs">
             <span className="flex items-center gap-1.5 text-gray-500"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500" /> Đúng giờ</span>
             <span className="flex items-center gap-1.5 text-gray-500"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Đi trễ</span>
           </div>
 
           {/* 2 ô tóm tắt xu hướng — lấp khoảng trống bên dưới (10/9/2026: card này giãn theo cột
               "Hoạt động gần đây" dài hơn bên phải, phần dưới chú thích bị trống trơn). */}
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="rounded-xl bg-gray-50 px-3.5 py-3">
+          <div className="grid grid-cols-2 gap-2.5 mt-3">
+            <div className="rounded-xl bg-gray-50 px-3.5 py-2.5">
               <p className="text-[11px] text-gray-400">So với hôm qua</p>
-              <p className={`text-base font-bold flex items-center gap-1 mt-1 ${deltaVsYesterday > 0 ? "text-emerald-600" : deltaVsYesterday < 0 ? "text-red-500" : "text-gray-500"}`}>
+              <p className={`text-base font-bold flex items-center gap-1 mt-0.5 ${deltaVsYesterday > 0 ? "text-emerald-600" : deltaVsYesterday < 0 ? "text-red-500" : "text-gray-500"}`}>
                 {deltaVsYesterday > 0 ? <TrendingUp size={15} /> : deltaVsYesterday < 0 ? <TrendingDown size={15} /> : null}
                 {deltaVsYesterday > 0 ? `+${deltaVsYesterday}` : deltaVsYesterday} người
               </p>
             </div>
-            <div className="rounded-xl bg-gray-50 px-3.5 py-3">
+            <div className="rounded-xl bg-gray-50 px-3.5 py-2.5">
               <p className="text-[11px] text-gray-400">TB {chartDays.length} ngày qua</p>
-              <p className="text-base font-bold text-gray-800 mt-1">{avgPerDay} người/ngày</p>
+              <p className="text-base font-bold text-gray-800 mt-0.5">{avgPerDay} người/ngày</p>
             </div>
           </div>
           {weekTotal > 0 && (
-            <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+            <p className="text-xs text-gray-400 mt-2.5 leading-relaxed">
               Tuần này <b className="text-gray-600">{weekOnTimeRate}%</b> chấm công đúng giờ, đông nhất vào <b className="text-gray-600">{busiestDay.label}</b>.
             </p>
           )}
         </div>
 
         {/* Stat cards */}
-        <div className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-3">
+        <div className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-2.5">
           <MiniStat label="Tổng nhân viên" value={String(totalEmployees)} sub={`${deptList.length} phòng ban`} Icon={Users} />
           <MiniStat label="Quỹ lương tháng" value={formatCurrency(totalBaseSalary)} sub="lương cơ bản" Icon={Banknote} accent />
           <MiniStat label="Đúng giờ tháng" value={`${monthHealth}%`} sub={`${monthOnTimeLogs}/${monthTotalLogs} lượt`} Icon={CheckCircle2} />
         </div>
 
         {/* Thẻ công ty + quick actions + team + hoạt động */}
-        <div className="xl:col-span-4 space-y-4">
+        <div className="xl:col-span-4 space-y-3">
           {/* Thẻ công ty */}
-          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-200/50 relative overflow-hidden">
+          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-4 text-white shadow-lg shadow-blue-200/50 relative overflow-hidden">
             <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
             <div className="flex items-center justify-between relative">
               <div className="flex items-center gap-2"><Building2 size={18} /><span className="text-sm font-medium text-blue-100">Công ty</span></div>
               <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded">{planLabel}</span>
             </div>
-            <p className="text-xl font-bold mt-3 relative">{company?.name ?? "Công ty"}</p>
-            <div className="flex items-center gap-5 mt-3 relative">
+            <p className="text-xl font-bold mt-2.5 relative">{company?.name ?? "Công ty"}</p>
+            <div className="flex items-center gap-5 mt-2.5 relative">
               <div><p className="text-2xl font-extrabold leading-none">{totalEmployees}</p><p className="text-[11px] text-blue-200">Nhân viên</p></div>
               <div><p className="text-2xl font-extrabold leading-none">{company?.branches?.length ?? 0}</p><p className="text-[11px] text-blue-200">Chi nhánh</p></div>
               <div><p className="text-2xl font-extrabold leading-none">{checkInRate}%</p><p className="text-[11px] text-blue-200">Đã vào</p></div>
@@ -234,15 +234,15 @@ export default async function DashboardPage() {
           </div>
 
           {/* Hoạt động gần đây */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5">
+            <div className="flex items-center justify-between mb-2.5">
               <p className="text-sm font-semibold text-gray-800">Hoạt động gần đây</p>
               <Link href="/dashboard/reports" className="text-[11px] text-blue-600 flex items-center gap-0.5">Tất cả <ChevronRight size={12} /></Link>
             </div>
             {recentActivity.length === 0 ? (
               <p className="text-sm text-gray-400 py-4 text-center">Chưa có hoạt động.</p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {recentActivity.map((a) => (
                   <div key={a.id} className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0">{a.employee.name.charAt(0)}</div>
@@ -261,9 +261,9 @@ export default async function DashboardPage() {
 
       {/* ── HÀNG 2: Chuyên cần hôm nay | Gợi ý ── */}
       {!isNewCompany && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2.5">
               <div>
                 <p className="text-sm font-semibold text-gray-800">Tỷ lệ đi làm hôm nay</p>
                 <p className="text-xs text-gray-400 mt-0.5">{checkedIn} đã vào · {notCheckedIn} chưa · {onLeaveToday.length} nghỉ phép</p>
@@ -280,7 +280,7 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4">
             <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-indigo-500" /><p className="text-sm font-semibold text-gray-800">Gợi ý cho bạn</p></div>
             <ul className="space-y-2 text-sm text-gray-600">
               {notCheckedIn > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> {notCheckedIn} nhân viên chưa chấm công — nhắc qua Zalo/Email từ Trợ lý AI.</li>}
@@ -294,12 +294,12 @@ export default async function DashboardPage() {
 
       {/* ── HÀNG 3: Phòng ban | Sức khỏe | Cần xử lý ── */}
       {!isNewCompany && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Phân tích phòng ban */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <p className="text-sm font-semibold text-gray-800 mb-1">Phân bổ phòng ban</p>
             <p className="text-2xl font-extrabold text-gray-900">{totalEmployees}<span className="text-sm text-gray-400 font-semibold"> nhân viên</span></p>
-            <div className="space-y-2.5 mt-4">
+            <div className="space-y-2 mt-3">
               {deptList.map((d, i) => {
                 const pct = Math.round((d.count / totalEmployees) * 100);
                 return (
@@ -316,10 +316,10 @@ export default async function DashboardPage() {
           </div>
 
           {/* Sức khỏe chấm công (gauge) */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col">
             <div className="flex items-center gap-2 mb-1"><ShieldCheck size={16} className="text-blue-600" /><p className="text-sm font-semibold text-gray-800">Sức khỏe chấm công</p></div>
             <p className="text-xs text-gray-400">Tỷ lệ đúng giờ trong tháng</p>
-            <div className="flex-1 flex flex-col items-center justify-center py-2">
+            <div className="flex-1 flex flex-col items-center justify-center py-1 min-h-0">
               <Gauge value={monthHealth} />
               <p className="text-3xl font-extrabold text-gray-900 -mt-6">{monthHealth}%</p>
               <p className="text-xs text-gray-400 mt-1">{monthHealth >= 90 ? "Rất tốt" : monthHealth >= 75 ? "Ổn định" : "Cần cải thiện"}</p>
@@ -328,20 +328,20 @@ export default async function DashboardPage() {
           </div>
 
           {/* Cần xử lý */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2.5">
               <p className="text-sm font-semibold text-gray-800">Cần xử lý</p>
               {pendingTotal > 0 && <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">{pendingTotal}</span>}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <TodoRow href="/dashboard/leave" Icon={CalendarOff} label="Nghỉ phép chờ duyệt" count={pendingLeaveCount} color="orange" />
               <TodoRow href="/dashboard/corrections" Icon={ClipboardEdit} label="Điều chỉnh chấm công" count={pendingCorrectionCount} color="blue" />
               <TodoRow href="/dashboard/employees" Icon={FileWarning} label="Hợp đồng sắp hết hạn" count={expiringContracts.length} color="red" />
               <TodoRow href="/dashboard/employees" Icon={UserX} label="Chưa chấm công hôm nay" count={notCheckedIn} color="gray" />
             </div>
             {topLate.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-50">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Đến trễ nhiều nhất tháng</p>
+              <div className="mt-3 pt-2.5 border-t border-gray-50">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Đến trễ nhiều nhất tháng</p>
                 <div className="space-y-1.5">
                   {topLate.map((e, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
@@ -358,7 +358,7 @@ export default async function DashboardPage() {
 
       {/* ── Chấm công hôm nay (bảng chi tiết) ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-gray-800">Chấm công hôm nay</h2>
             <p className="text-xs text-gray-400 mt-0.5">{checkedIn}/{totalEmployees} nhân viên đã vào</p>
@@ -383,12 +383,12 @@ export default async function DashboardPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/80">
                   <tr>
-                    <th className="text-left px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nhân viên</th>
-                    <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vào</th>
-                    <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ra</th>
-                    <th className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
-                    <th className="text-right px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trễ / Sớm</th>
-                    <th className="text-right px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Phạt</th>
+                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nhân viên</th>
+                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vào</th>
+                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ra</th>
+                    <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
+                    <th className="text-right px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Trễ / Sớm</th>
+                    <th className="text-right px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Phạt</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -400,17 +400,17 @@ export default async function DashboardPage() {
                     const effectiveStatus = resolveFullDayStatus(log.status, mEarly > 0);
                     return (
                       <tr key={log.id} className="hover:bg-gray-50/60">
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2.5">
                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0">{log.employee.name.charAt(0)}</div>
                             <div><div className="font-medium text-gray-800">{log.employee.name}</div>{log.employee.department && <div className="text-xs text-gray-400">{log.employee.department}</div>}</div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
-                        <td className="px-4 py-3 font-mono text-gray-400">{log.checkOutAt ? formatTime(log.checkOutAt) : <span className="text-gray-200">—</span>}</td>
-                        <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(effectiveStatus)}`}>{getStatusLabel(effectiveStatus)}</span></td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">{log.minutesLate > 0 ? <span className="text-amber-600 font-bold">+{log.minutesLate}p trễ</span> : mEarly > 0 ? <span className="text-orange-500 font-bold">−{mEarly}p sớm</span> : <span className="text-gray-200">—</span>}</td>
-                        <td className="px-5 py-3 text-right">{log.penaltyAmount > 0 ? <span className="text-red-600 font-semibold text-xs">−{formatCurrency(log.penaltyAmount)}</span> : <span className="text-gray-200">—</span>}</td>
+                        <td className="px-4 py-2.5 font-mono text-gray-700">{formatTime(log.checkInAt)}</td>
+                        <td className="px-4 py-2.5 font-mono text-gray-400">{log.checkOutAt ? formatTime(log.checkOutAt) : <span className="text-gray-200">—</span>}</td>
+                        <td className="px-4 py-2.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(effectiveStatus)}`}>{getStatusLabel(effectiveStatus)}</span></td>
+                        <td className="px-4 py-2.5 text-right font-mono text-xs">{log.minutesLate > 0 ? <span className="text-amber-600 font-bold">+{log.minutesLate}p trễ</span> : mEarly > 0 ? <span className="text-orange-500 font-bold">−{mEarly}p sớm</span> : <span className="text-gray-200">—</span>}</td>
+                        <td className="px-4 py-2.5 text-right">{log.penaltyAmount > 0 ? <span className="text-red-600 font-semibold text-xs">−{formatCurrency(log.penaltyAmount)}</span> : <span className="text-gray-200">—</span>}</td>
                       </tr>
                     );
                   })}
@@ -422,7 +422,7 @@ export default async function DashboardPage() {
                 const mEarly = calcMinutesEarly(log);
                 const effectiveStatus = resolveFullDayStatus(log.status, mEarly > 0);
                 return (
-                  <div key={log.id} className="px-4 py-3 flex items-center gap-3">
+                  <div key={log.id} className="px-4 py-2.5 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-sm font-bold text-blue-700 shrink-0">{log.employee.name.charAt(0)}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
@@ -442,8 +442,8 @@ export default async function DashboardPage() {
               })}
             </div>
             {notCheckedInEmployees.length > 0 && (
-              <div className="border-t border-gray-100 px-5 py-4">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">Chưa có mặt ({notCheckedInEmployees.length})</p>
+              <div className="border-t border-gray-100 px-4 py-3">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Chưa có mặt ({notCheckedInEmployees.length})</p>
                 <div className="flex flex-wrap gap-1.5">
                   {notCheckedInEmployees.map((emp) => (
                     <div key={emp.id} className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-500">
@@ -460,8 +460,8 @@ export default async function DashboardPage() {
 
       {/* Đang nghỉ phép */}
       {onLeaveToday.length > 0 && (
-        <div className="bg-purple-50 border border-purple-100 rounded-2xl px-5 py-4">
-          <p className="text-sm font-semibold text-purple-700 mb-3">Đang nghỉ phép hôm nay · {onLeaveToday.length} người</p>
+        <div className="bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3.5">
+          <p className="text-sm font-semibold text-purple-700 mb-2.5">Đang nghỉ phép hôm nay · {onLeaveToday.length} người</p>
           <div className="flex flex-wrap gap-2">
             {onLeaveToday.map((lr) => (
               <span key={lr.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-purple-200 rounded-xl text-xs text-purple-700 font-medium">
@@ -478,9 +478,9 @@ export default async function DashboardPage() {
 
 function MiniStat({ label, value, sub, Icon, accent }: { label: string; value: string; sub: string; Icon: LucideIcon; accent?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 ${accent ? "bg-gradient-to-br from-blue-600 to-indigo-700 border-transparent text-white" : "bg-white border-gray-100 shadow-sm"}`}>
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${accent ? "bg-white/15" : "bg-blue-50"}`}>
-        <Icon size={18} strokeWidth={1.8} className={accent ? "text-white" : "text-blue-600"} />
+    <div className={`rounded-2xl border p-3.5 ${accent ? "bg-gradient-to-br from-blue-600 to-indigo-700 border-transparent text-white" : "bg-white border-gray-100 shadow-sm"}`}>
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-2 ${accent ? "bg-white/15" : "bg-blue-50"}`}>
+        <Icon size={16} strokeWidth={1.8} className={accent ? "text-white" : "text-blue-600"} />
       </div>
       <div className={`text-xl font-extrabold leading-none ${accent ? "text-white" : "text-gray-900"}`}>{value}</div>
       <div className={`text-xs font-semibold mt-1.5 ${accent ? "text-blue-100" : "text-gray-700"}`}>{label}</div>
@@ -502,7 +502,7 @@ function QuickAct({ href, label, Icon, external }: { href: string; label: string
 function TodoRow({ href, Icon, label, count, color }: { href: string; Icon: LucideIcon; label: string; count: number; color: string }) {
   const c: Record<string, string> = { orange: "bg-orange-50 text-orange-600", blue: "bg-blue-50 text-blue-600", red: "bg-red-50 text-red-600", gray: "bg-gray-100 text-gray-500" };
   return (
-    <Link href={href} className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+    <Link href={href} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-gray-50 transition-colors">
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${c[color] ?? c.gray}`}><Icon size={15} /></div>
       <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{label}</span>
       {count > 0 ? <span className="text-sm font-bold text-gray-800 shrink-0">{count}</span> : <span className="text-xs text-gray-300 shrink-0">0</span>}
