@@ -1195,23 +1195,6 @@ export default function EmployeesClient({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Lương cơ bản (₫/tháng)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        value={form.baseSalary}
-                        onChange={(e) => setForm({ ...form, baseSalary: e.target.value })}
-                        placeholder="VD: 10000000"
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">Căn cứ đóng BHXH — nên giữ đúng mức thực tế cần đóng bảo hiểm</p>
-                      <HolidayPayToggle
-                        checked={form.holidayPayBasis === "base"}
-                        onChange={() => setForm({ ...form, holidayPayBasis: "base" })}
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày vào làm</label>
                       <input
                         type="date"
@@ -1220,125 +1203,149 @@ export default function EmployeesClient({
                         className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Số ngày phép năm còn lại</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={365}
-                      step={0.5}
-                      value={form.annualLeaveBalance}
-                      onChange={(e) => setForm({ ...form, annualLeaveBalance: e.target.value })}
-                      placeholder="VD: 12"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Mặc định 12 ngày/năm — tự động giảm khi duyệt nghỉ phép năm</p>
-                  </div>
-
-                  {/* Phụ cấp linh hoạt */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Phụ cấp linh hoạt</p>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, allowances: [...form.allowances, { label: "", amount: "" }] })}
-                        className="text-xs text-blue-600 font-medium hover:underline"
-                      >
-                        + Thêm phụ cấp
-                      </button>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Số ngày phép năm còn lại</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={365}
+                        step={0.5}
+                        value={form.annualLeaveBalance}
+                        onChange={(e) => setForm({ ...form, annualLeaveBalance: e.target.value })}
+                        placeholder="VD: 12"
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Mặc định 12 ngày/năm — tự giảm khi duyệt nghỉ phép năm</p>
                     </div>
-                    {form.allowances.length === 0 && (
-                      <p className="text-xs text-gray-400">Chưa có phụ cấp — bấm &quot;Thêm phụ cấp&quot; để thêm xăng xe, ăn trưa, v.v.</p>
-                    )}
-                    <div className="space-y-2">
-                      {form.allowances.map((a, i) => (
-                        <div key={i} className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            placeholder="Tên phụ cấp (VD: Xăng xe)"
-                            value={a.label}
-                            onChange={(e) => {
-                              const next = [...form.allowances];
-                              next[i] = { ...next[i], label: e.target.value };
-                              setForm({ ...form, allowances: next });
-                            }}
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Số tiền"
-                            min={0}
-                            step={1000}
-                            value={a.amount}
-                            onChange={(e) => {
-                              const next = [...form.allowances];
-                              next[i] = { ...next[i], amount: e.target.value };
-                              setForm({ ...form, allowances: next });
-                            }}
-                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setForm({ ...form, allowances: form.allowances.filter((_, j) => j !== i) })}
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    {form.allowances.some(a => a.label && a.amount) && (
-                      <p className="text-xs text-gray-400 mt-1.5">
-                        Tổng phụ cấp: {form.allowances
-                          .filter(a => a.label && a.amount)
-                          .reduce((s, a) => s + Number(a.amount), 0)
-                          .toLocaleString("vi-VN")}đ/tháng
-                      </p>
-                    )}
                   </div>
 
-                  {/* Tổng lương / lương chính thức — tự tính = Lương cơ bản + tổng phụ cấp, cho sửa tay đè lên */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-sm font-medium text-gray-700">Tổng lương / lương chính thức (₫/tháng)</label>
-                      {form.officialSalaryManual ? (
+                  {/* ─── Khối Lương — gộp 1 khối để người dùng thấy rõ đây là 1 nhóm liền mạch:
+                      Lương cơ bản → Phụ cấp → Tổng lương → căn cứ tính lương ngày lễ/Tết ─── */}
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 space-y-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lương</p>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Lương cơ bản (₫/tháng)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={form.baseSalary}
+                        onChange={(e) => setForm({ ...form, baseSalary: e.target.value })}
+                        placeholder="VD: 10000000"
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Căn cứ đóng BHXH — nên giữ đúng mức thực tế cần đóng bảo hiểm</p>
+                    </div>
+
+                    {/* Phụ cấp linh hoạt */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-gray-700">Phụ cấp linh hoạt</p>
                         <button
                           type="button"
-                          onClick={() => setForm({ ...form, officialSalaryManual: false, officialSalary: "" })}
+                          onClick={() => setForm({ ...form, allowances: [...form.allowances, { label: "", amount: "" }] })}
                           className="text-xs text-blue-600 font-medium hover:underline"
                         >
-                          Tự tính lại
+                          + Thêm phụ cấp
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, officialSalaryManual: true, officialSalary: String(autoOfficialSalary) })}
-                          className="text-xs text-blue-600 font-medium hover:underline"
-                        >
-                          Sửa tay
-                        </button>
+                      </div>
+                      {form.allowances.length === 0 && (
+                        <p className="text-xs text-gray-400">Chưa có phụ cấp — bấm &quot;Thêm phụ cấp&quot; để thêm xăng xe, ăn trưa, v.v.</p>
+                      )}
+                      <div className="space-y-2">
+                        {form.allowances.map((a, i) => (
+                          <div key={i} className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              placeholder="Tên phụ cấp (VD: Xăng xe)"
+                              value={a.label}
+                              onChange={(e) => {
+                                const next = [...form.allowances];
+                                next[i] = { ...next[i], label: e.target.value };
+                                setForm({ ...form, allowances: next });
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Số tiền"
+                              min={0}
+                              step={1000}
+                              value={a.amount}
+                              onChange={(e) => {
+                                const next = [...form.allowances];
+                                next[i] = { ...next[i], amount: e.target.value };
+                                setForm({ ...form, allowances: next });
+                              }}
+                              className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setForm({ ...form, allowances: form.allowances.filter((_, j) => j !== i) })}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {form.allowances.some(a => a.label && a.amount) && (
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          Tổng phụ cấp: {form.allowances
+                            .filter(a => a.label && a.amount)
+                            .reduce((s, a) => s + Number(a.amount), 0)
+                            .toLocaleString("vi-VN")}đ/tháng
+                        </p>
                       )}
                     </div>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1000}
-                      value={form.officialSalaryManual ? form.officialSalary : autoOfficialSalary}
-                      onChange={(e) => setForm({ ...form, officialSalary: e.target.value })}
-                      disabled={!form.officialSalaryManual}
-                      className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${!form.officialSalaryManual ? "bg-gray-50 text-gray-500" : ""}`}
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      {form.officialSalaryManual
-                        ? "Đang nhập tay — bấm \"Tự tính lại\" để quay về Lương cơ bản + tổng phụ cấp"
-                        : "Tự tính = Lương cơ bản + tổng phụ cấp — bấm \"Sửa tay\" nếu số thực tế khác"}
-                    </p>
-                    <HolidayPayToggle
-                      checked={form.holidayPayBasis === "total"}
-                      onChange={() => setForm({ ...form, holidayPayBasis: "total" })}
-                    />
+
+                    {/* Tổng lương / lương chính thức — tự tính = Lương cơ bản + tổng phụ cấp, cho sửa tay đè lên */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Tổng lương / lương chính thức (₫/tháng)</label>
+                        {form.officialSalaryManual ? (
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, officialSalaryManual: false, officialSalary: "" })}
+                            className="text-xs text-blue-600 font-medium hover:underline"
+                          >
+                            Tự tính lại
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, officialSalaryManual: true, officialSalary: String(autoOfficialSalary) })}
+                            className="text-xs text-blue-600 font-medium hover:underline"
+                          >
+                            Sửa tay
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={form.officialSalaryManual ? form.officialSalary : autoOfficialSalary}
+                        onChange={(e) => setForm({ ...form, officialSalary: e.target.value })}
+                        disabled={!form.officialSalaryManual}
+                        className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${!form.officialSalaryManual ? "bg-gray-100 text-gray-500" : "bg-white"}`}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        {form.officialSalaryManual
+                          ? "Đang nhập tay — bấm \"Tự tính lại\" để quay về Lương cơ bản + tổng phụ cấp"
+                          : "Tự tính = Lương cơ bản + tổng phụ cấp — bấm \"Sửa tay\" nếu số thực tế khác"}
+                      </p>
+                    </div>
+
+                    {/* Căn cứ tính lương ngày lễ/Tết — 1 control duy nhất áp cho cả khối Lương ở trên,
+                        thay vì 2 nút "Có/Không" rời rạc gắn theo từng ô như trước (gây hiểu lầm là 2 lựa chọn độc lập) */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <HolidayPayBasisSelect
+                        value={form.holidayPayBasis === "total" ? "total" : "base"}
+                        onChange={(v) => setForm({ ...form, holidayPayBasis: v })}
+                      />
+                    </div>
                   </div>
 
                   <ComboField
@@ -2154,32 +2161,35 @@ export default function EmployeesClient({
 
 // ─── Field ──────────────────────────────────────────────────────────────────────
 
-// ─── HolidayPayToggle — "Áp dụng lương này cho ngày lễ/Tết?" (Có/Không) ────────
-// Cả 2 lương (cơ bản, tổng lương) đều có toggle này, luôn hiển thị, dùng chung 1 giá trị
-// form.holidayPayBasis — bấm "Có" ở bên nào tự đưa bên kia về "Không" (1 field DB, 2 nút hiển thị).
+// ─── HolidayPayBasisSelect — "Tính lương ngày lễ/Tết theo" (Lương cơ bản / Tổng lương) ─
+// 1 control duy nhất cho cả khối Lương, thay vì 2 toggle Có/Không rời rạc gắn theo từng ô
+// (dễ hiểu lầm là 2 câu hỏi độc lập, trong khi thực chất chỉ là 1 lựa chọn nhị phân).
 
-function HolidayPayToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function HolidayPayBasisSelect({ value, onChange }: { value: "base" | "total"; onChange: (v: "base" | "total") => void }) {
   return (
-    <div className="flex items-center gap-2 mt-2">
-      <span className="text-xs text-gray-500">Áp dụng lương này cho ngày lễ/Tết?</span>
-      <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <p className="text-sm font-medium text-gray-700">Tính lương ngày lễ/Tết theo</p>
+        <p className="text-xs text-gray-400 mt-0.5">Chọn 1 trong 2 mức lương ở trên làm căn cứ chi trả</p>
+      </div>
+      <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0 bg-white">
         <button
           type="button"
-          onClick={onChange}
-          className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-            checked ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+          onClick={() => onChange("base")}
+          className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            value === "base" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"
           }`}
         >
-          Có
+          Lương cơ bản
         </button>
         <button
           type="button"
-          disabled
-          className={`px-2.5 py-1 text-xs font-medium border-l border-gray-200 ${
-            !checked ? "bg-gray-200 text-gray-600" : "bg-white text-gray-300"
+          onClick={() => onChange("total")}
+          className={`px-3 py-1.5 text-xs font-medium border-l border-gray-200 transition-colors ${
+            value === "total" ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"
           }`}
         >
-          Không
+          Tổng lương
         </button>
       </div>
     </div>
