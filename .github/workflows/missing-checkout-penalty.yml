@@ -1,0 +1,21 @@
+name: Hourly missing-checkout penalty
+
+# Rà quên chấm công ra mỗi giờ (gói Vercel Hobby không cho cron chạy dày hơn 1 lần/ngày, giống
+# lý do late-reminder.yml đã tồn tại). Endpoint tự tính giờ ra dự kiến của TỪNG nhân viên (ca
+# thường/ca gãy/ngày làm khác/ca qua đêm) + GRACE_HOURS=2 tiếng nên gọi thường xuyên là an toàn,
+# không phạt trùng (idempotent qua status != "missing_checkout").
+# vercel.json vẫn giữ lịch 00:30 VN cũ làm lưới an toàn dự phòng nếu workflow này lỡ không chạy.
+
+on:
+  schedule:
+    - cron: "0 * * * *" # mỗi giờ (UTC), khớp mỗi giờ VN
+  workflow_dispatch: {} # cho phép bấm chạy tay để test
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call missing-checkout-penalty endpoint
+        run: |
+          curl -fsS -X GET "https://timio.vn/api/cron/missing-checkout-penalty" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

@@ -216,6 +216,44 @@ export function resolvePlainShiftTimes(
 }
 
 /**
+ * Giờ vào/ra HIỆU LỰC cho 1 DÒNG AttendanceLog cụ thể — biết cả ca gãy nhiều buổi (session != "full")
+ * lẫn "ngày làm khác" (dayOverrides), khớp đúng thứ tự ưu tiên đã dùng khi CHẤM CÔNG THẬT (checkin/
+ * checkin-face/checkin-qr/checkin-remote): buổi (session) > ngày làm khác > giờ riêng NV (phẳng) >
+ * giờ mặc định chi nhánh. Dùng bởi cron missing-checkout-penalty để tính đúng "giờ ra dự kiến" của
+ * TỪNG dòng thay vì luôn coi mọi NV là ca thường — xem app/api/cron/missing-checkout-penalty.
+ */
+export function resolveLogShiftTimes(
+  shiftOverrideRaw: string | null | undefined,
+  session: string,
+  dateStr: string,
+  branchCheckInTime: string,
+  branchCheckOutTime: string
+): { checkInTime: string; checkOutTime: string } {
+  if (session !== "full") {
+    const sessions = parseShiftSessions(shiftOverrideRaw);
+    const idx = Number(session);
+    const cfg = sessions && Number.isInteger(idx) ? sessions[idx] : undefined;
+    if (cfg) return { checkInTime: cfg.checkInTime, checkOutTime: cfg.checkOutTime };
+  }
+  const dayOverride = findDayOverride(shiftOverrideRaw, dateStringToVNInstant(dateStr));
+  if (dayOverride) return { checkInTime: dayOverride.checkInTime, checkOutTime: dayOverride.checkOutTime };
+  return resolvePlainShiftTimes(shiftOverrideRaw, branchCheckInTime, branchCheckOutTime);
+}
+
+/**
+ * Ghép 1 ngày lịch VN "YYYY-MM-DD" + giờ "HH:MM" (+ dayOffset ngày — dùng cho ca qua đêm, giờ ra rơi
+ * vào NGÀY HÔM SAU của ngày check-in) thành 1 thời điểm UTC thực. Dùng để tính chính xác "còn bao lâu
+ * nữa tới giờ ra dự kiến" — xem app/api/cron/missing-checkout-penalty (yêu cầu user 14/9/2026: áp phạt
+ * quên chấm công trong vòng vài giờ SAU GIỜ RA CA của từng người, không đợi hết cả ngày lịch VN).
+ */
+export function vnDateTimeToInstant(dateStr: string, hhmm: string, dayOffset = 0): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = hhmm.split(":").map(Number);
+  const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+  return new Date(Date.UTC(y, (m || 1) - 1, (d || 1) + dayOffset, hh || 0, mm || 0, 0) - VN_OFFSET_MS);
+}
+
+/**
  * Chọn buổi (session) mà lần quét hiện tại nên tác động vào.
  *  - Nếu mọi buổi đã xong (đủ check-in + check-out) → trả về buổi gần giờ hiện tại nhất,
  *    để route báo "đã chấm công đủ hôm nay".

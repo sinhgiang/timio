@@ -1,28 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { findHolidayForDate } from "@/lib/holidayAttendance";
-import { isOvernightShift, resolvePlainShiftTimes } from "@/lib/shiftResolve";
+import { isOvernightShift, resolveLogShiftTimes, vnDateTimeToInstant } from "@/lib/shiftResolve";
 
 /**
- * Chạy 00:30 VN mỗi ngày (xem vercel.json "30 17 * * *" UTC), quét AttendanceLog: có checkInAt
- * nhưng vẫn checkOutAt = null quá 1 ngày → coi là "quên chấm công ra", ghi status="missing_checkout"
- * + trừ tiền phạt CỐ ĐỊNH (Company.missingCheckoutPenaltyAmount, 0 = công ty chưa bật, sếp phải tự
- * vào Cài đặt bật). User phản ánh 14/9/2026: báo cáo vẫn hiện "Đúng giờ" dù giờ ra bỏ trống, không
- * ai biết NV rời lúc nào — yêu cầu phạt nặng hơn cả trễ giờ/về sớm, xem lib/attendance.ts
- * resolveFullDayStatus.
+ * Quét AttendanceLog: có checkInAt nhưng vẫn checkOutAt = null → coi là "quên chấm công ra", ghi
+ * status="missing_checkout" + trừ tiền phạt CỐ ĐỊNH (Company.missingCheckoutPenaltyAmount, 0 = công
+ * ty chưa bật, sếp phải tự vào Cài đặt bật). User phản ánh 14/9/2026: báo cáo vẫn hiện "Đúng giờ" dù
+ * giờ ra bỏ trống, không ai biết NV rời lúc nào — yêu cầu phạt nặng hơn cả trễ giờ/về sớm, xem
+ * lib/attendance.ts resolveFullDayStatus.
  *
- * QUÉT NGƯỢC TỐI ĐA LOOKBACK_DAYS ngày (không chỉ đúng "hôm qua") — phát hiện 14/9/2026: bản đầu
- * chỉ lọc `date: targetDate` (đúng 1 ngày) nên nếu công ty MỚI bật tính năng (missingCheckoutPenaltyAmount
- * từ 0 → >0) hoặc cron lỡ 1 đêm không chạy được, mọi log "quên chấm công ra" từ TRƯỚC đó vĩnh viễn
- * không bao giờ bị bắt (mỗi đêm chỉ nhìn đúng 1 ngày của đêm đó). Quét lùi + lọc theo status vẫn
- * != "missing_checkout" nên vẫn idempotent — log nào đã xử lý rồi sẽ tự rớt khỏi candidates ở lượt sau.
+ * TÍNH THEO GIỜ RA DỰ KIẾN CỦA TỪNG DÒNG (không đợi hết ngày lịch VN) — user phản ánh thêm cùng
+ * ngày 14/9/2026, sau khi đã tự bật tính năng: chờ tới cron đêm (00:30 VN hôm sau) là quá chậm, yêu
+ * cầu áp phạt trong vòng ~1-3 tiếng SAU GIỜ RA CA của từng người ("Sau khi kết thúc giờ làm của bạn
+ * ... khoảng 2-3 tiếng, không thấy động đậy gì ... hãy áp dụng mức phạt này"). Nên đổi hẳn cách tính
+ * mốc: không còn "ngày lịch VN đã qua chưa", mà tính thẳng GIỜ RA DỰ KIẾN của từng dòng (biết cả ca
+ * gãy nhiều buổi, "ngày làm khác", ca qua đêm — xem resolveLogShiftTimes) + GRACE_HOURS bên dưới.
+ * Cách này cũng tự nhiên thay luôn cơ chế OVERNIGHT_GRACE_HOURS cũ (chờ đủ giờ kể từ lúc check-in):
+ * ca qua đêm giờ tính mốc = giờ ra dự kiến (đã cộng thêm 1 ngày) + GRACE_HOURS, chính xác hơn hẳn.
  *
- * Chờ đến hết ngày (không xử lý "hôm nay") để không phạt oan ca đêm/ca gãy còn đang làm dở qua nửa
- * đêm. User xác nhận 14/9/2026 công ty CÓ ca đêm/ca qua đêm (vd 22:00–06:00) → thêm OVERNIGHT_GRACE_HOURS
- * bên dưới: log của NV cấu hình ca qua đêm (isOvernightShift) chưa đủ OVERNIGHT_GRACE_HOURS kể từ
- * checkInAt thì BỎ QUA ở lượt chạy này (không đánh dấu missing_checkout), để lượt quét check-out
- * thật (đã fix ở checkin/checkin-face/checkin-qr/checkin-remote — xem lib/shiftResolve.ts
- * isOvernightShift) hoặc lượt cron đêm sau có cơ hội đóng đúng log trước.
+ * Route này giờ cần được gọi THƯỜNG XUYÊN (mỗi giờ) để bắt kịp mốc trên — nhưng gói Vercel Hobby chỉ
+ * cho cron chạy tối đa 1 lần/ngày (xem vercel.json, vẫn giữ nguyên lịch 00:30 VN cũ làm lưới an toàn
+ * dự phòng), nên lịch chạy hàng giờ THẬT SỰ nằm ở .github/workflows/missing-checkout-penalty.yml
+ * (GitHub Actions, cùng cách late-reminder.yml đã né giới hạn Hobby).
+ *
+ * QUÉT NGƯỢC TỐI ĐA LOOKBACK_DAYS ngày (không chỉ "hôm nay") — phát hiện 14/9/2026: bản đầu chỉ lọc
+ * đúng 1 ngày nên nếu công ty MỚI bật tính năng hoặc cron lỡ 1 lượt không chạy được, log "quên chấm
+ * công ra" từ TRƯỚC đó vĩnh viễn không bao giờ bị bắt. Quét lùi + lọc theo status vẫn != "missing_checkout"
+ * nên vẫn idempotent — log nào đã xử lý rồi sẽ tự rớt khỏi candidates ở lượt sau.
  */
 export async function GET(req: Request) {
   const secret = req.headers.get("x-cron-secret");
@@ -30,13 +35,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // "Hôm qua" giờ VN = ngày mới nhất được coi là đã kết thúc (khỏi phạt "hôm nay" — chưa hết ngày).
   const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
-  const vnNow = new Date(Date.now() + VN_OFFSET_MS);
-  const targetDate = new Date(vnNow.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const now = new Date();
+  const vnNow = new Date(now.getTime() + VN_OFFSET_MS);
+  // Bao gồm CẢ hôm nay (không chỉ "hôm qua") — ca ngày có thể đã quá giờ ra + GRACE_HOURS ngay trong hôm nay.
+  const todayDate = vnNow.toISOString().slice(0, 10);
   // Giới hạn quét ngược — tránh mỗi lần chạy phải quét toàn bộ lịch sử NV cũ/nghỉ việc còn log dở dang.
   const LOOKBACK_DAYS = 45;
-  const earliestDate = new Date(vnNow.getTime() - (LOOKBACK_DAYS + 1) * 24 * 60 * 60 * 1000)
+  const earliestDate = new Date(vnNow.getTime() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
 
@@ -45,9 +51,9 @@ export async function GET(req: Request) {
     select: { id: true, missingCheckoutPenaltyAmount: true },
   });
 
-  // Ca qua đêm còn dưới ngần này giờ kể từ lúc check-in → có thể vẫn đang làm dở, chưa phạt vội.
-  const OVERNIGHT_GRACE_HOURS = 20;
-  const now = Date.now();
+  // User yêu cầu 14/9/2026: "1-2 tiếng ... khoảng 2-3 tiếng" sau giờ ra ca mà vẫn im lặng thì áp phạt
+  // — chọn mốc giữa 2 khoảng đó.
+  const GRACE_HOURS = 2;
 
   let penalized = 0;
   const details: Array<{ companyId: string; count: number }> = [];
@@ -55,14 +61,14 @@ export async function GET(req: Request) {
   for (const company of companies) {
     const candidates = await prisma.attendanceLog.findMany({
       where: {
-        date: { gte: earliestDate, lte: targetDate },
+        date: { gte: earliestDate, lte: todayDate },
         checkInAt: { not: null },
         checkOutAt: null,
         status: { not: "missing_checkout" },
         employee: { companyId: company.id },
       },
       select: {
-        id: true, employeeId: true, date: true, checkInAt: true,
+        id: true, employeeId: true, date: true, session: true, checkInAt: true,
         employee: { select: { shiftOverride: true, branch: { select: { checkInTime: true, checkOutTime: true } } } },
       },
     });
@@ -75,22 +81,23 @@ export async function GET(req: Request) {
       holidayByDate.set(d, await findHolidayForDate(company.id, d));
     }
 
-    // Bỏ qua: (1) ngày lễ không phạt trễ, (2) NV cấu hình ca qua đêm chưa đủ OVERNIGHT_GRACE_HOURS
-    // kể từ lúc check-in — tránh phạt oan người vẫn đang làm dở ca (xem comment đầu file).
+    // Chỉ giữ lại dòng: (1) không rơi vào ngày lễ không phạt, (2) đã QUÁ giờ ra dự kiến + GRACE_HOURS
+    // (biết cả ca gãy nhiều buổi / ngày làm khác / ca qua đêm — xem comment đầu file).
     const logs = candidates.filter((l) => {
       if (!l.checkInAt) return false;
       const holiday = holidayByDate.get(l.date);
       if (holiday && !holiday.penalizeLate) return false;
-      const times = resolvePlainShiftTimes(
+      const times = resolveLogShiftTimes(
         l.employee.shiftOverride,
+        l.session,
+        l.date,
         l.employee.branch.checkInTime,
         l.employee.branch.checkOutTime
       );
-      if (isOvernightShift(times.checkInTime, times.checkOutTime)) {
-        const elapsedHours = (now - l.checkInAt.getTime()) / (60 * 60 * 1000);
-        if (elapsedHours < OVERNIGHT_GRACE_HOURS) return false;
-      }
-      return true;
+      const dayOffset = isOvernightShift(times.checkInTime, times.checkOutTime) ? 1 : 0;
+      const expectedCheckout = vnDateTimeToInstant(l.date, times.checkOutTime, dayOffset);
+      const threshold = expectedCheckout.getTime() + GRACE_HOURS * 60 * 60 * 1000;
+      return now.getTime() >= threshold;
     });
     if (logs.length === 0) continue;
 
@@ -133,5 +140,5 @@ export async function GET(req: Request) {
     details.push({ companyId: company.id, count: logs.length });
   }
 
-  return NextResponse.json({ ok: true, targetDate, penalized, details });
+  return NextResponse.json({ ok: true, todayDate, penalized, details });
 }
