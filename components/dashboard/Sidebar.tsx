@@ -157,9 +157,17 @@ function pinIdOf(t: PinTarget): string {
   return t.leaf.href;
 }
 
+// "Tổng quan" (trang chủ) không cho ghim/di chuyển — nó phải LUÔN đứng cố định trên cùng,
+// trên cả khu "Lối tắt của bạn" (phản hồi 14/9/2026: ghim mục khác lên sẽ đẩy Tổng quan
+// xuống dưới, giống "trang chủ" bị che mất — rất dễ gây rối UX).
+const homeItem = navStructure.find((e): e is NavItem => e.type === "item" && e.href === "/dashboard");
+
 const pinTargets: PinTarget[] = [];
 navStructure.forEach(e => {
-  if (e.type === "item") pinTargets.push({ kind: "item", entry: e });
+  if (e.type === "item") {
+    if (e.href === "/dashboard") return;
+    pinTargets.push({ kind: "item", entry: e });
+  }
   else if (e.type === "group") {
     pinTargets.push({ kind: "group", entry: e });
     e.children.forEach(c => pinTargets.push({ kind: "child", leaf: c, parent: e }));
@@ -475,6 +483,21 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
         {/* Nav — đệm rộng hơn 1 chút (p-2 → p-2.5, space-y-0.5 → space-y-1) cho thoáng mắt hơn
             (phản hồi 10/9/2026: "chọn đợt hơn một chút để chúng ta dễ nhìn hơn"). */}
         <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto overflow-x-hidden">
+          {/* ─── Tổng quan — cố định trên cùng, không ghim/kéo được (14/9/2026) ─── */}
+          {homeItem && !shouldHide(homeItem.href) && (
+            <Link
+              href={homeItem.href}
+              onClick={() => { setMobileOpen(false); trackUsage(homeItem.href); }}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors",
+                isItemActive(homeItem.href) ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+              )}
+            >
+              <homeItem.Icon size={17} strokeWidth={isItemActive(homeItem.href) ? 2.5 : 2} className="shrink-0" />
+              <span className="flex-1 min-w-0 truncate">{homeItem.label}</span>
+            </Link>
+          )}
+
           {/* ─── Lối tắt của bạn — ghim + tự sắp xếp menu theo thói quen (14/9/2026) ─── */}
           {mounted && (
             <div className="mb-1 pb-2 border-b border-gray-100">
@@ -563,6 +586,7 @@ export default function Sidebar({ companyName, companySlug, counts = {}, role = 
               );
             }
             if (entry.type === "item") {
+              if (entry.href === "/dashboard") return null; // đã hiển thị cố định trên đầu, không lặp lại ở đây
               if (shouldHide(entry.href)) return null;
               const active = isItemActive(entry.href);
               const count = getBadgeCount(entry.badgeKey);
