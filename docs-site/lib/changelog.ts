@@ -10,6 +10,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-09-14",
+    title: "Phạt tiền khi quên chấm công ra",
+    tag: "Tính năng mới",
+    body: [
+      "Báo cáo chấm công nay phân biệt rõ \"Quên chấm công ra\" với \"Đúng giờ\" — trước đây nhân viên vào đúng giờ nhưng quên bấm giờ ra vẫn hiện nhầm là \"Đúng giờ\".",
+      "Có thể bật phạt tiền cho lỗi quên chấm công ra tại Cài đặt → Phạt/Thưởng → \"Phạt quên chấm công ra\" (mặc định tắt, tự nhập số tiền để bật). Khoản phạt tự động trừ vào lương tháng đó.",
+      "Hệ thống tự động rà soát và áp dụng vào rạng sáng hôm sau cho những ca đã kết thúc mà vẫn thiếu giờ ra.",
+    ],
+  },
+  {
+    date: "2026-09-14",
+    title: "Sắp xếp lại mục \"Tổng quan\" trên thanh menu",
+    tag: "Sửa lỗi",
+    body: [
+      "Mục \"Tổng quan\" luôn cố định ở đầu thanh menu bên trái — trước đây nếu ghim thêm lối tắt cá nhân hoá, mục này có thể bị đẩy xuống dưới.",
+    ],
+  },
+  {
     date: "2026-09-13",
     title: "Tách Lương cơ bản và Tổng lương, chọn căn cứ trả lương ngày lễ/Tết",
     tag: "Tính năng mới",
