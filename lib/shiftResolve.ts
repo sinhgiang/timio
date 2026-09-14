@@ -171,9 +171,48 @@ export function buildDayRows(shiftOverrideRaw: string | null | undefined, dateSt
   return [{ session: "full", sessionLabel: null, expectedCheckIn: null, expectedCheckOut: null, isOverrideDay: false }];
 }
 
-function hhmmToMinutes(hhmm: string): number {
+export function hhmmToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
+}
+
+// ─── Ca qua đêm (ca đêm) ─────────────────────────────────────────────────────
+// Phát hiện 14/9/2026: 4 route check-in/check-out (checkin, checkin-face, checkin-qr,
+// checkin-remote) đều tra AttendanceLog theo [employeeId, date=HÔM NAY, session] — với ca qua
+// đêm (vd "22:00–06:00"), lần quét lúc 6h sáng để CHECK-OUT lại rơi vào ngày hôm nay (không phải
+// ngày hôm qua lúc check-in), không khớp dòng cũ → bị hiểu nhầm thành 1 lần CHECK-IN MỚI (tạo dòng
+// rác, tính "rất trễ"), còn dòng thật của tối hôm qua treo mãi checkOutAt=null → cron
+// missing-checkout-penalty phạt oan NV vẫn đang làm đúng ca. Các route phải tự dùng hàm này để
+// biết lúc nào cần tìm ngược lại log của NGÀY HÔM QUA thay vì chỉ tra ngày hôm nay.
+
+/** Số giờ tối đa kể từ lúc check-in mà 1 lần quét sau đó vẫn được coi là "check-out đóng ca qua
+ * đêm" của lần check-in đó (không phải 1 ca mới) — chặn trường hợp NV bỏ ca 1-2 hôm rồi quay lại
+ * quét, vô tình đóng nhầm 1 log rất cũ. Ca qua đêm dài nhất thực tế (18:00–07:00) là 13h, nhân đôi
+ * dư ra cho NV ra trễ vẫn an toàn. */
+export const OVERNIGHT_CHECKOUT_MAX_HOURS = 30;
+
+/** true nếu giờ ra NHỎ HƠN giờ vào khi so theo phút-trong-ngày (vd "22:00"→"06:00") → ca vắt qua
+ * nửa đêm. Bằng nhau (giờ ra = giờ vào) coi là KHÔNG qua đêm — ca 24h là trường hợp dị, chưa cần xử lý. */
+export function isOvernightShift(checkInTime: string, checkOutTime: string): boolean {
+  return hhmmToMinutes(checkOutTime) < hhmmToMinutes(checkInTime);
+}
+
+/** Giờ vào/ra hiệu lực cho ca THƯỜNG (session="full", không ca gãy/không ngày làm khác) của 1
+ * nhân viên — Employee.shiftOverride.{checkInTime,checkOutTime} nếu có, ngược lại giờ mặc định
+ * chi nhánh. Dùng để kiểm tra isOvernightShift() trước khi quyết định tra log ngày hôm qua. */
+export function resolvePlainShiftTimes(
+  shiftOverrideRaw: string | null | undefined,
+  branchCheckInTime: string,
+  branchCheckOutTime: string
+): { checkInTime: string; checkOutTime: string } {
+  let ov: { checkInTime?: string; checkOutTime?: string } = {};
+  if (shiftOverrideRaw) {
+    try { ov = JSON.parse(shiftOverrideRaw); } catch { ov = {}; }
+  }
+  return {
+    checkInTime: ov.checkInTime ?? branchCheckInTime,
+    checkOutTime: ov.checkOutTime ?? branchCheckOutTime,
+  };
 }
 
 /**

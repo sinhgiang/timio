@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride } from "@/lib/shiftResolve";
+import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, isOvernightShift, resolvePlainShiftTimes, OVERNIGHT_CHECKOUT_MAX_HOURS } from "@/lib/shiftResolve";
 import { findHolidayForDate } from "@/lib/holidayAttendance";
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -170,9 +170,28 @@ export async function POST(req: Request) {
       });
     } else {
       // Checkout
-      const log = await prisma.attendanceLog.findUnique({
+      let log = await prisma.attendanceLog.findUnique({
         where: { employeeId_date_session: { employeeId: employee.id, date: todayStr, session } },
       });
+      // Ca qua đêm (vd 22:00–06:00): checkout lúc 6h sáng lại rơi vào ngày hôm nay, không khớp
+      // dòng check-in tối hôm qua → nếu không tìm ngược sẽ báo nhầm "chưa check-in hôm nay".
+      // Xem lib/shiftResolve.ts isOvernightShift. Chỉ áp dụng ca thường (không ca gãy nhiều buổi).
+      if (!log && session === "full") {
+        const times = resolvePlainShiftTimes(employee.shiftOverride, branch.checkInTime, branch.checkOutTime);
+        if (isOvernightShift(times.checkInTime, times.checkOutTime)) {
+          const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+          const yesterday = new Date(now.getTime() + VN_OFFSET_MS - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const prevLog = await prisma.attendanceLog.findUnique({
+            where: { employeeId_date_session: { employeeId: employee.id, date: yesterday, session } },
+          });
+          if (
+            prevLog?.checkInAt && !prevLog.checkOutAt &&
+            now.getTime() - prevLog.checkInAt.getTime() <= OVERNIGHT_CHECKOUT_MAX_HOURS * 60 * 60 * 1000
+          ) {
+            log = prevLog;
+          }
+        }
+      }
       if (!log) {
         return NextResponse.json({ error: "Bạn chưa check-in hôm nay" }, { status: 400 });
       }

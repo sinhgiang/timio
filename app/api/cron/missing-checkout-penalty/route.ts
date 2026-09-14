@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { findHolidayForDate } from "@/lib/holidayAttendance";
+import { isOvernightShift, resolvePlainShiftTimes } from "@/lib/shiftResolve";
 
 /**
  * Chạy 00:30 VN mỗi ngày (đóng sổ ngày HÔM QUA — xem vercel.json "30 17 * * *" UTC), quét
@@ -11,8 +12,11 @@ import { findHolidayForDate } from "@/lib/holidayAttendance";
  * lib/attendance.ts resolveFullDayStatus.
  *
  * Chờ tới 00:30 hôm sau (thay vì cuối ngày hôm đó) để không phạt oan ca đêm/ca gãy còn đang làm
- * dở qua nửa đêm — đánh đổi: NV ca đêm chấm ra sau 00:30 vẫn có khả năng bị phạt nhầm (edge case
- * hiếm, chưa xử lý riêng).
+ * dở qua nửa đêm. User xác nhận 14/9/2026 công ty CÓ ca đêm/ca qua đêm (vd 22:00–06:00) → thêm
+ * OVERNIGHT_GRACE_HOURS bên dưới: log của NV cấu hình ca qua đêm (isOvernightShift) chưa đủ
+ * OVERNIGHT_GRACE_HOURS kể từ checkInAt thì BỎ QUA ở lượt chạy này (không đánh dấu missing_checkout),
+ * để lượt quét check-out thật (đã fix ở checkin/checkin-face/checkin-qr/checkin-remote — xem
+ * lib/shiftResolve.ts isOvernightShift) hoặc lượt cron đêm sau có cơ hội đóng đúng log trước.
  * Idempotent: lọc status != "missing_checkout" nên chạy lại (Vercel retry) không phạt trùng.
  */
 export async function GET(req: Request) {
@@ -34,6 +38,10 @@ export async function GET(req: Request) {
     select: { id: true, missingCheckoutPenaltyAmount: true },
   });
 
+  // Ca qua đêm còn dưới ngần này giờ kể từ lúc check-in → có thể vẫn đang làm dở, chưa phạt vội.
+  const OVERNIGHT_GRACE_HOURS = 20;
+  const now = Date.now();
+
   let penalized = 0;
   const details: Array<{ companyId: string; count: number }> = [];
 
@@ -41,7 +49,7 @@ export async function GET(req: Request) {
     const holiday = await findHolidayForDate(company.id, targetDate);
     if (holiday && !holiday.penalizeLate) continue; // Ngày lễ không phạt → khỏi tính quên chấm công
 
-    const logs = await prisma.attendanceLog.findMany({
+    const candidates = await prisma.attendanceLog.findMany({
       where: {
         date: targetDate,
         checkInAt: { not: null },
@@ -49,7 +57,26 @@ export async function GET(req: Request) {
         status: { not: "missing_checkout" },
         employee: { companyId: company.id },
       },
-      select: { id: true, employeeId: true },
+      select: {
+        id: true, employeeId: true, checkInAt: true,
+        employee: { select: { shiftOverride: true, branch: { select: { checkInTime: true, checkOutTime: true } } } },
+      },
+    });
+
+    // Bỏ qua NV cấu hình ca qua đêm chưa đủ OVERNIGHT_GRACE_HOURS kể từ lúc check-in — tránh phạt
+    // oan người vẫn đang làm dở ca (xem comment đầu file).
+    const logs = candidates.filter((l) => {
+      if (!l.checkInAt) return false;
+      const times = resolvePlainShiftTimes(
+        l.employee.shiftOverride,
+        l.employee.branch.checkInTime,
+        l.employee.branch.checkOutTime
+      );
+      if (isOvernightShift(times.checkInTime, times.checkOutTime)) {
+        const elapsedHours = (now - l.checkInAt.getTime()) / (60 * 60 * 1000);
+        if (elapsedHours < OVERNIGHT_GRACE_HOURS) return false;
+      }
+      return true;
     });
     if (logs.length === 0) continue;
 

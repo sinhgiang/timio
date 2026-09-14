@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateCheckInStatus, calculateEarlyLeave, filterApplicableRules, type LateRule } from "@/lib/attendance";
 import { computeCheckoutOvertime, DEFAULT_OVERTIME_CONFIG, resolveOvertimeThreshold, type EmployeeOvertimeOverride } from "@/lib/overtime";
-import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, type ShiftSession } from "@/lib/shiftResolve";
+import { resolveShift, parseShiftSessions, pickActiveSession, findDayOverride, isOvernightShift, resolvePlainShiftTimes, OVERNIGHT_CHECKOUT_MAX_HOURS, type ShiftSession } from "@/lib/shiftResolve";
 import { getTodayString } from "@/lib/utils";
 import { sendTelegram, buildLateAlert } from "@/lib/telegram";
 import { findHolidayForDate } from "@/lib/holidayAttendance";
@@ -124,6 +124,25 @@ export async function POST(req: NextRequest) {
       existingLog = await prisma.attendanceLog.findUnique({
         where: { employeeId_date_session: { employeeId, date: today, session } },
       });
+      // Ca qua đêm (vd 22:00–06:00): quét lúc 6h sáng để RA CA lại rơi vào ngày hôm nay, không
+      // khớp dòng check-in tối hôm qua → nếu không tìm ngược sẽ bị hiểu nhầm thành 1 lần VÀO CA
+      // mới. Xem lib/shiftResolve.ts isOvernightShift.
+      if (!existingLog) {
+        const times = resolvePlainShiftTimes(employee.shiftOverride, employee.branch.checkInTime, employee.branch.checkOutTime);
+        if (isOvernightShift(times.checkInTime, times.checkOutTime)) {
+          const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+          const yesterday = new Date(now.getTime() + VN_OFFSET_MS - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const prevLog = await prisma.attendanceLog.findUnique({
+            where: { employeeId_date_session: { employeeId, date: yesterday, session } },
+          });
+          if (
+            prevLog?.checkInAt && !prevLog.checkOutAt &&
+            now.getTime() - prevLog.checkInAt.getTime() <= OVERNIGHT_CHECKOUT_MAX_HOURS * 60 * 60 * 1000
+          ) {
+            existingLog = prevLog;
+          }
+        }
+      }
     }
 
     if (existingLog) {
