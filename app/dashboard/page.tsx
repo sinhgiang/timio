@@ -141,14 +141,18 @@ export default async function DashboardPage() {
       {isNewCompany && <OnboardingBanner checkInUrl={checkInUrl} />}
 
       {/* ── HÀNG 1: Tổng quan chart | Stat cards | Thẻ công ty ── */}
-      {/* items-start (15/9/2026): mặc định CSS Grid kéo giãn các cột bằng chiều cao cột
-          cao nhất (cột "Thẻ công ty + Hoạt động gần đây" bên phải luôn cao nhất vì có 7 dòng
-          hoạt động) -> 2 cột kia bị kéo giãn theo, để lại khoảng trắng rỗng bên trong thẻ,
-          nhìn như khung trống (user phản ánh, khoanh đỏ). Bỏ kéo giãn để mỗi thẻ tự cao vừa
-          đủ nội dung của nó, không còn khoảng trắng chết bên trong. */}
+      {/* Thiết kế lại 15/9/2026 (v2): sau khi bỏ kéo giãn (items-start) ở lần sửa trước, 2 cột
+          bên trái tự cao vừa đủ nhưng NGẮN hơn hẳn cột phải (Thẻ công ty + Quick actions + Hoạt
+          động gần đây, luôn cao nhất) -> lộ ra mảng nền trống lớn bên dưới 2 cột kia, nhìn lệch/
+          cụt (user phản ánh kèm ảnh chụp). Sửa đúng gốc thay vì vá CSS: kéo 2 khối "Tỷ lệ đi làm
+          hôm nay" và "Gợi ý cho bạn" (vốn nằm riêng ở Hàng 2 bên dưới) lên ghép vào đúng cột cùng
+          chủ đề — tỷ lệ đi làm ghép cột chart chấm công, gợi ý ghép cột số liệu — để mỗi cột tự
+          nhiên cao gần bằng nhau. Không thêm dữ liệu giả, không xoá nội dung nào, chỉ sắp xếp lại
+          đúng chỗ; trang cũng gọn hơn vì bớt được 1 hàng riêng. */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-        {/* Overview + bar chart */}
-        <div className="xl:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        {/* Overview + bar chart + tỷ lệ đi làm hôm nay (ghép từ Hàng 2 cũ) */}
+        <div className="xl:col-span-5 space-y-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-start justify-between mb-1">
             <div>
               <p className="text-4xl font-extrabold text-gray-900 leading-none">{checkedIn}<span className="text-lg text-gray-300 font-bold">/{totalEmployees}</span></p>
@@ -184,8 +188,7 @@ export default async function DashboardPage() {
             <span className="flex items-center gap-1.5 text-gray-500"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Đi trễ</span>
           </div>
 
-          {/* 2 ô tóm tắt xu hướng — lấp khoảng trống bên dưới (10/9/2026: card này giãn theo cột
-              "Hoạt động gần đây" dài hơn bên phải, phần dưới chú thích bị trống trơn). */}
+          {/* 2 ô tóm tắt xu hướng */}
           <div className="grid grid-cols-2 gap-2.5 mt-3">
             <div className="rounded-xl bg-gray-50 px-3.5 py-2.5">
               <p className="text-[11px] text-gray-400">So với hôm qua</p>
@@ -206,12 +209,50 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Stat cards — items-start: 3 thẻ ở breakpoint sm nằm ngang hàng, tránh thẻ "Quỹ lương"
-            (giá trị dài hơn) kéo giãn 2 thẻ còn lại theo chiều cao của nó */}
-        <div className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-2.5 items-start">
-          <MiniStat label="Tổng nhân viên" value={String(totalEmployees)} sub={`${deptList.length} phòng ban`} Icon={Users} />
-          <MiniStat label="Quỹ lương tháng" value={formatCurrency(totalBaseSalary)} sub="lương cơ bản" Icon={Banknote} accent />
-          <MiniStat label="Đúng giờ tháng" value={`${monthHealth}%`} sub={`${monthOnTimeLogs}/${monthTotalLogs} lượt`} Icon={CheckCircle2} />
+        {/* Tỷ lệ đi làm hôm nay — chuyển từ Hàng 2 lên đây, cùng chủ đề chấm công với chart phía trên */}
+        {!isNewCompany && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Tỷ lệ đi làm hôm nay</p>
+                <p className="text-xs text-gray-400 mt-0.5">{checkedIn} đã vào · {notCheckedIn} chưa · {onLeaveToday.length} nghỉ phép</p>
+              </div>
+              <p className="text-2xl font-extrabold text-blue-600">{checkInRate}%</p>
+            </div>
+            <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
+              <div className="bg-blue-500 h-full" style={{ width: `${totalEmployees ? (onTime / totalEmployees) * 100 : 0}%` }} title={`Đúng giờ ${onTime}`} />
+              <div className="bg-amber-400 h-full" style={{ width: `${totalEmployees ? (late / totalEmployees) * 100 : 0}%` }} title={`Trễ ${late}`} />
+            </div>
+            <div className="flex items-center justify-between mt-2 text-[11px] text-gray-400">
+              <span>{onTime} đúng giờ · {late} trễ</span>
+              <span>Mục tiêu 100%</span>
+            </div>
+          </div>
+        )}
+        </div>
+
+        {/* Stat cards + gợi ý cho bạn (ghép từ Hàng 2 cũ) */}
+        <div className="xl:col-span-3 space-y-3">
+          {/* items-start: 3 thẻ ở breakpoint sm nằm ngang hàng, tránh thẻ "Quỹ lương"
+              (giá trị dài hơn) kéo giãn 2 thẻ còn lại theo chiều cao của nó */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-2.5 items-start">
+            <MiniStat label="Tổng nhân viên" value={String(totalEmployees)} sub={`${deptList.length} phòng ban`} Icon={Users} />
+            <MiniStat label="Quỹ lương tháng" value={formatCurrency(totalBaseSalary)} sub="lương cơ bản" Icon={Banknote} accent />
+            <MiniStat label="Đúng giờ tháng" value={`${monthHealth}%`} sub={`${monthOnTimeLogs}/${monthTotalLogs} lượt`} Icon={CheckCircle2} />
+          </div>
+
+          {/* Gợi ý cho bạn — chuyển từ Hàng 2 lên đây, cùng chủ đề số liệu tổng quan với 3 thẻ phía trên */}
+          {!isNewCompany && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4">
+              <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-indigo-500" /><p className="text-sm font-semibold text-gray-800">Gợi ý cho bạn</p></div>
+              <ul className="space-y-2 text-sm text-gray-600">
+                {notCheckedIn > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> {notCheckedIn} nhân viên chưa chấm công — nhắc qua Zalo/Email từ Trợ lý AI.</li>}
+                {pendingLeaveCount > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> {pendingLeaveCount} đơn nghỉ phép đang chờ duyệt.</li>}
+                {monthHealth < 90 && monthTotalLogs > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> Tỷ lệ đúng giờ tháng {monthHealth}% — cân nhắc nhắc ca cho nhân viên hay trễ.</li>}
+                {notCheckedIn === 0 && pendingLeaveCount === 0 && <li className="flex gap-2"><span className="text-green-500">•</span> Mọi thứ gọn gàng hôm nay. Làm tốt lắm!</li>}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Thẻ công ty + quick actions + team + hoạt động */}
@@ -268,40 +309,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── HÀNG 2: Chuyên cần hôm nay | Gợi ý ── */}
-      {!isNewCompany && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-2.5">
-              <div>
-                <p className="text-sm font-semibold text-gray-800">Tỷ lệ đi làm hôm nay</p>
-                <p className="text-xs text-gray-400 mt-0.5">{checkedIn} đã vào · {notCheckedIn} chưa · {onLeaveToday.length} nghỉ phép</p>
-              </div>
-              <p className="text-2xl font-extrabold text-blue-600">{checkInRate}%</p>
-            </div>
-            <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
-              <div className="bg-blue-500 h-full" style={{ width: `${totalEmployees ? (onTime / totalEmployees) * 100 : 0}%` }} title={`Đúng giờ ${onTime}`} />
-              <div className="bg-amber-400 h-full" style={{ width: `${totalEmployees ? (late / totalEmployees) * 100 : 0}%` }} title={`Trễ ${late}`} />
-            </div>
-            <div className="flex items-center justify-between mt-2 text-[11px] text-gray-400">
-              <span>{onTime} đúng giờ · {late} trễ</span>
-              <span>Mục tiêu 100%</span>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4">
-            <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-indigo-500" /><p className="text-sm font-semibold text-gray-800">Gợi ý cho bạn</p></div>
-            <ul className="space-y-2 text-sm text-gray-600">
-              {notCheckedIn > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> {notCheckedIn} nhân viên chưa chấm công — nhắc qua Zalo/Email từ Trợ lý AI.</li>}
-              {pendingLeaveCount > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> {pendingLeaveCount} đơn nghỉ phép đang chờ duyệt.</li>}
-              {monthHealth < 90 && monthTotalLogs > 0 && <li className="flex gap-2"><span className="text-indigo-400">•</span> Tỷ lệ đúng giờ tháng {monthHealth}% — cân nhắc nhắc ca cho nhân viên hay trễ.</li>}
-              {notCheckedIn === 0 && pendingLeaveCount === 0 && <li className="flex gap-2"><span className="text-green-500">•</span> Mọi thứ gọn gàng hôm nay. Làm tốt lắm!</li>}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* ── HÀNG 3: Phòng ban | Sức khỏe | Cần xử lý ── */}
+      {/* ── HÀNG 2: Phòng ban | Sức khỏe | Cần xử lý ── */}
       {!isNewCompany && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Phân tích phòng ban */}
