@@ -141,7 +141,12 @@ export default async function DashboardPage() {
       {isNewCompany && <OnboardingBanner checkInUrl={checkInUrl} />}
 
       {/* ── HÀNG 1: Tổng quan chart | Stat cards | Thẻ công ty ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+      {/* items-start (15/9/2026): mặc định CSS Grid kéo giãn các cột bằng chiều cao cột
+          cao nhất (cột "Thẻ công ty + Hoạt động gần đây" bên phải luôn cao nhất vì có 7 dòng
+          hoạt động) -> 2 cột kia bị kéo giãn theo, để lại khoảng trắng rỗng bên trong thẻ,
+          nhìn như khung trống (user phản ánh, khoanh đỏ). Bỏ kéo giãn để mỗi thẻ tự cao vừa
+          đủ nội dung của nó, không còn khoảng trắng chết bên trong. */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
         {/* Overview + bar chart */}
         <div className="xl:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-start justify-between mb-1">
@@ -201,8 +206,9 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Stat cards */}
-        <div className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-2.5">
+        {/* Stat cards — items-start: 3 thẻ ở breakpoint sm nằm ngang hàng, tránh thẻ "Quỹ lương"
+            (giá trị dài hơn) kéo giãn 2 thẻ còn lại theo chiều cao của nó */}
+        <div className="xl:col-span-3 grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-2.5 items-start">
           <MiniStat label="Tổng nhân viên" value={String(totalEmployees)} sub={`${deptList.length} phòng ban`} Icon={Users} />
           <MiniStat label="Quỹ lương tháng" value={formatCurrency(totalBaseSalary)} sub="lương cơ bản" Icon={Banknote} accent />
           <MiniStat label="Đúng giờ tháng" value={`${monthHealth}%`} sub={`${monthOnTimeLogs}/${monthTotalLogs} lượt`} Icon={CheckCircle2} />
@@ -242,7 +248,10 @@ export default async function DashboardPage() {
             {recentActivity.length === 0 ? (
               <p className="text-sm text-gray-400 py-4 text-center">Chưa có hoạt động.</p>
             ) : (
-              <div className="space-y-2">
+              // max-h + overflow-y-auto (15/9/2026): cuộn nhỏ trong thẻ thay vì hiện đủ 7 dòng
+              // luôn kéo dài cột này -> đỡ chênh lệch chiều cao với 2 cột bên cạnh. Không bớt
+              // dữ liệu, chỉ ẩn bớt phần dưới sau khi cuộn.
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
                 {recentActivity.map((a) => (
                   <div key={a.id} className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0">{a.employee.name.charAt(0)}</div>
