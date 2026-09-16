@@ -1218,15 +1218,15 @@ export default function HomePage({ searchParams }: { searchParams?: { aff?: stri
               <div className="p-4 bg-gray-50" />
               <div className="p-4 text-center border-l border-gray-100 bg-gray-50">
                 <div className="text-sm font-bold text-gray-700">Starter</div>
-                <div className="text-xs text-gray-400 mt-0.5">Miễn phí mãi mãi</div>
+                <div className="text-base sm:text-lg font-extrabold text-gray-600 mt-1">Miễn phí mãi mãi</div>
               </div>
               <div className="p-4 text-center border-l border-blue-100 bg-blue-50">
                 <div className="text-sm font-bold text-blue-700">Pro</div>
-                <div className="text-xs text-blue-500 mt-0.5">299.000đ/tháng</div>
+                <div className="text-base sm:text-lg font-extrabold text-blue-600 mt-1">299.000đ/tháng</div>
               </div>
               <div className="p-4 text-center border-l border-purple-200 bg-purple-900">
                 <div className="text-sm font-bold text-white">Business</div>
-                <div className="text-xs text-purple-300 mt-0.5">799.000đ/tháng</div>
+                <div className="text-base sm:text-lg font-extrabold text-white mt-1">799.000đ/tháng</div>
               </div>
             </div>
 
