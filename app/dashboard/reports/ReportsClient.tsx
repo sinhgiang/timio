@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency, formatTime, formatTimeInput, getMonthDays } from "@/lib/utils";
 import { getStatusColor, getStatusLabel, resolveFullDayStatus } from "@/lib/attendance";
 import { buildDayRows } from "@/lib/shiftResolve";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 import PlanGate from "@/components/ui/PlanGate";
 import { Pencil, X, Info, ShieldCheck } from "lucide-react";
 
@@ -15,6 +16,10 @@ interface Employee {
   department: string | null;
   branchName: string;
   baseSalary: number;
+  officialSalary: number | null;
+  holidayPayBasis: string;
+  allowancesJson: string | null;
+  standardWorkDays: number;
   shiftOverride: string | null;
 }
 
@@ -129,6 +134,7 @@ interface Summary {
   employeeId: string;
   employeeName: string;
   daysPresent: number;
+  daysHoliday: number;
   daysLate: number;
   daysAbsent: number;
   totalMinutesLate: number;
@@ -191,6 +197,37 @@ function calcUnpaidLeaveDays(leaves: LeaveRecord[], employeeId: string, year: nu
       const ms = new Date(to).getTime() - new Date(from).getTime();
       return sum + Math.round(ms / 86400000) + 1;
     }, 0);
+}
+
+// Tính lương ước tính cho 1 nhân viên trong tháng — DÙNG CHUNG cho cả 2 chỗ hiển thị (Chi tiết
+// từng ngày + bảng Tổng kết) để không lặp lại công thức riêng như trước (bug cũ: 2 nơi từng tự
+// tính "netSalary = baseSalary - phạt + thưởng + tăng ca", bỏ qua lương tổng/phụ cấp và
+// holidayPayBasis hoàn toàn). Gọi computePayroll() dùng chung với trang phiếu lương để 2 nơi
+// luôn khớp số — chỉ KHÔNG trừ BHXH/thuế TNCN (báo cáo tháng vẫn giữ nguyên là số ước tính
+// trước thuế như trước giờ, không đổi ý nghĩa cột "Thực nhận" đột ngột).
+function computeEmployeePayroll(emp: Employee, s: Summary | undefined, leaveRequests: LeaveRecord[], year: number, month: number) {
+  const totalPenalty = s?.totalPenalty ?? 0;
+  const totalReward = s?.totalReward ?? 0;
+  const totalOTAmount = s?.totalOvertimeAmount ?? 0;
+  const payroll = computePayroll({
+    baseSalary: emp.baseSalary,
+    officialSalary: emp.officialSalary,
+    holidayPayBasis: emp.holidayPayBasis,
+    allowances: parseAllowances(emp.allowancesJson),
+    standardWorkDays: emp.standardWorkDays,
+    daysPresent: s?.daysPresent ?? 0,
+    daysHoliday: s?.daysHoliday ?? 0,
+    totalPenalty,
+    totalReward,
+    totalOvertimeAmount: totalOTAmount,
+    dependents: 0,
+  });
+  const unpaidDays = calcUnpaidLeaveDays(leaveRequests, emp.id, year, month);
+  const unpaidDeduction = payroll.effectiveTotalSalary > 0
+    ? Math.round((payroll.effectiveTotalSalary / emp.standardWorkDays) * unpaidDays)
+    : 0;
+  const netSalary = payroll.grossIncome - unpaidDeduction;
+  return { totalPenalty, totalReward, totalOTAmount, payroll, unpaidDays, unpaidDeduction, netSalary };
 }
 
 export default function ReportsClient({ employees, logs, summaries, leaveRequests, branchStats, year, month, canEdit }: Props) {
@@ -335,12 +372,8 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
   // ─── Chi tiết từng ngày cho 1 nhân viên ───────────────────────────────────
   const DayTable = ({ emp }: { emp: Employee }) => {
     const s = summaryMap.get(emp.id);
-    const totalPenalty = s?.totalPenalty ?? 0;
-    const totalReward = s?.totalReward ?? 0;
-    const totalOTAmount = s?.totalOvertimeAmount ?? 0;
-    const unpaidDays = calcUnpaidLeaveDays(leaveRequests, emp.id, year, month);
-    const unpaidDeduction = emp.baseSalary > 0 ? Math.round((emp.baseSalary / 26) * unpaidDays) : 0;
-    const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount - unpaidDeduction;
+    const { totalPenalty, totalReward, totalOTAmount, payroll, unpaidDays, unpaidDeduction, netSalary } =
+      computeEmployeePayroll(emp, s, leaveRequests, year, month);
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -351,9 +384,15 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
               <span className="font-semibold text-gray-800 text-base">{emp.name}</span>
               <span className="ml-2 text-sm text-gray-500">{emp.department} · {emp.branchName}</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
-              <span className="text-xs text-blue-500 font-medium">Lương cơ bản</span>
-              <span className="text-base font-bold text-blue-700">{formatCurrency(emp.baseSalary)}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
+                <span className="text-xs text-blue-500 font-medium">Lương cơ bản</span>
+                <span className="text-base font-bold text-blue-700">{formatCurrency(emp.baseSalary)}</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
+                <span className="text-xs text-indigo-500 font-medium">Lương tổng</span>
+                <span className="text-base font-bold text-indigo-700">{formatCurrency(payroll.effectiveTotalSalary)}</span>
+              </div>
             </div>
           </div>
           {s && (
@@ -618,9 +657,19 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
         <div className="px-5 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-t border-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              <span className="text-gray-500">
-                Lương CB: <span className="font-semibold text-blue-700">{formatCurrency(emp.baseSalary)}</span>
+              <span className="text-gray-500" title="Lương cơ bản quy theo số ngày công thực tế">
+                Lương CB (theo công): <span className="font-semibold text-blue-700">{formatCurrency(payroll.earnedBase)}</span>
               </span>
+              {payroll.totalAllowances > 0 && (
+                <span className="text-indigo-500">
+                  + Phụ cấp: <span className="font-semibold">{formatCurrency(payroll.totalAllowances)}</span>
+                </span>
+              )}
+              {payroll.holidayTopUp > 0 && (
+                <span className="text-purple-500" title="Bù thêm cho ngày lễ/Tết theo lương tổng">
+                  + Bù lương ngày lễ: <span className="font-semibold">{formatCurrency(payroll.holidayTopUp)}</span>
+                </span>
+              )}
               {totalPenalty > 0 && (
                 <span className="text-red-500">
                   − Phạt: <span className="font-semibold">{formatCurrency(totalPenalty)}</span>
@@ -758,6 +807,7 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Trễ</th>
                 <th className="text-center px-4 py-3 text-gray-500 font-medium">Vắng</th>
                 <th className="text-right px-4 py-3 text-blue-500 font-medium">Lương CB</th>
+                <th className="text-right px-4 py-3 text-indigo-500 font-medium" title="Lương cơ bản + phụ cấp (hoặc lương tổng ghi đè tay)">Lương tổng</th>
                 <th className="text-right px-4 py-3 text-red-400 font-medium">Phạt</th>
                 <th className="text-right px-4 py-3 text-orange-500 font-medium" title="Nghỉ không lương — trừ vào lương tháng">Nghỉ KLương</th>
                 <th className="text-right px-4 py-3 text-green-500 font-medium">Thưởng</th>
@@ -768,12 +818,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
             <tbody className="divide-y divide-gray-50">
               {employees.map((emp) => {
                 const s = summaryMap.get(emp.id);
-                const totalPenalty = s?.totalPenalty ?? 0;
-                const totalReward = s?.totalReward ?? 0;
-                const totalOTAmount = s?.totalOvertimeAmount ?? 0;
-                const unpaidDaysSummary = calcUnpaidLeaveDays(leaveRequests, emp.id, year, month);
-                const unpaidDeductionSummary = emp.baseSalary > 0 ? Math.round((emp.baseSalary / 26) * unpaidDaysSummary) : 0;
-                const netSalary = emp.baseSalary - totalPenalty + totalReward + totalOTAmount - unpaidDeductionSummary;
+                const {
+                  totalPenalty, totalReward, totalOTAmount, payroll,
+                  unpaidDays: unpaidDaysSummary, unpaidDeduction: unpaidDeductionSummary, netSalary,
+                } = computeEmployeePayroll(emp, s, leaveRequests, year, month);
                 return (
                   <tr
                     key={emp.id}
@@ -800,6 +848,9 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                     </td>
                     <td className="px-4 py-3 text-right text-blue-700 font-medium">
                       {emp.baseSalary > 0 ? formatCurrency(emp.baseSalary) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-indigo-700 font-medium">
+                      {payroll.effectiveTotalSalary > 0 ? formatCurrency(payroll.effectiveTotalSalary) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-red-500">{totalPenalty ? `−${formatCurrency(totalPenalty)}` : <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-right text-orange-600" title={unpaidDaysSummary > 0 ? `${unpaidDaysSummary} ngày nghỉ không lương` : ""}>

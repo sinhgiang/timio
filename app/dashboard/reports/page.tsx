@@ -122,6 +122,10 @@ export default async function ReportsPage({
         department: e.department,
         branchName: e.branch.name,
         baseSalary: e.baseSalary ?? 0,
+        officialSalary: e.officialSalary ?? null,
+        holidayPayBasis: e.holidayPayBasis,
+        allowancesJson: e.allowancesJson ?? null,
+        standardWorkDays: e.branch.standardWorkDays ?? 26,
         shiftOverride: e.shiftOverride ?? null,
       }))}
       logs={logs.map((l) => ({
@@ -150,6 +154,7 @@ export default async function ReportsPage({
         employeeId: s.employeeId,
         employeeName: s.employee.name,
         daysPresent: s.daysPresent,
+        daysHoliday: s.daysHoliday,
         daysLate: s.daysLate,
         daysAbsent: s.daysAbsent,
         totalMinutesLate: s.totalMinutesLate,

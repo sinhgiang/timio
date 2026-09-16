@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { scopedBranchId } from "@/lib/branchScope";
 import { buildDayRows } from "@/lib/shiftResolve";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 import ExcelJS from "exceljs";
 import * as XLSX from "xlsx"; // chỉ dùng cho CSV
 
@@ -469,7 +470,7 @@ export async function GET(req: NextRequest) {
   type SummaryRow = Record<string, string | number>;
   const rows: SummaryRow[] = [];
   for (const emp of employees) {
-    let daysPresent = 0, daysLate = 0, totalMinutesLate = 0, totalPenalty = 0;
+    let daysPresent = 0, daysLate = 0, daysHoliday = 0, totalMinutesLate = 0, totalPenalty = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${monthStr}-${String(d).padStart(2, "0")}`;
       const dayLogs = logsByEmpDate.get(`${emp.id}-${dateStr}`) ?? [];
@@ -477,13 +478,33 @@ export async function GET(req: NextRequest) {
       // buổi), nhưng phút trễ/tiền phạt cộng dồn tất cả buổi — khớp admin-edit/route.ts.
       if (dayLogs.some((l) => l.checkInAt)) daysPresent++;
       if (dayLogs.some((l) => l.minutesLate > 0)) daysLate++;
+      if (dayLogs.some((l) => l.status === "holiday")) daysHoliday++;
       totalMinutesLate += dayLogs.reduce((s, l) => s + l.minutesLate, 0);
       totalPenalty += dayLogs.reduce((s, l) => s + l.penaltyAmount, 0);
     }
     const baseSalary = emp.baseSalary ?? 0;
     const unpaidDays = calcUnpaidDays(emp.id);
-    const unpaidDeduction = baseSalary > 0 ? Math.round((baseSalary / 26) * unpaidDays) : 0;
-    const netSalary = baseSalary - totalPenalty - unpaidDeduction;
+    // Dùng chung công thức lương với báo cáo trên web (ReportsClient.tsx) + phiếu lương — trước
+    // đây export này chỉ trừ theo "lương cơ bản", bỏ qua phụ cấp/lương tổng và cấu hình
+    // "Tính lương ngày lễ/Tết theo" (holidayPayBasis), khiến số xuất ra Excel/CSV sai lệch với
+    // lương thực tế của NV có bật "Tổng lương". Xem lib/payroll.ts.
+    const payroll = computePayroll({
+      baseSalary,
+      officialSalary: emp.officialSalary ?? null,
+      holidayPayBasis: emp.holidayPayBasis,
+      allowances: parseAllowances(emp.allowancesJson),
+      standardWorkDays: emp.branch.standardWorkDays ?? 26,
+      daysPresent,
+      daysHoliday,
+      totalPenalty,
+      totalReward: 0,
+      totalOvertimeAmount: 0,
+      dependents: 0,
+    });
+    const unpaidDeduction = payroll.effectiveTotalSalary > 0
+      ? Math.round((payroll.effectiveTotalSalary / (emp.branch.standardWorkDays ?? 26)) * unpaidDays)
+      : 0;
+    const netSalary = payroll.grossIncome - unpaidDeduction;
     rows.push({
       "Mã NV": emp.code,
       "Họ tên": emp.name,
@@ -497,6 +518,7 @@ export async function GET(req: NextRequest) {
       "Nghỉ KLương (ngày)": unpaidDays,
       "Trừ KLương (VND)": unpaidDeduction,
       "Lương CB (VND)": baseSalary,
+      "Lương tổng (VND)": payroll.effectiveTotalSalary,
       "Thực nhận (VND)": netSalary,
     });
   }
@@ -531,11 +553,12 @@ export async function GET(req: NextRequest) {
     { key: "klngay",   width: 16 },
     { key: "kltien",   width: 18 },
     { key: "luongcb",  width: 18 },
+    { key: "luongtong", width: 18 },
     { key: "thucnhan", width: 20 },
   ];
 
   // Row 1: Tiêu đề
-  ws.mergeCells("A1:M1");
+  ws.mergeCells("A1:N1");
   const titleCell = ws.getCell("A1");
   titleCell.value = `BÁO CÁO LƯƠNG THÁNG ${month}/${year} — TẤT CẢ NHÂN VIÊN`;
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.navyBg } };
@@ -544,7 +567,7 @@ export async function GET(req: NextRequest) {
   ws.getRow(1).height = 30;
 
   // Row 2: Thông tin
-  ws.mergeCells("A2:M2");
+  ws.mergeCells("A2:N2");
   const infoCell = ws.getCell("A2");
   infoCell.value = `Tháng ${month}/${year}   |   Tổng: ${employees.length} nhân viên   |   Xuất bởi Timio`;
   infoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: C.blueLight } };
@@ -557,14 +580,14 @@ export async function GET(req: NextRequest) {
     "Mã NV", "Họ tên", "Phòng ban", "Chi nhánh",
     "Đi làm", "Trễ", "Vắng", "Phút trễ",
     "Tiền phạt (VND)", "Nghỉ KLương (ngày)", "Trừ KLương (VND)",
-    "Lương CB (VND)", "Thực nhận (VND)",
+    "Lương CB (VND)", "Lương tổng (VND)", "Thực nhận (VND)",
   ];
   const headerRow = ws.getRow(3);
   colHeaders.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
     cell.value = h;
     // Highlight lương thực nhận
-    applyHeaderStyle(cell, i === 12 ? "15803D" : C.blueBg);
+    applyHeaderStyle(cell, i === 13 ? "15803D" : C.blueBg);
   });
   headerRow.height = 22;
 
@@ -583,6 +606,7 @@ export async function GET(req: NextRequest) {
       klngay:   r["Nghỉ KLương (ngày)"],
       kltien:   r["Trừ KLương (VND)"],
       luongcb:  r["Lương CB (VND)"],
+      luongtong: r["Lương tổng (VND)"],
       thucnhan: r["Thực nhận (VND)"],
     });
     row.height = 20;
@@ -629,8 +653,14 @@ export async function GET(req: NextRequest) {
     luongCBCell.alignment = { horizontal: "right", vertical: "middle" };
     luongCBCell.font = { color: { argb: C.navyBg } };
 
+    // Lương tổng (CB + phụ cấp, hoặc ghi đè tay)
+    const luongTongCell = row.getCell(13);
+    luongTongCell.numFmt = "#,##0";
+    luongTongCell.alignment = { horizontal: "right", vertical: "middle" };
+    luongTongCell.font = { color: { argb: "4F46E5" } };
+
     // Thực nhận — green bold
-    const thucNhanCell = row.getCell(13);
+    const thucNhanCell = row.getCell(14);
     thucNhanCell.numFmt = "#,##0";
     thucNhanCell.alignment = { horizontal: "right", vertical: "middle" };
     thucNhanCell.font = { color: { argb: C.green }, bold: true, size: 11 };
