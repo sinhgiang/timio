@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 import { scopedBranchId as scopedBranchIdFn } from "@/lib/branchScope";
 import * as XLSX from "xlsx";
 
@@ -41,11 +41,11 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, name: true, code: true, department: true,
         bankName: true, bankAccount: true, bankBranch: true,
-        baseSalary: true, dependents: true,
-        branch: { select: { name: true } },
+        baseSalary: true, officialSalary: true, holidayPayBasis: true, allowancesJson: true, dependents: true,
+        branch: { select: { name: true, standardWorkDays: true } },
         summaries: {
           where: { year, month },
-          select: { totalPenalty: true, totalReward: true, totalOvertimeAmount: true },
+          select: { daysPresent: true, daysHoliday: true, totalPenalty: true, totalReward: true, totalOvertimeAmount: true },
         },
       },
     }),
@@ -71,11 +71,24 @@ export async function GET(req: NextRequest) {
       const penalty = s?.totalPenalty ?? 0;
       const reward  = s?.totalReward ?? 0;
       const overtime = s?.totalOvertimeAmount ?? 0;
-      const gross   = base - penalty + reward + overtime;
-      const tax     = calculateTax({ baseSalary: base, grossIncome: gross, dependents: e.dependents ?? 0 });
+      const standardWorkDays = e.branch.standardWorkDays ?? 26;
+      const allowances = parseAllowances(e.allowancesJson);
+      const payroll = computePayroll({
+        baseSalary: base,
+        officialSalary: e.officialSalary ?? null,
+        holidayPayBasis: e.holidayPayBasis,
+        allowances,
+        standardWorkDays,
+        daysPresent: s?.daysPresent ?? 0,
+        daysHoliday: s?.daysHoliday ?? 0,
+        totalPenalty: penalty,
+        totalReward: reward,
+        totalOvertimeAmount: overtime,
+        dependents: e.dependents ?? 0,
+      });
       const advance = advanceMap.get(e.id) ?? 0;
       const fee = feeMap.get(e.id) ?? 0;
-      const netAfterAdvance = Math.max(0, tax.netTakeHome - advance - fee);
+      const netAfterAdvance = Math.max(0, payroll.netTakeHome - advance - fee);
 
       return {
         "Mã NV":           e.code,

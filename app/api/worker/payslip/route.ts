@@ -57,13 +57,14 @@ export async function GET(req: NextRequest) {
     totalOvertimeAmount: overtime,
     dependents: employee.dependents ?? 0,
   });
-  const { earnedBase, totalAllowances, grossIncome } = payroll;
+  const { normalEarnings, holidayEarnings, totalAllowances, grossIncome } = payroll;
+  const earnedBase = normalEarnings + holidayEarnings;
 
   const payslip = {
     companyName: employee.company?.name ?? "", position: employee.position ?? "", department: employee.department ?? "",
     year, month: mon,
     baseSalary: base, earnedBase, standardWorkDays,
-    officialSalary: payroll.effectiveTotalSalary, holidayPayBasis: employee.holidayPayBasis, holidayTopUp: payroll.holidayTopUp,
+    officialSalary: payroll.effectiveTotalSalary, holidayPayBasis: employee.holidayPayBasis, holidayTopUp: holidayEarnings,
     daysPresent, daysHoliday: s?.daysHoliday ?? 0, daysLate: s?.daysLate ?? 0, daysAbsent: s?.daysAbsent ?? 0, totalMinutesLate: s?.totalMinutesLate ?? 0,
     totalPenalty: penalty, totalReward: reward, totalOvertimeAmount: overtime, totalMinutesOvertime: s?.totalMinutesOvertime ?? 0,
     allowances, totalAllowances, grossIncome,

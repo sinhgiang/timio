@@ -14,7 +14,12 @@ interface PayslipData {
   year: number;
   month: number;
   baseSalary: number;
-  earnedBase?: number;
+  officialSalary?: number;
+  holidayPayBasis?: string;
+  normalEarnings?: number;
+  holidayEarnings?: number;
+  daysNormal?: number;
+  daysHoliday?: number;
   standardWorkDays?: number;
   daysPresent: number;
   daysLate: number;
@@ -133,11 +138,21 @@ export default function PayslipPrint({ data }: { data: PayslipData }) {
                 A. THU NHẬP
               </td>
             </tr>
-            <TRow label="(+) Lương cơ bản (full tháng)" value={`${fmt(data.baseSalary)} đ`} />
-            {data.earnedBase !== undefined && data.earnedBase !== data.baseSalary && (
+            <TRow label="Lương cơ bản (căn cứ đóng BHXH)" value={`${fmt(data.baseSalary)} đ`} />
+            {data.officialSalary !== undefined && data.officialSalary !== data.baseSalary && (
+              <TRow label="Lương tổng (căn cứ tính lương ngày thường)" value={`${fmt(data.officialSalary)} đ`} />
+            )}
+            {data.normalEarnings !== undefined && (
               <TRow
-                label={`(+) Lương theo ngày công thực tế (${data.daysPresent}/${data.standardWorkDays ?? 26} ngày)`}
-                value={`${fmt(data.earnedBase)} đ`}
+                label={`(+) Lương ngày thường (${data.daysNormal ?? data.daysPresent}/${data.standardWorkDays ?? 26} công × lương tổng)`}
+                value={`${fmt(data.normalEarnings)} đ`}
+                highlight="green"
+              />
+            )}
+            {data.holidayEarnings !== undefined && data.holidayEarnings > 0 && (
+              <TRow
+                label={`(+) Lương ngày lễ/Tết (${data.daysHoliday} ngày, theo ${data.holidayPayBasis === "total" ? "lương tổng" : "lương cơ bản"})`}
+                value={`${fmt(data.holidayEarnings)} đ`}
                 highlight="green"
               />
             )}

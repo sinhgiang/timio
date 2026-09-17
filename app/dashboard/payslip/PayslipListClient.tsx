@@ -12,8 +12,11 @@ interface PayslipRow {
   department: string;
   position: string;
   baseSalary: number;
-  earnedBase: number;
-  holidayTopUp: number;
+  officialSalary: number;
+  holidayPayBasis: string;
+  normalEarnings: number;
+  holidayEarnings: number;
+  daysNormal: number;
   standardWorkDays: number;
   daysPresent: number;
   daysHoliday: number;
@@ -212,7 +215,9 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Nhân viên</th>
                 <th className="text-center px-3 py-3 font-semibold text-gray-600">Công</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-600">Lương CB</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-600" title="Ngày thường tính theo Lương tổng · ngày lễ/Tết tính theo cấu hình riêng của từng nhân viên">
+                  Lương theo công
+                </th>
                 <th className="text-right px-3 py-3 font-semibold text-red-500">Phạt</th>
                 <th className="text-right px-3 py-3 font-semibold text-green-600">Tăng ca</th>
                 <th className="text-right px-3 py-3 font-semibold text-orange-500">BHXH (10.5%)</th>
@@ -236,12 +241,20 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
                     {r.daysAbsent > 0 && <span className="text-xs text-red-400 ml-1">(-{r.daysAbsent})</span>}
                   </td>
                   <td className="text-right px-3 py-3 text-gray-600">
-                    <span>{fmt(r.earnedBase)}</span>
-                    {r.earnedBase !== r.baseSalary && (
-                      <span className="block text-xs text-gray-400">{fmt(r.baseSalary)}</span>
-                    )}
-                    {r.holidayTopUp > 0 && (
-                      <span className="block text-xs text-green-600">+{fmt(r.holidayTopUp)} (lễ {r.daysHoliday} ngày)</span>
+                    <span className="font-medium text-gray-800">{fmt(r.normalEarnings + r.holidayEarnings)}</span>
+                    <span
+                      className="block text-xs text-gray-400"
+                      title={`Lương cơ bản ${fmt(r.baseSalary)} · Lương tổng ${fmt(r.officialSalary)}`}
+                    >
+                      {r.daysNormal} công thường × lương tổng
+                    </span>
+                    {r.holidayEarnings > 0 && (
+                      <span
+                        className="block text-xs text-purple-600"
+                        title={`Theo cấu hình: ${r.holidayPayBasis === "total" ? "Lương tổng" : "Lương cơ bản"}`}
+                      >
+                        + {fmt(r.holidayEarnings)} (lễ {r.daysHoliday} ngày)
+                      </span>
                     )}
                   </td>
                   <td className="text-right px-3 py-3 text-red-500 font-medium">
@@ -334,7 +347,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
               <tr className="bg-blue-50/60 border-t-2 border-blue-100">
                 <td className="px-4 py-3 font-bold text-gray-700" colSpan={2}>Tổng cộng ({rows.length} NV)</td>
                 <td className="text-right px-3 py-3 font-bold text-gray-700">
-                  {fmt(rows.reduce((s, r) => s + r.earnedBase, 0))}
+                  {fmt(rows.reduce((s, r) => s + r.normalEarnings + r.holidayEarnings, 0))}
                 </td>
                 <td className="text-right px-3 py-3 font-bold text-red-500">
                   {totalPenalty > 0 ? `-${fmt(totalPenalty)}` : "—"}
@@ -361,7 +374,7 @@ export default function PayslipListClient({ rows, companyName, currentMonth, pay
       )}
 
       <p className="text-xs text-gray-400 mt-4 text-center">
-        Tháng {mon}/{year} · &quot;Thực nhận&quot; = Lương CB + Tăng ca − Phạt − BHXH (10.5%) − Thuế TNCN · Bấm &quot;In phiếu&quot; để xem chi tiết
+        Tháng {mon}/{year} · &quot;Thực nhận&quot; = Lương theo công (ngày thường tính theo Lương tổng, ngày lễ/Tết theo cấu hình riêng) + Tăng ca − Phạt − BHXH (10.5%) − Thuế TNCN · Bấm &quot;In phiếu&quot; để xem chi tiết
       </p>
     </div>
   );

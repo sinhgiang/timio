@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import PayslipPrint from "./PayslipPrint";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 import PlanUpgradePage from "@/components/ui/PlanUpgradePage";
 import { scopedBranchId } from "@/lib/branchScope";
 
@@ -50,13 +50,14 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
       where: { id: params.employeeId, companyId },
       select: {
         id: true, name: true, code: true, department: true, position: true, branchId: true,
-        baseSalary: true, joinDate: true, phone: true, dependents: true,
+        baseSalary: true, officialSalary: true, holidayPayBasis: true, allowancesJson: true,
+        joinDate: true, phone: true, dependents: true,
         bankName: true, bankAccount: true, bankBranch: true,
         branch: { select: { name: true, standardWorkDays: true } },
         summaries: {
           where: { year, month },
           select: {
-            daysPresent: true, daysLate: true, daysAbsent: true,
+            daysPresent: true, daysHoliday: true, daysLate: true, daysAbsent: true,
             totalMinutesLate: true, totalPenalty: true, totalReward: true,
             totalOvertimeAmount: true, totalMinutesOvertime: true,
           },
@@ -79,17 +80,21 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
   const base = employee.baseSalary ?? 0;
   const daysPresent = s?.daysPresent ?? 0;
   const standardWorkDays = employee.branch.standardWorkDays ?? 26;
-  const earnedBase = standardWorkDays > 0
-    ? Math.round((base / standardWorkDays) * daysPresent)
-    : base;
   const penalty = s?.totalPenalty ?? 0;
   const reward = s?.totalReward ?? 0;
   const overtime = s?.totalOvertimeAmount ?? 0;
-  const grossIncome = earnedBase - penalty + reward + overtime;
-
-  const tax = calculateTax({
+  const allowances = parseAllowances(employee.allowancesJson);
+  const payroll = computePayroll({
     baseSalary: base,
-    grossIncome,
+    officialSalary: employee.officialSalary ?? null,
+    holidayPayBasis: employee.holidayPayBasis,
+    allowances,
+    standardWorkDays,
+    daysPresent,
+    daysHoliday: s?.daysHoliday ?? 0,
+    totalPenalty: penalty,
+    totalReward: reward,
+    totalOvertimeAmount: overtime,
     dependents: employee.dependents ?? 0,
   });
 
@@ -105,9 +110,14 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
     year,
     month,
     baseSalary: base,
-    earnedBase,
+    officialSalary: payroll.effectiveTotalSalary,
+    holidayPayBasis: employee.holidayPayBasis,
+    normalEarnings: payroll.normalEarnings,
+    holidayEarnings: payroll.holidayEarnings,
+    daysNormal: payroll.daysNormal,
     standardWorkDays,
     daysPresent,
+    daysHoliday: s?.daysHoliday ?? 0,
     daysLate: s?.daysLate ?? 0,
     daysAbsent: s?.daysAbsent ?? 0,
     totalMinutesLate: s?.totalMinutesLate ?? 0,
@@ -115,12 +125,12 @@ export default async function PayslipDetailPage({ params, searchParams }: Props)
     totalReward: reward,
     totalOvertimeAmount: overtime,
     totalMinutesOvertime: s?.totalMinutesOvertime ?? 0,
-    grossIncome,
-    bhxhEmployee: tax.bhxhEmployee,
-    bhxhEmployer: tax.bhxhEmployer,
-    taxableIncome: tax.taxableIncome,
-    tncn: tax.tncn,
-    netTakeHome: tax.netTakeHome,
+    grossIncome: payroll.grossIncome,
+    bhxhEmployee: payroll.bhxhEmployee,
+    bhxhEmployer: payroll.bhxhEmployer,
+    taxableIncome: payroll.taxableIncome,
+    tncn: payroll.tncn,
+    netTakeHome: payroll.netTakeHome,
     dependents: employee.dependents ?? 0,
     companyName: company?.name ?? "",
     bankName: (employee as { bankName?: string | null }).bankName ?? "",

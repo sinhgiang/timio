@@ -78,7 +78,8 @@ export async function GET(req: NextRequest) {
       totalOvertimeAmount: overtime,
       dependents: employee.dependents ?? 0,
     });
-    const { earnedBase, totalAllowances, grossIncome } = payroll;
+    const { normalEarnings, holidayEarnings, totalAllowances, grossIncome } = payroll;
+    const earnedBase = normalEarnings + holidayEarnings;
 
     return NextResponse.json({
       month,

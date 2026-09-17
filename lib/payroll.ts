@@ -8,11 +8,14 @@
 // phí BHXH, nhưng ngày lễ/Tết (nghỉ hưởng nguyên lương — Điều 112 BLLĐ) có công ty trả theo
 // lương cơ bản, có công ty trả theo lương chính thức/tổng lương (cao hơn).
 //
-// QUAN TRỌNG — không double-count phụ cấp: totalAllowances vẫn được cộng ĐỦ 1 lần/tháng như cũ
-// (không đổi, không prorate theo daysPresent — hành vi cũ giữ nguyên). Khi holidayPayBasis="total",
-// KHÔNG cộng thêm effectiveTotalSalary/ngày cho các ngày lễ (sẽ trùng phần phụ cấp đã cộng đủ ở
-// trên) — thay vào đó chỉ cộng THÊM đúng phần CHÊNH LỆCH giữa "lương tổng" và "lương cơ bản" quy
-// ra theo ngày, nhân với số ngày lễ (holidayTopUp) — xem giải thích chi tiết trong computePayroll().
+// SỬA 17/9/2026 — bug: bản trước quy TẤT CẢ ngày công (kể cả ngày thường) theo lương CƠ BẢN rồi
+// mới cộng phụ cấp cố định 1 lần/tháng — nghĩa là với tháng đi làm KHÔNG đủ công, ngày thường vẫn
+// bị tính theo lương cơ bản chứ không phải lương tổng, sai với yêu cầu gốc của user: "ngày thường
+// LUÔN tính theo lương tổng; chỉ ngày lễ/Tết mới theo đúng lựa chọn (holidayPayBasis)". Sửa: ngày
+// thường (daysPresent - daysHoliday) quy theo effectiveTotalSalary/ngày; ngày lễ quy theo
+// baseSalary HOẶC effectiveTotalSalary/ngày tuỳ holidayPayBasis. Đổi tên field cho rõ nghĩa:
+// earnedBase → normalEarnings (lương ngày thường), holidayTopUp → holidayEarnings (lương ngày lễ,
+// là số tiền ĐẦY ĐỦ của các ngày đó chứ không còn là phần "cộng thêm/top-up" như tên cũ).
 import { calculateTax, type TaxBreakdown } from "@/lib/taxCalculator";
 
 export interface AllowanceItem {
@@ -37,9 +40,10 @@ export interface PayrollInput {
 export interface PayrollResult extends TaxBreakdown {
   totalAllowances: number;
   effectiveTotalSalary: number; // "Tổng lương" thực dùng để tính (officialSalary hoặc tự tính)
-  earnedBase: number; // Lương cơ bản quy theo số ngày công (như công thức cũ, không đổi)
-  holidayTopUp: number; // Phần cộng thêm cho ngày lễ khi holidayPayBasis="total" (0 nếu "base")
+  daysNormal: number; // số ngày công KHÔNG phải ngày lễ (daysPresent - daysHoliday)
   daysHoliday: number;
+  normalEarnings: number; // Lương ngày thường — LUÔN quy theo lương tổng (effectiveTotalSalary)
+  holidayEarnings: number; // Lương ngày lễ/Tết — quy theo lương cơ bản HOẶC lương tổng tuỳ holidayPayBasis
 }
 
 export function computePayroll(input: PayrollInput): PayrollResult {
@@ -48,29 +52,31 @@ export function computePayroll(input: PayrollInput): PayrollResult {
   const standardWorkDays = input.standardWorkDays > 0 ? input.standardWorkDays : 26;
   const daysPresent = Math.max(0, input.daysPresent);
   const daysHoliday = Math.min(Math.max(0, input.daysHoliday), daysPresent);
+  const daysNormal = daysPresent - daysHoliday;
 
-  // earnedBase: giữ NGUYÊN công thức cũ (lương cơ bản quy theo ngày công, áp dụng cho MỌI ngày
-  // trong daysPresent kể cả ngày lễ) — không đổi hành vi cho công ty chưa đụng tới tính năng này.
-  const dayRateBase = input.baseSalary / standardWorkDays;
-  const earnedBase = Math.round(dayRateBase * daysPresent);
+  // Ngày thường: LUÔN quy theo lương TỔNG (không phải lương cơ bản) — kể cả khi đi làm không đủ
+  // công trong tháng, phần ngày thường vẫn tính trên effectiveTotalSalary/standardWorkDays.
+  const normalDayRate = effectiveTotalSalary / standardWorkDays;
+  const normalEarnings = Math.round(normalDayRate * daysNormal);
 
-  // holidayTopUp: chỉ cộng thêm khi holidayPayBasis="total" — phần CHÊNH LỆCH mỗi ngày giữa
-  // "tổng lương" và "lương cơ bản", nhân với số ngày lễ. Không đụng tới totalAllowances (đã cộng
-  // đủ 1 lần ở trên) nên không trùng lặp.
-  const dayRateExtra = (effectiveTotalSalary - input.baseSalary) / standardWorkDays;
-  const holidayTopUp = input.holidayPayBasis === "total" ? Math.round(dayRateExtra * daysHoliday) : 0;
+  // Ngày lễ/Tết: quy theo ĐÚNG lựa chọn holidayPayBasis của nhân viên — "base" dùng lương cơ bản,
+  // "total" dùng lương tổng. Đây là số tiền ĐẦY ĐỦ cho các ngày lễ, không phải phần chênh lệch.
+  const holidayBasisSalary = input.holidayPayBasis === "total" ? effectiveTotalSalary : input.baseSalary;
+  const holidayDayRate = holidayBasisSalary / standardWorkDays;
+  const holidayEarnings = Math.round(holidayDayRate * daysHoliday);
 
   const grossIncome =
-    earnedBase + totalAllowances + holidayTopUp - input.totalPenalty + input.totalReward + input.totalOvertimeAmount;
+    normalEarnings + holidayEarnings - input.totalPenalty + input.totalReward + input.totalOvertimeAmount;
 
   const tax = calculateTax({ baseSalary: input.baseSalary, grossIncome, dependents: input.dependents });
 
   return {
     totalAllowances,
     effectiveTotalSalary,
-    earnedBase,
-    holidayTopUp,
+    daysNormal,
     daysHoliday,
+    normalEarnings,
+    holidayEarnings,
     ...tax,
   };
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 
 function fmt(n: number) { return n.toLocaleString("vi-VN") + "đ"; }
 
@@ -39,12 +39,12 @@ export async function GET(req: NextRequest) {
       where: { companyId: company.id, status: "active", email: { not: null } },
       select: {
         id: true, name: true, code: true, email: true,
-        department: true, baseSalary: true, dependents: true,
-        branch: { select: { name: true } },
+        department: true, baseSalary: true, officialSalary: true, holidayPayBasis: true, allowancesJson: true, dependents: true,
+        branch: { select: { name: true, standardWorkDays: true } },
         summaries: {
           where: { year: targetYear, month: targetMonth },
           select: {
-            daysPresent: true, daysLate: true,
+            daysPresent: true, daysHoliday: true, daysLate: true,
             totalPenalty: true, totalReward: true, totalOvertimeAmount: true,
           },
         },
@@ -58,18 +58,31 @@ export async function GET(req: NextRequest) {
       const penalty = s?.totalPenalty ?? 0;
       const reward  = s?.totalReward ?? 0;
       const overtime = s?.totalOvertimeAmount ?? 0;
-      const gross   = base - penalty + reward + overtime;
-      const tax     = calculateTax({ baseSalary: base, grossIncome: gross, dependents: emp.dependents ?? 0 });
+      const standardWorkDays = emp.branch.standardWorkDays ?? 26;
+      const allowances = parseAllowances(emp.allowancesJson);
+      const payroll = computePayroll({
+        baseSalary: base,
+        officialSalary: emp.officialSalary ?? null,
+        holidayPayBasis: emp.holidayPayBasis,
+        allowances,
+        standardWorkDays,
+        daysPresent: s?.daysPresent ?? 0,
+        daysHoliday: s?.daysHoliday ?? 0,
+        totalPenalty: penalty,
+        totalReward: reward,
+        totalOvertimeAmount: overtime,
+        dependents: emp.dependents ?? 0,
+      });
 
       const rows = [
-        ["Lương cơ bản", fmt(base)],
-        ["Ngày công", `${s?.daysPresent ?? 0} ngày`],
+        ["Lương ngày thường", `${fmt(payroll.normalEarnings)} (${payroll.daysNormal} công)`],
+        payroll.daysHoliday > 0 ? ["Lương ngày lễ/Tết", `${fmt(payroll.holidayEarnings)} (${payroll.daysHoliday} ngày)`] : null,
         ["Số lần trễ", `${s?.daysLate ?? 0} lần`],
         penalty > 0 ? ["Tiền phạt", `<span style="color:#dc2626">-${fmt(penalty)}</span>`] : null,
         reward > 0  ? ["Thưởng", `<span style="color:#16a34a">+${fmt(reward)}</span>`] : null,
         overtime > 0 ? ["Tăng ca", `<span style="color:#16a34a">+${fmt(overtime)}</span>`] : null,
-        tax.bhxhEmployee > 0 ? ["BHXH (10.5%)", `<span style="color:#ea580c">-${fmt(tax.bhxhEmployee)}</span>`] : null,
-        tax.tncn > 0 ? ["Thuế TNCN", `<span style="color:#7c3aed">-${fmt(tax.tncn)}</span>`] : null,
+        payroll.bhxhEmployee > 0 ? ["BHXH (10.5%)", `<span style="color:#ea580c">-${fmt(payroll.bhxhEmployee)}</span>`] : null,
+        payroll.tncn > 0 ? ["Thuế TNCN", `<span style="color:#7c3aed">-${fmt(payroll.tncn)}</span>`] : null,
       ].filter(Boolean) as [string, string][];
 
       const tableRows = rows.map(([label, val]) => `
@@ -92,7 +105,7 @@ export async function GET(req: NextRequest) {
         </table>
         <div style="background:#1e40af;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
           <p style="margin:0 0 4px;font-size:13px;color:#bfdbfe;">Thực nhận</p>
-          <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;">${fmt(tax.netTakeHome)}</p>
+          <p style="margin:0;font-size:28px;font-weight:800;color:#ffffff;">${fmt(payroll.netTakeHome)}</p>
         </div>
         <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
           Phiếu lương được gửi tự động bởi hệ thống Timio.<br>

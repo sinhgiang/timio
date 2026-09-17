@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { calculateTax } from "@/lib/taxCalculator";
+import { computePayroll, parseAllowances } from "@/lib/payroll";
 import SalaryPaymentsClient from "./SalaryPaymentsClient";
 import { branchWhere } from "@/lib/branchScope";
 import type { Metadata } from "next";
@@ -46,11 +46,12 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
       orderBy: { name: "asc" },
       select: {
         id: true, name: true, code: true, department: true,
-        baseSalary: true, dependents: true,
-        branch: { select: { name: true } },
+        baseSalary: true, officialSalary: true, holidayPayBasis: true, allowancesJson: true, dependents: true,
+        branch: { select: { name: true, standardWorkDays: true } },
         summaries: {
           where: { year, month },
           select: {
+            daysPresent: true, daysHoliday: true,
             totalPenalty: true, totalReward: true, totalOvertimeAmount: true,
           },
         },
@@ -85,8 +86,21 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
     const penalty   = s?.totalPenalty ?? 0;
     const reward    = s?.totalReward ?? 0;
     const overtime  = s?.totalOvertimeAmount ?? 0;
-    const gross     = base - penalty + reward + overtime;
-    const tax       = calculateTax({ baseSalary: base, grossIncome: gross, dependents: e.dependents ?? 0 });
+    const standardWorkDays = e.branch.standardWorkDays ?? 26;
+    const allowances = parseAllowances(e.allowancesJson);
+    const payroll = computePayroll({
+      baseSalary: base,
+      officialSalary: e.officialSalary ?? null,
+      holidayPayBasis: e.holidayPayBasis,
+      allowances,
+      standardWorkDays,
+      daysPresent: s?.daysPresent ?? 0,
+      daysHoliday: s?.daysHoliday ?? 0,
+      totalPenalty: penalty,
+      totalReward: reward,
+      totalOvertimeAmount: overtime,
+      dependents: e.dependents ?? 0,
+    });
     const advanceAmount = advanceMap.get(e.id) ?? 0;
     const feeAmount     = feeMap.get(e.id) ?? 0;
     return {
@@ -96,10 +110,10 @@ export default async function SalaryPaymentsPage({ searchParams }: Props) {
       department:      e.department ?? "",
       branchName:      e.branch.name,
       baseSalary:      base,
-      netSalary:       tax.netTakeHome,
+      netSalary:       payroll.netTakeHome,
       advanceAmount,
       feeAmount,
-      netAfterAdvance: Math.max(0, tax.netTakeHome - advanceAmount - feeAmount),
+      netAfterAdvance: Math.max(0, payroll.netTakeHome - advanceAmount - feeAmount),
     };
   });
 

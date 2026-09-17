@@ -389,7 +389,10 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
                 <span className="text-xs text-blue-500 font-medium">Lương cơ bản</span>
                 <span className="text-base font-bold text-blue-700">{formatCurrency(emp.baseSalary)}</span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100"
+                title={payroll.totalAllowances > 0 ? `Lương cơ bản ${formatCurrency(emp.baseSalary)} + Phụ cấp ${formatCurrency(payroll.totalAllowances)}` : "Dùng để tính lương ngày thường"}
+              >
                 <span className="text-xs text-indigo-500 font-medium">Lương tổng</span>
                 <span className="text-base font-bold text-indigo-700">{formatCurrency(payroll.effectiveTotalSalary)}</span>
               </div>
@@ -657,17 +660,12 @@ export default function ReportsClient({ employees, logs, summaries, leaveRequest
         <div className="px-5 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-t border-slate-100">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              <span className="text-gray-500" title="Lương cơ bản quy theo số ngày công thực tế">
-                Lương CB (theo công): <span className="font-semibold text-blue-700">{formatCurrency(payroll.earnedBase)}</span>
+              <span className="text-gray-500" title={`${payroll.daysNormal} ngày thường × lương tổng/${emp.standardWorkDays} công`}>
+                Lương ngày thường ({payroll.daysNormal} ngày): <span className="font-semibold text-indigo-700">{formatCurrency(payroll.normalEarnings)}</span>
               </span>
-              {payroll.totalAllowances > 0 && (
-                <span className="text-indigo-500">
-                  + Phụ cấp: <span className="font-semibold">{formatCurrency(payroll.totalAllowances)}</span>
-                </span>
-              )}
-              {payroll.holidayTopUp > 0 && (
-                <span className="text-purple-500" title="Bù thêm cho ngày lễ/Tết theo lương tổng">
-                  + Bù lương ngày lễ: <span className="font-semibold">{formatCurrency(payroll.holidayTopUp)}</span>
+              {payroll.daysHoliday > 0 && (
+                <span className="text-purple-500" title={`${payroll.daysHoliday} ngày lễ/Tết, tính theo ${emp.holidayPayBasis === "total" ? "lương tổng" : "lương cơ bản"} (cấu hình của ${emp.name})`}>
+                  + Lương ngày lễ/Tết ({payroll.daysHoliday} ngày): <span className="font-semibold">{formatCurrency(payroll.holidayEarnings)}</span>
                 </span>
               )}
               {totalPenalty > 0 && (
